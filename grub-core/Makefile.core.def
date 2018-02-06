@@ -1957,7 +1957,6 @@ module = {
   efi = loader/efi/linux.c;
   common = loader/linux.c;
   common = lib/cmdline.c;
-  enable = noemu;
 };
 
 module = {
