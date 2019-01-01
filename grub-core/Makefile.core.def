@@ -1350,6 +1350,11 @@ module = {
 };
 
 module = {
+  name = fb;
+  common = fs/fb.c;
+};
+
+module = {
   name = exfat;
   common = fs/exfat.c;
 };
