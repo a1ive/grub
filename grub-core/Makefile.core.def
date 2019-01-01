@@ -2380,6 +2380,11 @@ module = {
 };
 
 module = {
+  name = commandline;
+  common = commands/commandline.c;
+};
+
+module = {
   name = crc64;
   common = lib/crc64.c;
 };

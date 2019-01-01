@@ -25,6 +25,7 @@
 #include <grub/extcmd.h>
 #include <grub/i18n.h>
 #include <grub/charset.h>
+#include <grub/env.h>
 
 GRUB_MOD_LICENSE ("GPLv3+");
 
