@@ -31,6 +31,7 @@ GRUB_MOD_LICENSE ("GPLv3+");
 static const struct grub_arg_option options[] =
   {
     {"dos", -1, 0, N_("Accept DOS-style CR/NL line endings."), 0, 0},
+    {"set", 's', 0, N_("Store the contents of a file in a variable."), N_("VARNAME"), ARG_TYPE_STRING},
     {0, 0, 0, 0, 0, 0}
   };
 
@@ -59,6 +60,24 @@ grub_cmd_cat (grub_extcmd_context_t ctxt, int argc, char **args)
   file = grub_file_open (args[0], GRUB_FILE_TYPE_CAT);
   if (! file)
     return grub_errno;
+
+  if (state[1].set)
+    {
+    grub_ssize_t done = 0;
+    char* buffer;
+
+    buffer = grub_malloc(file->size + 1);
+    while ((size = grub_file_read (file, buffer + done, file->size - done)) > 0)
+        {
+      done += size;
+        }
+	buffer[done] = '\0';
+	grub_env_set (state[1].arg, buffer);
+	grub_file_close (file);
+	grub_free (buffer);
+	
+	return 0;
+     }
 
   while ((size = grub_file_read (file, buf, sizeof (buf))) > 0
 	 && key != GRUB_TERM_ESC)
