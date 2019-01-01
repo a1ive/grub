@@ -61,6 +61,8 @@ void
 grub_gfxmenu_print_timeout (int timeout, void *data);
 void
 grub_gfxmenu_set_chosen_entry (int entry, void *data);
+void
+grub_gfxmenu_set_animation_state (int need_refresh, void *data);
 
 grub_err_t grub_font_draw_string (const char *str,
 				  grub_font_t font,
@@ -119,6 +121,11 @@ struct grub_gfxmenu_view
   int nested;
 
   int first_timeout;
+  
+  int is_animation;
+  int need_refresh;
+  int point_x;
+  int point_y;
 };
 
 #endif /* ! GRUB_GFXMENU_VIEW_HEADER */

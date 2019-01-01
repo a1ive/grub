@@ -37,6 +37,7 @@
 #include <grub/gfxmenu_view.h>
 #include <grub/time.h>
 #include <grub/i18n.h>
+#include <grub/engine_sound.h>
 
 GRUB_MOD_LICENSE ("GPLv3+");
 
@@ -123,8 +124,43 @@ grub_gfxmenu_try (int entry, grub_menu_t menu, int nested)
   instance->fini = grub_gfxmenu_viewer_fini;
   instance->print_timeout = grub_gfxmenu_print_timeout;
   instance->clear_timeout = grub_gfxmenu_clear_timeout;
+  instance->set_animation_state = grub_gfxmenu_set_animation_state;
 
   grub_menu_register_viewer (instance);
+
+  return GRUB_ERR_NONE;
+}
+
+static sound_class_t cached_sound;
+
+static void
+engine_player_fini (void *data __attribute__ ((unused)))
+{
+}
+
+static grub_err_t
+ready_to_hear (void)
+{
+  struct engine_sound_player *player;
+
+  player = grub_zalloc (sizeof(*player));
+  if (!player)
+    {
+      return grub_errno;
+    }
+
+  cached_sound = engine_sound_new ();
+  if (!cached_sound)
+    {
+      grub_free (player);
+      return grub_errno;
+    }
+
+  player->data = cached_sound;
+  player->refresh_player_state = engine_player_refresh;
+  player->fini = engine_player_fini;
+
+  engine_register_player (player);
 
   return GRUB_ERR_NONE;
 }
@@ -141,10 +177,14 @@ GRUB_MOD_INIT (gfxmenu)
       }
 
   grub_gfxmenu_try_hook = grub_gfxmenu_try;
+  engine_need_sound = ready_to_hear;
 }
 
 GRUB_MOD_FINI (gfxmenu)
 {
   grub_gfxmenu_view_destroy (cached_view);
   grub_gfxmenu_try_hook = NULL;
+  
+  engine_sound_destroy (cached_sound);
+  engine_need_sound = NULL;
 }

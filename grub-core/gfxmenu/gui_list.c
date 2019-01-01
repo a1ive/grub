@@ -411,6 +411,10 @@ draw_menu (list_impl_t self, int num_shown_items)
           top_pad = sel_toppad;
           icon_top_offset = sel_icon_top_offset;
           viewport_width = sel_viewport_width;
+          
+          /* Tell the animation point to who.  */
+    	  self->view->point_x = oviewport.x;
+    	  self->view->point_y = oviewport.y + item_top + boxpad + sel_box_top_offset;
         }
       else
         {

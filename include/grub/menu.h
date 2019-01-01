@@ -20,6 +20,12 @@
 #ifndef GRUB_MENU_HEADER
 #define GRUB_MENU_HEADER 1
 
+/* Key elements of the engine.  */
+#define ENGINE_FRAME_SPEED "grub_frame_speed"
+#define ENGINE_SOUND_SPEED "grub_sound_speed"
+#define ENGINE_START_SOUND 0
+#define ENGINE_SELECT_SOUND 1
+
 struct grub_menu_entry_class
 {
   char *name;

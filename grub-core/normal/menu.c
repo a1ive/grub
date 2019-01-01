@@ -32,6 +32,8 @@
 #include <grub/script_sh.h>
 #include <grub/gfxterm.h>
 #include <grub/dl.h>
+#include <grub/engine_sound.h>
+#include <grub/speaker.h>
 
 /* Time to delay after displaying an error message about a default/fallback
    entry failing to boot.  */
@@ -376,6 +378,85 @@ menu_set_chosen_entry (int entry)
     cur->set_chosen_entry (entry, cur->data);
 }
 
+/* Speed of engine.  */
+static grub_uint64_t
+engine_get_speed (const char *incantation)
+{
+  const char *val;
+  grub_uint64_t speed;
+
+  val = grub_env_get (incantation);
+  if (!val)
+    {
+      return 0;
+    }
+
+  grub_error_push ();
+
+  speed = (grub_uint64_t) grub_strtoul (val, 0, 0);
+
+  if (grub_errno != GRUB_ERR_NONE)
+    {
+      grub_env_unset (incantation);
+      grub_errno = GRUB_ERR_NONE;
+      speed = 0;
+    }
+
+  grub_error_pop ();
+
+  return speed;
+}
+
+/* To refresh animation.  */
+static void
+menu_set_animation_state (int need_refresh)
+{
+  struct grub_menu_viewer *cur;
+
+  for (cur = viewers; cur; cur = cur->next)
+    {
+      cur->set_animation_state (need_refresh, cur->data);
+    }
+}
+
+/* Does the engine need sound?  */
+grub_err_t (*engine_need_sound) (void) = NULL;
+static struct engine_sound_player *players;
+
+/* To refresh sound.  */
+static void
+menu_refresh_sound_player (int is_selected, int cur_sound)
+{
+  struct engine_sound_player *cur;
+  for (cur = players; cur; cur = cur->next)
+    {
+      cur->refresh_player_state (is_selected, cur_sound, cur->data);
+    }
+}
+
+/* Destroy the sound player.  */
+static void
+player_fini (void)
+{
+  /* Random operation or timeout, beep off.  */
+  grub_speaker_beep_off ();
+  struct engine_sound_player *cur, *next;
+  for (cur = players; cur; cur = next)
+    {
+      next = cur->next;
+      cur->fini (cur->data);
+      grub_free (cur);
+    }
+  players = NULL;
+}
+
+void
+engine_register_player (struct engine_sound_player *player)
+{
+  player->next = players;
+  players = player;
+}
+
 static void
 menu_print_timeout (int timeout)
 {
@@ -398,7 +479,7 @@ menu_fini (void)
 }
 
 static void
-menu_init (int entry, grub_menu_t menu, int nested)
+menu_init (int entry, grub_menu_t menu, int nested, grub_uint64_t *frame_speed, int *egn_refresh)
 {
   struct grub_term_output *term;
   int gfxmenu = 0;
@@ -440,7 +521,13 @@ menu_init (int entry, grub_menu_t menu, int nested)
     grub_err_t err;
 
     if (grub_strcmp (term->name, "gfxterm") == 0 && gfxmenu)
-      continue;
+      {
+		  if (*frame_speed)
+			{
+			  *egn_refresh = 1;
+			}
+		  continue;
+		}
 
     err = grub_menu_try_text (term, entry, menu, nested);
     if(!err)
@@ -580,6 +667,17 @@ run_menu (grub_menu_t menu, int nested, int *auto_boot)
   int default_entry, current_entry;
   int timeout;
   enum timeout_style timeout_style;
+  
+  /* Mark the beginning of the engine.  */
+  int animation_open = 0;
+  int egn_refresh = 0;
+  int sound_open = 0;
+  int cur_sound = ENGINE_START_SOUND;
+
+  /* Speed of engine.  */
+  grub_uint64_t s1_time, s2_time;
+  grub_uint64_t frame_speed = engine_get_speed (ENGINE_FRAME_SPEED);
+  grub_uint64_t sound_speed = engine_get_speed (ENGINE_SOUND_SPEED);
 
   default_entry = get_entry_number (menu, "default");
 
@@ -661,7 +759,7 @@ run_menu (grub_menu_t menu, int nested, int *auto_boot)
   current_entry = default_entry;
 
  refresh:
-  menu_init (current_entry, menu, nested);
+  menu_init (current_entry, menu, nested, &frame_speed, &egn_refresh);
 
   /* Initialize the time.  */
   saved_time = grub_get_time_ms ();
@@ -672,6 +770,29 @@ run_menu (grub_menu_t menu, int nested, int *auto_boot)
     menu_print_timeout (timeout);
   else
     clear_timeout ();
+
+  /* Initialize the animation engine.  */
+  s1_time = grub_get_time_ms ();
+
+  if (!animation_open && egn_refresh)
+    {
+      menu_set_animation_state (egn_refresh);
+      animation_open = 1;
+    }
+
+  /* Initialize the sound engine.  */
+  s2_time = grub_get_time_ms ();
+
+  if (!sound_open && sound_speed)
+    {
+      grub_err_t err;
+      err = engine_need_sound ();
+      if (err == GRUB_ERR_NONE)
+	{
+	  menu_refresh_sound_player (current_entry, cur_sound);
+	  sound_open = 1;
+	}
+    }
 
   while (1)
     {
@@ -693,7 +814,25 @@ run_menu (grub_menu_t menu, int nested, int *auto_boot)
 	  grub_env_unset ("timeout");
           *auto_boot = 1;
 	  menu_fini ();
+      if (sound_open)
+	    player_fini ();
 	  return default_entry;
+	}
+
+      grub_uint64_t cur_time = grub_get_time_ms ();
+
+      /* Refresh the animation.  */
+      if (animation_open && (cur_time - s1_time >= frame_speed))
+	{
+	  s1_time = cur_time;
+	  menu_set_animation_state (egn_refresh);
+	}
+
+      /* Refresh the sound.  */
+      if (sound_open && (cur_time - s2_time >= sound_speed))
+	{
+	  s2_time = cur_time;
+	  menu_refresh_sound_player (current_entry, cur_sound);
 	}
 
       c = grub_getkey_noblock ();
@@ -707,18 +846,27 @@ run_menu (grub_menu_t menu, int nested, int *auto_boot)
 	      clear_timeout ();
 	    }
 
+      cur_sound = ENGINE_SELECT_SOUND;
 	  switch (c)
 	    {
 	    case GRUB_TERM_KEY_HOME:
 	    case GRUB_TERM_CTRL | 'a':
 	      current_entry = 0;
 	      menu_set_chosen_entry (current_entry);
+          if (sound_open)
+		{
+		  menu_refresh_sound_player (current_entry, cur_sound);
+		}
 	      break;
 
 	    case GRUB_TERM_KEY_END:
 	    case GRUB_TERM_CTRL | 'e':
 	      current_entry = menu->size - 1;
 	      menu_set_chosen_entry (current_entry);
+          if (sound_open)
+		{
+		  menu_refresh_sound_player (current_entry, cur_sound);
+		}
 	      break;
 
 	    case GRUB_TERM_KEY_UP:
@@ -727,6 +875,10 @@ run_menu (grub_menu_t menu, int nested, int *auto_boot)
 	      if (current_entry > 0)
 		current_entry--;
 	      menu_set_chosen_entry (current_entry);
+          if (sound_open)
+		{
+		  menu_refresh_sound_player (current_entry, cur_sound);
+		}
 	      break;
 
 	    case GRUB_TERM_CTRL | 'n':
@@ -735,6 +887,10 @@ run_menu (grub_menu_t menu, int nested, int *auto_boot)
 	      if (current_entry < menu->size - 1)
 		current_entry++;
 	      menu_set_chosen_entry (current_entry);
+          if (sound_open)
+		{
+		  menu_refresh_sound_player (current_entry, cur_sound);
+		}
 	      break;
 
 	    case GRUB_TERM_CTRL | 'g':
@@ -744,6 +900,10 @@ run_menu (grub_menu_t menu, int nested, int *auto_boot)
 	      else
 		current_entry -= GRUB_MENU_PAGE_SIZE;
 	      menu_set_chosen_entry (current_entry);
+          if (sound_open)
+		{
+		  menu_refresh_sound_player (current_entry, cur_sound);
+		}
 	      break;
 
 	    case GRUB_TERM_CTRL | 'c':
@@ -753,6 +913,10 @@ run_menu (grub_menu_t menu, int nested, int *auto_boot)
 	      else
 		current_entry = menu->size - 1;
 	      menu_set_chosen_entry (current_entry);
+          if (sound_open)
+		{
+		  menu_refresh_sound_player (current_entry, cur_sound);
+		}
 	      break;
 
 	    case '\n':
@@ -760,6 +924,8 @@ run_menu (grub_menu_t menu, int nested, int *auto_boot)
 	    case GRUB_TERM_KEY_RIGHT:
 	    case GRUB_TERM_CTRL | 'f':
 	      menu_fini ();
+          if (sound_open)
+	        player_fini ();
               *auto_boot = 0;
 	      return current_entry;
 
@@ -767,19 +933,25 @@ run_menu (grub_menu_t menu, int nested, int *auto_boot)
 	      if (nested)
 		{
 		  menu_fini ();
+          if (sound_open)
+		      player_fini ();
 		  return -1;
 		}
 	      break;
 
 	    case 'c':
 	      menu_fini ();
+          if (sound_open)
+	        player_fini ();
 	      grub_cmdline_run (1, 0);
 	      goto refresh;
 
 	    case 'e':
 	      menu_fini ();
-		{
-		  grub_menu_entry_t e = grub_menu_get_entry (menu, current_entry);
+          if (sound_open)
+	        player_fini ();
+        {
+          grub_menu_entry_t e = grub_menu_get_entry (menu, current_entry);
 		  if (e)
 		    grub_menu_entry_run (e);
 		}
@@ -793,6 +965,8 @@ run_menu (grub_menu_t menu, int nested, int *auto_boot)
 		if (entry >= 0)
 		  {
 		    menu_fini ();
+            if (sound_open)
+		      player_fini ();
 		    *auto_boot = 0;
 		    return entry;
 		  }

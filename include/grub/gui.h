@@ -34,6 +34,7 @@
 typedef struct grub_gui_component *grub_gui_component_t;
 typedef struct grub_gui_container *grub_gui_container_t;
 typedef struct grub_gui_list *grub_gui_list_t;
+typedef struct grub_engine_animation *engine_animation_t;
 
 typedef void (*grub_gui_component_callback) (grub_gui_component_t component,
                                              void *userdata);
@@ -201,6 +202,11 @@ struct grub_gui_list
   struct grub_gui_list_ops *ops;
 };
 
+struct grub_engine_animation
+{
+  struct grub_gui_component component;
+  void (*refresh_animation) (void *self, grub_gfxmenu_view_t view);
+};
 
 /* Interfaces to concrete component classes.  */
 
@@ -212,6 +218,7 @@ grub_gui_component_t grub_gui_image_new (void);
 grub_gui_component_t grub_gui_progress_bar_new (void);
 grub_gui_component_t grub_gui_list_new (void);
 grub_gui_component_t grub_gui_circular_progress_new (void);
+grub_gui_component_t grub_engine_animation_new (void);
 
 /* Manipulation functions.  */
 

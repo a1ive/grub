@@ -34,28 +34,6 @@ static grub_err_t scale_bilinear (struct grub_video_bitmap *dst,
                                   struct grub_video_bitmap *src);
 
 static grub_err_t
-verify_source_bitmap (struct grub_video_bitmap *src)
-{
-  /* Verify the simplifying assumptions. */
-  if (src == 0)
-    return grub_error (GRUB_ERR_BUG,
-                       "null src bitmap in grub_video_bitmap_create_scaled");
-  if (src->mode_info.red_field_pos % 8 != 0
-      || src->mode_info.green_field_pos % 8 != 0
-      || src->mode_info.blue_field_pos % 8 != 0
-      || src->mode_info.reserved_field_pos % 8 != 0)
-    return grub_error (GRUB_ERR_BUG,
-                       "src format not supported for scale");
-  if (src->mode_info.width == 0 || src->mode_info.height == 0)
-    return grub_error (GRUB_ERR_BUG,
-                       "source bitmap has a zero dimension");
-  if (src->mode_info.bytes_per_pixel * 8 != src->mode_info.bpp)
-    return grub_error (GRUB_ERR_BUG,
-                       "bitmap to scale has inconsistent Bpp and bpp");
-  return GRUB_ERR_NONE;
-}
-
-static grub_err_t
 grub_video_bitmap_scale (struct grub_video_bitmap *dst,
                          struct grub_video_bitmap *src,
                          enum grub_video_bitmap_scale_method scale_method)
@@ -296,46 +274,6 @@ grub_video_bitmap_scale_proportional (struct grub_video_bitmap **dst,
       *dst = 0;
       return ret;
     }
-}
-
-static grub_err_t
-verify_bitmaps (struct grub_video_bitmap *dst, struct grub_video_bitmap *src)
-{
-  /* Verify the simplifying assumptions. */
-  if (dst == 0 || src == 0)
-    return grub_error (GRUB_ERR_BUG, "null bitmap in scale function");
-  if (dst->mode_info.red_field_pos % 8 != 0
-      || dst->mode_info.green_field_pos % 8 != 0
-      || dst->mode_info.blue_field_pos % 8 != 0
-      || dst->mode_info.reserved_field_pos % 8 != 0)
-    return grub_error (GRUB_ERR_BUG,
-		       "dst format not supported");
-  if (src->mode_info.red_field_pos % 8 != 0
-      || src->mode_info.green_field_pos % 8 != 0
-      || src->mode_info.blue_field_pos % 8 != 0
-      || src->mode_info.reserved_field_pos % 8 != 0)
-    return grub_error (GRUB_ERR_BUG,
-		       "src format not supported");
-  if (dst->mode_info.red_field_pos != src->mode_info.red_field_pos
-      || dst->mode_info.red_mask_size != src->mode_info.red_mask_size
-      || dst->mode_info.green_field_pos != src->mode_info.green_field_pos
-      || dst->mode_info.green_mask_size != src->mode_info.green_mask_size
-      || dst->mode_info.blue_field_pos != src->mode_info.blue_field_pos
-      || dst->mode_info.blue_mask_size != src->mode_info.blue_mask_size
-      || dst->mode_info.reserved_field_pos !=
-      src->mode_info.reserved_field_pos
-      || dst->mode_info.reserved_mask_size !=
-      src->mode_info.reserved_mask_size)
-    return grub_error (GRUB_ERR_BUG,
-		       "dst and src not compatible");
-  if (dst->mode_info.bytes_per_pixel != src->mode_info.bytes_per_pixel)
-    return grub_error (GRUB_ERR_NOT_IMPLEMENTED_YET,
-		       "dst and src not compatible");
-  if (dst->mode_info.width == 0 || dst->mode_info.height == 0
-      || src->mode_info.width == 0 || src->mode_info.height == 0)
-    return grub_error (GRUB_ERR_BUG, "bitmap has a zero dimension");
-
-  return GRUB_ERR_NONE;
 }
 
 /* Nearest neighbor bitmap scaling algorithm.

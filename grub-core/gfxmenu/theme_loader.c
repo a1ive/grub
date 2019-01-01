@@ -546,6 +546,10 @@ read_object (struct parsebuf *p, grub_gui_container_t parent)
     {
       component = grub_gui_list_new ();
     }
+  else if (grub_strcmp (name, "animation") == 0)
+    {
+      component = grub_engine_animation_new ();
+    }
   else
     {
       /* Unknown type.  */
