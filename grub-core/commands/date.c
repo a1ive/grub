@@ -21,7 +21,8 @@
 #include <grub/err.h>
 #include <grub/misc.h>
 #include <grub/datetime.h>
-#include <grub/command.h>
+#include <grub/extcmd.h>
+#include <grub/env.h>
 #include <grub/i18n.h>
 
 GRUB_MOD_LICENSE ("GPLv3+");
@@ -33,13 +34,33 @@ GRUB_MOD_LICENSE ("GPLv3+");
 #define GRUB_DATETIME_SET_MINUTE	16
 #define GRUB_DATETIME_SET_SECOND	32
 
+static const struct grub_arg_option options[] =
+  {
+    {"set", 's', 0, N_("Store date in a variable."), N_("VARNAME"), ARG_TYPE_STRING},
+    {0, 0, 0, 0, 0, 0}
+  };
+
 static grub_err_t
-grub_cmd_date (grub_command_t cmd __attribute__ ((unused)),
+grub_cmd_date (grub_extcmd_context_t ctxt,
                int argc, char **args)
 {
+  struct grub_arg_list *state = ctxt->state;
   struct grub_datetime datetime;
   int limit[6][2] = {{1980, 2079}, {1, 12}, {1, 31}, {0, 23}, {0, 59}, {0, 59}};
   int value[6], mask;
+
+  if (state[0].set)
+    {
+      char buffer[15];
+      if (grub_get_datetime (&datetime))
+        return grub_errno;
+
+      grub_snprintf (buffer, sizeof (buffer), "%d%02d%02d%02d%02d%02d",
+                   datetime.year, datetime.month, datetime.day,
+                   datetime.hour, datetime.minute, datetime.second);
+      grub_env_set (state[0].arg, buffer);
+      return 0;
+    }
 
   if (argc == 0)
     {
@@ -132,17 +153,18 @@ fail:
   return grub_error (GRUB_ERR_BAD_ARGUMENT, "invalid datetime");
 }
 
-static grub_command_t cmd;
+static grub_extcmd_t cmd;
 
 GRUB_MOD_INIT(date)
 {
   cmd =
-    grub_register_command ("date", grub_cmd_date,
+    grub_register_extcmd ("date", grub_cmd_date, 0,
 			   N_("[[year-]month-day] [hour:minute[:second]]"),
-			   N_("Display/set current datetime."));
+			   N_("Display/set current datetime."),
+               options);
 }
 
 GRUB_MOD_FINI(date)
 {
-  grub_unregister_command (cmd);
+  grub_unregister_extcmd (cmd);
 }
