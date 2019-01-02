@@ -42,6 +42,8 @@
 grub_err_t (*grub_gfxmenu_try_hook) (int entry, grub_menu_t menu,
 				     int nested) = NULL;
 
+#define MENU_INCLUDE_HIDDEN 0x10000
+
 enum timeout_style {
   TIMEOUT_STYLE_MENU,
   TIMEOUT_STYLE_COUNTDOWN,
@@ -82,8 +84,20 @@ grub_menu_get_entry (grub_menu_t menu, int no)
 {
   grub_menu_entry_t e;
 
-  for (e = menu->entry_list; e && no > 0; e = e->next, no--)
-    ;
+  if (no & MENU_INCLUDE_HIDDEN) {
+      no &= ~MENU_INCLUDE_HIDDEN;
+
+      for (e = menu->entry_list; e && no > 0; e = e->next, no--)
+        ;
+    } else {
+      for (e = menu->entry_list; e && no > 0; e = e->next, no--) {
+       /* Skip hidden entries */
+       while (e && e->hidden)
+         e = e->next;
+      }
+      while (e && e->hidden)
+        e = e->next;
+    }
 
   return e;
 }
@@ -95,10 +109,10 @@ get_entry_index_by_hotkey (grub_menu_t menu, int hotkey)
   grub_menu_entry_t entry;
   int i;
 
-  for (i = 0, entry = menu->entry_list; i < menu->size;
+  for (i = 0, entry = menu->entry_list; entry;
        i++, entry = entry->next)
     if (entry->hotkey == hotkey)
-      return i;
+      return i | MENU_INCLUDE_HIDDEN;
 
   return -1;
 }
@@ -597,6 +611,10 @@ get_entry_number (grub_menu_t menu, const char *name)
       grub_menu_entry_t e = menu->entry_list;
       int i;
 
+      /* Skip hidden entries */
+      while (e && e->hidden)
+       e = e->next;
+   
       grub_errno = GRUB_ERR_NONE;
 
       for (i = 0; e; i++)
@@ -608,6 +626,10 @@ get_entry_number (grub_menu_t menu, const char *name)
 	      break;
 	    }
 	  e = e->next;
+      
+      /* Skip hidden entries */
+      while (e && e->hidden)
+        e = e->next;
 	}
 
       if (! e)
