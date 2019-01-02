@@ -939,6 +939,11 @@ module = {
 };
 
 module = {
+  name = getkey;
+  common = commands/getkey.c;
+};
+
+module = {
   name = keystatus;
   common = commands/keystatus.c;
 };
