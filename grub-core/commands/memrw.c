@@ -27,6 +27,7 @@ GRUB_MOD_LICENSE ("GPLv3+");
 
 static grub_extcmd_t cmd_read_byte, cmd_read_word, cmd_read_dword;
 static grub_command_t cmd_write_byte, cmd_write_word, cmd_write_dword;
+static grub_command_t cmd_write_bytes;
 
 static const struct grub_arg_option options[] =
   {
@@ -118,6 +119,27 @@ grub_cmd_write (grub_command_t cmd, int argc, char **argv)
   return 0;
 }
 
+static grub_err_t
+grub_cmd_write_bytes (grub_command_t cmd __attribute__ ((unused)),
+  int argc, char **argv)
+{
+  grub_addr_t addr;
+  grub_uint32_t value;
+
+  if (argc < 2)
+    return grub_error (GRUB_ERR_BAD_ARGUMENT,
+      N_("at least two arguments expected"));
+
+  addr = grub_strtoul (argv[0], 0, 0);
+  for (int i = 1; i < argc; i++)
+    {
+      value = grub_strtoul (argv[i], 0, 0) & 0xFF;
+      *((volatile grub_uint8_t *) addr + (i-1)) = value;
+    }
+
+  return 0;
+}
+
 GRUB_MOD_INIT(memrw)
 {
   cmd_read_byte =
@@ -144,6 +166,10 @@ GRUB_MOD_INIT(memrw)
     grub_register_command ("write_dword", grub_cmd_write,
 			   N_("ADDR VALUE [MASK]"),
 			   N_("Write 32-bit VALUE to ADDR."));
+  cmd_write_bytes =
+    grub_register_command ("write_bytes", grub_cmd_write_bytes,
+			   N_("ADDR VALUE1 [VALUE2 [VALUE3 ...]]"),
+			   N_("Write sequences of 8-bit VALUES to ADDR."));
 }
 
 GRUB_MOD_FINI(memrw)
@@ -154,4 +180,5 @@ GRUB_MOD_FINI(memrw)
   grub_unregister_command (cmd_write_byte);
   grub_unregister_command (cmd_write_word);
   grub_unregister_command (cmd_write_dword);
+  grub_unregister_command (cmd_write_bytes);
 }
