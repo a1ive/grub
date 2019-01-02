@@ -24,6 +24,8 @@
 #include <grub/extcmd.h>
 #include <grub/i18n.h>
 #include <grub/normal.h>
+#include <grub/env_private.h>
+#include <grub/mm.h>
 
 static const struct grub_arg_option options[] =
   {
@@ -70,6 +72,8 @@ static struct
     {"f11", GRUB_TERM_KEY_F11},
     {"f12", GRUB_TERM_KEY_F12},
   };
+
+extern int grub_normal_exit_level;
 
 /* Add a menu entry to the current menu context (as given by the environment
    variable data slot `menu').  As the configuration file is read, the script
@@ -316,7 +320,51 @@ grub_cmd_menuentry (grub_extcmd_context_t ctxt, int argc, char **args)
   return r;
 }
 
-static grub_extcmd_t cmd, cmd_sub, cmd_hidden;
+static grub_err_t
+grub_cmd_pop_env (grub_extcmd_context_t ctxt __attribute__ ((unused)), int argc, char **args)
+{
+
+  while (argc)
+    {
+      struct grub_env_context *cc = grub_current_context;
+      const char *value;
+
+      value = grub_env_get (args[0]);
+      if (value)
+        {
+	  grub_current_context = grub_current_context->prev;
+	  while(grub_current_context && grub_env_get(args[0]))
+	    {
+              grub_env_set(args[0], value);
+              grub_current_context = grub_current_context->prev;
+	    }
+          grub_current_context = cc;
+        }
+      argc--;
+      args++;
+    }
+
+  return 0;
+}
+
+static grub_err_t
+grub_cmd_submenu_exit (grub_extcmd_context_t ctxt __attribute__ ((unused)), int argc __attribute__ ((unused)), char **args __attribute__ ((unused)))
+{
+  grub_normal_exit_level = -1;
+  return 0;
+}
+
+static grub_err_t
+grub_cmd_clear_menu (grub_extcmd_context_t ctxt __attribute__ ((unused)), int argc __attribute__ ((unused)), char **args __attribute__ ((unused)))
+{
+  grub_menu_t menu = grub_env_get_menu();
+  // grub_free(menu->entry_list); // TODO: recursively?
+  menu->entry_list = NULL;
+  menu->size=0;
+  return 0;
+}
+
+static grub_extcmd_t cmd, cmd_sub, cmd_hidden, cmd_pop, cmd_sub_exit, cmd_clear_menu;
 
 void
 grub_menu_init (void)
@@ -339,6 +387,13 @@ grub_menu_init (void)
                 N_("BLOCK"),
                 N_("Define a hidden menu entry."),
                 options);
+  cmd_pop = grub_register_extcmd ("pop_env", grub_cmd_pop_env, 0,
+			     N_("variable_name [...]"),
+			     N_("Pass variable value to parent contexts."), 0);
+  cmd_sub_exit = grub_register_extcmd ("submenu_exit", grub_cmd_submenu_exit, 0, 0,
+			     N_("Exit from current submenu."), 0);
+  cmd_clear_menu = grub_register_extcmd ("clear_menu", grub_cmd_clear_menu, 0, 0,
+			     N_("Clear the current (sub)menu."), 0);
 }
 
 void
@@ -347,4 +402,7 @@ grub_menu_fini (void)
   grub_unregister_extcmd (cmd);
   grub_unregister_extcmd (cmd_sub);
   grub_unregister_extcmd (cmd_hidden);
+  grub_unregister_extcmd (cmd_pop);
+  grub_unregister_extcmd (cmd_sub_exit);
+  grub_unregister_extcmd (cmd_clear_menu);
 }
