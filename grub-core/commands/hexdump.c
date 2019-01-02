@@ -24,6 +24,7 @@
 #include <grub/lib/hexdump.h>
 #include <grub/extcmd.h>
 #include <grub/i18n.h>
+#include <grub/env.h>
 
 GRUB_MOD_LICENSE ("GPLv3+");
 
@@ -31,6 +32,7 @@ static const struct grub_arg_option options[] = {
   {"skip", 's', 0, N_("Skip offset bytes from the beginning of file."), 0,
    ARG_TYPE_INT},
   {"length", 'n', 0, N_("Read only LENGTH bytes."), 0, ARG_TYPE_INT},
+  {"quiet", 'q', 0, N_("Don't print error."), 0, 0},
   {0, 0, 0, 0, 0, 0}
 };
 
@@ -42,13 +44,29 @@ grub_cmd_hexdump (grub_extcmd_context_t ctxt, int argc, char **args)
   grub_ssize_t size, length;
   grub_disk_addr_t skip;
   int namelen;
+  grub_size_t var_len;
+  char *var_name = NULL;
+  char *var_buf = NULL;
+  char *p = NULL;
 
-  if (argc != 1)
+  if (argc < 1 || argc > 2)
     return grub_error (GRUB_ERR_BAD_ARGUMENT, N_("filename expected"));
 
   namelen = grub_strlen (args[0]);
   skip = (state[0].set) ? grub_strtoull (state[0].arg, 0, 0) : 0;
   length = (state[1].set) ? grub_strtoul (state[1].arg, 0, 0) : 256;
+
+  if (argc == 2)
+    {
+      var_len = length + 1;
+
+      var_buf = (char *) grub_malloc (var_len);
+      if (var_buf)
+        {
+          var_name = args[1];
+          p = var_buf;
+	    }
+    }
 
   if (!grub_strcmp (args[0], "(mem)"))
     hexdump (skip, (char *) (grub_addr_t) skip, length);
@@ -76,7 +94,8 @@ grub_cmd_hexdump (grub_extcmd_context_t ctxt, int argc, char **args)
           if (grub_disk_read (disk, sector, ofs, len, buf))
             break;
 
-          hexdump (skip, buf, len);
+          if (! state[2].set)
+            hexdump (skip, buf, len);
 
           ofs = 0;
           skip += len;
@@ -101,7 +120,15 @@ grub_cmd_hexdump (grub_extcmd_context_t ctxt, int argc, char **args)
 	  unsigned long len;
 
 	  len = ((length) && (size > length)) ? length : size;
-	  hexdump (skip, buf, len);
+	  if (! state[2].set)
+	    hexdump (skip, buf, len);
+	  
+	  if (var_name)
+	    {
+              grub_memcpy (p, buf, len);
+              p += len;
+	    }
+
 	  skip += len;
 	  if (length)
 	    {
@@ -113,16 +140,27 @@ grub_cmd_hexdump (grub_extcmd_context_t ctxt, int argc, char **args)
 
       grub_file_close (file);
     }
+    
+  if (var_name)
+    {
+      grub_size_t i;
+
+      *p = 0;
+      for (i = 0; i < var_len - 1; i++)
+        var_buf[i] = ((var_buf[i] >= 32) && (var_buf[i] < 127)) ? var_buf[i] : '.';
+
+      grub_env_set(var_name, var_buf);
+    }
 
   return 0;
 }
-
+
 static grub_extcmd_t cmd;
 
 GRUB_MOD_INIT (hexdump)
 {
   cmd = grub_register_extcmd ("hexdump", grub_cmd_hexdump, 0,
-			      N_("[OPTIONS] FILE_OR_DEVICE"),
+			      N_("[OPTIONS] FILE_OR_DEVICE [VARIABLE]"),
 			      N_("Show raw contents of a file or memory."),
 			      options);
 }
