@@ -261,7 +261,7 @@ try (struct search_ctx *ctx)
 }
 
 void
-FUNC_NAME (const char *key, const char *var, int no_floppy,
+FUNC_NAME (const char *key, const char *var, int no_floppy, int quiet,
 	   char **hints, unsigned nhints)
 {
   struct search_ctx ctx = {
@@ -292,7 +292,7 @@ FUNC_NAME (const char *key, const char *var, int no_floppy,
   else
     try (&ctx);
 
-  if (grub_errno == GRUB_ERR_NONE && ctx.count == 0)
+  if (!quiet && grub_errno == GRUB_ERR_NONE && ctx.count == 0)
     grub_error (GRUB_ERR_FILE_NOT_FOUND, "no such device: %s", key);
 }
 
@@ -303,7 +303,7 @@ grub_cmd_do_search (grub_command_t cmd __attribute__ ((unused)), int argc,
   if (argc == 0)
     return grub_error (GRUB_ERR_BAD_ARGUMENT, N_("one argument expected"));
 
-  FUNC_NAME (args[0], argc == 1 ? 0 : args[1], 0, (args + 2),
+  FUNC_NAME (args[0], argc == 1 ? 0 : args[1], 0, 0, (args + 2),
 	     argc > 2 ? argc - 2 : 0);
 
   return grub_errno;

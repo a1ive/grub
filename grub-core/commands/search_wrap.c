@@ -40,6 +40,7 @@ static const struct grub_arg_option options[] =
      N_("Set a variable to the first device found."), N_("VARNAME"),
      ARG_TYPE_STRING},
     {"no-floppy",	'n', 0, N_("Do not probe any floppy drive."), 0, 0},
+    {"quiet",		'q', 0, N_("Don't print error if no match."), 0, 0},
     {"hint",	        'h', GRUB_ARG_OPTION_REPEATABLE,
      N_("First try the device HINT. If HINT ends in comma, "
 	"also try subpartitions"), N_("HINT"), ARG_TYPE_STRING},
@@ -73,6 +74,7 @@ enum options
     SEARCH_FS_UUID,
     SEARCH_SET,
     SEARCH_NO_FLOPPY,
+    SEARCH_QUIET,
     SEARCH_HINT,
     SEARCH_HINT_IEEE1275,
     SEARCH_HINT_BIOS,
@@ -182,13 +184,13 @@ grub_cmd_search (grub_extcmd_context_t ctxt, int argc, char **args)
 
   if (state[SEARCH_LABEL].set)
     grub_search_label (id, var, state[SEARCH_NO_FLOPPY].set, 
-		       hints, nhints);
+		       state[SEARCH_QUIET].set, hints, nhints);
   else if (state[SEARCH_FS_UUID].set)
     grub_search_fs_uuid (id, var, state[SEARCH_NO_FLOPPY].set,
-			 hints, nhints);
+			 state[SEARCH_QUIET].set, hints, nhints);
   else if (state[SEARCH_FILE].set)
     grub_search_fs_file (id, var, state[SEARCH_NO_FLOPPY].set, 
-			 hints, nhints);
+			 state[SEARCH_QUIET].set, hints, nhints);
   else
     grub_error (GRUB_ERR_INVALID_COMMAND, "unspecified search type");
 
@@ -204,7 +206,7 @@ GRUB_MOD_INIT(search)
   cmd =
     grub_register_extcmd ("search", grub_cmd_search,
 			  GRUB_COMMAND_FLAG_EXTRACTOR | GRUB_COMMAND_ACCEPT_DASH,
-			  N_("[-f|-l|-u|-s|-n] [--hint HINT [--hint HINT] ...]"
+			  N_("[-f|-l|-u|-s|-n|-q] [--hint HINT [--hint HINT] ...]"
 			     " NAME"),
 			  N_("Search devices by file, filesystem label"
 			     " or filesystem UUID."
