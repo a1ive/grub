@@ -819,6 +819,7 @@ run_menu (grub_menu_t menu, int nested, int *auto_boot)
   while (1)
     {
       int c;
+      const char* disable_esc;
       timeout = grub_menu_get_timeout ();
 
       if (grub_normal_exit_level)
@@ -954,14 +955,20 @@ run_menu (grub_menu_t menu, int nested, int *auto_boot)
 	      return current_entry;
 
 	    case GRUB_TERM_ESC:
-	      if (nested)
-		{
-		  menu_fini ();
-          if (sound_open)
+	      disable_esc = grub_env_get ("grub_disable_esc");
+	      if (! disable_esc)
+	        {
+	        if (nested)
+		  {
+		    menu_fini ();
+		    if (sound_open)
 		      player_fini ();
-		  return -1;
-		}
-	      break;
+		    return -1;
+		  }
+	        break;
+	        }
+		  else
+		    goto refresh;
 
 	    case 'c':
 	      menu_fini ();
