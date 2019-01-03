@@ -984,6 +984,42 @@ module = {
 };
 
 module = {
+  name = lua;
+  common = script/lua/lapi.c;
+  common = script/lua/lauxlib.c;
+  common = script/lua/lbaselib.c;
+  common = script/lua/lcode.c;
+  common = script/lua/ldblib.c;
+  common = script/lua/ldebug.c;
+  common = script/lua/ldo.c;
+  common = script/lua/ldump.c;
+  common = script/lua/lfunc.c;
+  common = script/lua/lgc.c;
+  common = script/lua/linit.c;
+  common = script/lua/llex.c;
+  common = script/lua/lmem.c;
+  common = script/lua/lobject.c;
+  common = script/lua/lopcodes.c;
+  common = script/lua/lparser.c;
+  common = script/lua/lstate.c;
+  common = script/lua/lstring.c;
+  common = script/lua/lstrlib.c;
+  common = script/lua/ltable.c;
+  common = script/lua/ltablib.c;
+  common = script/lua/ltm.c;
+  common = script/lua/lundump.c;
+  common = script/lua/lvm.c;
+  common = script/lua/lzio.c;
+
+  common = script/lua/grub_main.c;
+  common = script/lua/grub_lib.c;
+
+  cflags = '$(CFLAGS_POSIX)';
+  cppflags = '$(CPPFLAGS_POSIX)';
+  pci_cppflags = '$(CPPFLAGS_POSIX) -DENABLE_LUA_PCI';
+};
+
+module = {
   name = memrw;
   common = commands/memrw.c;
 };
