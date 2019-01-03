@@ -45,6 +45,7 @@ static const struct grub_arg_option options[] =
     {"fs",		'f', 0, N_("Determine filesystem type."), 0, 0},
     {"fs-uuid",		'u', 0, N_("Determine filesystem UUID."), 0, 0},
     {"label",		'l', 0, N_("Determine filesystem label."), 0, 0},
+    {"partuuid",       'g', 0, N_("Determine partition UUID."), 0, 0}, 
     {0, 0, 0, 0, 0, 0}
   };
 
@@ -151,6 +152,58 @@ grub_cmd_probe (grub_extcmd_context_t ctxt, int argc, char **args)
       else
 	grub_printf ("%s", label);
       grub_free (label);
+      grub_device_close (dev);
+      return GRUB_ERR_NONE;
+    }
+  if (state[6].set)
+    {
+      char *partuuid = NULL; /* NULL to silence a spurious GCC warning */
+      grub_uint8_t diskbuf[16];
+      if (dev->disk && dev->disk->partition)
+       {
+         grub_partition_t p = dev->disk->partition;
+         if (!grub_strcmp (p->partmap->name, "msdos"))
+           {
+             const int diskid_offset = 440; /* location in MBR */
+             dev->disk->partition = p->parent;
+             /* little-endian 4-byte NT disk signature */
+             err = grub_disk_read (dev->disk, 0, diskid_offset, 4, diskbuf);
+             dev->disk->partition = p;
+             if (err)
+               return grub_errno;
+             partuuid = grub_xasprintf ("%02x%02x%02x%02x-%02x",
+                                        diskbuf[3], diskbuf[2], diskbuf[1], diskbuf[0],
+                                        p->number + 1); /* one based partition number */
+           }
+         else if (!grub_strcmp (p->partmap->name, "gpt"))
+           {
+             const int guid_offset = 16; /* location in entry */
+             dev->disk->partition = p->parent;
+             /* little-endian 16-byte EFI partition GUID */
+             err = grub_disk_read (dev->disk, p->offset, p->index + guid_offset, 16, diskbuf);
+             dev->disk->partition = p;
+             if (err)
+               return grub_errno;
+             partuuid = grub_xasprintf ("%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x",
+                                        diskbuf[3], diskbuf[2], diskbuf[1], diskbuf[0],
+                                        diskbuf[5], diskbuf[4],
+                                        diskbuf[7], diskbuf[6],
+                                        diskbuf[8], diskbuf[9],
+                                        diskbuf[10], diskbuf[11], diskbuf[12], diskbuf[13], diskbuf[14], diskbuf[15]);
+           }
+         else
+           return grub_error (GRUB_ERR_NOT_IMPLEMENTED_YET,
+                              N_("partition map %s does not support partition UUIDs"),
+                              dev->disk->partition->partmap->name);
+       }
+      else
+       partuuid = grub_strdup (""); /* a freeable empty string */
+
+      if (state[0].set)
+       grub_env_set (state[0].arg, partuuid);
+      else
+       grub_printf ("%s", partuuid);
+      grub_free (partuuid);
       grub_device_close (dev);
       return GRUB_ERR_NONE;
     }
