@@ -311,6 +311,8 @@ grub_strchrsub (char *output, const char *input, char ch, const char *with)
 
 extern void (*EXPORT_VAR (grub_xputs)) (const char *str);
 
+char *grub_getline (void);
+
 static inline int
 grub_puts (const char *s)
 {

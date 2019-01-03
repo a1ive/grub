@@ -28,42 +28,6 @@
 
 GRUB_MOD_LICENSE ("GPLv3+");
 
-static char *
-grub_getline (void)
-{
-  int i;
-  char *line;
-  char *tmp;
-  char c;
-
-  i = 0;
-  line = grub_malloc (1 + i + sizeof('\0'));
-  if (! line)
-    return NULL;
-
-  while (1)
-    {
-      c = grub_getkey ();
-      if ((c == '\n') || (c == '\r'))
-	break;
-
-      line[i] = c;
-      if (grub_isprint (c))
-	grub_printf ("%c", c);
-      i++;
-      tmp = grub_realloc (line, 1 + i + sizeof('\0'));
-      if (! tmp)
-	{
-	  grub_free (line);
-	  return NULL;
-	}
-      line = tmp;
-    }
-  line[i] = '\0';
-
-  return line;
-}
-
 static grub_err_t
 grub_cmd_read (grub_command_t cmd __attribute__ ((unused)), int argc, char **args)
 {
