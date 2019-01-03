@@ -31,6 +31,7 @@
 #include <grub/env.h>
 #include <grub/extcmd.h>
 #include <grub/i18n.h>
+#include <grub/msdos_partition.h>
 
 GRUB_MOD_LICENSE ("GPLv3+");
 
@@ -46,6 +47,7 @@ static const struct grub_arg_option options[] =
     {"fs-uuid",		'u', 0, N_("Determine filesystem UUID."), 0, 0},
     {"label",		'l', 0, N_("Determine filesystem label."), 0, 0},
     {"partuuid",       'g', 0, N_("Determine partition UUID."), 0, 0}, 
+    {"bootable",	'b', 0, N_("Determine if bootable / active flag is set."), 0, 0},
     {0, 0, 0, 0, 0, 0}
   };
 
@@ -204,6 +206,22 @@ grub_cmd_probe (grub_extcmd_context_t ctxt, int argc, char **args)
       else
        grub_printf ("%s", partuuid);
       grub_free (partuuid);
+      grub_device_close (dev);
+      return GRUB_ERR_NONE;
+    }
+  if (state[7].set)
+    {
+      const char *val = "none";
+      if (dev->disk &&
+          dev->disk->partition &&
+          dev->disk->partition->msdostype != GRUB_PC_PARTITION_TYPE_GPT_DISK &&
+          grub_strcmp (dev->disk->partition->partmap->name, "msdos") == 0)
+        if (dev->disk->partition->flag & 0x80)
+          val = "bootable";
+      if (state[0].set)
+        grub_env_set (state[0].arg, val);
+      else
+        grub_printf ("%s", val);
       grub_device_close (dev);
       return GRUB_ERR_NONE;
     }

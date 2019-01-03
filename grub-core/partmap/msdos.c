@@ -180,6 +180,7 @@ grub_partition_msdos_iterate (grub_disk_t disk,
 	  p.len = (grub_uint64_t)grub_le_to_cpu32 (e->length)
 	    << (disk->log_sector_size - GRUB_DISK_SECTOR_BITS);
 	  p.msdostype = e->type;
+      p.flag = e->flag;
 
 	  grub_dprintf ("partition",
 			"partition %d: flag 0x%x, type 0x%x, start 0x%llx, len 0x%llx\n",

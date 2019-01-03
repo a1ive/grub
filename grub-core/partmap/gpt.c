@@ -108,6 +108,7 @@ grub_gpt_partition_map_iterate (grub_disk_t disk,
 	  part.index = last_offset;
 	  part.partmap = &grub_gpt_partition_map;
 	  part.parent = disk->partition;
+      part.flag = entry.attrib;
 
 	  grub_dprintf ("gpt", "GPT entry %d: start=%lld, length=%lld\n", i,
 			(unsigned long long) part.start,

@@ -87,6 +87,10 @@ struct grub_partition
   /* The type of partition whne it's on MSDOS.
      Used for embedding detection.  */
   grub_uint8_t msdostype;
+  
+  /* Partition flag */
+  grub_uint8_t flag;
+
 };
 
 grub_partition_t EXPORT_FUNC(grub_partition_probe) (struct grub_disk *disk,
