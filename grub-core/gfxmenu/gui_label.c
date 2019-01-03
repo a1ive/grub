@@ -24,6 +24,7 @@
 #include <grub/gui_string_util.h>
 #include <grub/i18n.h>
 #include <grub/color.h>
+#include <grub/env.h>
 
 static const char *align_options[] =
 {
@@ -196,6 +197,20 @@ label_set_property (void *vself, const char *name, const char *value)
 	  self->template = grub_strdup (value);
 	  self->text = grub_xasprintf (value, self->value);
 	}
+    }
+  else if (grub_strcmp (name, "var") == 0)
+    {
+      grub_free (self->text);
+      grub_free (self->template);
+      self->template = NULL;
+      self->text = grub_strdup ("");
+      if (value)
+        value = grub_env_get (value);
+      if (value)
+        {
+          self->template = grub_strdup (value);
+          self->text = grub_xasprintf (value, self->value);
+        }
     }
   else if (grub_strcmp (name, "font") == 0)
     {
