@@ -188,13 +188,24 @@ grub_cmd_export (struct grub_command *cmd __attribute__ ((unused)),
 		 int argc, char **args)
 {
   int i;
+  char *var;
+  char *val;
 
   if (argc < 1)
     return grub_error (GRUB_ERR_BAD_ARGUMENT,
 		       N_("one argument expected"));
 
   for (i = 0; i < argc; i++)
-    grub_env_export (args[i]);
+    {
+      var = args[i];
+      val = grub_strchr (var, '=');
+      if (! val)
+        goto export;
+      val[0] = 0;
+      grub_env_set (var, val + 1);
+    export:
+      grub_env_export (args[i]);
+    }
 
   return 0;
 }
