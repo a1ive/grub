@@ -892,6 +892,7 @@ run_menu (grub_menu_t menu, int nested, int *auto_boot)
 	      break;
 
 	    case GRUB_TERM_KEY_UP:
+        case GRUB_TERM_KEY_LEFT:
 	    case GRUB_TERM_CTRL | 'p':
 	    case '^':
 	      if (current_entry > 0)
@@ -904,6 +905,7 @@ run_menu (grub_menu_t menu, int nested, int *auto_boot)
 	      break;
 
 	    case GRUB_TERM_CTRL | 'n':
+        case GRUB_TERM_KEY_RIGHT:
 	    case GRUB_TERM_KEY_DOWN:
 	    case 'v':
 	      if (current_entry < menu->size - 1)
@@ -943,7 +945,7 @@ run_menu (grub_menu_t menu, int nested, int *auto_boot)
 
 	    case '\n':
 	    case '\r':
-	    case GRUB_TERM_KEY_RIGHT:
+	    //case GRUB_TERM_KEY_RIGHT:
 	    case GRUB_TERM_CTRL | 'f':
 	      menu_fini ();
           if (sound_open)

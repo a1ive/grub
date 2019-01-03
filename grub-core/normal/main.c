@@ -395,7 +395,11 @@ grub_normal_read_line_real (char **line, int cont, int nested)
     prompt = _(">");
   else
     /* TRANSLATORS: it's command line prompt.  */
-    prompt = _("grub>");
+    {
+      prompt = grub_env_get ("grub_prompt");
+      if (!prompt)
+        prompt = _("grub>");
+    }
 
   if (!prompt)
     return grub_errno;
@@ -549,6 +553,9 @@ GRUB_MOD_INIT(normal)
   grub_env_export ("grub_cpu");
   grub_env_set ("grub_platform", GRUB_PLATFORM);
   grub_env_export ("grub_platform");
+  
+  grub_env_set ("grub_prompt", "grub>");
+  grub_env_export ("grub_prompt");
 
   grub_boot_time ("Normal module prepared");
 }
