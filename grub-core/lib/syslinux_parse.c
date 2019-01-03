@@ -962,7 +962,7 @@ write_entry (struct output_buffer *outbuf,
 		      "linux_suffix=16; else linux_suffix= ; fi\n");
 	print_string ("  linux$linux_suffix ");
 	print_file (outbuf, menu, curentry->kernel_file, NULL);
-	print_string (" ");
+	print_string (" $linux_extra ");
 	if (curentry->append)
 	  {
 	    err = print (outbuf, curentry->append, grub_strlen (curentry->append));
