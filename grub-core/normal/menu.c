@@ -313,8 +313,8 @@ grub_menu_execute_entry(grub_menu_entry_t entry, int auto_boot)
 
   grub_script_execute_new_scope (entry->sourcecode, entry->argc, entry->args);
 
-  if (errs_before != grub_err_printed_errors)
-    grub_wait_after_message ();
+  //if (errs_before != grub_err_printed_errors)
+    //grub_wait_after_message ();
 
   errs_before = grub_err_printed_errors;
 
@@ -1045,7 +1045,7 @@ notify_execution_failure (void *userdata __attribute__((unused)))
     }
   grub_printf ("\n  ");
   grub_printf_ (N_("Failed to boot both default and fallback entries.\n"));
-  grub_wait_after_message ();
+  //grub_wait_after_message ();
 }
 
 /* Callbacks used by the text menu to provide user feedback when menu entries
