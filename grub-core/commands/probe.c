@@ -48,6 +48,7 @@ static const struct grub_arg_option options[] =
     {"label",		'l', 0, N_("Determine filesystem label."), 0, 0},
     {"partuuid",       'g', 0, N_("Determine partition UUID."), 0, 0}, 
     {"bootable",	'b', 0, N_("Determine if bootable / active flag is set."), 0, 0},
+    {"quiet",	'q', 0, N_("Don't print error."), 0, 0},
     {0, 0, 0, 0, 0, 0}
   };
 
@@ -117,14 +118,24 @@ grub_cmd_probe (grub_extcmd_context_t ctxt, int argc, char **args)
     {
       char *uuid;
       if (! fs->uuid)
-	return grub_error (GRUB_ERR_NOT_IMPLEMENTED_YET,
-			   N_("%s does not support UUIDs"), fs->name);
+        {
+          if (state[8].set)
+	        return GRUB_ERR_NONE;
+	      else
+            return grub_error (GRUB_ERR_NOT_IMPLEMENTED_YET,
+			               N_("%s does not support UUIDs"), fs->name);
+        }
       err = fs->uuid (dev, &uuid);
       if (err)
 	return err;
       if (! uuid)
-	return grub_error (GRUB_ERR_NOT_IMPLEMENTED_YET,
-			   N_("%s does not support UUIDs"), fs->name);
+        {
+          if (state[8].set)
+	        return GRUB_ERR_NONE;
+	      else
+            return grub_error (GRUB_ERR_NOT_IMPLEMENTED_YET,
+			               N_("%s does not support UUIDs"), fs->name);
+        }
 
       if (state[0].set)
 	grub_env_set (state[0].arg, uuid);
@@ -138,16 +149,24 @@ grub_cmd_probe (grub_extcmd_context_t ctxt, int argc, char **args)
     {
       char *label;
       if (! fs->label)
-	return grub_error (GRUB_ERR_NOT_IMPLEMENTED_YET,
-			   N_("filesystem `%s' does not support labels"),
-			   fs->name);
+        {
+          if (state[8].set)
+	        return GRUB_ERR_NONE;
+	      else
+            return grub_error (GRUB_ERR_NOT_IMPLEMENTED_YET,
+			               N_("filesystem `%s' does not support labels"), fs->name);
+        }
       err = fs->label (dev, &label);
       if (err)
 	return err;
       if (! label)
-	return grub_error (GRUB_ERR_NOT_IMPLEMENTED_YET,
-			   N_("filesystem `%s' does not support labels"),
-			   fs->name);
+        {
+          if (state[8].set)
+	        return GRUB_ERR_NONE;
+	      else
+            return grub_error (GRUB_ERR_NOT_IMPLEMENTED_YET,
+			               N_("filesystem `%s' does not support labels"), fs->name);
+        }
 
       if (state[0].set)
 	grub_env_set (state[0].arg, label);
