@@ -1504,6 +1504,11 @@ module = {
 };
 
 module = {
+  name = qnx6;
+  common = fs/qnx6.c;
+};
+
+module = {
   name = reiserfs;
   common = fs/reiserfs.c;
 };
