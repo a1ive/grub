@@ -236,6 +236,26 @@ static grub_dl_t my_mod;
 
 //-----------------------------------------------------------------------------
 
+/**
+ * Lazy and slow ilog2() implementation.
+ * Find the top set bit.
+ * When using base-2 numbers, val==(1 << ilog2(val))
+ */
+static int qnx6_ilog2(int val)
+{
+   if (val > 0)
+   {
+      int bits = 0;
+
+      while ((val >>= 1) != 0)
+      {
+         ++bits;
+      }
+      return bits;
+   }
+   return -1;
+}
+
 static inline
 grub_uint64_t fs64_to_cpu(grub_qnx6_data_t *data, grub_uint64_t val)
 {
@@ -594,25 +614,9 @@ qnx6_parse_superblocks(grub_qnx6_data_t *data)
 
    /* validate and save the logical blocksize */
    data->blocksize = fs32_to_cpu(data, data->sb->sb_blocksize);
-   switch (data->blocksize)
+   data->blk_sec_shft = qnx6_ilog2(data->blocksize) - 9;
+   if ((data->blk_sec_shft < 0) || (data->blk_sec_shft > 3))
    {
-   case 512:
-      data->blk_sec_shft = 0;
-      break;
-
-   case 1024:
-      data->blk_sec_shft = 1;
-      break;
-
-   case 2048:
-      data->blk_sec_shft = 2;
-      break;
-
-   case 4096:
-      data->blk_sec_shft = 3;
-      break;
-
-   default:
       grub_error(GRUB_ERR_BAD_FS, "qxn6 blocksize error");
       return grub_errno;
    }
