@@ -840,6 +840,13 @@ grub_vsnprintf_real (char *str, grub_size_t max_len, const char *fmt0,
 	  continue;
 	}
 
+      if (*fmt == '%')
+	{
+	  write_char (str, &count, max_len, '%');
+	  fmt++;
+	  continue;
+	}
+
       curn = n++;
 
     rescan:;
