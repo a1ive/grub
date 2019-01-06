@@ -666,6 +666,11 @@ parse_printf_args (const char *fmt0, struct printf_args *args,
       while (grub_isdigit (*fmt))
 	fmt++;
 
+      if (*fmt == '*') {
+	args->count++;
+	fmt++;
+      }
+
       c = *fmt++;
       if (c == 'l')
 	c = *fmt++;
@@ -740,6 +745,12 @@ parse_printf_args (const char *fmt0, struct printf_args *args,
 
       while (grub_isdigit (*fmt))
 	fmt++;
+
+      if (*fmt == '*') {
+	fmt++;
+	args->ptr[curn].type = INT;
+	curn = n++;
+      }
 
       c = *fmt++;
       if (c == '%')
@@ -870,6 +881,13 @@ grub_vsnprintf_real (char *str, grub_size_t max_len, const char *fmt0,
 
       if (grub_isdigit (*fmt))
 	format2 = grub_strtoul (fmt, (char **) &fmt, 10);
+
+      if (*fmt == '*')
+        {
+	   fmt++;
+	   format1 = (unsigned long) args->ptr[curn].ll;
+	   curn++;
+	}
 
       if (*fmt == '$')
 	{
