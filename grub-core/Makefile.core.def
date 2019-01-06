@@ -416,7 +416,7 @@ image = {
   i386_pc = boot/i386/pc/boot.S;
 
   cppflags = '-DHYBRID_BOOT=1';
-  
+
   i386_pc_ldflags = '$(TARGET_IMG_LDFLAGS)';
   i386_pc_ldflags = '$(TARGET_IMG_BASE_LDOPT),0x7C00';
 
@@ -1496,6 +1496,11 @@ module = {
 module = {
   name = ntfscomp;
   common = fs/ntfscomp.c;
+};
+
+module = {
+  name = qnx4;
+  common = fs/qnx4.c;
 };
 
 module = {

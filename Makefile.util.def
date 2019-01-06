@@ -116,6 +116,7 @@ library = {
   common = grub-core/fs/nilfs2.c;
   common = grub-core/fs/ntfs.c;
   common = grub-core/fs/ntfscomp.c;
+  common = grub-core/fs/qnx4.c;
   common = grub-core/fs/reiserfs.c;
   common = grub-core/fs/romfs.c;
   common = grub-core/fs/sfs.c;
