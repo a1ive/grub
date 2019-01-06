@@ -55,6 +55,12 @@ strcpy (char *dest, const char *src)
 }
 
 static inline char *
+strcat (char *dest, const char *src)
+{
+  return grub_strcat (dest, src);
+}
+
+static inline char *
 strstr (const char *haystack, const char *needle)
 {
   return grub_strstr (haystack, needle);

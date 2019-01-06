@@ -71,6 +71,23 @@ grub_memcpy (void *dest, const void *src, grub_size_t n)
   return grub_memmove (dest, src, n);
 }
 
+static inline char *
+grub_strcat (char *dest, const char *src)
+{
+  char *p = dest;
+
+  while (*p)
+    p++;
+
+  while ((*p = *src) != '\0')
+    {
+      p++;
+      src++;
+    }
+
+  return dest;
+}
+
 #if defined(__x86_64__) && !defined (GRUB_UTIL)
 #if defined (__MINGW32__) || defined (__CYGWIN__) || defined (__MINGW64__)
 #define GRUB_ASM_ATTR __attribute__ ((sysv_abi))
