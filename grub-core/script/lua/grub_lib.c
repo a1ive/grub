@@ -546,7 +546,7 @@ grub_lua_file_open (lua_State *state)
   const char *name;
 
   name = luaL_checkstring (state, 1);
-  file = grub_file_open (name, GRUB_FILE_TYPE_NO_DECOMPRESS);
+  file = grub_file_open (name, GRUB_FILE_TYPE_SKIP_SIGNATURE);
   save_errno (state);
 
   if (! file)

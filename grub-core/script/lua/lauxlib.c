@@ -591,7 +591,7 @@ LUALIB_API int luaL_loadfile (lua_State *L, const char *filename) {
   }
   else {
     lua_pushfstring(L, "@%s", filename);
-    lf.f = grub_file_open(filename, GRUB_FILE_TYPE_NO_DECOMPRESS);
+    lf.f = grub_file_open(filename, GRUB_FILE_TYPE_SKIP_SIGNATURE);
     if (lf.f == NULL) return errfile(L, "open", fnameindex);
   }
 

@@ -58,7 +58,7 @@ grub_cmd_dd (grub_command_t cmd __attribute__ ((unused)), int argc, char **args)
   if (argc < 2)
     return grub_error (GRUB_ERR_BAD_ARGUMENT, "device name required");
 
-  file = grub_file_open (args[0], GRUB_FILE_TYPE_NO_DECOMPRESS);
+  file = grub_file_open (args[0], GRUB_FILE_TYPE_SKIP_SIGNATURE);
   if (! file)
     return grub_errno;
 
