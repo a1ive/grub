@@ -1892,6 +1892,7 @@ module = {
 module = {
   name = linuxefi;
   efi = loader/i386/efi/linux.c;
+  efi = loader/efi/linux.c;
   enable = i386_efi;
   enable = x86_64_efi;
 };
