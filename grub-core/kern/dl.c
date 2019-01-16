@@ -737,7 +737,7 @@ grub_dl_load (const char *name)
     return 0;
 
   if (! grub_dl_dir) {
-    grub_error (GRUB_ERR_FILE_NOT_FOUND, N_("variable `%s' isn't set"), "prefix");
+    //grub_error (GRUB_ERR_FILE_NOT_FOUND, N_("variable `%s' isn't set"), "prefix");
     return 0;
   }
 
