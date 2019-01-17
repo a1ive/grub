@@ -303,6 +303,8 @@ char *EXPORT_FUNC(grub_strdup) (const char *s) WARN_UNUSED_RESULT;
 char *EXPORT_FUNC(grub_strndup) (const char *s, grub_size_t n) WARN_UNUSED_RESULT;
 void *EXPORT_FUNC(grub_memset) (void *s, int c, grub_size_t n);
 grub_size_t EXPORT_FUNC(grub_strlen) (const char *s) WARN_UNUSED_RESULT;
+int EXPORT_FUNC(grub_strcspn) (const char *s1, const char *s2);
+char *EXPORT_FUNC(grub_strpbrk) (const char *s1, const char *s2);
 int EXPORT_FUNC(grub_printf) (const char *fmt, ...) __attribute__ ((format (GNU_PRINTF, 1, 2)));
 int EXPORT_FUNC(grub_printf_) (const char *fmt, ...) __attribute__ ((format (GNU_PRINTF, 1, 2)));
 

@@ -44,7 +44,4 @@
 
 #define fputs(s,f)	grub_printf("%s", s)
 
-int strcspn (const char *s1, const char *s2);
-char *strpbrk (const char *s1, const char *s2);
-
 #endif

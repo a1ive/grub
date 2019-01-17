@@ -516,6 +516,44 @@ grub_strlen (const char *s)
   return p - s;
 }
 
+static const char *
+scan_str (const char *s1, const char *s2)
+{
+  while (*s1)
+    {
+      const char *p = s2;
+
+      while (*p)
+	{
+	  if (*s1 == *p)
+	    return s1;
+	  p++;
+	}
+
+      s1++;
+    }
+
+  return s1;
+}
+
+int
+grub_strcspn (const char *s1, const char *s2)
+{
+  const char *r;
+
+  r = scan_str (s1, s2);
+  return r - s1;
+}
+
+char *
+grub_strpbrk (const char *s1, const char *s2)
+{
+  const char *r;
+
+  r = scan_str (s1, s2);
+  return (*r) ? (char *) r : 0;
+}
+
 static inline void
 grub_reverse (char *str)
 {

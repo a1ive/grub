@@ -30,6 +30,18 @@ strlen (const char *s)
   return grub_strlen (s);
 }
 
+static inline int
+strcspn (const char *s1, const char *s2)
+{
+  return grub_strcspn (s1, s2);
+}
+
+static inline char *
+strpbrk (const char *s1, const char *s2)
+{
+  return grub_strpbrk (s1, s2);
+}
+
 static inline int 
 strcmp (const char *s1, const char *s2)
 {
