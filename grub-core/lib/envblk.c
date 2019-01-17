@@ -29,8 +29,10 @@ grub_envblk_open (char *buf, grub_size_t size)
   grub_envblk_t envblk;
 
   if (size < sizeof (GRUB_ENVBLK_SIGNATURE)
-      || grub_memcmp (buf, GRUB_ENVBLK_SIGNATURE,
-                      sizeof (GRUB_ENVBLK_SIGNATURE) - 1))
+      || ( grub_memcmp (buf, GRUB_ENVBLK_SIGNATURE,
+                      sizeof (GRUB_ENVBLK_SIGNATURE) - 1)
+      && grub_memcmp (buf, IPXE_MAGIC_SIGNATURE,
+                      sizeof (IPXE_MAGIC_SIGNATURE) - 1) ) )
     {
       grub_error (GRUB_ERR_BAD_FILE_TYPE, "invalid environment block");
       return 0;

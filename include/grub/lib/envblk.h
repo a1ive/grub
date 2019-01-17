@@ -20,6 +20,7 @@
 #define GRUB_ENVBLK_HEADER	1
 
 #define GRUB_ENVBLK_SIGNATURE	"# GRUB Environment Block\n"
+#define IPXE_MAGIC_SIGNATURE	"#!ipxe                  \n"
 #define GRUB_ENVBLK_DEFCFG	"grubenv"
 
 #ifndef ASM_FILE
