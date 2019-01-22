@@ -975,10 +975,16 @@ grub_cmd_chainloader (grub_command_t cmd __attribute__ ((unused)),
 
   if (grub_linuxefi_secure_validate((void *)(unsigned long)address, fsize))
     {
-      grub_file_close (file);
-      grub_loader_set (grub_secureboot_chainloader_boot,
+      grub_efi_guid_t guid = SHIM_LOCK_GUID;
+      grub_efi_shim_lock_t *shim_lock;
+      shim_lock = grub_efi_locate_protocol (&guid, NULL);
+      if (shim_lock)
+        {
+          grub_file_close (file);
+          grub_loader_set (grub_secureboot_chainloader_boot,
 		       grub_secureboot_chainloader_unload, 0);
-      return 0;
+          return 0;
+        }
     }
 
   status = efi_call_6 (b->load_image, 0, grub_efi_image_handle, file_path,
