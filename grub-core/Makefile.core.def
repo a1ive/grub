@@ -2549,3 +2549,11 @@ module = {
   common = loader/i386/xen_file64.c;
   extra_dist = loader/i386/xen_fileXX.c;
 };
+
+module = {
+  name = qrcode;
+  common = lib/qrcode/qrcode.c;
+  common = lib/qrcode/qr_encode.c;
+  cflags = '$(CFLAGS_POSIX)';
+  cppflags = '$(CPPFLAGS_POSIX)';
+};
