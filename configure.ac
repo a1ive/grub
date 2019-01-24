@@ -810,7 +810,7 @@ if test "x$grub_cv_cc_freg_struct_return" = xyes; then
     TARGET_CFLAGS="$TARGET_CFLAGS -freg-struct-return"
 fi
 
-if ( test "x$target_cpu" = xi386 || test "x$target_cpu" = xx86_64 ) && test "x$platform" != xemu; then
+if ( test "x$target_cpu" = xi386 ) && test "x$platform" != xemu; then
   # Some toolchains enable these features by default, but they need
   # registers that aren't set up properly in GRUB.
   TARGET_CFLAGS="$TARGET_CFLAGS -mno-mmx -mno-sse -mno-sse2 -mno-sse3 -mno-3dnow"
