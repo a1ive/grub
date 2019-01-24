@@ -2601,3 +2601,11 @@ module = {
   common = lib/fdlibm/s_expm1.c;
   common = lib/fdlibm/s_copysign.c;
 };
+
+module = {
+  name = qrcode;
+  common = lib/qrcode/qrcode.c;
+  common = lib/qrcode/qr_encode.c;
+  cflags = '$(CFLAGS_POSIX)';
+  cppflags = '$(CPPFLAGS_POSIX)';
+};
