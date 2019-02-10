@@ -99,6 +99,7 @@ get_uuid (const char *name, char **uuid, int getnative)
     case GRUB_DISK_DEVICE_LOOPBACK_ID:
     case GRUB_DISK_DEVICE_DISKFILTER_ID:
     case GRUB_DISK_DEVICE_CRYPTODISK_ID:
+    case GRUB_DISK_DEVICE_VHD_ID:
       break;
     }
   if (dev)

@@ -2609,3 +2609,8 @@ module = {
   cflags = '$(CFLAGS_POSIX)';
   cppflags = '$(CPPFLAGS_POSIX)';
 };
+
+module = {
+  name = vhd;
+  common = disk/vhd.c;
+};
