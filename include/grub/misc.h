@@ -348,6 +348,7 @@ void EXPORT_FUNC(grub_real_dprintf) (const char *file,
                                      const char *condition,
                                      const char *fmt, ...) __attribute__ ((format (GNU_PRINTF, 4, 5)));
 int EXPORT_FUNC(grub_vprintf) (const char *fmt, va_list args);
+int EXPORT_FUNC(grub_sprintf) (char *str, const char *fmt, ...) __attribute__ ((format (printf, 2, 3)));
 int EXPORT_FUNC(grub_snprintf) (char *str, grub_size_t n, const char *fmt, ...)
      __attribute__ ((format (GNU_PRINTF, 3, 4)));
 int EXPORT_FUNC(grub_vsnprintf) (char *str, grub_size_t n, const char *fmt,
