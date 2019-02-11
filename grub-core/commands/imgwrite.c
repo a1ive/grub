@@ -1,4 +1,4 @@
-/* dd.c - copy file to disk  */
+/* imgwrite.c - copy file to disk  */
 /*
  *  GRUB  --  GRand Unified Bootloader
  *  Copyright (C) 2003,2005,2007,2008,2016,2017  Free Software Foundation, Inc.
@@ -44,7 +44,7 @@ static void print_progress(grub_uint64_t cur, grub_uint64_t total)
 }
 
 static grub_err_t
-grub_cmd_dd (grub_command_t cmd __attribute__ ((unused)), int argc, char **args)
+grub_cmd_imgwrite (grub_command_t cmd __attribute__ ((unused)), int argc, char **args)
 {
   grub_disk_t disk;
   grub_file_t file;
@@ -154,14 +154,14 @@ grub_cmd_dd (grub_command_t cmd __attribute__ ((unused)), int argc, char **args)
 
 static grub_command_t cmd;
 
-GRUB_MOD_INIT(dd)
+GRUB_MOD_INIT(imgwrite)
 {
-  cmd = grub_register_command ("dd", grub_cmd_dd,
+  cmd = grub_register_command ("imgwrite", grub_cmd_imgwrite,
       N_("FILE DEVICE"),
       N_("Copies data from the source file to the device. "));
 }
 
-GRUB_MOD_FINI(dd)
+GRUB_MOD_FINI(imgwrite)
 {
   grub_unregister_command (cmd);
 }

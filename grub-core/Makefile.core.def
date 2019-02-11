@@ -840,8 +840,8 @@ module = {
 };
 
 module = {
-  name = dd;
-  common = commands/dd.c;
+  name = imgwrite;
+  common = commands/imgwrite.c;
 };
 
 module = {
