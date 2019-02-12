@@ -2619,3 +2619,11 @@ module = {
   name = vhd;
   common = disk/vhd.c;
 };
+
+module = {
+  name = vboot;
+  i386_pc = vboot/vboot.c;
+  i386_pc = vboot/dl.c;
+  i386_pc = vboot/i386/dl.c;
+  enable = i386_pc;
+};
