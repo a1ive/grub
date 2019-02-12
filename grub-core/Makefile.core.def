@@ -845,6 +845,11 @@ module = {
 };
 
 module = {
+  name = dd;
+  common = commands/dd.c;
+};
+
+module = {
   name = echo;
   common = commands/echo.c;
 };
