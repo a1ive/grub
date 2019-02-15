@@ -1015,9 +1015,7 @@ static void
 notify_booting (grub_menu_entry_t entry,
 		void *userdata __attribute__((unused)))
 {
-  grub_printf ("  ");
-  grub_printf_ (N_("Booting `%s'"), entry->title);
-  grub_printf ("\n\n");
+  grub_dprintf ("menu", "Booting %s\n", entry->title);
 }
 
 /* Callback invoked when a default menu entry executed because of a timeout

@@ -1167,9 +1167,7 @@ run (struct screen *screen)
   char *dummy[1] = { NULL };
 
   grub_cls ();
-  grub_printf ("  ");
-  grub_printf_ (N_("Booting a command list"));
-  grub_printf ("\n\n");
+  grub_dprintf ("menu", "Booting a command list");
 
   errs_before = grub_err_printed_errors;
 
