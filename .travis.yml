@@ -27,9 +27,9 @@ addons:
 script:
   - ./autogen.sh
 
-  - plat=${target#*-};
-    arch=${target%-*};
-    echo "Building $target";
+  - plat=${GRUB_TARGET#*-};
+    arch=${GRUB_TARGET%-*};
+    echo "Building $GRUB_TARGET";
     
   - ./configure --target=$arch --with-platform=$plat --prefix=/tmp/grub
   - make
@@ -40,10 +40,10 @@ matrix:
   include:
     - name: "x86_64-efi"
       env:
-        - GRUB_TARGETS="x86_64-efi"
+        - GRUB_TARGET="x86_64-efi"
     - name: "i386-efi"
       env:
-        - GRUB_TARGETS="i386-efi"
+        - GRUB_TARGET="i386-efi"
     - name: "i386-pc"
       env:
-        - GRUB_TARGETS="i386-pc"
+        - GRUB_TARGET="i386-pc"
