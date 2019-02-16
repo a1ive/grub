@@ -27,15 +27,14 @@ addons:
 script:
   - ./autogen.sh
 
-  - for target in $GRUB_TARGETS; do
-      plat=${target#*-};
-      arch=${target%-*};
-      echo "Building $target";
-      ./configure --target=$arch --with-platform=$plat --prefix=/tmp/grub
-      make
-      make install
-      make clean;
-    done
+  - plat=${target#*-};
+    arch=${target%-*};
+    echo "Building $target";
+    
+  - ./configure --target=$arch --with-platform=$plat --prefix=/tmp/grub
+  - make
+  - make install
+  - make clean
 
 matrix:
   include:
