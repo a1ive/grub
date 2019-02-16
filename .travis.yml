@@ -31,15 +31,20 @@ script:
       plat=${target#*-};
       arch=${target%-*};
       echo "Building $target";
-      mkdir obj-$target;
-      cd obj-$target && ../configure --target=$arch --with-platform=$plat --prefix=/tmp/grub && make && make install && make clean;
+      ./configure --target=$arch --with-platform=$plat --prefix=/tmp/grub
+      make
+      make install
+      make clean;
     done
 
 matrix:
   include:
-    - name: "x86_64"
+    - name: "x86_64-efi"
       env:
         - GRUB_TARGETS="x86_64-efi"
-    - name: "i386"
+    - name: "i386-efi"
       env:
-        - GRUB_TARGETS="i386-efi i386-pc"
+        - GRUB_TARGETS="i386-efi"
+    - name: "i386-pc"
+      env:
+        - GRUB_TARGETS="i386-pc"
