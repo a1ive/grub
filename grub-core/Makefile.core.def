@@ -2636,3 +2636,10 @@ module = {
   enable = i386_xen;
   enable = x86_64_xen;
 };
+
+module = {
+  name = expr;
+  common = commands/expr.c;
+  cflags = '$(CFLAGS_POSIX)';
+  cppflags = '$(CPPFLAGS_POSIX)';
+};
