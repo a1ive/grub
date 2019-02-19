@@ -22,8 +22,8 @@
 #include <grub/extcmd.h>
 #include <grub/i18n.h>
 #include <grub/env.h>
-# include <unistd.h>
-# include <stdlib.h>
+#include <unistd.h>
+#include <stdlib.h>
 
 GRUB_MOD_LICENSE ("GPLv3+");
 

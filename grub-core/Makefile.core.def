@@ -2557,7 +2557,7 @@ module = {
 
 module = {
   name = fdlibm;
-  cppflags = '-I$(srcdir)/lib/posix_wrap -I$(srcdir)/lib/fdlibm -D_IEEE_LIBM -D__LITTLE_ENDIAN= -U__gnu_linux__ -U__ELF__ ';
+  cppflags = '-I$(srcdir)/bits/python -I$(srcdir)/lib/fdlibm -D_IEEE_LIBM -D__LITTLE_ENDIAN= -U__gnu_linux__ -U__ELF__ ';
   cflags = '-fno-strict-aliasing -Wdeclaration-after-statement -fshort-wchar -maccumulate-outgoing-args -Wno-empty-body -Wno-float-equal -Wno-maybe-uninitialized -Wno-missing-field-initializers -Wno-missing-declarations -Wno-missing-format-attribute -Wno-missing-noreturn -Wno-missing-prototypes -Wno-nested-externs -Wno-old-style-definition -Wno-parentheses -Wno-redundant-decls -Wno-sign-compare -Wno-shadow -Wno-type-limits -Wno-undef -Wno-uninitialized -Wno-unused -Wno-unused-parameter -Wno-unused-value -Wno-unused-variable -Wno-write-strings -Wno-error=format-nonliteral';
   enable = i386_pc;
   enable = i386_coreboot;
