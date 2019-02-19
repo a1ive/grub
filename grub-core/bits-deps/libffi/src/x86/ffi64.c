@@ -853,4 +853,10 @@ ffi_prep_go_closure (ffi_go_closure* closure, ffi_cif* cif,
   return FFI_OK;
 }
 
+#undef abort
+__attribute__((noreturn)) void abort(void)
+{
+    grub_fatal("Internal error: abort()\n");
+}
+
 #endif /* __x86_64__ */

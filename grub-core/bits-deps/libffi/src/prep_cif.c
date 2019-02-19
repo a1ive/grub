@@ -26,6 +26,9 @@
 #include <ffi.h>
 #include <ffi_common.h>
 #include <stdlib.h>
+#include <grub/dl.h>
+
+GRUB_MOD_LICENSE("GPLv3+");
 
 /* Round up to FFI_SIZEOF_ARG. */
 
