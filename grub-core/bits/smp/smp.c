@@ -35,6 +35,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <grub/memory.h>
 #include <grub/mm.h>
 
+GRUB_MOD_LICENSE("GPLv3+");
+GRUB_MOD_DUAL_LICENSE("3-clause BSD");
+
 #ifndef GRUB_MMAP_MALLOC_LOW
 #define GRUB_MMAP_MALLOC_LOW 1
 #endif

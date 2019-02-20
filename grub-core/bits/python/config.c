@@ -14,7 +14,7 @@ redistribution of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #include "bitsmodule.h"
 #include "pyfsmodule.h"
 #include "efimodule.h"
-//#include "smpmodule.h"
+#include "smpmodule.h"
 
 char *Py_GetExecPrefix(void)
 {
@@ -150,7 +150,9 @@ struct _inittab _PyImport_Inittab[] = {
     {"_heapq", init_heapq},
     {"_md5", init_md5},
     {"_pyfs", init_pyfs},
-    //{"_smp", init_smp_module},
+#ifdef __i386__
+    {"_smp", init_smp_module},
+#endif
     {"_sha", init_sha},
     {"_sha256", init_sha256},
     {"_sha512", init_sha512},
