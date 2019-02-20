@@ -13,7 +13,7 @@ redistribution of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #include "acpimodule.h"
 #include "bitsmodule.h"
 #include "pyfsmodule.h"
-//#include "efimodule.h"
+#include "efimodule.h"
 //#include "smpmodule.h"
 
 char *Py_GetExecPrefix(void)
@@ -144,7 +144,7 @@ struct _inittab _PyImport_Inittab[] = {
     {"_csv", init_csv},
     {"_ctypes", init_ctypes},
 #ifdef GRUB_MACHINE_EFI
-    //{"_efi", init_efi},
+    {"_efi", init_efi},
 #endif
     {"_functools", init_functools},
     {"_heapq", init_heapq},

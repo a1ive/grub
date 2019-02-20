@@ -2816,7 +2816,7 @@ module = {
   common = bits/python/compat.c;
   common = bits/python/acpimodule.c;
   common = bits/python/bitsmodule.c;
-
+  efi = bits/python/efimodule.c;
   common = bits/python/pyfsmodule.c;
 
   common = bits-deps/python/Modules/_bisectmodule.c;
