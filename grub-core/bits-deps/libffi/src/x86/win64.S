@@ -101,7 +101,7 @@ E FFI_TYPE_DOUBLE
 	movsd	%xmm0, (%r8)
 	epilogue
 E FFI_TYPE_LONGDOUBLE
-	call	PLT(C(abort))
+	call	PLT(C(abort_ffi))
 E FFI_TYPE_UINT8
 	movzbl	%al, %eax
 	movq	%rax, (%r8)
@@ -136,7 +136,7 @@ E FFI_TYPE_POINTER
 	movq	%rax, (%r8)
 	epilogue
 E FFI_TYPE_COMPLEX
-	call	PLT(C(abort))
+	call	PLT(C(abort_ffi))
 E FFI_TYPE_SMALL_STRUCT_1B
 	movb	%al, (%r8)
 	epilogue
@@ -148,7 +148,7 @@ E FFI_TYPE_SMALL_STRUCT_4B
 	epilogue
 
 	.align	8
-99:	call	PLT(C(abort))
+99:	call	PLT(C(abort_ffi))
 
 .purgem epilogue
 

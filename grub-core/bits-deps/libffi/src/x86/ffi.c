@@ -49,6 +49,11 @@
 # define __declspec(x)  __attribute__((x))
 #endif
 
+__attribute__((noreturn)) void abort_ffi(void)
+{
+    grub_fatal("abort()\n");
+}
+
 /* Perform machine dependent cif processing.  */
 ffi_status FFI_HIDDEN
 ffi_prep_cif_machdep(ffi_cif *cif)
@@ -201,7 +206,7 @@ extend_basic_type(void *arg, int type)
       return *(UINT32 *)arg;
 
     default:
-      abort();
+      abort_ffi();
     }
 }
 

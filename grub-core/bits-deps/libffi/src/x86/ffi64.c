@@ -101,6 +101,11 @@ enum x86_64_reg_class
 
 #define SSE_CLASS_P(X)	((X) >= X86_64_SSE_CLASS && X <= X86_64_SSEUP_CLASS)
 
+__attribute__((noreturn)) void abort_ffi(void)
+{
+    grub_fatal("abort()\n");
+}
+
 /* x86-64 register passing implementation.  See x86-64 ABI for details.  Goal
    of this code is to classify each 8bytes of incoming argument by the register
    class and assign registers accordingly.  */
@@ -338,7 +343,7 @@ classify_argument (ffi_type *type, enum x86_64_reg_class classes[],
 	  }
       }
     }
-  abort();
+  abort_ffi();
 }
 
 /* Examine the argument and return set number of register required in each
@@ -377,7 +382,7 @@ examine_argument (ffi_type *type, enum x86_64_reg_class classes[MAX_CLASSES],
       case X86_64_COMPLEX_X87_CLASS:
 	return in_return != 0;
       default:
-	abort ();
+	abort_ffi ();
       }
 
   *pngpr = ngpr;
@@ -651,7 +656,7 @@ ffi_call_int (ffi_cif *cif, void (*fn)(void), void *rvalue,
 		  reg_args->sse[ssecount++].i32 = *(UINT32 *) a;
 		  break;
 		default:
-		  abort();
+		  abort_ffi();
 		}
 	    }
 	}
@@ -851,12 +856,6 @@ ffi_prep_go_closure (ffi_go_closure* closure, ffi_cif* cif,
   closure->fun = fun;
 
   return FFI_OK;
-}
-
-#undef abort
-__attribute__((noreturn)) void abort(void)
-{
-    grub_fatal("Internal error: abort()\n");
 }
 
 #endif /* __x86_64__ */

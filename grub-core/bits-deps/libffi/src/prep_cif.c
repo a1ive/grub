@@ -141,7 +141,7 @@ ffi_status FFI_HIDDEN ffi_prep_cif_core(ffi_cif *cif, ffi_abi abi,
 
 #ifndef FFI_TARGET_HAS_COMPLEX_TYPE
   if (rtype->type == FFI_TYPE_COMPLEX)
-    abort();
+    abort_ffi();
 #endif
   /* Perform a sanity check on the return type */
   FFI_ASSERT_VALID_TYPE(cif->rtype);
@@ -172,7 +172,7 @@ ffi_status FFI_HIDDEN ffi_prep_cif_core(ffi_cif *cif, ffi_abi abi,
 
 #ifndef FFI_TARGET_HAS_COMPLEX_TYPE
       if ((*ptr)->type == FFI_TYPE_COMPLEX)
-	abort();
+	abort_ffi();
 #endif
       /* Perform a sanity check on the argument type, do this
 	 check after the initialization.  */

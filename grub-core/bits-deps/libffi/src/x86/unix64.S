@@ -191,7 +191,7 @@ L(s5):
 	addq	$20, %rsp
 	ret
 
-L(sa):	call	PLT(C(abort))
+L(sa):	call	PLT(C(abort_ffi))
 
 	/* Many times we can avoid loading any SSE registers at all.
 	   It's not worth an indirect jump to load the exact set of
@@ -343,7 +343,7 @@ L(l4):
 	addq	$ffi_closure_FS, %rsp
 	ret
 
-L(la):	call	PLT(C(abort))
+L(la):	call	PLT(C(abort_ffi))
 
 L(UW11):
 ENDF(C(ffi_closure_unix64))
