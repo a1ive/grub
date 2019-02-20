@@ -20,6 +20,8 @@
 #endif
 
 #include "zlib.h"
+#include <portable.h>
+#include <grub/misc.h>
 
 #if defined(STDC) && !defined(Z_SOLO)
 #  if !(defined(_WIN32_WCE) && defined(_MSC_VER))
@@ -207,7 +209,7 @@ extern z_const char * const z_errmsg[10]; /* indexed by 2-zlib_error */
 #  else
 #    define zmemcpy memcpy
 #    define zmemcmp memcmp
-#    define zmemzero(dest, len) memset(dest, 0, len)
+#    define zmemzero(dest, len) grub_memset(dest, 0, len)
 #  endif
 #else
    void ZLIB_INTERNAL zmemcpy OF((Bytef* dest, const Bytef* source, uInt len));
