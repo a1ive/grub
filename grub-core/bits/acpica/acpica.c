@@ -41,6 +41,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "acpica.h"
 
+GRUB_MOD_LICENSE("GPLv3+");
+
 ACPI_MODULE_NAME("grub2-acpica")
 
 static U32 acpica_early_init_state = 0;

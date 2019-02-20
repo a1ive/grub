@@ -37,9 +37,6 @@
  * POSSIBILITY OF SUCH DAMAGES.
  */
 
-#include "Python.h"
-#include "pyunconfig.h"
-
 #include <grub/cpu/io.h>
 #include <grub/misc.h>
 #include <grub/mm.h>
@@ -362,7 +359,7 @@ void *
 AcpiOsAllocate (
     ACPI_SIZE               size)
 {
-    return PyObject_Malloc(size);
+    return grub_malloc(size);
 }
 
 
@@ -382,7 +379,7 @@ void
 AcpiOsFree (
     void                    *mem)
 {
-    PyObject_Free(mem);
+    grub_free(mem);
 }
 
 
