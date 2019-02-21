@@ -76,7 +76,7 @@ static grub_err_t grub_cmd_py(grub_command_t cmd, int argc, char **args)
         PyRun_SimpleString(args[0]);
     return GRUB_ERR_NONE;
 }
-
+#if 0
 static grub_err_t grub_cmd_python(grub_command_t cmd, int argc, char **args)
 {
     (void)cmd;
@@ -86,7 +86,7 @@ static grub_err_t grub_cmd_python(grub_command_t cmd, int argc, char **args)
     PyRun_InteractiveLoop(stdin, "<stdin>");
     return GRUB_ERR_NONE;
 }
-
+#endif
 static int pydisk_iterate(int (*hook)(const char *name, void *hook_data), void *data, grub_disk_pull_t pull)
 {
     if (pull != GRUB_DISK_PULL_NONE)
@@ -202,7 +202,7 @@ GRUB_MOD_INIT(python)
     Py_NoSiteFlag = 1;
     Py_InspectFlag = 1;
     Py_Initialize();
-    cmd_py = grub_register_command("python", grub_cmd_python, "\"Python interpreter\"", "Start the standard Python interpreter.");
+    //cmd_py = grub_register_command("python", grub_cmd_python, "\"Python interpreter\"", "Start the standard Python interpreter.");
     cmd_py = grub_register_command("py", grub_cmd_py, "\"Python program\"", "Evaluate Python given on the command line.");
     cmd_py_options = grub_register_extcmd("py_options", grub_cmd_py_options, 0,
                                           "[-v NUM]",
