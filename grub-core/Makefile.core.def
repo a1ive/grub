@@ -2962,6 +2962,15 @@ module = {
 };
 
 module = {
+  name = mcu;
+  cppflags = '-I$(srcdir)/bits/include -U__gnu_linux__';
+  cflags = '-fno-strict-aliasing -Wdeclaration-after-statement -Wno-write-strings -Wno-unused-parameter';
+  enable = i386_pc;
+  enable = i386_coreboot;
+  common = bits/mcu/mcu.c;
+};
+
+module = {
   name = qrcode;
   common = lib/qrcode/qrcode.c;
   common = lib/qrcode/qr_encode.c;
