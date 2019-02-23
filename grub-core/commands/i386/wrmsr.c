@@ -32,7 +32,7 @@ GRUB_MOD_LICENSE("GPLv3+");
 static grub_command_t cmd_write;
 
 static grub_err_t
-grub_cmd_msr_write (grub_command_t cmd, int argc, char **argv)
+grub_cmd_msr_write (grub_command_t cmd __attribute__ ((unused)), int argc, char **argv)
 {
     grub_uint64_t addr, value;
 
