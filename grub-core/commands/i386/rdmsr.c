@@ -53,11 +53,11 @@ grub_cmd_msr_read (grub_extcmd_context_t ctxt, int argc, char **argv)
 
     if (ctxt->state[0].set)
     {
-        grub_snprintf (buf, sizeof(buf), "%llx", value);
+        grub_snprintf (buf, sizeof(buf), "%llx", (long long unsigned) value);
         grub_env_set (ctxt->state[0].arg, buf);
     }
     else
-        grub_printf ("0x%llx\n", value);
+        grub_printf ("0x%llx\n", (long long unsigned) value);
 
     return GRUB_ERR_NONE;
 }

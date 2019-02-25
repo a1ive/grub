@@ -20,23 +20,9 @@
 #define GRUB_CPU_MSR_WRITE_HEADER 1
 #endif
 
-#ifdef __x86_64__
-
-extern __inline void grub_msr_write(grub_uint64_t msr, grub_uint64_t value)
-{
-    grub_uint32_t low = value, high = value >> 32;
-
-    asm volatile ( "wrmsr" : : "c"(msr), "a"(low), "d"(high) );
-}
-
-#else
-
 extern __inline void grub_msr_write(grub_uint64_t msr_id, grub_uint64_t msr_value)
 {
-    /* We use uint64 in msr_id just to keep the same function signature. */
-    grub_uint32_t low_id = msr_id, low_value = msr_value;
+    grub_uint32_t low_id = msr_id, low = msr_value, high = msr_value >> 32;
 
-    asm volatile ( "wrmsr" : : "c" (low_id), "A" (low_value) );
+    asm volatile ( "wrmsr" : : "c"(low_id), "a"(low), "d"(high) );
 }
-
-#endif
