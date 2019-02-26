@@ -5,23 +5,11 @@ language: c
 addons:
   apt:
     packages:
-    - cppcheck
-    - sloccount
-    - sparse
-    - bc
     - build-essential
     - libsdl1.2-dev
     - python
-    - python-virtualenv
-    - swig
-    - libpython-dev
     - iasl
-    - rpm2cpio
-    - wget
-    - device-tree-compiler
     - lzop
-    - liblz4-tool
-    - libisl15
     - unifont
 
 script:
