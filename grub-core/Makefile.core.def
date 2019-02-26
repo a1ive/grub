@@ -785,10 +785,9 @@ module = {
 
 module = {
   name = setup_var;
-
   common = commands/efi/setup_var.c;
-
-  enable = efi;
+  enable = i386_efi;
+  enable = x86_64_efi;
 };
 
 module = {
@@ -1642,7 +1641,7 @@ module = {
   common = gfxmenu/gui_util.c;
   common = gfxmenu/gui_string_util.c;
   common = gfxmenu/animation/engine_core.c;
-  common = gfxmenu/animation/engine_sound.c;
+  x86 = gfxmenu/animation/engine_sound.c;
 };
 
 module = {

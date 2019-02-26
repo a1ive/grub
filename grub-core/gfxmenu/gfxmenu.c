@@ -37,7 +37,10 @@
 #include <grub/gfxmenu_view.h>
 #include <grub/time.h>
 #include <grub/i18n.h>
+
+#if defined (__i386__) || defined (__x86_64__)
 #include <grub/engine_sound.h>
+#endif
 
 GRUB_MOD_LICENSE ("GPLv3+");
 
@@ -131,6 +134,7 @@ grub_gfxmenu_try (int entry, grub_menu_t menu, int nested)
   return GRUB_ERR_NONE;
 }
 
+#if defined (__i386__) || defined (__x86_64__)
 static sound_class_t cached_sound;
 
 static void
@@ -164,6 +168,7 @@ ready_to_hear (void)
 
   return GRUB_ERR_NONE;
 }
+#endif
 
 GRUB_MOD_INIT (gfxmenu)
 {
@@ -177,7 +182,9 @@ GRUB_MOD_INIT (gfxmenu)
       }
 
   grub_gfxmenu_try_hook = grub_gfxmenu_try;
+#if defined (__i386__) || defined (__x86_64__)
   engine_need_sound = ready_to_hear;
+#endif
 }
 
 GRUB_MOD_FINI (gfxmenu)
@@ -185,6 +192,8 @@ GRUB_MOD_FINI (gfxmenu)
   grub_gfxmenu_view_destroy (cached_view);
   grub_gfxmenu_try_hook = NULL;
   
+#if defined (__i386__) || defined (__x86_64__)
   engine_sound_destroy (cached_sound);
   engine_need_sound = NULL;
+#endif
 }
