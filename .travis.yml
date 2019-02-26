@@ -1,3 +1,10 @@
+# SPDX-License-Identifier: GPL-3.0+
+# Originally Copyright Roger Meier <r.meier@siemens.com>
+# Adapted for GRUB by Alexander Graf <agraf@suse.de>
+#
+# Build GRUB on Travis CI - https://www.travis-ci.org/
+#
+
 dist: xenial
 
 language: c
@@ -12,26 +19,78 @@ addons:
     - lzop
     - unifont
 
+before_script:
+  # Install necessary toolchains based on $CROSS_TARGETS variable.
+  - mkdir /tmp/cross
+  # These give us binaries like /tmp/cross/gcc-8.1.0-nolibc/ia64-linux/bin/ia64-linux-gcc
+  - for i in $CROSS_TARGETS; do
+        ( cd /tmp/cross; wget -t 3 -O - https://mirrors.kernel.org/pub/tools/crosstool/files/bin/x86_64/8.1.0/x86_64-gcc-8.1.0-nolibc-$i.tar.xz | tar xJ );
+    done
+
 script:
+  # Comments must be outside the command strings below, or the Travis parser
+  # will get confused.
   - ./autogen.sh
 
-  - plat=${GRUB_TARGET#*-};
-    arch=${GRUB_TARGET%-*};
-    echo "Building $GRUB_TARGET";
-    
-  - ./configure --target=$arch --with-platform=$plat --prefix=/tmp/grub
-  - make
-  - make install
-  - make clean
+  # Build all selected GRUB targets.
+  - for target in $GRUB_TARGETS; do
+      plat=${target#*-};
+      arch=${target%-*};
+      [ "$arch" = "arm64" ] && arch=aarch64-linux;
+      [ "$arch" = "arm" ] && arch=arm-linux-gnueabi;
+      [ "$arch" = "ia64" ] && arch=ia64-linux;
+      [ "$arch" = "mipsel" ] && arch=mips64-linux;
+      [ "$arch" = "powerpc" ] && arch=powerpc64-linux;
+      [ "$arch" = "riscv32" ] && arch=riscv32-linux;
+      [ "$arch" = "riscv64" ] && arch=riscv64-linux;
+      [ "$arch" = "sparc64" ] && arch=sparc64-linux;
+      echo "Building $target";
+      mkdir obj-$target;
+      JOBS=`getconf _NPROCESSORS_ONLN 2> /dev/null || echo 1`;
+      [ "$JOBS" == 1 ] || JOBS=$(($JOBS + 1));
+      cd obj-$target && pwd && echo "ls ../.." && ls -al ../.. && echo "ls .." && ls -al ../ && echo "ls ." && ls -al ./;
+  #   cd obj-$target && ls ../ && ../configure --target=$arch --with-platform=$plat --prefix=/tmp/grub && make -j$JOBS && make -j$JOBS install;
+    done
 
 matrix:
   include:
-    - name: "x86_64-efi"
+  # Each env setting here is a dedicated build.
+    - name: "x86_64"
       env:
-        - GRUB_TARGET="x86_64-efi"
-    - name: "i386-efi"
+        - GRUB_TARGETS="x86_64-efi x86_64-xen"
+    - name: "i386"
       env:
-        - GRUB_TARGET="i386-efi"
-    - name: "i386-pc"
+        - GRUB_TARGETS="i386-coreboot i386-efi i386-ieee1275 i386-multiboot i386-pc i386-qemu i386-xen i386-xen_pvh"
+  # - name: "powerpc"
+  #   env:
+  #     - GRUB_TARGETS="powerpc-ieee1275"
+  #     - CROSS_TARGETS="powerpc64-linux"
+  # - name: "sparc64"
+  #   env:
+  #     - GRUB_TARGETS="sparc64-ieee1275"
+  #     - CROSS_TARGETS="sparc64-linux"
+  # - name: "ia64"
+  #   env:
+  #     - GRUB_TARGETS="ia64-efi"
+  #     - CROSS_TARGETS="ia64-linux"
+  # - name: "mips"
+  #   env:
+  #     - GRUB_TARGETS="mips-arc mipsel-arc mipsel-qemu_mips mips-qemu_mips"
+  #     - CROSS_TARGETS="mips64-linux"
+    - name: "arm"
       env:
-        - GRUB_TARGET="i386-pc"
+        - GRUB_TARGETS="arm-coreboot arm-efi arm-uboot"
+        - CROSS_TARGETS="arm-linux-gnueabi"
+    - name: "arm64"
+      env:
+        - GRUB_TARGETS="arm64-efi"
+        - CROSS_TARGETS="aarch64-linux"
+    - name: "riscv32"
+      env:
+        - GRUB_TARGETS="riscv32-efi"
+        - CROSS_TARGETS="riscv32-linux"
+    - name: "riscv64"
+      env:
+        - GRUB_TARGETS="riscv64-efi"
+        - CROSS_TARGETS="riscv64-linux"
+
