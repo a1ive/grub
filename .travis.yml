@@ -48,8 +48,8 @@ script:
       mkdir obj-$target;
       JOBS=`getconf _NPROCESSORS_ONLN 2> /dev/null || echo 1`;
       [ "$JOBS" == 1 ] || JOBS=$(($JOBS + 1));
-      cd obj-$target && pwd && echo "ls ../.." && ls -al ../.. && echo "ls .." && ls -al ../ && echo "ls ." && ls -al ./;
-  #   cd obj-$target && ls ../ && ../configure --target=$arch --with-platform=$plat --prefix=/tmp/grub && make -j$JOBS && make -j$JOBS install;
+      ./configure --target=$arch --with-platform=$plat --prefix=/tmp/grub;
+      make -j$JOBS && make -j$JOBS install && make clean;
     done
 
 matrix:
@@ -57,10 +57,12 @@ matrix:
   # Each env setting here is a dedicated build.
     - name: "x86_64"
       env:
-        - GRUB_TARGETS="x86_64-efi x86_64-xen"
+       - GRUB_TARGETS="x86_64-efi"
+  #    - GRUB_TARGETS="x86_64-efi x86_64-xen"
     - name: "i386"
       env:
-        - GRUB_TARGETS="i386-coreboot i386-efi i386-ieee1275 i386-multiboot i386-pc i386-qemu i386-xen i386-xen_pvh"
+       - GRUB_TARGETS="i386-coreboot i386-efi i386-pc"
+  #    - GRUB_TARGETS="i386-coreboot i386-efi i386-ieee1275 i386-multiboot i386-pc i386-qemu i386-xen i386-xen_pvh"
   # - name: "powerpc"
   #   env:
   #     - GRUB_TARGETS="powerpc-ieee1275"
@@ -77,10 +79,10 @@ matrix:
   #   env:
   #     - GRUB_TARGETS="mips-arc mipsel-arc mipsel-qemu_mips mips-qemu_mips"
   #     - CROSS_TARGETS="mips64-linux"
-    - name: "arm"
-      env:
-        - GRUB_TARGETS="arm-coreboot arm-efi arm-uboot"
-        - CROSS_TARGETS="arm-linux-gnueabi"
+  # - name: "arm"
+  #   env:
+  #     - GRUB_TARGETS="arm-coreboot arm-efi arm-uboot"
+  #     - CROSS_TARGETS="arm-linux-gnueabi"
     - name: "arm64"
       env:
         - GRUB_TARGETS="arm64-efi"
