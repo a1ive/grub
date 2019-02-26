@@ -48,8 +48,7 @@ script:
       mkdir obj-$target;
       JOBS=`getconf _NPROCESSORS_ONLN 2> /dev/null || echo 1`;
       [ "$JOBS" == 1 ] || JOBS=$(($JOBS + 1));
-      ./configure --target=$arch --with-platform=$plat --prefix=/tmp/grub;
-      make -j$JOBS && make -j$JOBS install && make clean;
+      ( cd obj-$target && ../configure --target=$arch --with-platform=$plat --prefix=/tmp/grub && make -j$JOBS && make -j$JOBS install ) &> log || ( cat log; false );
     done
 
 matrix:
@@ -83,16 +82,15 @@ matrix:
   #   env:
   #     - GRUB_TARGETS="arm-coreboot arm-efi arm-uboot"
   #     - CROSS_TARGETS="arm-linux-gnueabi"
-    - name: "arm64"
-      env:
-        - GRUB_TARGETS="arm64-efi"
-        - CROSS_TARGETS="aarch64-linux"
-    - name: "riscv32"
-      env:
-        - GRUB_TARGETS="riscv32-efi"
-        - CROSS_TARGETS="riscv32-linux"
-    - name: "riscv64"
-      env:
-        - GRUB_TARGETS="riscv64-efi"
-        - CROSS_TARGETS="riscv64-linux"
-
+  # - name: "arm64"
+  #   env:
+  #     - GRUB_TARGETS="arm64-efi"
+  #     - CROSS_TARGETS="aarch64-linux"
+  # - name: "riscv32"
+  #   env:
+  #     - GRUB_TARGETS="riscv32-efi"
+  #     - CROSS_TARGETS="riscv32-linux"
+  # - name: "riscv64"
+  #   env:
+  #     - GRUB_TARGETS="riscv64-efi"
+  #     - CROSS_TARGETS="riscv64-linux"
