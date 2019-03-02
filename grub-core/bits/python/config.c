@@ -97,7 +97,7 @@ extern void init_struct(void);
 extern void initunicodedata(void);
 extern void init_weakref(void);
 extern void initzipimport(void);
-extern void initpyexpat(void);
+//extern void initpyexpat(void);
 
 struct _inittab _PyImport_Inittab[] = {
 
