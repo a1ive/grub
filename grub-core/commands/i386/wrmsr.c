@@ -35,13 +35,27 @@ static grub_err_t
 grub_cmd_msr_write (grub_command_t cmd __attribute__ ((unused)), int argc, char **argv)
 {
     grub_uint64_t addr, value;
+    char *ptr;
 
     if (argc != 2)
         return grub_error (GRUB_ERR_BAD_ARGUMENT, N_("two arguments expected"));
 
-    addr = grub_strtoul (argv[0], 0, 0);
+    grub_errno = GRUB_ERR_NONE;
+    ptr = argv[0];
+    addr = grub_strtoul (ptr, &ptr, 0);
 
-    value = grub_strtoul (argv[1], 0, 0);
+    if (grub_errno != GRUB_ERR_NONE)
+        return grub_errno;
+    if (*ptr != '\0')
+        return grub_error (GRUB_ERR_BAD_ARGUMENT, N_("invalid argument"));
+
+    ptr = argv[1];
+    value = grub_strtoull (ptr, &ptr, 0);
+
+    if (grub_errno != GRUB_ERR_NONE)
+        return grub_errno;
+    if (*ptr != '\0')
+        return grub_error (GRUB_ERR_BAD_ARGUMENT, N_("invalid argument"));
 
     grub_msr_write (addr, value);
 

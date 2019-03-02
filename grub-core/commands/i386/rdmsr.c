@@ -42,12 +42,20 @@ static grub_err_t
 grub_cmd_msr_read (grub_extcmd_context_t ctxt, int argc, char **argv)
 {
     grub_uint64_t addr, value;
+    char *ptr;
     char buf[sizeof("XXXXXXXX")];
 
     if (argc != 1)
         return grub_error (GRUB_ERR_BAD_ARGUMENT, N_("one argument expected"));
 
-    addr = grub_strtoul (argv[0], 0, 0);
+    grub_errno = GRUB_ERR_NONE;
+    ptr = argv[0];
+    addr = grub_strtoul (ptr, &ptr, 0);
+
+    if (grub_errno != GRUB_ERR_NONE)
+        return grub_errno;
+    if (*ptr != '\0')
+        return grub_error (GRUB_ERR_BAD_ARGUMENT, N_("invalid argument"));
 
     value = grub_msr_read (addr);
 
