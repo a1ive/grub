@@ -76,6 +76,38 @@ static grub_err_t grub_cmd_py(grub_command_t cmd, int argc, char **args)
         PyRun_SimpleString(args[0]);
     return GRUB_ERR_NONE;
 }
+
+static grub_err_t grub_cmd_pyrun(grub_command_t cmd __attribute__ ((unused)), int argc, char **args)
+{
+    char *filename = args[0];
+    grub_file_t file;
+    FILE* fp = NULL;
+    PyCompilerFlags cf;
+    int exists;
+
+    if (argc != 1)
+      return grub_error (GRUB_ERR_BAD_ARGUMENT, N_("filename expected"));
+    file = grub_file_open (args[0], GRUB_FILE_TYPE_CONFIG);
+    if (! file)
+      return grub_errno;
+
+    exists = 1;
+    Py_BEGIN_ALLOW_THREADS
+    fp = fopen(filename, "r" PY_STDIOTEXTMODE);
+    Py_END_ALLOW_THREADS
+    if (fp == NULL) {
+        exists = 0;
+    }
+
+    if (!exists) {
+        PyErr_SetFromErrnoWithFilename(PyExc_IOError, filename);
+        return grub_errno;
+    }
+    
+    PyRun_AnyFile(fp, filename);
+    return GRUB_ERR_NONE;
+}
+
 #if 0
 static grub_err_t grub_cmd_python(grub_command_t cmd, int argc, char **args)
 {
@@ -203,6 +235,7 @@ GRUB_MOD_INIT(python)
     Py_InspectFlag = 1;
     Py_Initialize();
     //cmd_py = grub_register_command("python", grub_cmd_python, "\"Python interpreter\"", "Start the standard Python interpreter.");
+    cmd_py = grub_register_command("pyrun", grub_cmd_pyrun, "\"Python script\"", "Run Python scripts.");
     cmd_py = grub_register_command("py", grub_cmd_py, "\"Python program\"", "Evaluate Python given on the command line.");
     cmd_py_options = grub_register_extcmd("py_options", grub_cmd_py_options, 0,
                                           "[-v NUM]",
