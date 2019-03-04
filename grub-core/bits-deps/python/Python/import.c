@@ -129,7 +129,7 @@ static int isdir(char *path) {
 #else
 #ifdef HAVE_STAT
 static int isdir(char *path) {
-#ifndef GRUB_MACHINE_COREBOOT
+#if 0
     struct stat statbuf;
     return stat(path, &statbuf) == 0 && S_ISDIR(statbuf.st_mode);
 #else
