@@ -18,6 +18,7 @@ addons:
     - iasl
     - lzop
     - unifont
+    - autopoint
 
 before_script:
   # Install necessary toolchains based on $CROSS_TARGETS variable.
@@ -30,7 +31,7 @@ before_script:
 script:
   # Comments must be outside the command strings below, or the Travis parser
   # will get confused.
-  - ./autogen.sh
+  - ./bootstrap
 
   # Build all selected GRUB targets.
   - for target in $GRUB_TARGETS; do
