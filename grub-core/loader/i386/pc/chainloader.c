@@ -47,6 +47,7 @@ static grub_dl_t my_mod;
 static int boot_drive;
 static grub_addr_t boot_part_addr;
 static struct grub_relocator *rel;
+static grub_uint16_t mem_addr;
 
 typedef enum
   {
@@ -66,8 +67,8 @@ grub_chainloader_boot (void)
     .gs = 0,
     .ss = 0,
     .cs = 0,
-    .sp = GRUB_MEMORY_MACHINE_BOOT_LOADER_ADDR,
-    .ip = GRUB_MEMORY_MACHINE_BOOT_LOADER_ADDR,
+    .sp = mem_addr,
+    .ip = mem_addr,
     .a20 = 0
   };
   grub_video_set_mode ("text", 0, 0);
@@ -157,7 +158,7 @@ grub_chainloader_patch_bpb (void *bs, grub_device_t dev, grub_uint8_t dl)
 }
 
 static void
-grub_chainloader_cmd (const char *filename, grub_chainloader_flags_t flags)
+grub_chainloader_cmd (const char *filename, grub_chainloader_flags_t flags, grub_uint16_t addr)
 {
   grub_file_t file = 0;
   grub_uint16_t signature;
@@ -171,6 +172,8 @@ grub_chainloader_cmd (const char *filename, grub_chainloader_flags_t flags)
     goto fail;
 
   grub_dl_ref (my_mod);
+  
+  mem_addr = addr;
 
   file = grub_file_open (filename, GRUB_FILE_TYPE_PCCHAINLOADER
 			 | GRUB_FILE_TYPE_NO_DECOMPRESS);
@@ -266,6 +269,8 @@ grub_cmd_chainloader (grub_command_t cmd __attribute__ ((unused)),
 		      int argc, char *argv[])
 {
   grub_chainloader_flags_t flags = 0;
+  grub_uint16_t addr;
+  char *endptr;
 
   while (argc > 0)
     {
@@ -289,7 +294,12 @@ grub_cmd_chainloader (grub_command_t cmd __attribute__ ((unused)),
   if (argc == 0)
     return grub_error (GRUB_ERR_BAD_ARGUMENT, N_("filename expected"));
 
-  grub_chainloader_cmd (argv[0], flags);
+  if (argc == 2)
+    addr = grub_strtoul(argv[1], &endptr, 0);
+  else
+    addr = GRUB_MEMORY_MACHINE_BOOT_LOADER_ADDR;
+
+  grub_chainloader_cmd (argv[0], flags, addr);
 
   return grub_errno;
 }
@@ -299,7 +309,7 @@ static grub_command_t cmd;
 GRUB_MOD_INIT(chainloader)
 {
   cmd = grub_register_command ("chainloader", grub_cmd_chainloader,
-			       N_("[--force|--bpb] FILE"),
+			       N_("[--force|--bpb] FILE [ADDR]"),
 			       N_("Load another boot loader."));
   my_mod = mod;
 }
