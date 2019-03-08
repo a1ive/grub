@@ -3023,18 +3023,12 @@ module = {
   name = rdmsr;
   common = commands/i386/rdmsr.c;
   enable = x86;
-  enable = i386_xen_pvh;
-  enable = i386_xen;
-  enable = x86_64_xen;
 };
 
 module = {
   name = wrmsr;
   common = commands/i386/wrmsr.c;
   enable = x86;
-  enable = i386_xen_pvh;
-  enable = i386_xen;
-  enable = x86_64_xen;
 };
 
 module = {

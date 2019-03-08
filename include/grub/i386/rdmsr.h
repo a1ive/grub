@@ -16,15 +16,19 @@
  *  along with GRUB.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef GRUB_CPU_MSR_READ_HEADER
-#define GRUB_CPU_MSR_READ_HEADER 1
-#endif
+#ifndef GRUB_RDMSR_H
+#define GRUB_RDMSR_H 1
 
-extern __inline grub_uint64_t grub_msr_read (grub_uint64_t msr_id)
+/* TODO: Add a general protection exception handler.
+         Accessing a reserved or unimplemented MSR address results in a GP#. */
+
+extern __inline grub_uint64_t grub_msr_read (grub_uint32_t msr_id)
 {
-    grub_uint32_t low_id = msr_id, low, high;
+    grub_uint32_t low, high;
 
-    asm volatile ( "rdmsr"  : "=a"(low), "=d"(high) : "c"(low_id) );
+    asm volatile ( "rdmsr"  : "=a"(low), "=d"(high) : "c"(msr_id) );
 
     return ((grub_uint64_t)high << 32) | low;
 }
+
+#endif

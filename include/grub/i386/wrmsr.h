@@ -16,13 +16,17 @@
  *  along with GRUB.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef GRUB_CPU_MSR_WRITE_HEADER
-#define GRUB_CPU_MSR_WRITE_HEADER 1
-#endif
+#ifndef GRUB_WRMSR_H
+#define GRUB_WRMSR_H 1
 
-extern __inline void grub_msr_write(grub_uint64_t msr_id, grub_uint64_t msr_value)
+/* TODO: Add a general protection exception handler.
+         Accessing a reserved or unimplemented MSR address results in a GP#. */
+
+extern __inline void grub_msr_write(grub_uint32_t msr_id, grub_uint64_t msr_value)
 {
-    grub_uint32_t low_id = msr_id, low = msr_value, high = msr_value >> 32;
+    grub_uint32_t low = msr_value, high = msr_value >> 32;
 
-    asm volatile ( "wrmsr" : : "c"(low_id), "a"(low), "d"(high) );
+    asm volatile ( "wrmsr" : : "c"(msr_id), "a"(low), "d"(high) );
 }
+
+#endif
