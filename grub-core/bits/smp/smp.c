@@ -115,3 +115,11 @@ void smp_sleep(U32 microseconds)
 {
     smp_sleep_with_memory(global_working_memory, microseconds);
 }
+
+GRUB_MOD_INIT(smp)
+{
+}
+
+GRUB_MOD_FINI(smp)
+{
+}

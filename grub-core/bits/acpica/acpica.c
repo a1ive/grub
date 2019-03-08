@@ -42,6 +42,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "acpica.h"
 
 GRUB_MOD_LICENSE("GPLv3+");
+GRUB_MOD_DUAL_LICENSE("3-clause BSD");
 
 ACPI_MODULE_NAME("grub2-acpica")
 
@@ -170,4 +171,20 @@ asmlinkage void acpica_terminate(void)
     acpica_early_init_state = 0;
     acpica_init_state = 0;
     acpica_cpus_initialized = false;
+}
+
+GRUB_MOD_INIT(acpica)
+{
+    // Bit field that enables/disables debug output from entire subcomponents within the ACPICA subsystem.
+    // AcpiDbgLevel = 0;
+
+    // Bit field that enables/disables the various debug output levels
+    // AcpiDbgLayer = 0;
+
+    dprintf("acpica", "ACPI_CA_VERSION = %x\n", ACPI_CA_VERSION);
+}
+
+GRUB_MOD_FINI(acpica)
+{
+    AcpiTerminate();
 }
