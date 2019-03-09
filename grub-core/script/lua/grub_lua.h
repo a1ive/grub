@@ -37,7 +37,7 @@
 #define strtoul		grub_strtoul
 #define strtod(s,e)	grub_strtoul(s,e,0)
 
-#define exit(a)		grub_exit()
+#define exit(a)		grub_exit(a)
 #define jmp_buf		grub_jmp_buf
 #define setjmp		grub_setjmp
 #define longjmp		grub_longjmp
