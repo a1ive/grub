@@ -75,14 +75,14 @@ incr_decr(operation op, int argc, char **args)
 }
 
 static grub_err_t
-grub_cmd_incr(struct grub_command *cmd UNUSED,
+grub_cmd_incr(struct grub_command *cmd __attribute__ ((unused)),
               int argc, char **args)
 {
   return incr_decr(INCREMENT, argc, args);
 }
 
 static grub_err_t
-grub_cmd_decr(struct grub_command *cmd UNUSED,
+grub_cmd_decr(struct grub_command *cmd __attribute__ ((unused)),
               int argc, char **args)
 {
   return incr_decr(DECREMENT, argc, args);
