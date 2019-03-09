@@ -1190,7 +1190,7 @@ grub_abort (void)
       grub_getkey ();
     }
 
-  grub_exit (1);
+  grub_exit ();
 }
 
 void

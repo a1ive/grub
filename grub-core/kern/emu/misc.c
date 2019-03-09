@@ -137,10 +137,9 @@ xasprintf (const char *fmt, ...)
 
 #if !defined (GRUB_MACHINE_EMU) || defined (GRUB_UTIL)
 void
-__attribute__ ((noreturn))
-grub_exit (int rc)
+grub_exit (void)
 {
-  exit (rc < 0 ? 1 : rc);
+  exit (1);
 }
 #endif
 
