@@ -126,7 +126,7 @@ static const IDTR real_mode_idtr = { .limit = 0x3ff, .base = 0 };
 static U64 get_cr3(void)
 {
     U64 ret;
-    __asm__ __volatile__ ("mov %%cr3, %[ret]" : [ret] "=r" (ret));
+    asm volatile ("mov %%cr3, %[ret]" : [ret] "=r" (ret));
     return ret;
 }
 #endif
@@ -147,18 +147,18 @@ static void InitSipiCode(void *output_address, void *function, void *param)
 
 static void get_idtr(IDTR *idt)
 {
-    __asm__ __volatile__ ("sidt %[idt]" : [idt] "=m" (*idt));
+    asm volatile ("sidt %[idt]" : [idt] "=m" (*idt));
 }
 
 static void set_idtr(const IDTR *idt)
 {
-    __asm__ __volatile__ ("lidt %[idt]" : : [idt] "m" (*idt));
+    asm volatile ("lidt %[idt]" : : [idt] "m" (*idt));
 }
 
 static U16 my_cs(void)
 {
     U16 ret;
-    __asm__ __volatile__ ("mov %%cs, %[ret]" : [ret] "=g" (ret));
+    asm volatile ("mov %%cs, %[ret]" : [ret] "=g" (ret));
     return ret;
 }
 
@@ -205,29 +205,29 @@ static void set_protected_mode_exception_handler(unsigned gate_number, void *han
 
 void cpuid32(U32 func, U32 *eax, U32 *ebx, U32 *ecx, U32 *edx)
 {
-    __asm__ __volatile__ ("cpuid" : "=a" (*eax), "=b" (*ebx), "=c" (*ecx), "=d" (*edx) : "0" (func));
+    asm volatile ("cpuid" : "=a" (*eax), "=b" (*ebx), "=c" (*ecx), "=d" (*edx) : "0" (func));
 }
 
 void cpuid32_indexed(U32 func, U32 index, U32 *eax, U32 *ebx, U32 *ecx, U32 *edx)
 {
-    __asm__ __volatile__ ("cpuid" : "=a" (*eax), "=b" (*ebx), "=c" (*ecx), "=d" (*edx) : "0" (func), "2" (index));
+    asm volatile ("cpuid" : "=a" (*eax), "=b" (*ebx), "=c" (*ecx), "=d" (*edx) : "0" (func), "2" (index));
 }
 
 static inline U8 input_u8(U16 port)
 {
     U8 ret;
-    __asm__ __volatile__ ("inb %[port], %[ret]" : [ret] "=a" (ret) : [port] "Nd" (port));
+    asm volatile ("inb %[port], %[ret]" : [ret] "=a" (ret) : [port] "Nd" (port));
     return ret;
 }
 
 static inline void output_u8(U16 port, U8 val)
 {
-    __asm__ __volatile__ ("outb %[val], %[port]" : : [val] "a" (val), [port] "Nd" (port));
+    asm volatile ("outb %[val], %[port]" : : [val] "a" (val), [port] "Nd" (port));
 }
 
 static void rdmsr32(U32 msr, U32 *lo_data_addr, U32 *hi_data_addr, U32 *status)
 {
-    __asm__ __volatile__ (
+    asm volatile (
         "jmp 0f\n"
         ".long 0x58475046 # 'XGPF'\n"
         ".long 1f - 0f # offset to trap to\n"
@@ -253,13 +253,13 @@ asmlinkage U64 rdtsc64(void)
 {
     U32 lo_data, hi_data;
 
-    __asm__ __volatile__ ("rdtsc" : "=a" (lo_data), "=d" (hi_data));
+    asm volatile ("rdtsc" : "=a" (lo_data), "=d" (hi_data));
     return ((U64) hi_data << 32) + lo_data;
 }
 
 static void wrmsr32(U32 msr, U32 lo_data, U32 hi_data, U32 *status)
 {
-    __asm__ __volatile__ (
+    asm volatile (
         "jmp 0f\n"
         ".long 0x58475046 # 'XGPF'\n"
         ".long 1f - 0f # offset to trap to\n"
@@ -281,7 +281,7 @@ void wrmsr64(U32 msr, U64 data, U32 * status)
 #define MAKE_CR(n) \
 void read_cr ## n(unsigned long *data, U32 *status) \
 { \
-    __asm__ __volatile__ ( \
+    asm volatile ( \
         "jmp 0f\n" \
         ".long 0x58475046 # 'XGPF'\n" \
         ".long 1f - 0f # offset to trap to\n" \
@@ -296,7 +296,7 @@ void read_cr ## n(unsigned long *data, U32 *status) \
 } \
 void write_cr ## n(unsigned long data, U32 *status) \
 { \
-    __asm__ __volatile__ ( \
+    asm volatile ( \
         "jmp 0f\n" \
         ".long 0x58475046 # 'XGPF'\n" \
         ".long 1f - 0f # offset to trap to\n" \
@@ -320,7 +320,7 @@ MAKE_CR(8)
 
 static void drop_ap_lock(void *output_addr)
 {
-    __asm__ __volatile__ (
+    asm volatile (
         "lock incl %[asleep]\n"
         "xorl %%eax, %%eax\n"
         "xchgl %%eax, %[block]\n"
@@ -577,7 +577,7 @@ static U32 apic_enabled(void)
 
 static inline void pause32(void)
 {
-    __asm__ __volatile__ ("pause");
+    asm volatile ("pause");
 }
 
 //-----------------------------------------------------------------------------
@@ -1165,12 +1165,12 @@ static void set_control_callback(void *param)
 
 static inline void disable_interrupts(void)
 {
-    __asm__ __volatile__ ("cli");
+    asm volatile ("cli");
 }
 
 static inline void enable_interrupts(void)
 {
-    __asm__ __volatile__ ("sti");
+    asm volatile ("sti");
 }
 
 void smp_sleep_with_memory(void *working_memory, U32 microseconds)

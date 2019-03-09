@@ -410,7 +410,7 @@ DECLINLINE(bool) ASMBitTest(const volatile void *pvBitmap, grub_uint32_t iBit)
 #ifdef __GNUC__
 	
 	union { bool f; grub_uint32_t u32; grub_uint8_t u8; } rc;
-    __asm__ __volatile__("btl %2, %1\n\t"
+    asm volatile("btl %2, %1\n\t"
                          "setc %b0\n\t"
                          "andl $1, %0\n\t"
                          : "=q" (rc.u32)

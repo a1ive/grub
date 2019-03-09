@@ -229,7 +229,7 @@ static grub_extcmd_t cmd_py_options;
 
 GRUB_MOD_INIT(python)
 {
-    __asm__ __volatile__ ("finit");
+    asm volatile ("finit");
     Py_DontWriteBytecodeFlag = 1;
     Py_NoSiteFlag = 1;
     Py_InspectFlag = 1;

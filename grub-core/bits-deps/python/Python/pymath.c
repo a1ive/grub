@@ -20,12 +20,12 @@ double _Py_force_double(double x)
 
 unsigned short _Py_get_387controlword(void) {
     unsigned short cw;
-    __asm__ __volatile__ ("fnstcw %0" : "=m" (cw));
+    asm volatile ("fnstcw %0" : "=m" (cw));
     return cw;
 }
 
 void _Py_set_387controlword(unsigned short cw) {
-    __asm__ __volatile__ ("fldcw %0" : : "m" (cw));
+    asm volatile ("fldcw %0" : : "m" (cw));
 }
 
 #endif

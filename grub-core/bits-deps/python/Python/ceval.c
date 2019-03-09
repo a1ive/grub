@@ -57,7 +57,7 @@ ppc_getcounter(uint64 *v)
 /* this is for linux/x86 (and probably any other GCC/x86 combo) */
 
 #define READ_TIMESTAMP(val) \
-     __asm__ __volatile__("rdtsc" : "=A" (val))
+     asm volatile("rdtsc" : "=A" (val))
 
 #elif defined(__x86_64__)
 
@@ -68,7 +68,7 @@ ppc_getcounter(uint64 *v)
 
 #define READ_TIMESTAMP(val) do {                        \
     unsigned int h, l;                                  \
-    __asm__ __volatile__("rdtsc" : "=a" (l), "=d" (h)); \
+    asm volatile("rdtsc" : "=a" (l), "=d" (h)); \
     (val) = ((uint64)l) | (((uint64)h) << 32);          \
     } while(0)
 
