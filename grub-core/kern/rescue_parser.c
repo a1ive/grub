@@ -63,6 +63,10 @@ grub_rescue_parse_line (char *line,
   if (*name == '\0')
     goto quit;
 
+  /* If this is a comment, restart.  */
+  if (*name == '#')
+    goto quit;
+
   cmd = grub_command_find (name);
   if (cmd)
     {
