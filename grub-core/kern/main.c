@@ -154,6 +154,9 @@ grub_set_prefix_and_root (void)
     {
       char *cmdpath;
 
+      grub_env_set ("cmddevice", fwdevice);
+      grub_env_export ("cmddevice");
+
       cmdpath = grub_xasprintf ("(%s)%s", fwdevice, fwpath ? : "");
       if (cmdpath)
 	{
