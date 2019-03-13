@@ -24,9 +24,9 @@
 #include <grub/env.h>
 #include <grub/command.h>
 #include <grub/extcmd.h>
-#include <grub/i386/wrmsr.h>
 #include <grub/i18n.h>
 #include <grub/i386/cpuid.h>
+#include <grub/i386/wrmsr.h>
 
 GRUB_MOD_LICENSE("GPLv3+");
 
@@ -51,7 +51,7 @@ grub_cmd_msr_write (grub_command_t cmd __attribute__ ((unused)), int argc, char 
 
     grub_cpuid (1, a, b, c, features);
 
-    if (! (features & (1 << 5)))
+    if (!(features & (1 << 5)))
         return grub_error (GRUB_ERR_BUG, N_("unsupported instruction"));
 
     if (argc != 2)
@@ -81,8 +81,7 @@ grub_cmd_msr_write (grub_command_t cmd __attribute__ ((unused)), int argc, char 
 
 GRUB_MOD_INIT(wrmsr)
 {
-    cmd_write = grub_register_command ("wrmsr", grub_cmd_msr_write,
-                                      N_("ADDR VALUE"),
+    cmd_write = grub_register_command ("wrmsr", grub_cmd_msr_write, N_("ADDR VALUE"),
                                       N_("Write a value to a CPU model specific register."));
 }
 

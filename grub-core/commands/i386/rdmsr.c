@@ -24,9 +24,9 @@
 #include <grub/env.h>
 #include <grub/command.h>
 #include <grub/extcmd.h>
-#include <grub/i386/rdmsr.h>
 #include <grub/i18n.h>
 #include <grub/i386/cpuid.h>
+#include <grub/i386/rdmsr.h>
 
 GRUB_MOD_LICENSE("GPLv3+");
 
@@ -59,7 +59,7 @@ grub_cmd_msr_read (grub_extcmd_context_t ctxt, int argc, char **argv)
 
     grub_cpuid (1, a, b, c, features);
 
-    if (! (features & (1 << 5)))
+    if (!(features & (1 << 5)))
         return grub_error (GRUB_ERR_BUG, N_("unsupported instruction"));
 
     if (argc != 1)
@@ -78,19 +78,18 @@ grub_cmd_msr_read (grub_extcmd_context_t ctxt, int argc, char **argv)
 
     if (ctxt->state[0].set)
     {
-        grub_snprintf (buf, sizeof(buf), "%llx", (long long unsigned) value);
+        grub_snprintf (buf, sizeof(buf), "%llx", (unsigned long long) value);
         grub_env_set (ctxt->state[0].arg, buf);
     }
     else
-        grub_printf ("0x%llx\n", (long long unsigned) value);
+        grub_printf ("0x%llx\n", (unsigned long long) value);
 
     return GRUB_ERR_NONE;
 }
 
 GRUB_MOD_INIT(rdmsr)
 {
-    cmd_read = grub_register_extcmd ("rdmsr", grub_cmd_msr_read, 0,
-                                    N_("ADDR"),
+    cmd_read = grub_register_extcmd ("rdmsr", grub_cmd_msr_read, 0, N_("ADDR"),
                                     N_("Read a CPU model specific register."),
                                     options);
 }
