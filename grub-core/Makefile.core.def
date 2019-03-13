@@ -904,6 +904,12 @@ module = {
 };
 
 module = {
+  name = getenv;
+  common = commands/efi/getenv.c;
+  enable = efi;
+};
+
+module = {
   name = gptsync;
   common = commands/gptsync.c;
 };
