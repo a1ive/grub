@@ -75,7 +75,7 @@ grub_gptprio_successful (struct grub_gpt_partentry *entry)
 
 static grub_err_t
 grub_find_next (const char *disk_name,
-		const grub_gpt_part_type_t *part_type,
+		const grub_gpt_part_guid_t *part_type,
 		char **part_name, char **part_guid)
 {
   struct grub_gpt_partentry *part, *part_found = NULL;
@@ -162,7 +162,7 @@ grub_cmd_next (grub_extcmd_context_t ctxt, int argc, char **args)
   char *p, *root = NULL, *part_name = NULL, *part_guid = NULL;
 
   /* TODO: Add a uuid parser and a command line flag for providing type.  */
-  grub_gpt_part_type_t part_type = GRUB_GPT_PARTITION_TYPE_USR_X86_64;
+  grub_gpt_part_guid_t part_type = GRUB_GPT_PARTITION_TYPE_USR_X86_64;
 
   if (!state[NEXT_SET_DEVICE].set || !state[NEXT_SET_UUID].set)
     {
