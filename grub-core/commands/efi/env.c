@@ -108,18 +108,18 @@ grub_efi_export_env(grub_command_t cmd __attribute__ ((unused)),
       grub_envblk_delete(envblk, argv[0]);
     }
 
-  grub_dprintf ("efienv", "envblk is %lu bytes:\n\"%s\"\n", envblk_s.size, envblk_s.buf);
+  grub_dprintf ("efienv", "envblk is %lu bytes:\n\"%s\"\n", (unsigned long) envblk_s.size, envblk_s.buf);
 
   grub_dprintf ("efienv", "removing GRUB_ENV\n");
   status = grub_efi_set_variable ("GRUB_ENV", &grub_env_guid, NULL, 0);
   if (status != GRUB_EFI_SUCCESS)
-    grub_dprintf ("efienv", "removal returned %ld\n", status);
+    grub_dprintf ("efienv", "removal returned %ld\n", (long) status);
 
   grub_dprintf ("efienv", "setting GRUB_ENV\n");
   status = grub_efi_set_variable ("GRUB_ENV", &grub_env_guid,
 				  envblk_s.buf, envblk_s.size);
   if (status != GRUB_EFI_SUCCESS)
-    grub_dprintf ("efienv", "setting GRUB_ENV returned %ld\n", status);
+    grub_dprintf ("efienv", "setting GRUB_ENV returned %ld\n", (long) status);
 
   return 0;
 }
