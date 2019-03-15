@@ -236,75 +236,9 @@ grub_cmd_setup_var (grub_command_t cmd,
 	return grub_errno;
 }
 
-static grub_err_t
-grub_cmd_lsefivar (grub_command_t cmd __attribute__ ((unused)),
-		   int argc __attribute__ ((unused)), char *argv[] __attribute__ ((unused)))
-{
-	grub_efi_status_t status;
-	grub_efi_guid_t guid;
-	grub_uint8_t tmp_data[MAX_VAR_DATA_SIZE];
-	grub_efi_uintn_t setup_var_size = INSYDE_SETUP_VAR_SIZE;
-	grub_efi_uint32_t setup_var_attr = 0x7;
-
-	grub_efi_char16_t name[MAX_VARIABLE_SIZE/2];
-	grub_efi_uintn_t name_size;
-
-	name[0] = 0x0;
-	/* scan for Setup variable */
-	grub_printf("Listing EFI variables...\n");
-	do
-	{
-		name_size = MAX_VARIABLE_SIZE;
-		status = efi_call_3(grub_efi_system_table->runtime_services->get_next_variable_name,
-		&name_size,
-		name,
-		&guid);
-
-		if(status == GRUB_EFI_NOT_FOUND)
-		{ /* finished traversing VSS */
-			break;
-		}
-
-		if(status)
-		{
-			grub_printf("status: 0x%02x\n", (grub_uint32_t) status);
-		}
-		if(! status)
-		{
-			setup_var_size = 1;
-			status = efi_call_5(grub_efi_system_table->runtime_services->get_variable, 
-			name,
-			&guid,
-			&setup_var_attr,
-			&setup_var_size,
-			tmp_data);
-			if (status && status != GRUB_EFI_BUFFER_TOO_SMALL)
-			{
-			    grub_printf("error (0x%x) getting var size:\n  ", (grub_uint32_t)status);
-			    setup_var_size = 0;
-			}
-			status = 0;
-		
-			grub_printf("name size: %02u, var size: %06u (0x%06x), var guid: %08x-%04x-%04x - %02x-%02x-%02x-%02x-%02x-%02x-%02x-%02x, name: ",
-			(grub_uint32_t) name_size, (grub_uint32_t) setup_var_size, (grub_uint32_t) setup_var_size,
-			guid.data1,
-			guid.data2,
-			guid.data3,
-			guid.data4[0], guid.data4[1], guid.data4[2], guid.data4[3], guid.data4[4], guid.data4[5], guid.data4[6], guid.data4[7]
-			);
-			print_varname(name);
-			grub_printf("\n");
-		}
-	} while (! status);
-
-	return grub_errno;
-}
-
-
 static grub_command_t cmd_setup_var;
 static grub_command_t cmd_setup_var2;
 static grub_command_t cmd_setup_var_3;
-static grub_command_t cmd_setup_lsvar;
 
 GRUB_MOD_INIT(setup_var)
 {
@@ -317,9 +251,6 @@ GRUB_MOD_INIT(setup_var)
 	cmd_setup_var_3 = grub_register_command ("setup_var_3", grub_cmd_setup_var,
 					"setup_var_3 offset [setval]",
 					"Read/Write specific (byte) offset of setup variables ignoring error, use with great caution!!!");
-	cmd_setup_lsvar = grub_register_command ("lsefivar", grub_cmd_lsefivar,
-					"lsefivar",
-					"Lists all efi variables.");
 }
 
 GRUB_MOD_FINI(setup_var)
@@ -327,6 +258,6 @@ GRUB_MOD_FINI(setup_var)
 	grub_unregister_command(cmd_setup_var);
 	grub_unregister_command(cmd_setup_var2);
 	grub_unregister_command(cmd_setup_var_3);
-	grub_unregister_command(cmd_setup_lsvar);
+	
 }
 

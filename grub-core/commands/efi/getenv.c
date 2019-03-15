@@ -28,6 +28,10 @@
 #include <grub/mm.h>
 #include <grub/types.h>
 
+#define INSYDE_SETUP_VAR_SIZE		(0x2bc)
+#define MAX_VARIABLE_SIZE		(1024)
+#define MAX_VAR_DATA_SIZE		(65536)
+
 GRUB_MOD_LICENSE ("GPLv3+");
 
 static const struct grub_arg_option options_getenv[] = {
@@ -71,6 +75,15 @@ parse_efi_var_type (const char *type)
     return EFI_VAR_HEX;
 
   return EFI_VAR_INVALID;
+}
+
+static void print_varname(grub_efi_char16_t* str)
+{
+	while(*str != 0x0)
+	{
+		grub_printf("%c", (grub_uint8_t) *str);
+		str++;
+	}
 }
 
 static grub_err_t
@@ -202,7 +215,66 @@ done:
   return grub_errno;
 }
 
+static grub_err_t
+grub_cmd_lsefivar (grub_command_t cmd __attribute__ ((unused)),
+		   int argc __attribute__ ((unused)), char *argv[] __attribute__ ((unused)))
+{
+  grub_efi_status_t status;
+  grub_efi_guid_t guid;
+  grub_uint8_t tmp_data[MAX_VAR_DATA_SIZE];
+  grub_efi_uintn_t setup_var_size = INSYDE_SETUP_VAR_SIZE;
+  grub_efi_uint32_t setup_var_attr = 0x7;
+
+  grub_efi_char16_t name[MAX_VARIABLE_SIZE/2];
+  grub_efi_uintn_t name_size;
+
+  name[0] = 0x0;
+  /* scan for Setup variable */
+  grub_printf("NS varsize              var_guid               name\n");
+  do
+  {
+    name_size = MAX_VARIABLE_SIZE;
+    status = efi_call_3(grub_efi_system_table->runtime_services->get_next_variable_name,
+      &name_size, name, &guid);
+
+    if(status == GRUB_EFI_NOT_FOUND)
+    { /* finished traversing VSS */
+      break;
+    }
+
+    if(status)
+    {
+      grub_printf("status: 0x%02x\n", (grub_uint32_t) status);
+    }
+    if(! status)
+    {
+      setup_var_size = 1;
+      status = efi_call_5(grub_efi_system_table->runtime_services->get_variable, 
+        name, &guid, &setup_var_attr, &setup_var_size, tmp_data);
+      if (status && status != GRUB_EFI_BUFFER_TOO_SMALL)
+      {
+          grub_printf("error (0x%x) getting var size:\n  ", (grub_uint32_t)status);
+          setup_var_size = 0;
+      }
+      status = 0;
+    
+      grub_printf("%02u %06u  %08x-%04x-%04x-%02x%02x%02x%02x%02x%02x%02x%02x ",
+      (grub_uint32_t) name_size, (grub_uint32_t) setup_var_size,
+      guid.data1,
+      guid.data2,
+      guid.data3,
+      guid.data4[0], guid.data4[1], guid.data4[2], guid.data4[3], guid.data4[4], guid.data4[5], guid.data4[6], guid.data4[7]
+      );
+      print_varname(name);
+      grub_printf("\n");
+    }
+  } while (! status);
+
+  return grub_errno;
+}
+
 static grub_extcmd_t cmd_getenv;
+static grub_command_t cmd_lsefivar;
 
 GRUB_MOD_INIT(getenv)
 {
@@ -210,9 +282,13 @@ GRUB_MOD_INIT(getenv)
 				   N_("-e ENVVAR [-g GUID] [-t TYPE] SETVAR"),
 				   N_("Read a firmware environment variable"),
 				   options_getenv);
+  cmd_lsefivar = grub_register_command ("lsefivar", grub_cmd_lsefivar,
+					"lsefivar",
+					"Lists all efi variables.");
 }
 
 GRUB_MOD_FINI(getenv)
 {
   grub_unregister_extcmd (cmd_getenv);
+  grub_unregister_command(cmd_lsefivar);
 }
