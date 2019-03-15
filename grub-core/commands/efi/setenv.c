@@ -19,7 +19,6 @@
 
 #include <grub/efi/api.h>
 #include <grub/efi/efi.h>
-#include <grub/charset.h>
 #include <grub/dl.h>
 #include <grub/env.h>
 #include <grub/err.h>
@@ -29,15 +28,14 @@
 #include <grub/mm.h>
 #include <grub/types.h>
 
-#define INSYDE_SETUP_VAR_SIZE		(0x2bc)
 #define MAX_VARIABLE_SIZE		(1024)
 #define MAX_VAR_DATA_SIZE		(65536)
 
 GRUB_MOD_LICENSE ("GPLv3+");
 
-static const struct grub_arg_option options_getenv[] = {
+static const struct grub_arg_option options_setenv[] = {
   {"guid", 'g', GRUB_ARG_OPTION_OPTIONAL,
-   N_("GUID of environment variable to query"),
+   N_("GUID of environment variable"),
    N_("GUID"), ARG_TYPE_STRING},
   {"type", 't', GRUB_ARG_OPTION_OPTIONAL,
    N_("Parse EFI_VAR as specific type (hex, uint8, string). Default: hex."),
@@ -45,16 +43,15 @@ static const struct grub_arg_option options_getenv[] = {
   {0, 0, 0, 0, 0, 0}
 };
 
-enum options_getenv
+enum options_setenv
 {
-  GETENV_VAR_GUID,
-  GETENV_VAR_TYPE
+  SETENV_VAR_GUID,
+  SETENV_VAR_TYPE
 };
 
 enum efi_var_type
 {
   EFI_VAR_STRING = 0,
-  EFI_VAR_UINT8,
   EFI_VAR_HEX,
   EFI_VAR_INVALID = -1
 };
@@ -65,28 +62,50 @@ parse_efi_var_type (const char *type)
   if (!grub_strncmp (type, "string", sizeof("string")))
     return EFI_VAR_STRING;
 
-  if (!grub_strncmp (type, "uint8", sizeof("uint8")))
-    return EFI_VAR_UINT8;
-
   if (!grub_strncmp (type, "hex", sizeof("hex")))
     return EFI_VAR_HEX;
 
   return EFI_VAR_INVALID;
 }
 
+static int strtobyte(char *in, char *out) {
+  int len = (int)grub_strlen(in);
+  char *str = (char *)grub_malloc(len);
+  grub_memset(str, 0, len);
+  grub_memcpy(str, in, len);
+  for (int i = 0; i < len; i+=2)
+  {
+    if (str[i] >= 'a' && str[i] <= 'f') str[i] = str[i] & ~0x20;
+    if (str[i+1] >= 'a' && str[i] <= 'f') str[i+1] = str[i+1] & ~0x20;
+    if (str[i] >= 'A' && str[i] <= 'F')
+      out[i/2] = (str[i]-'A'+10)<<4;
+    else
+      out[i/2] = (str[i] & ~0x30)<<4;
+    if (str[i+1] >= 'A' && str[i+1] <= 'F')
+      out[i/2] |= (str[i+1]-'A'+10);
+    else
+      out[i/2] |= (str[i+1] & ~0x30);
+  }
+  grub_free(str);
+  return 0;
+}
+
+/*
+    setenv [-g GUID] [-t TYPE] VAR VALUE 
+*/
+
 static grub_err_t
-grub_cmd_getenv (grub_extcmd_context_t ctxt, int argc, char **args)
+grub_cmd_setenv (grub_extcmd_context_t ctxt, int argc, char **args)
 {
   struct grub_arg_list *state = ctxt->state;
-  char *envvar = NULL, *guid = NULL, *data = NULL, *setvar = NULL;
+  char *var = NULL, *guid = NULL, *data = NULL, *val = NULL;
   grub_size_t datasize = 0;
   grub_efi_guid_t efi_var_guid;
   enum efi_var_type efi_type = EFI_VAR_HEX;
   grub_efi_guid_t global = GRUB_EFI_GLOBAL_VARIABLE_GUID;
-  unsigned int i;
 
-  if (state[GETENV_VAR_TYPE].set)
-    efi_type = parse_efi_var_type (state[GETENV_VAR_TYPE].arg);
+  if (state[SETENV_VAR_TYPE].set)
+    efi_type = parse_efi_var_type (state[SETENV_VAR_TYPE].arg);
 
   if (efi_type == EFI_VAR_INVALID)
     return grub_error (GRUB_ERR_BAD_ARGUMENT, N_("invalid EFI variable type"));
@@ -97,11 +116,12 @@ grub_cmd_getenv (grub_extcmd_context_t ctxt, int argc, char **args)
       goto done;
     }
 
-  envvar = args[0];
+  var = args[0];
+  val = args[1];
   
-  if (state[GETENV_VAR_GUID].set)
+  if (state[SETENV_VAR_GUID].set)
     {
-      guid = state[GETENV_VAR_GUID].arg;
+      guid = state[SETENV_VAR_GUID].arg;
 
       if (grub_strlen(guid) != 36 ||
         guid[8] != '-' ||
@@ -138,7 +158,7 @@ grub_cmd_getenv (grub_extcmd_context_t ctxt, int argc, char **args)
   else
     efi_var_guid = global;
   
-  data = grub_efi_get_variable(envvar, &efi_var_guid, &datasize);
+  data = grub_efi_get_variable(var, &efi_var_guid, &datasize);
   
 
   if (!data || !datasize)
@@ -150,45 +170,33 @@ grub_cmd_getenv (grub_extcmd_context_t ctxt, int argc, char **args)
   switch (efi_type)
   {
     case EFI_VAR_STRING:
-      setvar = grub_malloc (datasize + 1);
-      if (!setvar)
+      datasize = grub_strlen(val) + 1;
+      data = grub_malloc (datasize);
+      if (!data)
         {
           grub_error (GRUB_ERR_OUT_OF_MEMORY, N_("out of memory"));
           break;
         }
-      grub_memcpy(setvar, data, datasize);
-      setvar[datasize] = '\0';
-      break;
-
-    case EFI_VAR_UINT8:
-      setvar = grub_malloc (4);
-      if (!setvar)
-        {
-          grub_error (GRUB_ERR_OUT_OF_MEMORY, N_("out of memory"));
-          break;
-        }
-      grub_snprintf (setvar, 4, "%u", *((grub_uint8_t *)data));
+      grub_memcpy(data, val, datasize - 1);
+      data[datasize-1] = '\0';
       break;
 
     case EFI_VAR_HEX:
-      setvar = grub_malloc (datasize * 2 + 1);
-      if (!setvar)
+      datasize = grub_strlen(val) / 2;
+      data = grub_malloc (datasize);
+      if (!data)
         {
           grub_error (GRUB_ERR_OUT_OF_MEMORY, N_("out of memory"));
           break;
         }
-      for (i = 0; i < datasize; i++)
-        grub_snprintf (setvar + (i * 2), 3, "%02x", ((grub_uint8_t *)data)[i]);
+      strtobyte (val, data);
       break;
 
     default:
       grub_error (GRUB_ERR_BUG, N_("should not happen (bug in module?)"));
   }
   
-  grub_env_set (args[1], setvar);
-  
-  if (setvar)
-    grub_free (setvar);
+  grub_efi_set_variable (var, &efi_var_guid, data, datasize);
 
   grub_errno = GRUB_ERR_NONE;
 
@@ -197,82 +205,17 @@ done:
   return grub_errno;
 }
 
-static grub_err_t
-grub_cmd_lsefienv (grub_command_t cmd __attribute__ ((unused)),
-		   int argc __attribute__ ((unused)), char *argv[] __attribute__ ((unused)))
+static grub_extcmd_t cmd_setenv;
+
+GRUB_MOD_INIT(setenv)
 {
-  grub_efi_status_t status;
-  grub_efi_guid_t guid;
-  grub_uint8_t tmp_data[MAX_VAR_DATA_SIZE];
-  grub_efi_uintn_t setup_var_size = INSYDE_SETUP_VAR_SIZE;
-  grub_efi_uint32_t setup_var_attr = 0x7;
-
-  grub_efi_char16_t name[MAX_VARIABLE_SIZE/2];
-  grub_efi_uintn_t name_size;
-  unsigned char name_str[MAX_VARIABLE_SIZE/2+1];
-
-  name[0] = 0x0;
-  /* scan for Setup variable */
-  grub_printf("NS varsize              var_guid                name\n");
-  do
-  {
-    name_size = MAX_VARIABLE_SIZE;
-    status = efi_call_3(grub_efi_system_table->runtime_services->get_next_variable_name,
-      &name_size, name, &guid);
-
-    if(status == GRUB_EFI_NOT_FOUND)
-    { /* finished traversing VSS */
-      break;
-    }
-
-    if(status)
-    {
-      grub_printf("status: 0x%02x\n", (grub_uint32_t) status);
-    }
-    if(! status)
-    {
-      setup_var_size = 1;
-      status = efi_call_5(grub_efi_system_table->runtime_services->get_variable, 
-        name, &guid, &setup_var_attr, &setup_var_size, tmp_data);
-      if (status && status != GRUB_EFI_BUFFER_TOO_SMALL)
-      {
-          grub_printf("error (0x%x) getting var size:\n  ", (grub_uint32_t)status);
-          setup_var_size = 0;
-      }
-      status = 0;
-      
-      grub_utf16_to_utf8 (name_str, name, MAX_VARIABLE_SIZE/2+1);
-    
-      grub_printf("%02u %06u  %08x-%04x-%04x-%02x%02x-%02x%02x%02x%02x%02x%02x %s\n",
-      (grub_uint32_t) name_size, (grub_uint32_t) setup_var_size,
-      guid.data1,
-      guid.data2,
-      guid.data3,
-      guid.data4[0], guid.data4[1], guid.data4[2], guid.data4[3], guid.data4[4], guid.data4[5], guid.data4[6], guid.data4[7], 
-      name_str
-      );
-    }
-  } while (! status);
-
-  return grub_errno;
+  cmd_setenv = grub_register_extcmd ("setenv", grub_cmd_setenv, 0,
+				   N_("[-g GUID] [-t TYPE] VAR VALUE"),
+				   N_("Set a firmware environment variable"),
+				   options_setenv);
 }
 
-static grub_extcmd_t cmd_getenv;
-static grub_command_t cmd_lsefienv;
-
-GRUB_MOD_INIT(getenv)
+GRUB_MOD_FINI(setenv)
 {
-  cmd_getenv = grub_register_extcmd ("getenv", grub_cmd_getenv, 0,
-				   N_("[-g GUID] [-t TYPE] ENVVAR SETVAR"),
-				   N_("Read a firmware environment variable"),
-				   options_getenv);
-  cmd_lsefienv = grub_register_command ("lsefienv", grub_cmd_lsefienv,
-					"lsefienv",
-					"Lists all efi variables.");
-}
-
-GRUB_MOD_FINI(getenv)
-{
-  grub_unregister_extcmd (cmd_getenv);
-  grub_unregister_command(cmd_lsefienv);
+  grub_unregister_extcmd (cmd_setenv);
 }

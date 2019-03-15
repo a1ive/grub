@@ -3101,3 +3101,9 @@ module = {
   cflags = '$(CFLAGS_POSIX)';
   cppflags = '$(CPPFLAGS_POSIX)';
 };
+
+module = {
+  name = setenv;
+  common = commands/efi/setenv.c;
+  enable = efi;
+};
