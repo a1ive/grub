@@ -35,10 +35,7 @@
 GRUB_MOD_LICENSE ("GPLv3+");
 
 static const struct grub_arg_option options_getenv[] = {
-  {"var-name", 'e', 0,
-   N_("Environment variable to query"),
-   N_("VARNAME"), ARG_TYPE_STRING},
-  {"var-guid", 'g', 0,
+  {"guid", 'g', GRUB_ARG_OPTION_OPTIONAL,
    N_("GUID of environment variable to query"),
    N_("GUID"), ARG_TYPE_STRING},
   {"type", 't', GRUB_ARG_OPTION_OPTIONAL,
@@ -49,7 +46,6 @@ static const struct grub_arg_option options_getenv[] = {
 
 enum options_getenv
 {
-  GETENV_VAR_NAME,
   GETENV_VAR_GUID,
   GETENV_VAR_TYPE
 };
@@ -102,20 +98,14 @@ grub_cmd_getenv (grub_extcmd_context_t ctxt, int argc, char **args)
 
   if (efi_type == EFI_VAR_INVALID)
     return grub_error (GRUB_ERR_BAD_ARGUMENT, N_("invalid EFI variable type"));
-    
-  if (!state[GETENV_VAR_NAME].set)
-    {
-      grub_error (GRUB_ERR_INVALID_COMMAND, N_("-e is required"));
-      goto done;
-    }
 
-  if (argc != 1)
+  if (argc != 2)
     {
       grub_error (GRUB_ERR_BAD_ARGUMENT, N_("unexpected arguments"));
       goto done;
     }
 
-  envvar = state[GETENV_VAR_NAME].arg;
+  envvar = args[0];
   
   if (state[GETENV_VAR_GUID].set)
     {
@@ -203,7 +193,7 @@ grub_cmd_getenv (grub_extcmd_context_t ctxt, int argc, char **args)
       grub_error (GRUB_ERR_BUG, N_("should not happen (bug in module?)"));
   }
   
-  grub_env_set (args[0], setvar);
+  grub_env_set (args[1], setvar);
   
   if (setvar)
     grub_free (setvar);
@@ -230,7 +220,7 @@ grub_cmd_lsefivar (grub_command_t cmd __attribute__ ((unused)),
 
   name[0] = 0x0;
   /* scan for Setup variable */
-  grub_printf("NS varsize              var_guid               name\n");
+  grub_printf("NS varsize              var_guid                name\n");
   do
   {
     name_size = MAX_VARIABLE_SIZE;
@@ -258,7 +248,7 @@ grub_cmd_lsefivar (grub_command_t cmd __attribute__ ((unused)),
       }
       status = 0;
     
-      grub_printf("%02u %06u  %08x-%04x-%04x-%02x%02x%02x%02x%02x%02x%02x%02x ",
+      grub_printf("%02u %06u  %08x-%04x-%04x-%02x%02x-%02x%02x%02x%02x%02x%02x ",
       (grub_uint32_t) name_size, (grub_uint32_t) setup_var_size,
       guid.data1,
       guid.data2,
@@ -279,7 +269,7 @@ static grub_command_t cmd_lsefivar;
 GRUB_MOD_INIT(getenv)
 {
   cmd_getenv = grub_register_extcmd ("getenv", grub_cmd_getenv, 0,
-				   N_("-e ENVVAR [-g GUID] [-t TYPE] SETVAR"),
+				   N_("[-g GUID] [-t TYPE] ENVVAR SETVAR"),
 				   N_("Read a firmware environment variable"),
 				   options_getenv);
   cmd_lsefivar = grub_register_command ("lsefivar", grub_cmd_lsefivar,
