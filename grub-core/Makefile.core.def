@@ -3107,3 +3107,9 @@ module = {
   common = commands/efi/setenv.c;
   enable = efi;
 };
+
+module = {
+  name = fwconfig;
+  common = commands/fwconfig.c;
+  enable = x86;
+};
