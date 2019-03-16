@@ -570,6 +570,27 @@ scan_str (const char *s1, const char *s2)
   return s1;
 }
 
+grub_size_t
+grub_strspn (const char *s, const char *accept)
+{
+  const char *p;
+  const char *a;
+  grub_size_t count = 0;
+
+  for (p = s; *p != '\0'; ++p)
+    {
+      for (a = accept; *a != '\0'; ++a)
+    if (*p == *a)
+      break;
+      if (*a == '\0')
+    return count;
+      else
+    ++count;
+    }
+
+  return count;
+}
+
 int
 grub_strcspn (const char *s1, const char *s2)
 {
@@ -577,6 +598,50 @@ grub_strcspn (const char *s1, const char *s2)
 
   r = scan_str (s1, s2);
   return r - s1;
+}
+
+char* grub_strtok(char *str, const char *delim)
+{
+  static char *nxt;
+  static int size;
+  int i;
+  if(str != NULL)
+  {
+    nxt = str;
+    size = grub_strlen(str);
+  }
+  else if(size > 0)
+  {
+    nxt++;
+    size--;
+    str = nxt;
+  }
+  else
+    str = NULL;
+
+  while(*nxt)
+  {
+    i = grub_strspn(nxt, delim);
+    while(i > 1)
+    {
+        *nxt = '\0';
+        nxt++;
+        size--;
+        i--;
+    }
+    if(1 == i)
+    {
+        *nxt = '\0';
+        if(size > 1)
+        {
+            nxt--;
+            size++;
+        }
+    }
+    nxt++;
+    size--;
+  }
+  return str;
 }
 
 char *
