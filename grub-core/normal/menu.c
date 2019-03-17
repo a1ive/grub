@@ -32,8 +32,11 @@
 #include <grub/script_sh.h>
 #include <grub/gfxterm.h>
 #include <grub/dl.h>
+
+#if defined (__i386__) || defined (__x86_64__)
 #include <grub/engine_sound.h>
 #include <grub/speaker.h>
+#endif
 
 /* Time to delay after displaying an error message about a default/fallback
    entry failing to boot.  */
@@ -433,6 +436,7 @@ menu_set_animation_state (int need_refresh)
     }
 }
 
+#if defined (__i386__) || defined (__x86_64__)
 /* Does the engine need sound?  */
 grub_err_t (*engine_need_sound) (void) = NULL;
 static struct engine_sound_player *players;
@@ -470,6 +474,7 @@ engine_register_player (struct engine_sound_player *player)
   player->next = players;
   players = player;
 }
+#endif
 
 static void
 menu_print_timeout (int timeout)
@@ -693,13 +698,18 @@ run_menu (grub_menu_t menu, int nested, int *auto_boot)
   /* Mark the beginning of the engine.  */
   int animation_open = 0;
   int egn_refresh = 0;
+  
+#if defined (__i386__) || defined (__x86_64__)
   int sound_open = 0;
   int cur_sound = ENGINE_START_SOUND;
+#endif
 
   /* Speed of engine.  */
   grub_uint64_t s1_time, s2_time;
   grub_uint64_t frame_speed = engine_get_speed (ENGINE_FRAME_SPEED);
+#if defined (__i386__) || defined (__x86_64__)
   grub_uint64_t sound_speed = engine_get_speed (ENGINE_SOUND_SPEED);
+#endif
 
   default_entry = get_entry_number (menu, "default");
 
@@ -805,6 +815,7 @@ run_menu (grub_menu_t menu, int nested, int *auto_boot)
   /* Initialize the sound engine.  */
   s2_time = grub_get_time_ms ();
 
+#if defined (__i386__) || defined (__x86_64__)
   if (!sound_open && sound_speed)
     {
       grub_err_t err;
@@ -815,7 +826,8 @@ run_menu (grub_menu_t menu, int nested, int *auto_boot)
 	  sound_open = 1;
 	}
     }
-
+#endif
+    
   while (1)
     {
       int c;
@@ -851,13 +863,15 @@ run_menu (grub_menu_t menu, int nested, int *auto_boot)
 	  menu_set_animation_state (egn_refresh);
 	}
 
+#if defined (__i386__) || defined (__x86_64__)
       /* Refresh the sound.  */
       if (sound_open && (cur_time - s2_time >= sound_speed))
 	{
 	  s2_time = cur_time;
 	  menu_refresh_sound_player (current_entry, cur_sound);
 	}
-
+#endif
+    
       c = grub_getkey_noblock ();
 
       /* Negative values are returned on error. */
@@ -870,28 +884,34 @@ run_menu (grub_menu_t menu, int nested, int *auto_boot)
 	      clear_timeout ();
 	    }
 
+#if defined (__i386__) || defined (__x86_64__)
       cur_sound = ENGINE_SELECT_SOUND;
+#endif
 	  switch (c)
 	    {
 	    case GRUB_TERM_KEY_HOME:
 	    case GRUB_TERM_CTRL | 'a':
 	      current_entry = 0;
 	      menu_set_chosen_entry (current_entry);
+#if defined (__i386__) || defined (__x86_64__)
           if (sound_open)
 		{
 		  menu_refresh_sound_player (current_entry, cur_sound);
 		}
+#endif
 	      break;
 
 	    case GRUB_TERM_KEY_END:
 	    case GRUB_TERM_CTRL | 'e':
 	      current_entry = menu->size - 1;
 	      menu_set_chosen_entry (current_entry);
+#if defined (__i386__) || defined (__x86_64__)
           if (sound_open)
 		{
 		  menu_refresh_sound_player (current_entry, cur_sound);
 		}
-	      break;
+#endif
+          break;
 
 	    case GRUB_TERM_KEY_UP:
         case GRUB_TERM_KEY_LEFT:
@@ -900,11 +920,13 @@ run_menu (grub_menu_t menu, int nested, int *auto_boot)
 	      if (current_entry > 0)
 		current_entry--;
 	      menu_set_chosen_entry (current_entry);
+#if defined (__i386__) || defined (__x86_64__)
           if (sound_open)
 		{
 		  menu_refresh_sound_player (current_entry, cur_sound);
 		}
-	      break;
+#endif
+          break;
 
 	    case GRUB_TERM_CTRL | 'n':
         case GRUB_TERM_KEY_RIGHT:
@@ -913,10 +935,12 @@ run_menu (grub_menu_t menu, int nested, int *auto_boot)
 	      if (current_entry < menu->size - 1)
 		current_entry++;
 	      menu_set_chosen_entry (current_entry);
+#if defined (__i386__) || defined (__x86_64__)
           if (sound_open)
 		{
 		  menu_refresh_sound_player (current_entry, cur_sound);
 		}
+#endif
 	      break;
 
 	    case GRUB_TERM_CTRL | 'g':
@@ -926,10 +950,12 @@ run_menu (grub_menu_t menu, int nested, int *auto_boot)
 	      else
 		current_entry -= GRUB_MENU_PAGE_SIZE;
 	      menu_set_chosen_entry (current_entry);
+#if defined (__i386__) || defined (__x86_64__)
           if (sound_open)
 		{
 		  menu_refresh_sound_player (current_entry, cur_sound);
 		}
+#endif
 	      break;
 
 	    case GRUB_TERM_CTRL | 'c':
@@ -939,10 +965,12 @@ run_menu (grub_menu_t menu, int nested, int *auto_boot)
 	      else
 		current_entry = menu->size - 1;
 	      menu_set_chosen_entry (current_entry);
+#if defined (__i386__) || defined (__x86_64__)
           if (sound_open)
 		{
 		  menu_refresh_sound_player (current_entry, cur_sound);
 		}
+#endif
 	      break;
 
 	    case '\n':
@@ -950,8 +978,10 @@ run_menu (grub_menu_t menu, int nested, int *auto_boot)
 	    //case GRUB_TERM_KEY_RIGHT:
 	    case GRUB_TERM_CTRL | 'f':
 	      menu_fini ();
+#if defined (__i386__) || defined (__x86_64__)
           if (sound_open)
 	        player_fini ();
+#endif
               *auto_boot = 0;
 	      return current_entry;
 
@@ -962,8 +992,10 @@ run_menu (grub_menu_t menu, int nested, int *auto_boot)
 	        if (nested)
 		  {
 		    menu_fini ();
+#if defined (__i386__) || defined (__x86_64__)
 		    if (sound_open)
 		      player_fini ();
+#endif
 		    return -1;
 		  }
 	        break;
@@ -973,15 +1005,19 @@ run_menu (grub_menu_t menu, int nested, int *auto_boot)
 
 	    case 'c':
 	      menu_fini ();
+#if defined (__i386__) || defined (__x86_64__)
           if (sound_open)
 	        player_fini ();
+#endif
 	      grub_cmdline_run (1, 0);
 	      goto refresh;
 
 	    case 'e':
 	      menu_fini ();
+#if defined (__i386__) || defined (__x86_64__)
           if (sound_open)
 	        player_fini ();
+#endif
         {
           grub_menu_entry_t e = grub_menu_get_entry (menu, current_entry);
 		  if (e)
@@ -997,8 +1033,10 @@ run_menu (grub_menu_t menu, int nested, int *auto_boot)
 		if (entry >= 0)
 		  {
 		    menu_fini ();
+#if defined (__i386__) || defined (__x86_64__)
             if (sound_open)
 		      player_fini ();
+#endif
 		    *auto_boot = 0;
 		    return entry;
 		  }
