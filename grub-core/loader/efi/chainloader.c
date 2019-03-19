@@ -22,6 +22,7 @@
 #include <grub/loader.h>
 #include <grub/file.h>
 #include <grub/err.h>
+#include <grub/env.h>
 #include <grub/device.h>
 #include <grub/disk.h>
 #include <grub/misc.h>
@@ -813,6 +814,7 @@ grub_cmd_chainloader (grub_command_t cmd __attribute__ ((unused)),
   grub_efi_loaded_image_t *loaded_image;
   char *filename;
   void *boot_image = 0;
+  const char *usesb;
 
   if (argc == 0)
     return grub_error (GRUB_ERR_BAD_ARGUMENT, N_("filename expected"));
@@ -973,7 +975,8 @@ grub_cmd_chainloader (grub_command_t cmd __attribute__ ((unused)),
     }
 #endif
 
-  if (grub_linuxefi_secure_validate((void *)(unsigned long)address, fsize))
+  usesb = grub_env_get ("grub_chainloader_sb");
+  if (usesb && grub_strtoul (usesb, 0, 0) && grub_linuxefi_secure_validate((void *)(unsigned long)address, fsize))
     {
       grub_efi_guid_t guid = SHIM_LOCK_GUID;
       grub_efi_shim_lock_t *shim_lock;
