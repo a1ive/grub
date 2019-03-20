@@ -3113,3 +3113,9 @@ module = {
   common = commands/fwconfig.c;
   enable = x86;
 };
+
+module = {
+  name = sbpolicy;
+  common = commands/efi/sbpolicy.c;
+  enable = efi;
+};
