@@ -21,6 +21,7 @@
 #include <grub/types.h>
 #include <grub/misc.h>
 #include <grub/mm.h>
+#include <grub/env.h>
 #include <grub/err.h>
 #include <grub/dl.h>
 #include <grub/extcmd.h>
@@ -32,7 +33,9 @@ GRUB_MOD_LICENSE ("GPLv3+");
 
 static const struct grub_arg_option options[] =
   {
+    {"install", 'i', 0, N_("Install override security policy"), 0, 0},
     {"uninstall", 'u', 0, N_("Uninstall security policy"), 0, 0},
+    {"status", 's', 0, N_("Display security policy status"), 0, 0},
     {0, 0, 0, 0, 0, 0}
   };
 
@@ -261,6 +264,19 @@ grub_cmd_sbpolicy (grub_extcmd_context_t ctxt,
   grub_size_t datasize = 0;
   char *data = NULL;
   grub_efi_guid_t global = GRUB_EFI_GLOBAL_VARIABLE_GUID;
+  
+  if (state[2].set)
+    {
+      if (esfas)
+        grub_printf ("Installed: EFI_SECURITY_PROTOCOL\n");
+      else
+        grub_printf ("Not installed: EFI_SECURITY_PROTOCOL\n");
+      if (es2fa)
+        grub_printf ("Installed: EFI_SECURITY2_PROTOCOL\n");
+      else
+        grub_printf ("Not installed: EFI_SECURITY2_PROTOCOL\n");
+      goto done;
+    }
 
   data = grub_efi_get_variable ("SecureBoot", &global,
                           &datasize);
@@ -276,7 +292,7 @@ grub_cmd_sbpolicy (grub_extcmd_context_t ctxt,
   if (secure_boot)
     {
       grub_printf ("SecureBoot Enabled\n");
-      if (state[0].set)
+      if (state[1].set)
       {
         status = security_policy_uninstall();
         if (status != GRUB_EFI_SUCCESS)
@@ -304,6 +320,10 @@ grub_cmd_sbpolicy (grub_extcmd_context_t ctxt,
 
 done:
   grub_free (data);
+  if (esfas || es2fa)
+    grub_env_set ("grub_sb_policy", "1");
+  else
+    grub_env_set ("grub_sb_policy", "0");
   return grub_errno;
 }
 
