@@ -18,16 +18,16 @@
  *  along with GRUB.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <grub/types.h>
-#include <grub/misc.h>
-#include <grub/mm.h>
-#include <grub/env.h>
-#include <grub/err.h>
 #include <grub/dl.h>
-#include <grub/extcmd.h>
-#include <grub/i18n.h>
 #include <grub/efi/api.h>
 #include <grub/efi/efi.h>
+#include <grub/env.h>
+#include <grub/err.h>
+#include <grub/extcmd.h>
+#include <grub/i18n.h>
+#include <grub/misc.h>
+#include <grub/mm.h>
+#include <grub/types.h>
 
 GRUB_MOD_LICENSE ("GPLv3+");
 
@@ -36,34 +36,40 @@ static const struct grub_arg_option options[] =
     {"install", 'i', 0, N_("Install override security policy"), 0, 0},
     {"uninstall", 'u', 0, N_("Uninstall security policy"), 0, 0},
     {"status", 's', 0, N_("Display security policy status"), 0, 0},
+    {"disable", 'd', 0, N_("Disable the validation process in shim"), 0, 0},
+    {"enable", 'e', 0, N_("Enable the validation process in shim"), 0, 0},
     {0, 0, 0, 0, 0, 0}
   };
 
-typedef grub_efi_boolean_t (*policy_function)(void *data, grub_efi_uintn_t len);
+struct grub_efi_security2_protocol;
+struct grub_efi_security_protocol;
 
-struct _efi_security2_protocol;
-struct _efi_security_protocol;
-
-typedef struct _efi_security2_protocol grub_efi_security2_protocol;
-typedef struct _efi_security_protocol grub_efi_security_protocol;
+typedef struct grub_efi_security2_protocol grub_efi_security2_protocol_t;
+typedef struct grub_efi_security_protocol grub_efi_security_protocol_t;
 
 typedef grub_efi_status_t (*efi_security2_file_authentication) (
-            const grub_efi_security2_protocol *this,
+            const grub_efi_security2_protocol_t *this,
             const grub_efi_device_path_protocol_t *device_path,
             void *file_buffer,
             grub_efi_uintn_t file_size,
             grub_efi_boolean_t  boot_policy
                                      );
 typedef grub_efi_status_t (*efi_security_file_authentication_state) (
-            const grub_efi_security_protocol *this,
+            const grub_efi_security_protocol_t *this,
             grub_efi_uint32_t authentication_status,
             const grub_efi_device_path_protocol_t *file
                                      );
 
-struct _efi_security2_protocol {
+static efi_security2_file_authentication es2fa = NULL;
+static efi_security_file_authentication_state esfas = NULL;
+
+typedef grub_efi_boolean_t (*policy_function)(void *data, grub_efi_uintn_t len);
+
+struct grub_efi_security2_protocol {
   efi_security2_file_authentication file_authentication;
 };
-struct _efi_security_protocol {
+
+struct grub_efi_security_protocol {
   efi_security_file_authentication_state  file_authentication_state;
 };
 
@@ -82,16 +88,13 @@ security_policy_mok_allow(void *data __attribute__ ((unused)), grub_efi_uintn_t 
   return 1;
 }
 
-static efi_security2_file_authentication es2fa = NULL;
-static efi_security_file_authentication_state esfas = NULL;
-
 static grub_efi_boolean_t(*sp_override)(void) = NULL;
 static policy_function sp_allow = NULL;
 static policy_function sp_deny = NULL;
 
 static grub_efi_status_t
 security2_policy_authentication (
-    const grub_efi_security2_protocol *this,
+    const grub_efi_security2_protocol_t *this,
     const grub_efi_device_path_protocol_t *device_path,
     void *file_buffer,
     grub_efi_uintn_t file_size,
@@ -122,7 +125,7 @@ security2_policy_authentication (
 
 static grub_efi_status_t
 security_policy_authentication (
-    const grub_efi_security_protocol *this,
+    const grub_efi_security_protocol_t *this,
     grub_efi_uint32_t authentication_status,
     const grub_efi_device_path_protocol_t *device_path_const
     )
@@ -163,8 +166,8 @@ out:
 static grub_efi_status_t
 security_policy_install(grub_efi_boolean_t (*override)(void), policy_function allow, policy_function deny)
 {
-  grub_efi_security2_protocol *security2_protocol = NULL;
-  grub_efi_security_protocol *security_protocol;
+  grub_efi_security2_protocol_t *security2_protocol = NULL;
+  grub_efi_security_protocol_t *security_protocol;
   grub_efi_guid_t guid2 = GRUB_EFI_SECURITY2_PROTOCOL_GUID;
   grub_efi_guid_t guid = GRUB_EFI_SECURITY_PROTOCOL_GUID;
 
@@ -225,7 +228,7 @@ security_policy_uninstall(void)
   if (esfas)
   {
     grub_printf ("Uninstall: EFI_SECURITY_PROTOCOL\n");
-    grub_efi_security_protocol *security_protocol;
+    grub_efi_security_protocol_t *security_protocol;
     security_protocol = grub_efi_locate_protocol (&guid, NULL);
     if (!security_protocol)
       return GRUB_EFI_NOT_FOUND;
@@ -239,7 +242,7 @@ security_policy_uninstall(void)
   if (es2fa)
   {
     grub_printf ("Uninstall: EFI_SECURITY2_PROTOCOL\n");
-    grub_efi_security2_protocol *security2_protocol;
+    grub_efi_security2_protocol_t *security2_protocol;
     security2_protocol = grub_efi_locate_protocol (&guid2, NULL);
     if (!security2_protocol)
       return GRUB_EFI_NOT_FOUND;
@@ -252,6 +255,19 @@ security_policy_uninstall(void)
   return GRUB_EFI_SUCCESS;
 }
 
+static grub_err_t
+mok_sb_set(const char *var, grub_uint8_t data)
+{
+  grub_efi_guid_t guid = GRUB_EFI_SHIM_LOCK_GUID;
+  grub_err_t err;
+  grub_size_t datasize = sizeof(grub_uint8_t);
+  err = grub_efi_set_variable (var, &guid, &data, datasize);
+  if (err != GRUB_ERR_NONE)
+    grub_printf ("Failed: SetVariable(%s, %d) returned %d\n", var, data, err);
+  else
+    grub_printf ("Done: SetVariable(%s, %d)\n", var, data);
+  return err;
+}
 
 static grub_err_t
 grub_cmd_sbpolicy (grub_extcmd_context_t ctxt,
@@ -301,6 +317,16 @@ grub_cmd_sbpolicy (grub_extcmd_context_t ctxt,
           goto done;
         }
       }
+      else if (state[3].set)
+      {
+        mok_sb_set ("MokSBState", 0);
+        mok_sb_set ("MokDBState", 0);
+      }
+      else if (state[4].set)
+      {
+        mok_sb_set ("MokSBState", 1);
+        mok_sb_set ("MokDBState", 1);
+      }
       else
       {
         status = security_policy_install(security_policy_mok_override,
@@ -331,7 +357,8 @@ static grub_extcmd_t cmd;
 
 GRUB_MOD_INIT(sbpolicy)
 {
-  cmd = grub_register_extcmd ("sbpolicy", grub_cmd_sbpolicy, 0, 0,
+  cmd = grub_register_extcmd ("sbpolicy", grub_cmd_sbpolicy, 0, 
+                  N_("[-i|-u|-s|-d|-e]"),
                   N_("Install override security policy."), options);
 }
 
