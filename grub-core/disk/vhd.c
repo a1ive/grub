@@ -1164,11 +1164,11 @@ static struct grub_disk_dev grub_vhd_dev =
   {
     .name = "vhd",
     .id = GRUB_DISK_DEVICE_VHD_ID,
-    .iterate = grub_vhd_iterate,
-    .open = grub_vhd_open,
-    .close = grub_vhd_close,
-    .read = grub_vhd_read,
-    .write = grub_vhd_write,
+    .disk_iterate = grub_vhd_iterate,
+    .disk_open = grub_vhd_open,
+    .disk_close = grub_vhd_close,
+    .disk_read = grub_vhd_read,
+    .disk_write = grub_vhd_write,
     .next = 0
   };
 

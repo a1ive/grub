@@ -172,11 +172,11 @@ static grub_err_t pydisk_write(grub_disk_t disk, grub_disk_addr_t sector, grub_s
 static struct grub_disk_dev pydisk = {
     .name = "python",
     .id = PYDISK_ID,
-    .iterate = pydisk_iterate,
-    .open = pydisk_open,
-    .close = pydisk_close,
-    .read = pydisk_read,
-    .write = pydisk_write,
+    .disk_iterate = pydisk_iterate,
+    .disk_open = pydisk_open,
+    .disk_close = pydisk_close,
+    .disk_read = pydisk_read,
+    .disk_write = pydisk_write,
 };
 
 static grub_err_t pyfs_dir(grub_device_t device, const char *path,
