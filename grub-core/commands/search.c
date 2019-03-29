@@ -353,8 +353,13 @@ FUNC_NAME (const char *key, const char *var, int no_floppy, int quiet,
   else
     try (&ctx);
 
-  if (!quiet && grub_errno == GRUB_ERR_NONE && ctx.count == 0)
-    grub_error (GRUB_ERR_FILE_NOT_FOUND, "no such device: %s", key);
+  if (grub_errno == GRUB_ERR_NONE && ctx.count == 0)
+    {
+      if (!quiet)
+        grub_error (GRUB_ERR_FILE_NOT_FOUND, "no such device: %s", key);
+      else
+        grub_errno = GRUB_ERR_FILE_NOT_FOUND;
+    }
 }
 
 static grub_err_t
