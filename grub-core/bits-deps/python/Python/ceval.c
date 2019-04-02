@@ -724,12 +724,14 @@ PyEval_EvalFrameEx(PyFrameObject *f, int throwflag)
 #define TARGET_NOARG(op) \
 		TARGET_##op: \
 		opcode = op; \
+        /* fall through */ \
 		case op:\
 
 #define TARGET(op) \
 		TARGET_##op: \
 		opcode = op; \
 		oparg = NEXTARG(); \
+        /* fall through */ \
 		case op:\
 
 
@@ -2057,6 +2059,7 @@ PyEval_EvalFrameEx(PyFrameObject *f, int throwflag)
                 /* Fallthrough */
             case 1:
                 w = POP(); /* exc */
+                /* fall through */
             case 0: /* Fallthrough */
                 why = do_raise(w, v, u);
                 break;

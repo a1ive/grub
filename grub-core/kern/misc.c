@@ -580,12 +580,12 @@ grub_strspn (const char *s, const char *accept)
   for (p = s; *p != '\0'; ++p)
     {
       for (a = accept; *a != '\0'; ++a)
-    if (*p == *a)
-      break;
+        if (*p == *a)
+          break;
       if (*a == '\0')
-    return count;
+        return count;
       else
-    ++count;
+        ++count;
     }
 
   return count;

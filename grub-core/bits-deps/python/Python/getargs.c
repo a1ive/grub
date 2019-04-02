@@ -1738,7 +1738,7 @@ skipitem(const char **p_format, va_list *p_va, int flags)
             format++;
             /* explicit fallthrough to string cases */
         }
-
+    /* fall through */
     case 's': /* string */
     case 'z': /* string or None */
 #ifdef Py_USING_UNICODE

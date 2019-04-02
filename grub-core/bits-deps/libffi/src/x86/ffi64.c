@@ -204,6 +204,7 @@ classify_argument (ffi_type *type, enum x86_64_reg_class classes[],
 	else
 	  FFI_ASSERT (0);
       }
+    /* fall through */
     case FFI_TYPE_FLOAT:
       if (!(byte_offset % 8))
 	classes[0] = X86_64_SSESF_CLASS;

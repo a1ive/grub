@@ -42,51 +42,50 @@ static const struct grub_arg_option options[] =
 static grub_err_t
 grub_cmd_qrcode (grub_extcmd_context_t ctxt, int argc, char **args)
 {
-	struct grub_arg_list *state = ctxt->state;
-    int side, i, j, a, ecclevel;
-	uint8_t bitdata[QR_MAX_BITDATA];
+  struct grub_arg_list *state = ctxt->state;
+  int side, i, j, a, ecclevel;
+  uint8_t bitdata[QR_MAX_BITDATA];
 
-	if (state[0].set)
-        ecclevel = QR_LEVEL_L;
-    else if (state[1].set)
-        ecclevel = QR_LEVEL_M;
-    else if (state[2].set)
-        ecclevel = QR_LEVEL_Q;
-    else
-        ecclevel = QR_LEVEL_H;
+  ecclevel = QR_LEVEL_H;
+  if (state[0].set)
+    ecclevel = QR_LEVEL_L;
+  if (state[1].set)
+    ecclevel = QR_LEVEL_M;
+  if (state[2].set)
+    ecclevel = QR_LEVEL_Q;
 
-	if (argc < 1)
-		return grub_error (GRUB_ERR_BAD_ARGUMENT, N_("string expected"));
-    
-    if (strlen(args[0]) > 2047)
-        return grub_error (GRUB_ERR_BAD_ARGUMENT, N_("string too long"));
-    
-	// remove newline
-	if (args[0][strlen(args[0]) - 1] == '\n') {
-		args[0][strlen(args[0]) - 1] = 0;
-	}
+  if (argc < 1)
+    return grub_error (GRUB_ERR_BAD_ARGUMENT, N_("string expected"));
 
-	side = qr_encode(ecclevel, 0, args[0], 0, bitdata);
+  if (strlen(args[0]) > 2047)
+    return grub_error (GRUB_ERR_BAD_ARGUMENT, N_("string too long"));
 
-	grub_dprintf("qrcode", "side: %d\n", side);
+  // remove newline
+  if (args[0][strlen(args[0]) - 1] == '\n') {
+    args[0][strlen(args[0]) - 1] = 0;
+  }
 
-	for (i = 0; i < side + 2; i++)
-        grub_printf("██");
-	grub_printf("\n");
-	for (i = 0; i < side; i++) {
-		grub_printf("██");
-		for (j = 0; j < side; j++) {
-			a = i * side + j;
-			grub_printf((bitdata[a / 8] & (1 << (7 - a % 8))) ? "  " : "██");
-		}
-		grub_printf("██");
-		grub_printf("\n");
-	}
-	for (i = 0; i < side + 2; i++)
-        grub_printf("██");
-	grub_printf("\n");
+  side = qr_encode(ecclevel, 0, args[0], 0, bitdata);
 
-	return 0;
+  grub_dprintf("qrcode", "side: %d\n", side);
+
+  for (i = 0; i < side + 2; i++)
+    grub_printf("██");
+  grub_printf("\n");
+  for (i = 0; i < side; i++) {
+    grub_printf("██");
+    for (j = 0; j < side; j++) {
+      a = i * side + j;
+      grub_printf((bitdata[a / 8] & (1 << (7 - a % 8))) ? "  " : "██");
+    }
+  	grub_printf("██");
+  	grub_printf("\n");
+  }
+  for (i = 0; i < side + 2; i++)
+      grub_printf("██");
+  grub_printf("\n");
+
+  return 0;
 }
 
 static grub_extcmd_t cmd;

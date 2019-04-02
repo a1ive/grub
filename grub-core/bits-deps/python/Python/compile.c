@@ -3079,13 +3079,13 @@ compiler_visit_expr(struct compiler *c, expr_ty e)
         switch (e->v.Attribute.ctx) {
         case AugLoad:
             ADDOP(c, DUP_TOP);
-            /* Fall through to load */
+            /* fall through */
         case Load:
             ADDOP_NAME(c, LOAD_ATTR, e->v.Attribute.attr, names);
             break;
         case AugStore:
             ADDOP(c, ROT_TWO);
-            /* Fall through to save */
+            /* fall through */
         case Store:
             ADDOP_NAME(c, STORE_ATTR, e->v.Attribute.attr, names);
             break;

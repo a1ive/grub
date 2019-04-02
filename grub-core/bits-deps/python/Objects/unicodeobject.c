@@ -794,8 +794,9 @@ PyUnicode_FromFormatV(const char *format, va_list vargs)
                     goto fail;
                 }
 #endif
-                /* fall through... */
+                /* fall through ... */
             }
+              /* fall through */
             case '%':
                 n++;
                 break;

@@ -3704,6 +3704,7 @@ _build_callargs(PyCFuncPtrObject *self, PyObject *argtypes,
             *pinoutmask |= (1 << i); /* mark as inout arg */
             (*pnumretvals)++;
             /* fall through to PARAMFLAG_FIN... */
+            /* fall through */
         case 0:
         case PARAMFLAG_FIN:
             /* 'in' parameter.  Copy it from inargs. */

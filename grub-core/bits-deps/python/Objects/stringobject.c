@@ -590,7 +590,7 @@ string_dealloc(PyObject *op)
 
         case SSTATE_INTERNED_IMMORTAL:
             Py_FatalError("Immortal interned string died.");
-
+            /* fall through */
         default:
             Py_FatalError("Inconsistent interned string state.");
     }

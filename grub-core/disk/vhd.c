@@ -631,7 +631,7 @@ static int vhdLoadAllocationTable(PVHDIMAGE pImage, grub_uint32_t cBlockAllocati
         return GRUB_ERR_OUT_OF_MEMORY;
 
 	//pBlockAllocationTable = g_block_table_cache;
-	pImage->cBlockAllocationTableEntriesInCache = numEntries;
+    pImage->cBlockAllocationTableEntriesInCache = numEntries;
 
     /*
      * Read the table.
