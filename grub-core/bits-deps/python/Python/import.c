@@ -451,7 +451,9 @@ PyImport_Cleanup(void)
         dict = PyModule_GetDict(value);
         if (Py_VerboseFlag)
             PySys_WriteStderr("# clear __builtin__._\n");
-        PyDict_SetItemString(dict, "_", Py_None);
+        if (PyDict_SetItemString(dict, "_", Py_None) < 0) {
+            PyErr_Clear();
+        }
     }
     value = PyDict_GetItemString(modules, "sys");
     if (value != NULL && PyModule_Check(value)) {
@@ -461,7 +463,9 @@ PyImport_Cleanup(void)
         for (p = sys_deletes; *p != NULL; p++) {
             if (Py_VerboseFlag)
                 PySys_WriteStderr("# clear sys.%s\n", *p);
-            PyDict_SetItemString(dict, *p, Py_None);
+            if (PyDict_SetItemString(dict, *p, Py_None) < 0) {
+                PyErr_Clear();
+            }
         }
         for (p = sys_files; *p != NULL; p+=2) {
             if (Py_VerboseFlag)
@@ -469,7 +473,9 @@ PyImport_Cleanup(void)
             v = PyDict_GetItemString(dict, *(p+1));
             if (v == NULL)
                 v = Py_None;
-            PyDict_SetItemString(dict, *p, v);
+            if (PyDict_SetItemString(dict, *p, v) < 0) {
+                PyErr_Clear();
+            }
         }
     }
 
@@ -479,7 +485,9 @@ PyImport_Cleanup(void)
         if (Py_VerboseFlag)
             PySys_WriteStderr("# cleanup __main__\n");
         _PyModule_Clear(value);
-        PyDict_SetItemString(modules, "__main__", Py_None);
+        if (PyDict_SetItemString(modules, "__main__", Py_None) < 0) {
+            PyErr_Clear();
+        }
     }
 
     /* The special treatment of __builtin__ here is because even
@@ -514,9 +522,14 @@ PyImport_Cleanup(void)
                     PySys_WriteStderr(
                         "# cleanup[1] %s\n", name);
                 _PyModule_Clear(value);
-                PyDict_SetItem(modules, key, Py_None);
+                if (PyDict_SetItem(modules, key, Py_None) < 0) {
+                    PyErr_Clear();
+                }
                 ndone++;
             }
+        }
+        if (PyErr_Occurred()) {
+            PyErr_Clear();
         }
     } while (ndone > 0);
 
@@ -532,7 +545,12 @@ PyImport_Cleanup(void)
             if (Py_VerboseFlag)
                 PySys_WriteStderr("# cleanup[2] %s\n", name);
             _PyModule_Clear(value);
-            PyDict_SetItem(modules, key, Py_None);
+            if (PyDict_SetItem(modules, key, Py_None) < 0) {
+                PyErr_Clear();
+            }
+        }
+        if (PyErr_Occurred()) {
+            PyErr_Clear();
         }
     }
 
@@ -542,14 +560,18 @@ PyImport_Cleanup(void)
         if (Py_VerboseFlag)
             PySys_WriteStderr("# cleanup sys\n");
         _PyModule_Clear(value);
-        PyDict_SetItemString(modules, "sys", Py_None);
+        if (PyDict_SetItemString(modules, "sys", Py_None) < 0) {
+            PyErr_Clear();
+        }
     }
     value = PyDict_GetItemString(modules, "__builtin__");
     if (value != NULL && PyModule_Check(value)) {
         if (Py_VerboseFlag)
             PySys_WriteStderr("# cleanup __builtin__\n");
         _PyModule_Clear(value);
-        PyDict_SetItemString(modules, "__builtin__", Py_None);
+        if (PyDict_SetItemString(modules, "__builtin__", Py_None) < 0) {
+            PyErr_Clear();
+        }
     }
 
     /* Finally, clear and delete the modules directory */
@@ -636,25 +658,43 @@ _PyImport_FindExtension(char *name, char *filename)
    Because the former action is most common, THIS DOES NOT RETURN A
    'NEW' REFERENCE! */
 
-PyObject *
-PyImport_AddModule(const char *name)
+static PyObject *
+_PyImport_AddModuleObject(PyObject *name)
 {
     PyObject *modules = PyImport_GetModuleDict();
     PyObject *m;
 
-    if ((m = PyDict_GetItemString(modules, name)) != NULL &&
-        PyModule_Check(m))
+    if ((m = _PyDict_GetItemWithError(modules, name)) != NULL &&
+        PyModule_Check(m)) {
         return m;
-    m = PyModule_New(name);
-    if (m == NULL)
+    }
+    if (PyErr_Occurred()) {
         return NULL;
-    if (PyDict_SetItemString(modules, name, m) != 0) {
+    }
+    m = PyModule_New(PyString_AS_STRING(name));
+    if (m == NULL) {
+        return NULL;
+    }
+    if (PyDict_SetItem(modules, name, m) != 0) {
         Py_DECREF(m);
         return NULL;
     }
+    assert(Py_REFCNT(m) > 1);
     Py_DECREF(m); /* Yes, it still exists, in modules! */
 
     return m;
+}
+
+PyObject *
+PyImport_AddModule(const char *name)
+{
+    PyObject *nameobj, *module;
+    nameobj = PyString_FromString(name);
+    if (nameobj == NULL)
+        return NULL;
+    module = _PyImport_AddModuleObject(nameobj);
+    Py_DECREF(nameobj);
+    return module;
 }
 
 /* Remove name from sys.modules, if it's there. */
@@ -665,7 +705,7 @@ remove_module(const char *name)
     if (PyDict_GetItemString(modules, name) == NULL)
         return;
     if (PyDict_DelItemString(modules, name) < 0)
-        Py_FatalError("import:  deleting existing key in"
+        Py_FatalError("import:  deleting existing key in "
                       "sys.modules failed");
 }
 
@@ -2229,8 +2269,10 @@ import_module_level(char *name, PyObject *globals, PyObject *locals,
     if (parent == NULL)
         goto error_exit;
 
+    Py_INCREF(parent);
     head = load_next(parent, level < 0 ? Py_None : parent, &name, buf,
                         &buflen);
+    Py_DECREF(parent);
     if (head == NULL)
         goto error_exit;
 
@@ -2575,8 +2617,9 @@ ensure_fromlist(PyObject *mod, PyObject *fromlist, char *buf, Py_ssize_t buflen,
             return 0;
         }
         if (!PyString_Check(item)) {
-            PyErr_SetString(PyExc_TypeError,
-                            "Item in ``from list'' not a string");
+            PyErr_Format(PyExc_TypeError,
+                         "Item in ``from list'' must be str, not %.200s",
+                         Py_TYPE(item)->tp_name);
             Py_DECREF(item);
             return 0;
         }

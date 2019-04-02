@@ -111,7 +111,7 @@ static void SHAcopy(SHAobject *src, SHAobject *dest)
  * algorithms in a highly modular and flexible manner.
  *
  * The library is free for all purposes without any express
- * gurantee it works.
+ * guarantee it works.
  *
  * Tom St Denis, tomstdenis@iahu.ca, http://libtomcrypt.org
  */
@@ -603,7 +603,7 @@ static PyMemberDef SHA_members[] = {
 static PyTypeObject SHA384type = {
     PyVarObject_HEAD_INIT(NULL, 0)
     "_sha512.sha384",   /*tp_name*/
-    sizeof(SHAobject),  /*tp_size*/
+    sizeof(SHAobject),  /*tp_basicsize*/
     0,                  /*tp_itemsize*/
     /* methods */
     SHA512_dealloc,     /*tp_dealloc*/
@@ -637,7 +637,7 @@ static PyTypeObject SHA384type = {
 static PyTypeObject SHA512type = {
     PyVarObject_HEAD_INIT(NULL, 0)
     "_sha512.sha512",   /*tp_name*/
-    sizeof(SHAobject),  /*tp_size*/
+    sizeof(SHAobject),  /*tp_basicsize*/
     0,                  /*tp_itemsize*/
     /* methods */
     SHA512_dealloc,     /*tp_dealloc*/

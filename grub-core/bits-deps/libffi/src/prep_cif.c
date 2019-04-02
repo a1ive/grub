@@ -32,12 +32,12 @@ GRUB_MOD_LICENSE("GPLv3+");
 
 /* Round up to FFI_SIZEOF_ARG. */
 
-#define STACK_ARG_SIZE(x) ALIGN(x, FFI_SIZEOF_ARG)
+#define STACK_ARG_SIZE(x) FFI_ALIGN(x, FFI_SIZEOF_ARG)
 
 /* Perform machine independent initialization of aggregate type
    specifications. */
 
-static ffi_status initialize_aggregate(ffi_type *arg)
+static ffi_status initialize_aggregate(ffi_type *arg, size_t *offsets)
 {
   ffi_type **ptr;
 
@@ -55,13 +55,15 @@ static ffi_status initialize_aggregate(ffi_type *arg)
   while ((*ptr) != NULL)
     {
       if (UNLIKELY(((*ptr)->size == 0)
-		    && (initialize_aggregate((*ptr)) != FFI_OK)))
+		    && (initialize_aggregate((*ptr), NULL) != FFI_OK)))
 	return FFI_BAD_TYPEDEF;
 
       /* Perform a sanity check on the argument type */
       FFI_ASSERT_VALID_TYPE(*ptr);
 
-      arg->size = ALIGN(arg->size, (*ptr)->alignment);
+      arg->size = FFI_ALIGN(arg->size, (*ptr)->alignment);
+      if (offsets)
+	*offsets++ = arg->size;
       arg->size += (*ptr)->size;
 
       arg->alignment = (arg->alignment > (*ptr)->alignment) ?
@@ -77,7 +79,7 @@ static ffi_status initialize_aggregate(ffi_type *arg)
      struct A { long a; char b; }; struct B { struct A x; char y; };
      should find y at an offset of 2*sizeof(long) and result in a
      total size of 3*sizeof(long).  */
-  arg->size = ALIGN (arg->size, arg->alignment);
+  arg->size = FFI_ALIGN (arg->size, arg->alignment);
 
   /* On some targets, the ABI defines that structures have an additional
      alignment beyond the "natural" one based on their elements.  */
@@ -136,7 +138,8 @@ ffi_status FFI_HIDDEN ffi_prep_cif_core(ffi_cif *cif, ffi_abi abi,
 #endif
 
   /* Initialize the return type if necessary */
-  if ((cif->rtype->size == 0) && (initialize_aggregate(cif->rtype) != FFI_OK))
+  if ((cif->rtype->size == 0)
+      && (initialize_aggregate(cif->rtype, NULL) != FFI_OK))
     return FFI_BAD_TYPEDEF;
 
 #ifndef FFI_TARGET_HAS_COMPLEX_TYPE
@@ -167,7 +170,8 @@ ffi_status FFI_HIDDEN ffi_prep_cif_core(ffi_cif *cif, ffi_abi abi,
     {
 
       /* Initialize any uninitialized aggregate type definitions */
-      if (((*ptr)->size == 0) && (initialize_aggregate((*ptr)) != FFI_OK))
+      if (((*ptr)->size == 0)
+	  && (initialize_aggregate((*ptr), NULL) != FFI_OK))
 	return FFI_BAD_TYPEDEF;
 
 #ifndef FFI_TARGET_HAS_COMPLEX_TYPE
@@ -182,7 +186,7 @@ ffi_status FFI_HIDDEN ffi_prep_cif_core(ffi_cif *cif, ffi_abi abi,
 	{
 	  /* Add any padding if necessary */
 	  if (((*ptr)->alignment - 1) & bytes)
-	    bytes = (unsigned)ALIGN(bytes, (*ptr)->alignment);
+	    bytes = (unsigned)FFI_ALIGN(bytes, (*ptr)->alignment);
 
 #ifdef TILE
 	  if (bytes < 10 * FFI_SIZEOF_ARG &&
@@ -243,3 +247,18 @@ ffi_prep_closure (ffi_closure* closure,
 }
 
 #endif
+
+ffi_status
+ffi_get_struct_offsets (ffi_abi abi, ffi_type *struct_type, size_t *offsets)
+{
+  if (! (abi > FFI_FIRST_ABI && abi < FFI_LAST_ABI))
+    return FFI_BAD_ABI;
+  if (struct_type->type != FFI_TYPE_STRUCT)
+    return FFI_BAD_TYPEDEF;
+
+#if HAVE_LONG_DOUBLE_VARIANT
+  ffi_prep_types (abi);
+#endif
+
+  return initialize_aggregate(struct_type, offsets);
+}

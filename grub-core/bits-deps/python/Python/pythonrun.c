@@ -37,14 +37,6 @@
 #include "windows.h"
 #endif
 
-#ifndef Py_REF_DEBUG
-#define PRINT_TOTAL_REFS()
-#else /* Py_REF_DEBUG */
-#define PRINT_TOTAL_REFS() fprintf(stderr,                              \
-                   "[%" PY_FORMAT_SIZE_T "d refs]\n",                   \
-                   _Py_GetRefTotal())
-#endif
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -102,6 +94,21 @@ PyObject *
 PyModule_GetWarningsModule(void)
 {
     return PyImport_ImportModule("warnings");
+}
+
+static void
+_PyDebug_PrintTotalRefs(void)
+{
+#ifdef Py_REF_DEBUG
+    Py_ssize_t total;
+
+    if (!Py_GETENV("PYTHONSHOWREFCOUNT")) {
+        return;
+    }
+
+    total = _Py_GetRefTotal();
+    fprintf(stderr, "[%" PY_FORMAT_SIZE_T "d refs]\n", total);
+#endif
 }
 
 static int initialized = 0;
@@ -481,10 +488,12 @@ Py_Finalize(void)
 
     /* Debugging stuff */
 #ifdef COUNT_ALLOCS
-    dump_counts(stdout);
+    if (Py_GETENV("PYTHONSHOWALLOCCOUNT")) {
+        dump_counts(stderr);
+    }
 #endif
 
-    PRINT_TOTAL_REFS();
+    _PyDebug_PrintTotalRefs();
 
 #ifdef Py_TRACE_REFS
     /* Display all objects still alive -- this can invoke arbitrary
@@ -775,7 +784,7 @@ PyRun_InteractiveLoopFlags(FILE *fp, const char *filename, PyCompilerFlags *flag
     }
     for (;;) {
         ret = PyRun_InteractiveOneFlags(fp, filename, flags);
-        PRINT_TOTAL_REFS();
+        _PyDebug_PrintTotalRefs();
         if (ret == E_EOF)
             return 0;
         /*
@@ -1127,7 +1136,7 @@ handle_system_exit(void)
         /* If we failed to dig out the 'code' attribute,
            just let the else clause below print the error. */
     }
-    if (PyInt_Check(value))
+    if (_PyAnyInt_Check(value))
         exitcode = (int)PyInt_AsLong(value);
     else {
         PyObject *sys_stderr = PySys_GetObject("stderr");
@@ -1299,8 +1308,11 @@ PyErr_Display(PyObject *exception, PyObject *value, PyObject *tb)
             /* only print colon if the str() of the
                object is not the empty string
             */
-            if (s == NULL)
+            if (s == NULL) {
+                PyErr_Clear();
                 err = -1;
+                PyFile_WriteString(": <exception str() failed>", f);
+            }
             else if (!PyString_Check(s) ||
                      PyString_GET_SIZE(s) != 0)
                 err = PyFile_WriteString(": ", f);
@@ -1309,6 +1321,9 @@ PyErr_Display(PyObject *exception, PyObject *value, PyObject *tb)
             Py_XDECREF(s);
         }
         /* try to write a newline in any case */
+        if (err < 0) {
+            PyErr_Clear();
+        }
         err += PyFile_WriteString("\n", f);
     }
     Py_DECREF(value);
@@ -1575,7 +1590,7 @@ err_input(perrdetail *err)
     errtype = PyExc_SyntaxError;
     switch (err->error) {
     case E_ERROR:
-        return;
+        goto cleanup;
     case E_SYNTAX:
         errtype = PyExc_IndentationError;
         if (err->expected == INDENT)
@@ -1639,6 +1654,9 @@ err_input(perrdetail *err)
         Py_XDECREF(tb);
         break;
     }
+    case E_IO:
+        msg = "I/O error while reading";
+        break;
     case E_LINECONT:
         msg = "unexpected character after line continuation character";
         break;
@@ -1913,7 +1931,7 @@ PyOS_setsig(int sig, PyOS_sighandler_t handler)
 #endif
 }
 
-/* Deprecated C API functions still provided for binary compatiblity */
+/* Deprecated C API functions still provided for binary compatibility */
 
 #undef PyParser_SimpleParseFile
 PyAPI_FUNC(node *)

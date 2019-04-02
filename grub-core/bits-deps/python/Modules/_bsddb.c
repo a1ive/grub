@@ -931,11 +931,13 @@ newDBObject(DBEnvObject* arg, int flags)
     self->sibling_prev_p_txn=NULL;
     self->sibling_next_txn=NULL;
 
-    if (self->myenvobj)
+    if (self->myenvobj) {
         self->moduleFlags = self->myenvobj->moduleFlags;
-    else
+    }
+    else {
         self->moduleFlags.getReturnsNone = DEFAULT_GET_RETURNS_NONE;
         self->moduleFlags.cursorSetReturnsNone = DEFAULT_CURSOR_SET_RETURNS_NONE;
+    }
 
     MYDB_BEGIN_ALLOW_THREADS;
     err = db_create(&self->db, db_env, flags);
@@ -1501,56 +1503,71 @@ _db_associateCallback(DB* db, const DBT* priKey, const DBT* priData,
         else if (PyList_Check(result))
         {
             char* data;
-            Py_ssize_t size;
-            int i, listlen;
+            Py_ssize_t size, listlen, i;
             DBT* dbts;
 
             listlen = PyList_Size(result);
 
-            dbts = (DBT *)malloc(sizeof(DBT) * listlen);
-
-            for (i=0; i<listlen; i++)
-            {
-                if (!PyBytes_Check(PyList_GetItem(result, i)))
-                {
-                    PyErr_SetString(
-                       PyExc_TypeError,
+            if (listlen > PY_SIZE_MAX / sizeof(DBT)) {
+                PyErr_NoMemory();
+                PyErr_Print();
+            }
+            else {
+                dbts = (DBT *)malloc(sizeof(DBT) * listlen);
+                if (dbts == NULL) {
+                    PyErr_NoMemory();
+                    PyErr_Print();
+                }
+                else {
+                    for (i = 0; i < listlen; i++) {
+                        if (!PyBytes_Check(PyList_GetItem(result, i))) {
+                            PyErr_SetString(PyExc_TypeError,
 #if (PY_VERSION_HEX < 0x03000000)
 "The list returned by DB->associate callback should be a list of strings.");
 #else
 "The list returned by DB->associate callback should be a list of bytes.");
 #endif
-                    PyErr_Print();
-                }
+                            break;
+                        }
 
-                PyBytes_AsStringAndSize(
-                    PyList_GetItem(result, i),
-                    &data, &size);
+                        if (PyBytes_AsStringAndSize(PyList_GetItem(result, i),
+                                                    &data, &size) < 0) {
+                            break;
+                        }
 
-                CLEAR_DBT(dbts[i]);
-                dbts[i].data = malloc(size);          /* TODO, check this */
+                        CLEAR_DBT(dbts[i]);
+                        dbts[i].data = malloc(size);
+                        if (dbts[i].data) {
+                            memcpy(dbts[i].data, data, size);
+                            dbts[i].size = size;
+                            dbts[i].ulen = dbts[i].size;
+                            /* DB will free. */
+                            dbts[i].flags = DB_DBT_APPMALLOC;
+                        }
+                        else {
+                            PyErr_SetString(PyExc_MemoryError,
+                                            "malloc failed in "
+                                            "_db_associateCallback (list)");
+                            break;
+                        }
+                    }
+                    if (PyErr_Occurred()) {
+                        PyErr_Print();
+                        while (i--) {
+                            free(dbts[i].data);
+                        }
+                        free(dbts);
+                    }
+                    else {
+                        CLEAR_DBT(*secKey);
 
-                if (dbts[i].data)
-                {
-                    memcpy(dbts[i].data, data, size);
-                    dbts[i].size = size;
-                    dbts[i].ulen = dbts[i].size;
-                    dbts[i].flags = DB_DBT_APPMALLOC;  /* DB will free */
-                }
-                else
-                {
-                    PyErr_SetString(PyExc_MemoryError,
-                        "malloc failed in _db_associateCallback (list)");
-                    PyErr_Print();
+                        secKey->data = dbts;
+                        secKey->size = listlen;
+                        secKey->flags = DB_DBT_APPMALLOC | DB_DBT_MULTIPLE;
+                        retval = 0;
+                    }
                 }
             }
-
-            CLEAR_DBT(*secKey);
-
-            secKey->data = dbts;
-            secKey->size = listlen;
-            secKey->flags = DB_DBT_APPMALLOC | DB_DBT_MULTIPLE;
-            retval = 0;
         }
 #endif
         else {
@@ -1607,9 +1624,8 @@ DB_associate(DBObject* self, PyObject* args, PyObject* kwargs)
     }
 
     /* Save a reference to the callback in the secondary DB. */
-    Py_XDECREF(secondaryDB->associateCallback);
     Py_XINCREF(callback);
-    secondaryDB->associateCallback = callback;
+    Py_XSETREF(secondaryDB->associateCallback, callback);
     secondaryDB->primaryDBType = _DB_get_type(self);
 
     /* PyEval_InitThreads is called here due to a quirk in python 1.5
@@ -2241,7 +2257,7 @@ static PyObject*
 DB_join(DBObject* self, PyObject* args)
 {
     int err, flags=0;
-    int length, x;
+    Py_ssize_t length, x;
     PyObject* cursorsObj;
     DBC** cursors;
     DBC*  dbc;
@@ -2258,6 +2274,12 @@ DB_join(DBObject* self, PyObject* args)
     }
 
     length = PyObject_Length(cursorsObj);
+    if (length == -1) {
+        return NULL;
+    }
+    if (length >= PY_SSIZE_T_MAX / sizeof(DBC*)) {
+        return PyErr_NoMemory();
+    }
     cursors = malloc((length+1) * sizeof(DBC*));
     if (!cursors) {
         PyErr_NoMemory();
@@ -2275,6 +2297,7 @@ DB_join(DBObject* self, PyObject* args)
             PyErr_SetString(PyExc_TypeError,
                             "Sequence of DBCursor objects expected");
             free(cursors);
+            Py_DECREF(item);
             return NULL;
         }
         cursors[x] = ((DBCursorObject*)item)->dbc;
@@ -2498,9 +2521,8 @@ static PyObject*
 DB_set_private(DBObject* self, PyObject* private_obj)
 {
     /* We can set the private field even if db is closed */
-    Py_DECREF(self->private_obj);
     Py_INCREF(private_obj);
-    self->private_obj = private_obj;
+    Py_SETREF(self->private_obj, private_obj);
     RETURN_NONE();
 }
 
@@ -3688,7 +3710,7 @@ _DB_has_key(DBObject* self, PyObject* keyobj, PyObject* txnobj)
     /*
     ** DB_BUFFER_SMALL is only used if we use "get".
     ** We can drop it when we only use "exists",
-    ** when we drop suport for Berkeley DB < 4.6.
+    ** when we drop support for Berkeley DB < 4.6.
     */
     if (err == DB_BUFFER_SMALL || err == 0) {
         Py_INCREF(Py_True);
@@ -6998,9 +7020,8 @@ static PyObject*
 DBEnv_set_private(DBEnvObject* self, PyObject* private_obj)
 {
     /* We can set the private field even if dbenv is closed */
-    Py_DECREF(self->private_obj);
     Py_INCREF(private_obj);
-    self->private_obj = private_obj;
+    Py_SETREF(self->private_obj, private_obj);
     RETURN_NONE();
 }
 
@@ -7253,9 +7274,8 @@ DBEnv_set_event_notify(DBEnvObject* self, PyObject* notifyFunc)
             return NULL;
     }
 
-    Py_XDECREF(self->event_notifyCallback);
     Py_INCREF(notifyFunc);
-    self->event_notifyCallback = notifyFunc;
+    Py_XSETREF(self->event_notifyCallback, notifyFunc);
 
     /* This is to workaround a problem with un-initialized threads (see
        comment in DB_associate) */
@@ -7413,9 +7433,8 @@ DBEnv_rep_set_transport(DBEnvObject* self, PyObject* args)
     MYDB_END_ALLOW_THREADS;
     RETURN_IF_ERR();
 
-    Py_DECREF(self->rep_transport);
     Py_INCREF(rep_transport);
-    self->rep_transport = rep_transport;
+    Py_SETREF(self->rep_transport, rep_transport);
     RETURN_NONE();
 }
 

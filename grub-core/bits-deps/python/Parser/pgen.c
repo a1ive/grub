@@ -117,6 +117,17 @@ newnfagrammar(void)
     return gr;
 }
 
+static void
+freenfagrammar(nfagrammar *gr)
+{
+    int i;
+    for (i = 0; i < gr->gr_nnfas; i++) {
+        PyObject_FREE(gr->gr_nfa[i]->nf_state);
+    }
+    PyObject_FREE(gr->gr_nfa);
+    PyObject_FREE(gr);
+}
+
 static nfa *
 addnfa(nfagrammar *gr, char *name)
 {
@@ -136,11 +147,12 @@ addnfa(nfagrammar *gr, char *name)
 
 static char REQNFMT[] = "metacompile: less than %d children\n";
 
-#define REQN(i, count) \
+#define REQN(i, count) do { \
     if (i < count) { \
         fprintf(stderr, REQNFMT, count); \
         Py_FatalError("REQN"); \
-    } else
+    } \
+} while (0)
 
 #else
 #define REQN(i, count)  /* empty */
@@ -283,6 +295,7 @@ compile_atom(labellist *ll, nfa *nf, node *n, int *pa, int *pb)
 
     REQ(n, ATOM);
     i = n->n_nchildren;
+    (void)i; /* Don't warn about set but unused */
     REQN(i, 1);
     n = n->n_child;
     if (n->n_type == LPAR) {
@@ -392,6 +405,7 @@ makedfa(nfagrammar *gr, nfa *nf, dfa *d)
     int istate, jstate, iarc, jarc, ibit;
     nfastate *st;
     nfaarc *ar;
+    int i, j;
 
     ss = newbitset(nbits);
     addclosure(ss, nf, nf->nf_start);
@@ -486,7 +500,11 @@ makedfa(nfagrammar *gr, nfa *nf, dfa *d)
 
     convert(d, xx_nstates, xx_state);
 
-    /* XXX cleanup */
+    for (i = 0; i < xx_nstates; i++) {
+        for (j = 0; j < xx_state[i].ss_narcs; j++)
+            delbitset(xx_state[i].ss_arc[j].sa_bitset);
+        PyObject_FREE(xx_state[i].ss_arc);
+    }
     PyObject_FREE(xx_state);
 }
 
@@ -667,7 +685,7 @@ pgen(node *n)
     g = maketables(gr);
     translatelabels(g);
     addfirstsets(g);
-    PyObject_FREE(gr);
+    freenfagrammar(gr);
     return g;
 }
 

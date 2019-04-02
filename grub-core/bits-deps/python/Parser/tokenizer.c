@@ -169,7 +169,8 @@ error_ret(struct tok_state *tok) /* XXX */
     tok->decoding_erred = 1;
     if (tok->fp != NULL && tok->buf != NULL) /* see PyTokenizer_Free */
         PyMem_FREE(tok->buf);
-    tok->buf = NULL;
+    tok->buf = tok->cur = tok->end = tok->inp = tok->start = NULL;
+    tok->done = E_DECODE;
     return NULL;                /* as if it were EOF */
 }
 
@@ -235,7 +236,10 @@ get_coding_spec(const char *s, Py_ssize_t size)
 
             if (begin < t) {
                 char* r = new_string(begin, t - begin);
-                char* q = get_normal_name(r);
+                char* q;
+                if (!r)
+                    return NULL;
+                q = get_normal_name(r);
                 if (r != q) {
                     PyMem_FREE(r);
                     r = new_string(q, strlen(q));
@@ -652,9 +656,14 @@ translate_newlines(const char *s, int exec_input, struct tok_state *tok) {
     }
     *current = '\0';
     final_length = current - buf + 1;
-    if (final_length < needed_length && final_length)
+    if (final_length < needed_length && final_length) {
         /* should never fail */
-        buf = PyMem_REALLOC(buf, final_length);
+        char* result = PyMem_REALLOC(buf, final_length);
+        if (result == NULL) {
+            PyMem_FREE(buf);
+        }
+        buf = result;
+    }
     return buf;
 }
 
@@ -918,7 +927,6 @@ tok_nextc(register struct tok_state *tok)
                 if (tok->buf != NULL)
                     PyMem_FREE(tok->buf);
                 tok->buf = newtok;
-                tok->line_start = tok->buf;
                 tok->cur = tok->buf;
                 tok->line_start = tok->buf;
                 tok->inp = strchr(tok->buf, '\0');
@@ -941,13 +949,14 @@ tok_nextc(register struct tok_state *tok)
                 }
                 if (decoding_fgets(tok->buf, (int)(tok->end - tok->buf),
                           tok) == NULL) {
-                    tok->done = E_EOF;
+                    if (!tok->decoding_erred)
+                        tok->done = E_EOF;
                     done = 1;
                 }
                 else {
                     tok->done = E_OK;
                     tok->inp = strchr(tok->buf, '\0');
-                    done = tok->inp[-1] == '\n';
+                    done = tok->inp == tok->buf || tok->inp[-1] == '\n';
                 }
             }
             else {
@@ -975,6 +984,8 @@ tok_nextc(register struct tok_state *tok)
                     return EOF;
                 }
                 tok->buf = newbuf;
+                tok->cur = tok->buf + cur;
+                tok->line_start = tok->cur;
                 tok->inp = tok->buf + curvalid;
                 tok->end = tok->buf + newsize;
                 tok->start = curstart < 0 ? NULL :
@@ -1630,6 +1641,8 @@ tok_get(register struct tok_state *tok, char **p_start, char **p_end)
                                    "<> not supported in 3.x; use !=",
                                    tok->filename, tok->lineno,
                                    NULL, NULL)) {
+                tok->done = E_ERROR;
+                tok->cur = tok->inp;
                 return ERRORTOKEN;
             }
         }
@@ -1673,6 +1686,11 @@ int
 PyTokenizer_Get(struct tok_state *tok, char **p_start, char **p_end)
 {
     int result = tok_get(tok, p_start, p_end);
+    if (tok->fp && ferror(tok->fp)) {
+        clearerr(tok->fp);
+        result = ERRORTOKEN;
+        tok->done = E_IO;
+    }
     if (tok->decoding_erred) {
         result = ERRORTOKEN;
         tok->done = E_DECODE;

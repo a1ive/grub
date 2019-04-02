@@ -56,28 +56,28 @@ static const struct grub_arg_option py_options_options[] = {
     {0, 0, 0, 0, 0, 0}
 };
 
-static grub_err_t grub_cmd_py_options(struct grub_extcmd_context *context, int argc, char **args)
+static grub_err_t
+grub_cmd_py_options(grub_extcmd_context_t ctxt, int argc __attribute__ ((unused)), char **args __attribute__ ((unused)))
 {
-    (void)argc;
-    (void)args;
-
-    if (context->state[OPTION_VERBOSE].set)
-        Py_VerboseFlag = grub_strtoul(context->state[OPTION_VERBOSE].arg, NULL, 0);
+    struct grub_arg_list *state = ctxt->state;
+    if (ctxt->state[OPTION_VERBOSE].set)
+        Py_VerboseFlag = grub_strtoul(ctxt->state[OPTION_VERBOSE].arg, NULL, 0);
     else
         grub_printf("Py_VerboseFlag = %u\n", Py_VerboseFlag);
 
     return GRUB_ERR_NONE;
 }
 
-static grub_err_t grub_cmd_py(grub_command_t cmd, int argc, char **args)
+static grub_err_t
+grub_cmd_py(grub_command_t cmd __attribute__ ((unused)), int argc, char **args)
 {
-    (void)cmd;
     if (argc == 1)
         PyRun_SimpleString(args[0]);
     return GRUB_ERR_NONE;
 }
 
-static grub_err_t grub_cmd_pyrun(grub_command_t cmd __attribute__ ((unused)), int argc, char **args)
+static grub_err_t
+grub_cmd_pyrun(grub_command_t cmd __attribute__ ((unused)), int argc, char **args)
 {
     char *filename = args[0];
     grub_file_t file;
@@ -109,16 +109,15 @@ static grub_err_t grub_cmd_pyrun(grub_command_t cmd __attribute__ ((unused)), in
 }
 
 #if 0
-static grub_err_t grub_cmd_python(grub_command_t cmd, int argc, char **args)
+static grub_err_t
+grub_cmd_python(grub_command_t cmd __attribute__ ((unused)), int argc __attribute__ ((unused)), char **args __attribute__ ((unused)))
 {
-    (void)cmd;
-    (void)argc;
-    (void)args;
     grub_printf("Starting the Python interactive interpreter. Press Ctrl-D or Esc to exit.\n");
     PyRun_InteractiveLoop(stdin, "<stdin>");
     return GRUB_ERR_NONE;
 }
 #endif
+
 static int pydisk_iterate(int (*hook)(const char *name, void *hook_data), void *data, grub_disk_pull_t pull)
 {
     if (pull != GRUB_DISK_PULL_NONE)
@@ -224,7 +223,8 @@ static struct grub_fs pyfs = {
     .close = pyfs_close,
 };
 
-static grub_command_t cmd_py;
+static grub_command_t cmd_py, cmd_pyrun;
+//static grub_command_t cmd_python;
 static grub_extcmd_t cmd_py_options;
 
 GRUB_MOD_INIT(python)
@@ -234,8 +234,8 @@ GRUB_MOD_INIT(python)
     Py_NoSiteFlag = 1;
     Py_InspectFlag = 1;
     Py_Initialize();
-    //cmd_py = grub_register_command("python", grub_cmd_python, "\"Python interpreter\"", "Start the standard Python interpreter.");
-    cmd_py = grub_register_command("pyrun", grub_cmd_pyrun, "\"Python script\"", "Run Python scripts.");
+    //cmd_python = grub_register_command("python", grub_cmd_python, "\"Python interpreter\"", "Start the standard Python interpreter.");
+    cmd_pyrun = grub_register_command("pyrun", grub_cmd_pyrun, "\"Python script\"", "Run Python scripts.");
     cmd_py = grub_register_command("py", grub_cmd_py, "\"Python program\"", "Evaluate Python given on the command line.");
     cmd_py_options = grub_register_extcmd("py_options", grub_cmd_py_options, 0,
                                           "[-v NUM]",
@@ -250,6 +250,8 @@ GRUB_MOD_FINI(python)
     grub_fs_unregister(&pyfs);
     grub_disk_dev_unregister(&pydisk);
     grub_unregister_command(cmd_py);
+    //grub_unregister_command(cmd_python);
+    grub_unregister_command(cmd_pyrun);
     grub_unregister_extcmd(cmd_py_options);
     Py_Finalize();
 }

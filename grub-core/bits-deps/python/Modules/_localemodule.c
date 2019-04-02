@@ -57,9 +57,10 @@ copy_grouping(char* s)
     int i;
     PyObject *result, *val = NULL;
 
-    if (s[0] == '\0')
-    /* empty string: no grouping at all */
-    return PyList_New(0);
+    if (s[0] == '\0') {
+        /* empty string: no grouping at all */
+        return PyList_New(0);
+    }
 
     for (i = 0; s[i] != '\0' && s[i] != CHAR_MAX; i++)
         ; /* nothing */
@@ -72,19 +73,12 @@ copy_grouping(char* s)
     do {
         i++;
         val = PyInt_FromLong(s[i]);
-        if (!val)
-            break;
-        if (PyList_SetItem(result, i, val)) {
-            Py_DECREF(val);
-            val = NULL;
-            break;
+        if (val == NULL) {
+            Py_DECREF(result);
+            return NULL;
         }
+        PyList_SET_ITEM(result, i, val);
     } while (s[i] != '\0' && s[i] != CHAR_MAX);
-
-    if (!val) {
-        Py_DECREF(result);
-        return NULL;
-    }
 
     return result;
 }
@@ -172,23 +166,23 @@ PyLocale_setlocale(PyObject* self, PyObject* args)
 #endif
 
     if (locale) {
-    /* set locale */
-    result = setlocale(category, locale);
-    if (!result) {
-        /* operation failed, no setting was changed */
-        PyErr_SetString(Error, "unsupported locale setting");
-        return NULL;
-    }
-    result_object = PyString_FromString(result);
-    if (!result_object)
-        return NULL;
-    /* record changes to LC_CTYPE */
-    if (category == LC_CTYPE || category == LC_ALL)
-        fixup_ulcase();
+        /* set locale */
+        result = setlocale(category, locale);
+        if (!result) {
+            /* operation failed, no setting was changed */
+            PyErr_SetString(Error, "unsupported locale setting");
+            return NULL;
+        }
+        result_object = PyString_FromString(result);
+        if (!result_object)
+            return NULL;
+        /* record changes to LC_CTYPE */
+        if (category == LC_CTYPE || category == LC_ALL)
+            fixup_ulcase();
         /* things that got wrong up to here are ignored */
         PyErr_Clear();
     } else {
-    /* get locale */
+        /* get locale */
         result = setlocale(category, NULL);
         if (!result) {
             PyErr_SetString(Error, "locale query failed");
@@ -297,9 +291,9 @@ PyLocale_strcoll(PyObject* self, PyObject* args)
     }
     /* Convert the non-unicode argument to unicode. */
     if (!PyUnicode_Check(os1)) {
-    os1 = PyUnicode_FromObject(os1);
-    if (!os1)
-        return NULL;
+        os1 = PyUnicode_FromObject(os1);
+        if (!os1)
+            return NULL;
         rel1 = 1;
     }
     if (!PyUnicode_Check(os2)) {
@@ -534,7 +528,7 @@ PyLocale_nl_langinfo(PyObject* self, PyObject* args)
 {
     int item, i;
     if (!PyArg_ParseTuple(args, "i:nl_langinfo", &item))
-    return NULL;
+        return NULL;
     /* Check whether this is a supported constant. GNU libc sometimes
        returns numeric values in the char* return value, which would
        crash PyString_FromString.  */

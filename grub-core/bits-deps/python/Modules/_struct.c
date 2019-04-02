@@ -110,7 +110,7 @@ get_pylong(PyObject *v)
     PyObject *r, *w;
     int converted = 0;
     assert(v != NULL);
-    if (!PyInt_Check(v) && !PyLong_Check(v)) {
+    if (!_PyAnyInt_Check(v)) {
         PyNumberMethods *m;
         /* Not an integer; first try to use __index__ to
            convert to an integer.  If the __index__ method
@@ -150,7 +150,7 @@ get_pylong(PyObject *v)
             v = m->nb_int(v);
             if (v == NULL)
                 return NULL;
-            if (!PyInt_Check(v) && !PyLong_Check(v)) {
+            if (!_PyAnyInt_Check(v)) {
                 PyErr_SetString(PyExc_TypeError,
                                 "__int__ method returned "
                                 "non-integer");
@@ -169,7 +169,7 @@ get_pylong(PyObject *v)
         /* Ensure we own a reference to v. */
         Py_INCREF(v);
 
-    assert(PyInt_Check(v) || PyLong_Check(v));
+    assert(_PyAnyInt_Check(v));
     if (PyInt_Check(v)) {
         r = PyLong_FromLong(PyInt_AS_LONG(v));
         Py_DECREF(v);
@@ -506,7 +506,7 @@ np_ubyte(char *p, PyObject *v, const formatdef *f)
                         "ubyte format requires 0 <= number <= 255");
         return -1;
     }
-    *p = (char)x;
+    *(unsigned char *)p = (unsigned char)x;
     return 0;
 }
 
@@ -814,6 +814,7 @@ bp_int(char *p, PyObject *v, const formatdef *f)
 {
     long x;
     Py_ssize_t i;
+    unsigned char *q = (unsigned char *)p;
     if (get_long(v, &x) < 0)
         return -1;
     i = f->size;
@@ -826,7 +827,7 @@ bp_int(char *p, PyObject *v, const formatdef *f)
 #endif
     }
     do {
-        p[--i] = (char)x;
+        q[--i] = (unsigned char)(x & 0xffL);
         x >>= 8;
     } while (i > 0);
     return 0;
@@ -837,6 +838,7 @@ bp_uint(char *p, PyObject *v, const formatdef *f)
 {
     unsigned long x;
     Py_ssize_t i;
+    unsigned char *q = (unsigned char *)p;
     if (get_ulong(v, &x) < 0)
         return -1;
     i = f->size;
@@ -847,7 +849,7 @@ bp_uint(char *p, PyObject *v, const formatdef *f)
             return _range_error(f, 1);
     }
     do {
-        p[--i] = (char)x;
+        q[--i] = (unsigned char)(x & 0xffUL);
         x >>= 8;
     } while (i > 0);
     return 0;
@@ -1034,6 +1036,7 @@ lp_int(char *p, PyObject *v, const formatdef *f)
 {
     long x;
     Py_ssize_t i;
+    unsigned char *q = (unsigned char *)p;
     if (get_long(v, &x) < 0)
         return -1;
     i = f->size;
@@ -1046,7 +1049,7 @@ lp_int(char *p, PyObject *v, const formatdef *f)
 #endif
     }
     do {
-        *p++ = (char)x;
+        *q++ = (unsigned char)(x & 0xffL);
         x >>= 8;
     } while (--i > 0);
     return 0;
@@ -1057,6 +1060,7 @@ lp_uint(char *p, PyObject *v, const formatdef *f)
 {
     unsigned long x;
     Py_ssize_t i;
+    unsigned char *q = (unsigned char *)p;
     if (get_ulong(v, &x) < 0)
         return -1;
     i = f->size;
@@ -1067,7 +1071,7 @@ lp_uint(char *p, PyObject *v, const formatdef *f)
             return _range_error(f, 1);
     }
     do {
-        *p++ = (char)x;
+        *q++ = (unsigned char)(x & 0xffUL);
         x >>= 8;
     } while (--i > 0);
     return 0;
@@ -1377,15 +1381,13 @@ s_init(PyObject *self, PyObject *args, PyObject *kwds)
 
     if (PyString_Check(o_format)) {
         Py_INCREF(o_format);
-        Py_CLEAR(soself->s_format);
-        soself->s_format = o_format;
+        Py_XSETREF(soself->s_format, o_format);
     }
     else if (PyUnicode_Check(o_format)) {
         PyObject *str = PyUnicode_AsEncodedString(o_format, "ascii", NULL);
         if (str == NULL)
             return -1;
-        Py_CLEAR(soself->s_format);
-        soself->s_format = str;
+        Py_XSETREF(soself->s_format, str);
     }
     else {
         PyErr_Format(PyExc_TypeError,
@@ -1737,7 +1739,7 @@ s_sizeof(PyStructObject *self, void *unused)
 {
     Py_ssize_t size;
 
-    size = sizeof(PyStructObject) + sizeof(formatcode) * (self->s_len + 1);
+    size = _PyObject_SIZE(Py_TYPE(self)) + sizeof(formatcode) * (self->s_len + 1);
     return PyLong_FromSsize_t(size);
 }
 

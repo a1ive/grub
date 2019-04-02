@@ -1,5 +1,6 @@
 /* -----------------------------------------------------------------------
-   ffiw64.c - Copyright (c) 2014 Red Hat, Inc.
+   ffiw64.c - Copyright (c) 2018 Anthony Green
+              Copyright (c) 2014 Red Hat, Inc.
 
    x86 win64 Foreign Function Interface
 
@@ -52,8 +53,14 @@ EFI64(ffi_prep_cif_machdep)(ffi_cif *cif)
 {
   int flags, n;
 
-  if (cif->abi != FFI_WIN64)
-    return FFI_BAD_ABI;
+  switch (cif->abi)
+    {
+    case FFI_WIN64:
+    case FFI_GNUW64:
+      break;
+    default:
+      return FFI_BAD_ABI;
+    }
 
   flags = cif->rtype->type;
   switch (flags)
@@ -61,7 +68,9 @@ EFI64(ffi_prep_cif_machdep)(ffi_cif *cif)
     default:
       break;
     case FFI_TYPE_LONGDOUBLE:
-      flags = FFI_TYPE_STRUCT;
+      /* GCC returns long double values by reference, like a struct */
+      if (cif->abi == FFI_GNUW64)
+	flags = FFI_TYPE_STRUCT;
       break;
     case FFI_TYPE_COMPLEX:
       flags = FFI_TYPE_STRUCT;
@@ -106,7 +115,7 @@ ffi_call_int (ffi_cif *cif, void (*fn)(void), void *rvalue,
   size_t rsize;
   struct win64_call_frame *frame;
 
-  FFI_ASSERT(cif->abi == FFI_WIN64);
+  FFI_ASSERT(cif->abi == FFI_GNUW64 || cif->abi == FFI_WIN64);
 
   flags = cif->flags;
   rsize = 0;
@@ -196,8 +205,14 @@ EFI64(ffi_prep_closure_loc)(ffi_closure* closure,
   };
   char *tramp = closure->tramp;
 
-  if (cif->abi != FFI_WIN64)
-    return FFI_BAD_ABI;
+  switch (cif->abi)
+    {
+    case FFI_WIN64:
+    case FFI_GNUW64:
+      break;
+    default:
+      return FFI_BAD_ABI;
+    }
 
   memcpy (tramp, trampoline, sizeof(trampoline));
   *(UINT64 *)(tramp + 16) = (uintptr_t)ffi_closure_win64;
@@ -213,8 +228,14 @@ ffi_status
 EFI64(ffi_prep_go_closure)(ffi_go_closure* closure, ffi_cif* cif,
 		     void (*fun)(ffi_cif*, void*, void**, void*))
 {
-  if (cif->abi != FFI_WIN64)
-    return FFI_BAD_ABI;
+  switch (cif->abi)
+    {
+    case FFI_WIN64:
+    case FFI_GNUW64:
+      break;
+    default:
+      return FFI_BAD_ABI;
+    }
 
   closure->tramp = ffi_go_closure_win64;
   closure->cif = cif;
@@ -231,7 +252,11 @@ struct win64_closure_frame
   UINT64 args[];
 };
 
-int FFI_HIDDEN
+/* Force the inner function to use the MS ABI.  When compiling on win64
+   this is a nop.  When compiling on unix, this simplifies the assembly,
+   and places the burden of saving the extra call-saved registers on
+   the compiler.  */
+int FFI_HIDDEN __attribute__((ms_abi))
 ffi_closure_win64_inner(ffi_cif *cif,
 			void (*fun)(ffi_cif*, void*, void**, void*),
 			void *user_data,

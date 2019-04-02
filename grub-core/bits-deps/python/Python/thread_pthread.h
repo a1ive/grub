@@ -156,6 +156,28 @@ PyThread__init_thread(void)
  * Thread support.
  */
 
+/* bpo-33015: pythread_callback struct and pythread_wrapper() cast
+   "void func(void *)" to "void* func(void *)": always return NULL.
+
+   PyThread_start_new_thread() uses "void func(void *)" type, whereas
+   pthread_create() requires a void* return value. */
+typedef struct {
+    void (*func) (void *);
+    void *arg;
+} pythread_callback;
+
+static void *
+pythread_wrapper(void *arg)
+{
+    /* copy func and func_arg and free the temporary structure */
+    pythread_callback *callback = arg;
+    void (*func)(void *) = callback->func;
+    void *func_arg = callback->arg;
+    free(arg);
+
+    func(func_arg);
+    return NULL;
+}
 
 long
 PyThread_start_new_thread(void (*func)(void *), void *arg)
@@ -191,21 +213,31 @@ PyThread_start_new_thread(void (*func)(void *), void *arg)
     pthread_attr_setscope(&attrs, PTHREAD_SCOPE_SYSTEM);
 #endif
 
+    pythread_callback *callback = malloc(sizeof(pythread_callback));
+
+    if (callback == NULL) {
+        return -1;
+    }
+
+    callback->func = func;
+    callback->arg = arg;
+
     status = pthread_create(&th,
 #if defined(THREAD_STACK_SIZE) || defined(PTHREAD_SYSTEM_SCHED_SUPPORTED)
                              &attrs,
 #else
                              (pthread_attr_t*)NULL,
 #endif
-                             (void* (*)(void *))func,
-                             (void *)arg
-                             );
+                             pythread_wrapper, callback);
 
 #if defined(THREAD_STACK_SIZE) || defined(PTHREAD_SYSTEM_SCHED_SUPPORTED)
     pthread_attr_destroy(&attrs);
 #endif
-    if (status != 0)
+
+    if (status != 0) {
+        free(callback);
         return -1;
+    }
 
     pthread_detach(th);
 
@@ -410,31 +442,41 @@ PyThread_free_lock(PyThread_type_lock lock)
 int
 PyThread_acquire_lock(PyThread_type_lock lock, int waitflag)
 {
-    int success;
+    int success = 0;
     pthread_lock *thelock = (pthread_lock *)lock;
     int status, error = 0;
 
     dprintf(("PyThread_acquire_lock(%p, %d) called\n", lock, waitflag));
 
-    status = pthread_mutex_lock( &thelock->mut );
-    CHECK_STATUS("pthread_mutex_lock[1]");
-    success = thelock->locked == 0;
-
-    if ( !success && waitflag ) {
-        /* continue trying until we get the lock */
-
-        /* mut must be locked by me -- part of the condition
-         * protocol */
-        while ( thelock->locked ) {
-            status = pthread_cond_wait(&thelock->lock_released,
-                                       &thelock->mut);
-            CHECK_STATUS("pthread_cond_wait");
-        }
-        success = 1;
+    if (waitflag) {
+        status = pthread_mutex_lock( &thelock->mut );
+        CHECK_STATUS("pthread_mutex_lock[1]");
     }
-    if (success) thelock->locked = 1;
-    status = pthread_mutex_unlock( &thelock->mut );
-    CHECK_STATUS("pthread_mutex_unlock[1]");
+    else {
+        status = pthread_mutex_trylock( &thelock->mut );
+        if (status != EBUSY)
+            CHECK_STATUS("pthread_mutex_trylock[1]");
+    }
+    if (status == 0) {
+        success = thelock->locked == 0;
+
+        if ( !success && waitflag ) {
+            /* continue trying until we get the lock */
+
+            /* mut must be locked by me -- part of the condition
+             * protocol */
+            while ( thelock->locked ) {
+                status = pthread_cond_wait(&thelock->lock_released,
+                                           &thelock->mut);
+                CHECK_STATUS("pthread_cond_wait");
+            }
+            success = 1;
+        }
+
+        if (success) thelock->locked = 1;
+        status = pthread_mutex_unlock( &thelock->mut );
+        CHECK_STATUS("pthread_mutex_unlock[1]");
+    }
 
     if (error) success = 0;
     dprintf(("PyThread_acquire_lock(%p, %d) -> %d\n", lock, waitflag, success));

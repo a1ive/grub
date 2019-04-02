@@ -1,5 +1,6 @@
 /*****************************************************************
-  This file should be kept compatible with Python 2.3, see PEP 291.
+  This file contains remnant Python 2.3 compatibility code that is no longer
+  strictly required.
  *****************************************************************/
 
 
@@ -92,7 +93,7 @@
 CTYPES_CAPSULE_INSTANTIATE_DESTRUCTOR(CTYPES_CAPSULE_ERROROBJ)
 
 #if defined(CTYPES_UNICODE) && !defined(HAVE_USABLE_WCHAR_T)
-#define CTYPES_CAPSULE_WCHAR_T "_ctypes/callproc.c wchar_t buffer from unicode"
+#  define CTYPES_CAPSULE_WCHAR_T "_ctypes/callproc.c wchar_t buffer from unicode"
 CTYPES_CAPSULE_INSTANTIATE_DESTRUCTOR(CTYPES_CAPSULE_WCHAR_T)
 #endif
 
@@ -163,8 +164,10 @@ _ctypes_get_errobj(int **pspace)
             return NULL;
         memset(space, 0, sizeof(int) * 2);
         errobj = CAPSULE_NEW(space, CTYPES_CAPSULE_ERROROBJ);
-        if (errobj == NULL)
+        if (errobj == NULL) {
+            PyMem_Free(space);
             return NULL;
+        }
         if (-1 == PyDict_SetItem(dict, error_object_name,
                                  errobj)) {
             Py_DECREF(errobj);
@@ -482,11 +485,7 @@ PyCArg_repr(PyCArgObject *self)
     case 'q':
     case 'Q':
         sprintf(buffer,
-#ifdef MS_WIN32
-            "<cparam '%c' (%I64d)>",
-#else
-            "<cparam '%c' (%qd)>",
-#endif
+            "<cparam '%c' (%" PY_FORMAT_LONG_LONG "d)>",
             self->tag, self->value.q);
         break;
 #endif
@@ -744,9 +743,9 @@ ffi_type *_ctypes_get_ffi_type(PyObject *obj)
        It returns small structures in registers
     */
     if (dict->ffi_type_pointer.type == FFI_TYPE_STRUCT) {
-        if (dict->ffi_type_pointer.size <= 4)
+        if (can_return_struct_as_int(dict->ffi_type_pointer.size))
             return &ffi_type_sint32;
-        else if (dict->ffi_type_pointer.size <= 8)
+        else if (can_return_struct_as_sint64 (dict->ffi_type_pointer.size))
             return &ffi_type_sint64;
     }
 #endif
@@ -1688,22 +1687,41 @@ between unicode and strings.  Returns the previous values.\n";
 static PyObject *
 set_conversion_mode(PyObject *self, PyObject *args)
 {
-    char *coding, *mode;
+    char *coding, *mode, *errors, *encoding=NULL;
     PyObject *result;
 
     if (!PyArg_ParseTuple(args, "zs:set_conversion_mode", &coding, &mode))
         return NULL;
-    result = Py_BuildValue("(zz)", _ctypes_conversion_encoding, _ctypes_conversion_errors);
-    if (coding) {
-        PyMem_Free(_ctypes_conversion_encoding);
-        _ctypes_conversion_encoding = PyMem_Malloc(strlen(coding) + 1);
-        strcpy(_ctypes_conversion_encoding, coding);
-    } else {
-        _ctypes_conversion_encoding = NULL;
+
+    result = Py_BuildValue("(zz)", _ctypes_conversion_encoding,
+                           _ctypes_conversion_errors);
+    if (!result) {
+        return NULL;
     }
+
+    if (coding) {
+        encoding = PyMem_Malloc(strlen(coding) + 1);
+        if (!encoding) {
+            Py_DECREF(result);
+            return PyErr_NoMemory();
+        }
+        strcpy(encoding, coding);
+    }
+
+    errors = PyMem_Malloc(strlen(mode) + 1);
+    if (!errors) {
+        Py_DECREF(result);
+        PyMem_Free(encoding);
+        return PyErr_NoMemory();
+    }
+    strcpy(errors, mode);
+
+    PyMem_Free(_ctypes_conversion_encoding);
+    _ctypes_conversion_encoding = encoding;
+
     PyMem_Free(_ctypes_conversion_errors);
-    _ctypes_conversion_errors = PyMem_Malloc(strlen(mode) + 1);
-    strcpy(_ctypes_conversion_errors, mode);
+    _ctypes_conversion_errors = errors;
+
     return result;
 }
 #endif
@@ -1816,9 +1834,14 @@ POINTER(PyObject *self, PyObject *cls)
                                        "s(O){}",
                                        buf,
                                        &PyCPointer_Type);
+        PyMem_Free(buf);
         if (result == NULL)
             return result;
         key = PyLong_FromVoidPtr(result);
+        if (key == NULL) {
+            Py_DECREF(result);
+            return NULL;
+        }
     } else if (PyType_Check(cls)) {
         typ = (PyTypeObject *)cls;
         buf = PyMem_Malloc(strlen(typ->tp_name) + 3 + 1);

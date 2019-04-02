@@ -220,15 +220,19 @@ _set_bool(const char *name, int *target, PyObject *src, int dflt)
 static int
 _set_int(const char *name, int *target, PyObject *src, int dflt)
 {
+    int value;
     if (src == NULL)
         *target = dflt;
     else {
-        if (!PyInt_Check(src)) {
+        if (!_PyAnyInt_Check(src)) {
             PyErr_Format(PyExc_TypeError,
                          "\"%s\" must be an integer", name);
             return -1;
         }
-        *target = PyInt_AsLong(src);
+        value = PyInt_AsLong(src);
+        if (value == -1 && PyErr_Occurred())
+            return -1;
+        *target = value;
     }
     return 0;
 }
@@ -276,9 +280,8 @@ _set_str(const char *name, PyObject **target, PyObject *src, const char *dflt)
             return -1;
         }
         else {
-            Py_XDECREF(*target);
             Py_INCREF(src);
-            *target = src;
+            Py_XSETREF(*target, src);
         }
     }
     return 0;
@@ -562,24 +565,23 @@ parse_save_field(ReaderObj *self)
 static int
 parse_grow_buff(ReaderObj *self)
 {
-    if (self->field_size == 0) {
-        self->field_size = 4096;
-        if (self->field != NULL)
-            PyMem_Free(self->field);
-        self->field = PyMem_Malloc(self->field_size);
-    }
-    else {
-        if (self->field_size > INT_MAX / 2) {
-            PyErr_NoMemory();
-            return 0;
-        }
-        self->field_size *= 2;
-        self->field = PyMem_Realloc(self->field, self->field_size);
-    }
-    if (self->field == NULL) {
+    unsigned field_size_new;
+    char *field_new;
+
+    assert((unsigned)self->field_size <= INT_MAX);
+
+    field_size_new = self->field_size ? 2 * (unsigned)self->field_size : 4096;
+    if (field_size_new > INT_MAX) {
         PyErr_NoMemory();
         return 0;
     }
+    field_new = (char *)PyMem_Realloc(self->field, field_size_new);
+    if (field_new == NULL) {
+        PyErr_NoMemory();
+        return 0;
+    }
+    self->field = field_new;
+    self->field_size = (int)field_size_new;
     return 1;
 }
 
@@ -718,7 +720,7 @@ parse_process_char(ReaderObj *self, char c)
         break;
 
     case QUOTE_IN_QUOTED_FIELD:
-        /* doublequote - seen a quote in an quoted field */
+        /* doublequote - seen a quote in a quoted field */
         if (dialect->quoting != QUOTE_NONE &&
             c == dialect->quotechar) {
             /* save "" as " */
@@ -770,8 +772,7 @@ parse_process_char(ReaderObj *self, char c)
 static int
 parse_reset(ReaderObj *self)
 {
-    Py_XDECREF(self->fields);
-    self->fields = PyList_New(0);
+    Py_XSETREF(self->fields, PyList_New(0));
     if (self->fields == NULL)
         return -1;
     self->field_len = 0;
@@ -987,11 +988,19 @@ join_append_data(WriterObj *self, char *field, int quote_empty,
     int i, rec_len;
     char *lineterm;
 
-#define ADDCH(c) \
+#define INCLEN \
+    do {\
+        if (!copy_phase && rec_len == INT_MAX) { \
+            goto overflow; \
+        } \
+        rec_len++; \
+    } while(0)
+
+#define ADDCH(c)                                \
     do {\
         if (copy_phase) \
             self->rec[rec_len] = c;\
-        rec_len++;\
+        INCLEN;\
     } while(0)
 
     lineterm = PyString_AsString(dialect->lineterminator);
@@ -1061,41 +1070,41 @@ join_append_data(WriterObj *self, char *field, int quote_empty,
     if (*quoted) {
         if (copy_phase)
             ADDCH(dialect->quotechar);
-        else
-            rec_len += 2;
+        else {
+            INCLEN; /* starting quote */
+            INCLEN; /* ending quote */
+        }
     }
     return rec_len;
+
+  overflow:
+    PyErr_NoMemory();
+    return -1;
 #undef ADDCH
+#undef INCLEN
 }
 
 static int
 join_check_rec_size(WriterObj *self, int rec_len)
 {
+    unsigned rec_size_new;
+    char *rec_new;
 
-    if (rec_len < 0 || rec_len > INT_MAX - MEM_INCR) {
-        PyErr_NoMemory();
-        return 0;
-    }
+    assert(rec_len >= 0);
 
     if (rec_len > self->rec_size) {
-        if (self->rec_size == 0) {
-            self->rec_size = (rec_len / MEM_INCR + 1) * MEM_INCR;
-            if (self->rec != NULL)
-                PyMem_Free(self->rec);
-            self->rec = PyMem_Malloc(self->rec_size);
-        }
-        else {
-            char *old_rec = self->rec;
-
-            self->rec_size = (rec_len / MEM_INCR + 1) * MEM_INCR;
-            self->rec = PyMem_Realloc(self->rec, self->rec_size);
-            if (self->rec == NULL)
-                PyMem_Free(old_rec);
-        }
-        if (self->rec == NULL) {
+        rec_size_new = (unsigned)(rec_len / MEM_INCR + 1) * MEM_INCR;
+        if (rec_size_new > INT_MAX) {
             PyErr_NoMemory();
             return 0;
         }
+        rec_new = (char *)PyMem_Realloc(self->rec, rec_size_new);
+        if (rec_new == NULL) {
+            PyErr_NoMemory();
+            return 0;
+        }
+        self->rec = rec_new;
+        self->rec_size = (int)rec_size_new;
     }
     return 1;
 }
@@ -1430,17 +1439,20 @@ static PyObject *
 csv_field_size_limit(PyObject *module, PyObject *args)
 {
     PyObject *new_limit = NULL;
-    long old_limit = field_limit;
+    long old_limit = field_limit, limit;
 
     if (!PyArg_UnpackTuple(args, "field_size_limit", 0, 1, &new_limit))
         return NULL;
     if (new_limit != NULL) {
-        if (!PyInt_Check(new_limit)) {
+        if (!_PyAnyInt_Check(new_limit)) {
             PyErr_Format(PyExc_TypeError,
                          "limit must be an integer");
             return NULL;
         }
-        field_limit = PyInt_AsLong(new_limit);
+        limit = PyInt_AsLong(new_limit);
+        if (limit == -1 && PyErr_Occurred())
+            return NULL;
+        field_limit = limit;
     }
     return PyInt_FromLong(old_limit);
 }
@@ -1520,7 +1532,7 @@ PyDoc_STRVAR(csv_reader_doc,
 "provided by the dialect.\n"
 "\n"
 "The returned object is an iterator.  Each iteration returns a row\n"
-"of the CSV file (which can span multiple input lines):\n");
+"of the CSV file (which can span multiple input lines).\n");
 
 PyDoc_STRVAR(csv_writer_doc,
 "    csv_writer = csv.writer(fileobj [, dialect='excel']\n"

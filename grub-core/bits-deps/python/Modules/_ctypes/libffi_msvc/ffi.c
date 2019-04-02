@@ -119,11 +119,26 @@ void ffi_prep_args(char *stack, extended_cif *ecif)
       argp += z;
     }
 
-  if (argp - stack > ecif->cif->bytes) 
+  if (argp >= stack && (unsigned)(argp - stack) > ecif->cif->bytes)
     {
       Py_FatalError("FFI BUG: not enough stack space for arguments");
     }
   return;
+}
+
+/*
+Per: https://msdn.microsoft.com/en-us/library/7572ztz4.aspx
+To be returned by value in RAX, user-defined types must have a length 
+of 1, 2, 4, 8, 16, 32, or 64 bits
+*/
+int can_return_struct_as_int(size_t s)
+{
+  return s == 1 || s == 2 || s == 4;
+}
+
+int can_return_struct_as_sint64(size_t s)
+{
+  return s == 8;
 }
 
 /* Perform machine dependent cif processing */
@@ -144,9 +159,9 @@ ffi_status ffi_prep_cif_machdep(ffi_cif *cif)
       /* MSVC returns small structures in registers.  Put in cif->flags
          the value FFI_TYPE_STRUCT only if the structure is big enough;
          otherwise, put the 4- or 8-bytes integer type. */
-      if (cif->rtype->size <= 4)
+      if (can_return_struct_as_int(cif->rtype->size))
         cif->flags = FFI_TYPE_INT;
-      else if (cif->rtype->size <= 8)
+      else if (can_return_struct_as_sint64(cif->rtype->size))
         cif->flags = FFI_TYPE_SINT64;
       else
         cif->flags = FFI_TYPE_STRUCT;
@@ -220,6 +235,20 @@ ffi_call(/*@dependent@*/ ffi_cif *cif,
       break;
 #else
     case FFI_SYSV:
+      /* use a local scope for the 'i' variable */
+      {
+          unsigned i;
+          /* If a single argument takes more than 8 bytes,
+             then a copy is passed by reference. */
+          for (i = 0; i < cif->nargs; i++) {
+              size_t z = cif->arg_types[i]->size;
+              if (z > 8) {
+                  void *temp = alloca(z);
+                  memcpy(temp, avalue[i], z);
+                  avalue[i] = temp;
+              }
+          }
+      }
       /*@-usedef@*/
       return ffi_call_AMD64(ffi_prep_args, &ecif, cif->bytes,
 			   cif->flags, ecif.rvalue, fn);
@@ -359,7 +388,7 @@ ffi_prep_incoming_args_SYSV(char *stack, void **rvalue,
 
   if ( cif->rtype->type == FFI_TYPE_STRUCT ) {
     *rvalue = *(void **) argp;
-    argp += 4;
+    argp += sizeof(void *);
   }
 
   p_argv = avalue;
@@ -370,13 +399,23 @@ ffi_prep_incoming_args_SYSV(char *stack, void **rvalue,
 
       /* Align if necessary */
       if ((sizeof(char *) - 1) & (size_t) argp) {
-	argp = (char *) ALIGN(argp, sizeof(char*));
+        argp = (char *) ALIGN(argp, sizeof(char*));
       }
 
       z = (*p_arg)->size;
 
       /* because we're little endian, this is what it turns into.   */
 
+#ifdef _WIN64
+      if (z > 8) {
+        /* On Win64, if a single argument takes more than 8 bytes,
+         * then it is always passed by reference.
+         */
+        *p_argv = *((void**) argp);
+        z = 8;
+      }
+      else
+#endif
       *p_argv = (void*) argp;
 
       p_argv++;

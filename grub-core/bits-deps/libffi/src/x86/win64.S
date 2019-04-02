@@ -22,10 +22,15 @@
 #define arg3	%rcx
 #endif
 
-.macro E which
-	.align	8
-	.org	0b + \which * 8
-.endm
+/* This macro allows the safe creation of jump tables without an
+   actual table.  The entry points into the table are all 8 bytes.
+   The use of ORG asserts that we're at the correct location.  */
+/* ??? The clang assembler doesn't handle .org with symbolic expressions.  */
+#if defined(__clang__) || defined(__APPLE__) || (defined (__sun__) && defined(__svr4__))
+# define E(BASE, X)	.balign 8
+#else
+# define E(BASE, X)	.balign 8; .org BASE + X * 8
+#endif
 
 	.text
 
@@ -36,10 +41,10 @@
    deallocate some of the stack that has been alloca'd.  */
 
 	.align	8
-	.globl	ffi_call_win64
+	.globl	C(ffi_call_win64)
 
 	SEH(.seh_proc ffi_call_win64)
-ffi_call_win64:
+C(ffi_call_win64):
 	cfi_startproc
 	/* Set up the local stack frame and install it in rbp/rsp.  */
 	movq	(%rsp), %rax
@@ -88,69 +93,69 @@ ffi_call_win64:
 
 	.align	8
 0:
-E FFI_TYPE_VOID
+E(0b, FFI_TYPE_VOID)
 	epilogue
-E FFI_TYPE_INT
+E(0b, FFI_TYPE_INT)
 	movslq	%eax, %rax
 	movq	%rax, (%r8)
 	epilogue
-E FFI_TYPE_FLOAT
+E(0b, FFI_TYPE_FLOAT)
 	movss	%xmm0, (%r8)
 	epilogue
-E FFI_TYPE_DOUBLE
+E(0b, FFI_TYPE_DOUBLE)
 	movsd	%xmm0, (%r8)
 	epilogue
-E FFI_TYPE_LONGDOUBLE
+E(0b, FFI_TYPE_LONGDOUBLE)
 	call	PLT(C(abort_ffi))
-E FFI_TYPE_UINT8
+E(0b, FFI_TYPE_UINT8)
 	movzbl	%al, %eax
 	movq	%rax, (%r8)
 	epilogue
-E FFI_TYPE_SINT8
+E(0b, FFI_TYPE_SINT8)
 	movsbq	%al, %rax
 	jmp	98f
-E FFI_TYPE_UINT16
+E(0b, FFI_TYPE_UINT16)
 	movzwl	%ax, %eax
 	movq	%rax, (%r8)
 	epilogue
-E FFI_TYPE_SINT16
+E(0b, FFI_TYPE_SINT16)
 	movswq	%ax, %rax
 	jmp	98f
-E FFI_TYPE_UINT32
+E(0b, FFI_TYPE_UINT32)
 	movl	%eax, %eax
 	movq	%rax, (%r8)
 	epilogue
-E FFI_TYPE_SINT32
+E(0b, FFI_TYPE_SINT32)
 	movslq	%eax, %rax
 	movq	%rax, (%r8)
 	epilogue
-E FFI_TYPE_UINT64
+E(0b, FFI_TYPE_UINT64)
 98:	movq	%rax, (%r8)
 	epilogue
-E FFI_TYPE_SINT64
+E(0b, FFI_TYPE_SINT64)
 	movq	%rax, (%r8)
 	epilogue
-E FFI_TYPE_STRUCT
+E(0b, FFI_TYPE_STRUCT)
 	epilogue
-E FFI_TYPE_POINTER
+E(0b, FFI_TYPE_POINTER)
 	movq	%rax, (%r8)
 	epilogue
-E FFI_TYPE_COMPLEX
+E(0b, FFI_TYPE_COMPLEX)
 	call	PLT(C(abort_ffi))
-E FFI_TYPE_SMALL_STRUCT_1B
+E(0b, FFI_TYPE_SMALL_STRUCT_1B)
 	movb	%al, (%r8)
 	epilogue
-E FFI_TYPE_SMALL_STRUCT_2B
+E(0b, FFI_TYPE_SMALL_STRUCT_2B)
 	movw	%ax, (%r8)
 	epilogue
-E FFI_TYPE_SMALL_STRUCT_4B
+E(0b, FFI_TYPE_SMALL_STRUCT_4B)
 	movl	%eax, (%r8)
 	epilogue
 
 	.align	8
 99:	call	PLT(C(abort_ffi))
 
-.purgem epilogue
+	epilogue
 
 	cfi_endproc
 	SEH(.seh_endproc)
@@ -163,10 +168,10 @@ E FFI_TYPE_SMALL_STRUCT_4B
 #define ffi_clo_OFF_X	(32+8+16)
 
 	.align	8
-	.globl	ffi_go_closure_win64
+	.globl	C(ffi_go_closure_win64)
 
 	SEH(.seh_proc ffi_go_closure_win64)
-ffi_go_closure_win64:
+C(ffi_go_closure_win64):
 	cfi_startproc
 	/* Save all integer arguments into the incoming reg stack space.  */
 	movq	%rcx, 8(%rsp)
@@ -174,18 +179,18 @@ ffi_go_closure_win64:
 	movq	%r8, 24(%rsp)
 	movq	%r9, 32(%rsp)
 
-	movq	8(%r10), arg0			/* load cif */
-	movq	16(%r10), arg1			/* load fun */
-	movq	%r10, arg2			/* closure is user_data */
+	movq	8(%r10), %rcx			/* load cif */
+	movq	16(%r10), %rdx			/* load fun */
+	movq	%r10, %r8			/* closure is user_data */
 	jmp	0f
 	cfi_endproc
 	SEH(.seh_endproc)
 
 	.align	8
-	.globl	ffi_closure_win64
+	.globl	C(ffi_closure_win64)
 
 	SEH(.seh_proc ffi_closure_win64)
-ffi_closure_win64:
+C(ffi_closure_win64):
 	cfi_startproc
 	/* Save all integer arguments into the incoming reg stack space.  */
 	movq	%rcx, 8(%rsp)
@@ -193,9 +198,9 @@ ffi_closure_win64:
 	movq	%r8, 24(%rsp)
 	movq	%r9, 32(%rsp)
 
-	movq	FFI_TRAMPOLINE_SIZE(%r10), arg0		/* load cif */
-	movq	FFI_TRAMPOLINE_SIZE+8(%r10), arg1	/* load fun */
-	movq	FFI_TRAMPOLINE_SIZE+16(%r10), arg2	/* load user_data */
+	movq	FFI_TRAMPOLINE_SIZE(%r10), %rcx		/* load cif */
+	movq	FFI_TRAMPOLINE_SIZE+8(%r10), %rdx	/* load fun */
+	movq	FFI_TRAMPOLINE_SIZE+16(%r10), %r8	/* load user_data */
 0:
 	subq	$ffi_clo_FS, %rsp
 	cfi_adjust_cfa_offset(ffi_clo_FS)
@@ -208,8 +213,8 @@ ffi_closure_win64:
 	movsd	%xmm2, ffi_clo_OFF_X+16(%rsp)
 	movsd	%xmm3, ffi_clo_OFF_X+24(%rsp)
 
-	leaq	ffi_clo_OFF_R(%rsp), arg3
-	call	ffi_closure_win64_inner
+	leaq	ffi_clo_OFF_R(%rsp), %r9
+	call	PLT(C(ffi_closure_win64_inner))
 
 	/* Load the result into both possible result registers.  */
 	movq    ffi_clo_OFF_R(%rsp), %rax
@@ -221,3 +226,7 @@ ffi_closure_win64:
 
 	cfi_endproc
 	SEH(.seh_endproc)
+
+#if defined __ELF__ && defined __linux__
+	.section	.note.GNU-stack,"",@progbits
+#endif

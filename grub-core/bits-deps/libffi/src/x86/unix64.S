@@ -273,7 +273,7 @@ L(do_closure):
 	leaq	ffi_closure_OFS_RVALUE(%rsp), %rcx	/* Load rvalue */
 	movq	%rsp, %r8				/* Load reg_args */
 	leaq	ffi_closure_FS+8(%rsp), %r9		/* Load argp */
-	call	C(ffi_closure_unix64_inner)
+	call	PLT(C(ffi_closure_unix64_inner))
 
 L(UW10):
 	/* The first byte of the return value contains the FFI_TYPE.  */

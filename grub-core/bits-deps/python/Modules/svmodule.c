@@ -686,7 +686,7 @@ sv_LoadMap(svobject *self, PyObject *args)
             if (!cell)
                 goto finally;
 
-            if (!PyInt_Check(cell)) {
+            if (!_PyAnyInt_Check(cell)) {
                 PyErr_BadArgument();
                 goto finally;
             }
@@ -757,7 +757,7 @@ doParams(svobject *self, PyObject *args,
         if (!v)
             goto finally;
 
-        if (!PyInt_Check(v)) {
+        if (!_PyAnyInt_Check(v)) {
             PyErr_BadArgument();
             goto finally;
         }

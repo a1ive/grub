@@ -620,8 +620,10 @@ array_slice(arrayobject *a, Py_ssize_t ilow, Py_ssize_t ihigh)
     np = (arrayobject *) newarrayobject(&Arraytype, ihigh - ilow, a->ob_descr);
     if (np == NULL)
         return NULL;
-    memcpy(np->ob_item, a->ob_item + ilow * a->ob_descr->itemsize,
-           (ihigh-ilow) * a->ob_descr->itemsize);
+    if (ihigh > ilow) {
+        memcpy(np->ob_item, a->ob_item + ilow * a->ob_descr->itemsize,
+               (ihigh-ilow) * a->ob_descr->itemsize);
+    }
     return (PyObject *)np;
 }
 
@@ -660,9 +662,13 @@ array_concat(arrayobject *a, PyObject *bb)
     if (np == NULL) {
         return NULL;
     }
-    memcpy(np->ob_item, a->ob_item, Py_SIZE(a)*a->ob_descr->itemsize);
-    memcpy(np->ob_item + Py_SIZE(a)*a->ob_descr->itemsize,
-           b->ob_item, Py_SIZE(b)*b->ob_descr->itemsize);
+    if (Py_SIZE(a) > 0) {
+        memcpy(np->ob_item, a->ob_item, Py_SIZE(a)*a->ob_descr->itemsize);
+    }
+    if (Py_SIZE(b) > 0) {
+        memcpy(np->ob_item + Py_SIZE(a)*a->ob_descr->itemsize,
+               b->ob_item, Py_SIZE(b)*b->ob_descr->itemsize);
+    }
     return (PyObject *)np;
 #undef b
 }
@@ -684,6 +690,8 @@ array_repeat(arrayobject *a, Py_ssize_t n)
     np = (arrayobject *) newarrayobject(&Arraytype, size, a->ob_descr);
     if (np == NULL)
         return NULL;
+    if (size == 0)
+        return (PyObject *)np;
     p = np->ob_item;
     nbytes = Py_SIZE(a) * a->ob_descr->itemsize;
     for (i = 0; i < n; i++) {
@@ -838,8 +846,10 @@ array_do_extend(arrayobject *self, PyObject *bb)
         PyErr_NoMemory();
         return -1;
     }
-    memcpy(self->ob_item + Py_SIZE(self)*self->ob_descr->itemsize,
-           b->ob_item, Py_SIZE(b)*b->ob_descr->itemsize);
+    if (Py_SIZE(b) > 0) {
+        memcpy(self->ob_item + Py_SIZE(self)*self->ob_descr->itemsize,
+               b->ob_item, Py_SIZE(b)*b->ob_descr->itemsize);
+    }
     Py_SIZE(self) = size;
     self->allocated = size;
 
@@ -1067,13 +1077,25 @@ Insert a new item x into the array before position i.");
 static PyObject *
 array_buffer_info(arrayobject *self, PyObject *unused)
 {
-    PyObject* retval = NULL;
+    PyObject *retval = NULL, *v;
+
     retval = PyTuple_New(2);
     if (!retval)
         return NULL;
 
-    PyTuple_SET_ITEM(retval, 0, PyLong_FromVoidPtr(self->ob_item));
-    PyTuple_SET_ITEM(retval, 1, PyInt_FromLong((long)(Py_SIZE(self))));
+    v = PyLong_FromVoidPtr(self->ob_item);
+    if (v == NULL) {
+        Py_DECREF(retval);
+        return NULL;
+    }
+    PyTuple_SET_ITEM(retval, 0, v);
+
+    v = PyInt_FromSsize_t(Py_SIZE(self));
+    if (v == NULL) {
+        Py_DECREF(retval);
+        return NULL;
+    }
+    PyTuple_SET_ITEM(retval, 1, v);
 
     return retval;
 }
@@ -1270,9 +1292,9 @@ array_tofile(arrayobject *self, PyObject *f)
         PyErr_SetString(PyExc_TypeError, "arg must be open file");
         return NULL;
     }
-    if (self->ob_size > 0) {
+    if (Py_SIZE(self) > 0) {
         if (fwrite(self->ob_item, self->ob_descr->itemsize,
-                   self->ob_size, fp) != (size_t)self->ob_size) {
+                   Py_SIZE(self), fp) != (size_t)Py_SIZE(self)) {
             PyErr_SetFromErrno(PyExc_IOError);
             clearerr(fp);
             return NULL;
@@ -1322,11 +1344,24 @@ array_fromlist(arrayobject *self, PyObject *list)
         Py_SIZE(self) += n;
         self->allocated = Py_SIZE(self);
         for (i = 0; i < n; i++) {
-            PyObject *v = PyList_GetItem(list, i);
+            PyObject *v = PyList_GET_ITEM(list, i);
             if ((*self->ob_descr->setitem)(self,
                             Py_SIZE(self) - n + i, v) != 0) {
                 Py_SIZE(self) -= n;
-                if (itemsize && (self->ob_size > PY_SSIZE_T_MAX / itemsize)) {
+                if (itemsize && (Py_SIZE(self) > PY_SSIZE_T_MAX / itemsize)) {
+                    return PyErr_NoMemory();
+                }
+                PyMem_RESIZE(item, char,
+                                  Py_SIZE(self) * itemsize);
+                self->ob_item = item;
+                self->allocated = Py_SIZE(self);
+                return NULL;
+            }
+            if (n != PyList_GET_SIZE(list)) {
+                PyErr_SetString(PyExc_RuntimeError,
+                                "list changed size during iteration");
+                Py_SIZE(self) -= n;
+                if (itemsize && (Py_SIZE(self) > PY_SSIZE_T_MAX / itemsize)) {
                     return PyErr_NoMemory();
                 }
                 PyMem_RESIZE(item, char,
@@ -1361,7 +1396,7 @@ array_tolist(arrayobject *self, PyObject *unused)
             Py_DECREF(list);
             return NULL;
         }
-        PyList_SetItem(list, i, v);
+        PyList_SET_ITEM(list, i, v);
     }
     return list;
 }
@@ -1422,7 +1457,7 @@ values,as if it had been read from a file using the fromfile() method).");
 static PyObject *
 array_tostring(arrayobject *self, PyObject *unused)
 {
-    if (self->ob_size <= PY_SSIZE_T_MAX / self->ob_descr->itemsize) {
+    if (Py_SIZE(self) <= PY_SSIZE_T_MAX / self->ob_descr->itemsize) {
         return PyString_FromStringAndSize(self->ob_item,
                             Py_SIZE(self) * self->ob_descr->itemsize);
     } else {
@@ -1541,7 +1576,7 @@ static PyObject *
 array_sizeof(arrayobject *self, PyObject *unused)
 {
     Py_ssize_t res;
-    res = sizeof(arrayobject) + self->allocated * self->ob_descr->itemsize;
+    res = _PyObject_SIZE(Py_TYPE(self)) + self->allocated * self->ob_descr->itemsize;
     return PyLong_FromSsize_t(res);
 }
 
@@ -1679,10 +1714,11 @@ array_subscr(arrayobject* self, PyObject* item)
         arrayobject* ar;
         int itemsize = self->ob_descr->itemsize;
 
-        if (PySlice_GetIndicesEx((PySliceObject*)item, Py_SIZE(self),
-                         &start, &stop, &step, &slicelength) < 0) {
+        if (_PySlice_Unpack(item, &start, &stop, &step) < 0) {
             return NULL;
         }
+        slicelength = _PySlice_AdjustIndices(Py_SIZE(self), &start, &stop,
+                                            step);
 
         if (slicelength <= 0) {
             return newarrayobject(&Arraytype, 0, self->ob_descr);
@@ -1750,11 +1786,11 @@ array_ass_subscr(arrayobject* self, PyObject* item, PyObject* value)
             return (*self->ob_descr->setitem)(self, i, value);
     }
     else if (PySlice_Check(item)) {
-        if (PySlice_GetIndicesEx((PySliceObject *)item,
-                                 Py_SIZE(self), &start, &stop,
-                                 &step, &slicelength) < 0) {
+        if (_PySlice_Unpack(item, &start, &stop, &step) < 0) {
             return -1;
         }
+        slicelength = _PySlice_AdjustIndices(Py_SIZE(self), &start, &stop,
+                                            step);
     }
     else {
         PyErr_SetString(PyExc_TypeError,
@@ -2266,8 +2302,8 @@ initarray(void)
 {
     PyObject *m;
 
-    Arraytype.ob_type = &PyType_Type;
-    PyArrayIter_Type.ob_type = &PyType_Type;
+    Py_TYPE(&Arraytype) = &PyType_Type;
+    Py_TYPE(&PyArrayIter_Type) = &PyType_Type;
     m = Py_InitModule3("array", a_methods, module_doc);
     if (m == NULL)
         return;

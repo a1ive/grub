@@ -221,7 +221,7 @@ incrementalnewlinedecoder_init(nldecoder_object *self,
         self->errors = errors;
     }
 
-    self->translate = translate;
+    self->translate = translate ? 1 : 0;
     self->seennl = 0;
     self->pendingcr = 0;
 
@@ -707,6 +707,8 @@ typedef struct
     PyObject *dict;
 } textio;
 
+static void
+textiowrapper_set_decoded_chars(textio *self, PyObject *chars);
 
 /* A couple of specialized cases in order to bypass the slow incremental
    encoding methods for the most popular encodings. */
@@ -881,8 +883,8 @@ textiowrapper_init(textio *self, PyObject *args, PyObject *kwds)
             if (self->encoding == NULL) {
               catch_ImportError:
                 /*
-                 Importing locale can raise a ImportError because of
-                 _functools, and locale.getpreferredencoding can raise a
+                 Importing locale can raise an ImportError because of
+                 _functools, and locale.getpreferredencoding can raise an
                  ImportError if _locale is not available.  These will happen
                  during module building.
                 */
@@ -907,6 +909,7 @@ textiowrapper_init(textio *self, PyObject *args, PyObject *kwds)
     else {
         PyErr_SetString(PyExc_IOError,
                         "could not determine default encoding");
+        goto error;
     }
 
     /* Check we have been asked for a real text encoding */
@@ -966,8 +969,7 @@ textiowrapper_init(textio *self, PyObject *args, PyObject *kwds)
                 "Oi", self->decoder, (int)self->readtranslate);
             if (incrementalDecoder == NULL)
                 goto error;
-            Py_CLEAR(self->decoder);
-            self->decoder = incrementalDecoder;
+            Py_XSETREF(self->decoder, incrementalDecoder);
         }
     }
 
@@ -984,7 +986,7 @@ textiowrapper_init(textio *self, PyObject *args, PyObject *kwds)
                                                            errors);
         if (self->encoder == NULL)
             goto error;
-        /* Get the normalized named of the codec */
+        /* Get the normalized name of the codec */
         res = PyObject_GetAttrString(codec_info, "name");
         if (res == NULL) {
             if (PyErr_ExceptionMatches(PyExc_AttributeError))
@@ -1072,11 +1074,9 @@ textiowrapper_init(textio *self, PyObject *args, PyObject *kwds)
     return -1;
 }
 
-static int
+static void
 _textiowrapper_clear(textio *self)
 {
-    if (self->ok && _PyIOBase_finalize((PyObject *) self) < 0)
-        return -1;
     self->ok = 0;
     Py_CLEAR(self->buffer);
     Py_CLEAR(self->encoding);
@@ -1088,18 +1088,19 @@ _textiowrapper_clear(textio *self)
     Py_CLEAR(self->snapshot);
     Py_CLEAR(self->errors);
     Py_CLEAR(self->raw);
-    return 0;
+
+    Py_CLEAR(self->dict);
 }
 
 static void
 textiowrapper_dealloc(textio *self)
 {
-    if (_textiowrapper_clear(self) < 0)
+    if (self->ok && _PyIOBase_finalize((PyObject *) self) < 0)
         return;
     _PyObject_GC_UNTRACK(self);
     if (self->weakreflist != NULL)
         PyObject_ClearWeakRefs((PyObject *)self);
-    Py_CLEAR(self->dict);
+    _textiowrapper_clear(self);
     Py_TYPE(self)->tp_free((PyObject *)self);
 }
 
@@ -1124,9 +1125,9 @@ textiowrapper_traverse(textio *self, visitproc visit, void *arg)
 static int
 textiowrapper_clear(textio *self)
 {
-    if (_textiowrapper_clear(self) < 0)
+    if (self->ok && _PyIOBase_finalize((PyObject *) self) < 0)
         return -1;
-    Py_CLEAR(self->dict);
+    _textiowrapper_clear(self);
     return 0;
 }
 
@@ -1330,6 +1331,7 @@ textiowrapper_write(textio *self, PyObject *args)
         Py_DECREF(ret);
     }
 
+    textiowrapper_set_decoded_chars(self, NULL);
     Py_CLEAR(self->snapshot);
 
     if (self->decoder) {
@@ -1347,8 +1349,7 @@ textiowrapper_write(textio *self, PyObject *args)
 static void
 textiowrapper_set_decoded_chars(textio *self, PyObject *chars)
 {
-    Py_CLEAR(self->decoded_chars);
-    self->decoded_chars = chars;
+    Py_XSETREF(self->decoded_chars, chars);
     self->decoded_chars_used = 0;
 }
 
@@ -1419,7 +1420,7 @@ textiowrapper_read_chunk(textio *self)
         /* Given this, we know there was a valid snapshot point
          * len(dec_buffer) bytes ago with decoder state (b'', dec_flags).
          */
-        if (PyArg_Parse(state, "(OO)", &dec_buffer, &dec_flags) < 0) {
+        if (!PyArg_Parse(state, "(OO)", &dec_buffer, &dec_flags)) {
             Py_DECREF(state);
             return -1;
         }
@@ -1465,6 +1466,7 @@ textiowrapper_read_chunk(textio *self)
         /* At the snapshot point, len(dec_buffer) bytes before the read, the
          * next input to be decoded is dec_buffer + input_chunk.
          */
+        PyObject *snapshot;
         PyObject *next_input = PyNumber_Add(dec_buffer, input_chunk);
         if (next_input == NULL)
             goto fail;
@@ -1476,9 +1478,13 @@ textiowrapper_read_chunk(textio *self)
             Py_DECREF(next_input);
             goto fail;
         }
+        snapshot = Py_BuildValue("NN", dec_flags, next_input);
+        if (snapshot == NULL) {
+            dec_flags = NULL;
+            goto fail;
+        }
+        Py_XSETREF(self->snapshot, snapshot);
         Py_DECREF(dec_buffer);
-        Py_CLEAR(self->snapshot);
-        self->snapshot = Py_BuildValue("NN", dec_flags, next_input);
     }
     Py_DECREF(input_chunk);
 
@@ -1537,6 +1543,7 @@ textiowrapper_read(textio *self, PyObject *args)
         if (final == NULL)
             goto fail;
 
+        textiowrapper_set_decoded_chars(self, NULL);
         Py_CLEAR(self->snapshot);
         return final;
     }
@@ -1578,8 +1585,7 @@ textiowrapper_read(textio *self, PyObject *args)
         if (chunks != NULL) {
             if (result != NULL && PyList_Append(chunks, result) < 0)
                 goto fail;
-            Py_CLEAR(result);
-            result = PyUnicode_Join(_PyIO_empty_str, chunks);
+            Py_XSETREF(result, PyUnicode_Join(_PyIO_empty_str, chunks));
             if (result == NULL)
                 goto fail;
             Py_CLEAR(chunks);
@@ -1836,8 +1842,7 @@ _textiowrapper_readline(textio *self, Py_ssize_t limit)
     if (chunks != NULL) {
         if (line != NULL && PyList_Append(chunks, line) < 0)
             goto error;
-        Py_CLEAR(line);
-        line = PyUnicode_Join(_PyIO_empty_str, chunks);
+        Py_XSETREF(line, PyUnicode_Join(_PyIO_empty_str, chunks));
         if (line == NULL)
             goto error;
         Py_DECREF(chunks);
@@ -2014,6 +2019,7 @@ textiowrapper_seek(textio *self, PyObject *args)
     int whence = 0;
     PyObject *res;
     int cmp;
+    PyObject *snapshot;
 
     CHECK_ATTACHED(self);
 
@@ -2150,11 +2156,11 @@ textiowrapper_seek(textio *self, PyObject *args)
             goto fail;
         }
 
-        self->snapshot = Py_BuildValue("iN", cookie.dec_flags, input_chunk);
-        if (self->snapshot == NULL) {
-            Py_DECREF(input_chunk);
+        snapshot = Py_BuildValue("iN", cookie.dec_flags, input_chunk);
+        if (snapshot == NULL) {
             goto fail;
         }
+        Py_XSETREF(self->snapshot, snapshot);
 
         decoded = PyObject_CallMethod(self->decoder, "decode",
                                       "Oi", input_chunk, (int)cookie.need_eof);
@@ -2172,9 +2178,10 @@ textiowrapper_seek(textio *self, PyObject *args)
         self->decoded_chars_used = cookie.chars_to_skip;
     }
     else {
-        self->snapshot = Py_BuildValue("is", cookie.dec_flags, "");
-        if (self->snapshot == NULL)
+        snapshot = Py_BuildValue("is", cookie.dec_flags, "");
+        if (snapshot == NULL)
             goto fail;
+        Py_XSETREF(self->snapshot, snapshot);
     }
 
     /* Finally, reset the encoder (merely useful for proper BOM handling) */
@@ -2586,6 +2593,10 @@ textiowrapper_chunk_size_set(textio *self, PyObject *arg, void *context)
 {
     Py_ssize_t n;
     CHECK_ATTACHED_INT(self);
+    if (arg == NULL) {
+        PyErr_SetString(PyExc_AttributeError, "cannot delete attribute");
+        return -1;
+    }
     n = PyNumber_AsSsize_t(arg, PyExc_TypeError);
     if (n == -1 && PyErr_Occurred())
         return -1;

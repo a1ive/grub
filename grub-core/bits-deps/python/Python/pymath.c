@@ -20,12 +20,12 @@ double _Py_force_double(double x)
 
 unsigned short _Py_get_387controlword(void) {
     unsigned short cw;
-    asm volatile ("fnstcw %0" : "=m" (cw));
+    __asm__ __volatile__ ("fnstcw %0" : "=m" (cw));
     return cw;
 }
 
 void _Py_set_387controlword(unsigned short cw) {
-    asm volatile ("fldcw %0" : : "m" (cw));
+    __asm__ __volatile__ ("fldcw %0" : : "m" (cw));
 }
 
 #endif
@@ -73,7 +73,7 @@ round(double x)
     absx = fabs(x);
     y = floor(absx);
     if (absx - y >= 0.5)
-    y += 1.0;
+        y += 1.0;
     return copysign(y, x);
 }
 #endif /* HAVE_ROUND */

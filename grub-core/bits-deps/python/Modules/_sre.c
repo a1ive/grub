@@ -835,7 +835,7 @@ entrance:
     if (ctx->pattern[0] == SRE_OP_INFO) {
         /* optimization info block */
         /* <INFO> <1=skip> <2=flags> <3=min> ... */
-        if (ctx->pattern[3] && (end - ctx->ptr) < ctx->pattern[3]) {
+        if (ctx->pattern[3] && (Py_uintptr_t)(end - ctx->ptr) < ctx->pattern[3]) {
             TRACE(("reject (got %" PY_FORMAT_SIZE_T "d chars, "
                    "need %" PY_FORMAT_SIZE_T "d)\n",
                    (end - ctx->ptr), (Py_ssize_t) ctx->pattern[3]));
@@ -2054,8 +2054,7 @@ deepcopy(PyObject** object, PyObject* memo)
     if (!copy)
         return 0;
 
-    Py_DECREF(*object);
-    *object = copy;
+    Py_SETREF(*object, copy);
 
     return 1; /* success */
 }
@@ -2267,6 +2266,20 @@ pattern_split(PatternObject* self, PyObject* args, PyObject* kw)
     string = fix_string_param(string, string2, "source");
     if (!string)
         return NULL;
+
+    if (Py_Py3kWarningFlag &&
+        (self->code[0] != SRE_OP_INFO || self->code[3] == 0))
+    {
+        if (self->code[0] == SRE_OP_INFO && self->code[4] == 0) {
+            if (PyErr_WarnPy3k("split() requires a non-empty pattern match.",
+                               1) < 0)
+                return NULL;
+        }
+        else if (PyErr_WarnEx(PyExc_FutureWarning,
+                              "split() requires a non-empty pattern match.",
+                              1) < 0)
+            return NULL;
+    }
 
     string = state_init(&state, self, string, 0, PY_SSIZE_T_MAX);
     if (!string)
@@ -2699,8 +2712,8 @@ static PyMemberDef pattern_members[] = {
 };
 
 statichere PyTypeObject Pattern_Type = {
-    PyObject_HEAD_INIT(NULL)
-    0, "_" SRE_MODULE ".SRE_Pattern",
+    PyVarObject_HEAD_INIT(NULL, 0)
+    "_" SRE_MODULE ".SRE_Pattern",
     sizeof(PatternObject), sizeof(SRE_CODE),
     (destructor)pattern_dealloc, /*tp_dealloc*/
     0,                                  /* tp_print */
@@ -2869,7 +2882,7 @@ _compile(PyObject* self_, PyObject* args)
         skip = *code;                                   \
         VTRACE(("%lu (skip to %p)\n",                   \
                (unsigned long)skip, code+skip));        \
-        if (skip-adj > end-code)                        \
+        if (skip-adj > (Py_uintptr_t)(end - code))      \
             FAIL;                                       \
         code++;                                         \
     } while (0)
@@ -2902,7 +2915,7 @@ _validate_charset(SRE_CODE *code, SRE_CODE *end)
 
         case SRE_OP_CHARSET:
             offset = 32/sizeof(SRE_CODE); /* 32-byte bitmap */
-            if (offset > end-code)
+            if (offset > (Py_uintptr_t)(end - code))
                 FAIL;
             code += offset;
             break;
@@ -2910,7 +2923,7 @@ _validate_charset(SRE_CODE *code, SRE_CODE *end)
         case SRE_OP_BIGCHARSET:
             GET_ARG; /* Number of blocks */
             offset = 256/sizeof(SRE_CODE); /* 256-byte table */
-            if (offset > end-code)
+            if (offset > (Py_uintptr_t)(end - code))
                 FAIL;
             /* Make sure that each byte points to a valid block */
             for (i = 0; i < 256; i++) {
@@ -2919,7 +2932,7 @@ _validate_charset(SRE_CODE *code, SRE_CODE *end)
             }
             code += offset;
             offset = arg * 32/sizeof(SRE_CODE); /* 32-byte bitmap times arg */
-            if (offset > end-code)
+            if (offset > (Py_uintptr_t)(end - code))
                 FAIL;
             code += offset;
             break;
@@ -2982,7 +2995,7 @@ _validate_inner(SRE_CODE *code, SRE_CODE *end, Py_ssize_t groups)
                sre_match() code is robust even if they don't, and the worst
                you can get is nonsensical match results. */
             GET_ARG;
-            if (arg > 2*groups+1) {
+            if (arg > 2 * (size_t)groups + 1) {
                 VTRACE(("arg=%d, groups=%d\n", (int)arg, (int)groups));
                 FAIL;
             }
@@ -3070,11 +3083,11 @@ _validate_inner(SRE_CODE *code, SRE_CODE *end, Py_ssize_t groups)
                     GET_ARG; prefix_len = arg;
                     GET_ARG; /* prefix skip */
                     /* Here comes the prefix string */
-                    if (prefix_len > newcode-code)
+                    if (prefix_len > (Py_uintptr_t)(newcode - code))
                         FAIL;
                     code += prefix_len;
                     /* And here comes the overlap table */
-                    if (prefix_len > newcode-code)
+                    if (prefix_len > (Py_uintptr_t)(newcode - code))
                         FAIL;
                     /* Each overlap value should be < prefix_len */
                     for (i = 0; i < prefix_len; i++) {
@@ -3165,7 +3178,7 @@ _validate_inner(SRE_CODE *code, SRE_CODE *end, Py_ssize_t groups)
         case SRE_OP_GROUPREF:
         case SRE_OP_GROUPREF_IGNORE:
             GET_ARG;
-            if (arg >= groups)
+            if (arg >= (size_t)groups)
                 FAIL;
             break;
 
@@ -3174,7 +3187,7 @@ _validate_inner(SRE_CODE *code, SRE_CODE *end, Py_ssize_t groups)
                'group' is either an integer group number or a group name,
                'then' and 'else' are sub-regexes, and 'else' is optional. */
             GET_ARG;
-            if (arg >= groups)
+            if (arg >= (size_t)groups)
                 FAIL;
             GET_SKIP_ADJ(1);
             code--; /* The skip is relative to the first arg! */
@@ -3203,7 +3216,7 @@ _validate_inner(SRE_CODE *code, SRE_CODE *end, Py_ssize_t groups)
                to allow arbitrary jumps anywhere in the code; so we just look
                for a JUMP opcode preceding our skip target.
             */
-            if (skip >= 3 && skip-3 < end-code &&
+            if (skip >= 3 && skip-3 < (Py_uintptr_t)(end - code) &&
                 code[skip-3] == SRE_OP_JUMP)
             {
                 VTRACE(("both then and else parts present\n"));
@@ -3314,7 +3327,7 @@ match_getindex(MatchObject* self, PyObject* index)
 {
     Py_ssize_t i;
 
-    if (PyInt_Check(index) || PyLong_Check(index))
+    if (_PyAnyInt_Check(index))
         return PyInt_AsSsize_t(index);
 
     i = -1;
@@ -3322,7 +3335,7 @@ match_getindex(MatchObject* self, PyObject* index)
     if (self->pattern->groupindex) {
         index = PyObject_GetItem(self->pattern->groupindex, index);
         if (index) {
-            if (PyInt_Check(index) || PyLong_Check(index))
+            if (_PyAnyInt_Check(index))
                 i = PyInt_AsSsize_t(index);
             Py_DECREF(index);
         } else
@@ -3439,10 +3452,8 @@ match_groupdict(MatchObject* self, PyObject* args, PyObject* kw)
         if (!key)
             goto failed;
         value = match_getslice(self, key, def);
-        if (!value) {
-            Py_DECREF(key);
+        if (!value)
             goto failed;
-        }
         status = PyDict_SetItem(result, key, value);
         Py_DECREF(value);
         if (status < 0)
@@ -3941,8 +3952,8 @@ static PyMemberDef scanner_members[] = {
 };
 
 statichere PyTypeObject Scanner_Type = {
-    PyObject_HEAD_INIT(NULL)
-    0, "_" SRE_MODULE ".SRE_Scanner",
+    PyVarObject_HEAD_INIT(NULL, 0)
+    "_" SRE_MODULE ".SRE_Scanner",
     sizeof(ScannerObject), 0,
     (destructor)scanner_dealloc, /*tp_dealloc*/
     0,				/* tp_print */

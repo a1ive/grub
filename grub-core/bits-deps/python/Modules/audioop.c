@@ -25,17 +25,25 @@ typedef short PyInt16;
 #endif
 
 static const int maxvals[] = {0, 0x7F, 0x7FFF, 0x7FFFFF, 0x7FFFFFFF};
-static const int minvals[] = {0, -0x80, -0x8000, -0x800000, -0x80000000};
+/* -1 trick is needed on Windows to support -0x80000000 without a warning */
+static const int minvals[] = {0, -0x80, -0x8000, -0x800000, -0x7FFFFFFF-1};
 static const unsigned int masks[] = {0, 0xFF, 0xFFFF, 0xFFFFFF, 0xFFFFFFFF};
 
 static int
 fbound(double val, double minval, double maxval)
 {
-    if (val > maxval)
+    if (val > maxval) {
         val = maxval;
-    else if (val < minval + 1)
+    }
+    else if (val < minval + 1.0) {
         val = minval;
-    return val;
+    }
+
+    /* Round towards minus infinity (-inf) */
+    val = floor(val);
+
+    /* Cast double to integer: round towards zero */
+    return (int)val;
 }
 
 
@@ -55,7 +63,7 @@ fbound(double val, double minval, double maxval)
  */
 #define BIAS 0x84   /* define the add-in bias for 16 bit samples */
 #define CLIP 32635
-#define SIGN_BIT        (0x80)          /* Sign bit for a A-law byte. */
+#define SIGN_BIT        (0x80)          /* Sign bit for an A-law byte. */
 #define QUANT_MASK      (0xf)           /* Quantization field mask. */
 #define SEG_SHIFT       (4)             /* Left shift for segment number. */
 #define SEG_MASK        (0x70)          /* Segment field mask. */
@@ -121,7 +129,7 @@ static PyInt16 _st_ulaw2linear16[256] = {
 
 /*
  * linear2ulaw() accepts a 14-bit signed integer and encodes it as u-law data
- * stored in a unsigned char.  This function should only be called with
+ * stored in an unsigned char.  This function should only be called with
  * the data shifted such that it only contains information in the lower
  * 14-bits.
  *
@@ -229,8 +237,8 @@ static PyInt16 _st_alaw2linear16[256] = {
 };
 
 /*
- * linear2alaw() accepts an 13-bit signed integer and encodes it as A-law data
- * stored in a unsigned char.  This function should only be called with
+ * linear2alaw() accepts a 13-bit signed integer and encodes it as A-law data
+ * stored in an unsigned char.  This function should only be called with
  * the data shifted such that it only contains information in the lower
  * 13-bits.
  *
@@ -386,7 +394,9 @@ audioop_minmax(PyObject *self, PyObject *args)
     signed char *cp;
     int len, size, val = 0;
     int i;
-    int min = 0x7fffffff, max = -0x80000000;
+    /* -1 trick below is needed on Windows to support -0x80000000 without
+    a warning */
+    int min = 0x7fffffff, max = -0x7FFFFFFF-1;
 
     if (!PyArg_ParseTuple(args, "s#i:minmax", &cp, &len, &size))
         return NULL;
@@ -793,8 +803,8 @@ audioop_mul(PyObject *self, PyObject *args)
         if ( size == 1 )      val = (int)*CHARP(cp, i);
         else if ( size == 2 ) val = (int)*SHORTP(cp, i);
         else if ( size == 4 ) val = (int)*LONGP(cp, i);
-        fval = (double)val*factor;
-        val = (int)floor(fbound(fval, minval, maxval));
+        fval = (double)val * factor;
+        val = fbound(fval, minval, maxval);
         if ( size == 1 )      *CHARP(ncp, i) = (signed char)val;
         else if ( size == 2 ) *SHORTP(ncp, i) = (short)val;
         else if ( size == 4 ) *LONGP(ncp, i) = (Py_Int32)val;
@@ -837,8 +847,8 @@ audioop_tomono(PyObject *self, PyObject *args)
         if ( size == 1 )      val2 = (int)*CHARP(cp, i+1);
         else if ( size == 2 ) val2 = (int)*SHORTP(cp, i+2);
         else if ( size == 4 ) val2 = (int)*LONGP(cp, i+4);
-        fval = (double)val1*fac1 + (double)val2*fac2;
-        val1 = (int)floor(fbound(fval, minval, maxval));
+        fval = (double)val1 * fac1 + (double)val2 * fac2;
+        val1 = fbound(fval, minval, maxval);
         if ( size == 1 )      *CHARP(ncp, i/2) = (signed char)val1;
         else if ( size == 2 ) *SHORTP(ncp, i/2) = (short)val1;
         else if ( size == 4 ) *LONGP(ncp, i/2)= (Py_Int32)val1;
@@ -881,11 +891,11 @@ audioop_tostereo(PyObject *self, PyObject *args)
         else if ( size == 2 ) val = (int)*SHORTP(cp, i);
         else if ( size == 4 ) val = (int)*LONGP(cp, i);
 
-        fval = (double)val*fac1;
-        val1 = (int)floor(fbound(fval, minval, maxval));
+        fval = (double)val * fac1;
+        val1 = fbound(fval, minval, maxval);
 
-        fval = (double)val*fac2;
-        val2 = (int)floor(fbound(fval, minval, maxval));
+        fval = (double)val * fac2;
+        val2 = fbound(fval, minval, maxval);
 
         if ( size == 1 )      *CHARP(ncp, i*2) = (signed char)val1;
         else if ( size == 2 ) *SHORTP(ncp, i*2) = (short)val1;
@@ -944,7 +954,7 @@ audioop_add(PyObject *self, PyObject *args)
         else {
             double fval = (double)val1 + (double)val2;
             /* truncate in case of overflow */
-            newval = (int)floor(fbound(fval, minval, maxval));
+            newval = fbound(fval, minval, maxval);
         }
 
         if ( size == 1 )      *CHARP(ncp, i) = (signed char)newval;
@@ -1086,7 +1096,7 @@ audioop_ratecv(PyObject *self, PyObject *args)
     char *cp, *ncp;
     int len, size, nchannels, inrate, outrate, weightA, weightB;
     int chan, d, *prev_i, *cur_i, cur_o;
-    PyObject *state, *samps, *str, *rv = NULL;
+    PyObject *state, *samps, *str, *rv = NULL, *channel;
     int bytes_per_frame;
 
     weightA = 1;
@@ -1152,6 +1162,10 @@ audioop_ratecv(PyObject *self, PyObject *args)
             prev_i[chan] = cur_i[chan] = 0;
     }
     else {
+        if (!PyTuple_Check(state)) {
+            PyErr_SetString(PyExc_TypeError, "state must be a tuple or None");
+            goto exit;
+        }
         if (!PyArg_ParseTuple(state,
                         "iO!;audioop.ratecv: illegal state argument",
                         &d, &PyTuple_Type, &samps))
@@ -1162,7 +1176,13 @@ audioop_ratecv(PyObject *self, PyObject *args)
             goto exit;
         }
         for (chan = 0; chan < nchannels; chan++) {
-            if (!PyArg_ParseTuple(PyTuple_GetItem(samps, chan),
+            channel = PyTuple_GetItem(samps, chan);
+            if (!PyTuple_Check(channel)) {
+                PyErr_SetString(PyExc_TypeError,
+                                "ratecv(): illegal state argument");
+                goto exit;
+            }
+            if (!PyArg_ParseTuple(channel,
                                   "ii:ratecv", &prev_i[chan],
                                                &cur_i[chan]))
                 goto exit;
