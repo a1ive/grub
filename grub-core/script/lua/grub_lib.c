@@ -381,14 +381,14 @@ grub_lua_enum_device_iter (const char *name, void *data)
 	  lua_pushvalue (state, 1);
 	  lua_pushstring (state, name);
 	  lua_pushstring (state, fs->name);
-	  if (! fs->uuid)
+	  if (! fs->fs_uuid)
 	    lua_pushnil (state);
 	  else
 	    {
 	      int err;
 	      char *uuid;
 
-	      err = fs->uuid (dev, &uuid);
+	      err = fs->fs_uuid (dev, &uuid);
 	      if (err)
 		{
 		  grub_errno = 0;
@@ -401,14 +401,14 @@ grub_lua_enum_device_iter (const char *name, void *data)
 		}
 	    }
 
-	  if (! fs->label)
+	  if (! fs->fs_label)
 	    lua_pushnil (state);
 	  else
 	    {
 	      int err;
 	      char *label = NULL;
 
-	      err = fs->label (dev, &label);
+	      err = fs->fs_label (dev, &label);
 	      if (err)
 		{
 		  grub_errno = 0;
@@ -492,7 +492,7 @@ grub_lua_enum_file (lua_State *state)
 
       if (fs)
 	{
-	  (fs->dir) (dev, path, enum_file, state);
+	  (fs->fs_dir) (dev, path, enum_file, state);
 	}
 
       grub_device_close (dev);

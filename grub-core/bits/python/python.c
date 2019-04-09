@@ -217,10 +217,10 @@ static grub_err_t pyfs_close(grub_file_t file)
 
 static struct grub_fs pyfs = {
     .name = "pyfs",
-    .dir = pyfs_dir,
-    .open = pyfs_open,
-    .read = pyfs_read,
-    .close = pyfs_close,
+    .fs_dir = pyfs_dir,
+    .fs_open = pyfs_open,
+    .fs_read = pyfs_read,
+    .fs_close = pyfs_close,
 };
 
 static grub_command_t cmd_py, cmd_pyrun;

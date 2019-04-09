@@ -251,11 +251,11 @@ grub_fbfs_label (grub_device_t device __attribute ((unused)),
 static struct grub_fs grub_fb_fs =
   {
     .name = "fbfs",
-    .dir = grub_fbfs_dir,
-    .open = grub_fbfs_open,
-    .read = grub_fbfs_read,
-    .close = grub_fbfs_close,
-    .label = grub_fbfs_label,
+    .fs_dir = grub_fbfs_dir,
+    .fs_open = grub_fbfs_open,
+    .fs_read = grub_fbfs_read,
+    .fs_close = grub_fbfs_close,
+    .fs_label = grub_fbfs_label,
     .next = 0
   };
 

@@ -603,10 +603,10 @@ fail:
 static struct grub_fs grub_lynxfs_fs =
 {
    .name = "lynxfs",
-   .dir = grub_lynxfs_dir,
-   .open = grub_lynxfs_open,
-   .read = grub_lynxfs_read,
-   .close = grub_lynxfs_close,
+   .fs_dir = grub_lynxfs_dir,
+   .fs_open = grub_lynxfs_open,
+   .fs_read = grub_lynxfs_read,
+   .fs_close = grub_lynxfs_close,
 #ifdef GRUB_UTIL
    .reserved_first_sector = 1,
    .blocklist_install = 1,
