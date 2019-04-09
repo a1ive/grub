@@ -3132,3 +3132,9 @@ module = {
   common = commands/efi/sbpolicy.c;
   enable = efi;
 };
+
+module = {
+  name = bootmgr;
+  common = commands/efi/bootmgr.c;
+  enable = efi;
+};
