@@ -159,10 +159,10 @@ grub_fs_blocklist_dd_close (grub_file_t file)
 struct grub_fs grub_fs_blocklist_dd =
   {
     .name = "blocklist",
-    .dir = 0,
-    .open = grub_fs_blocklist_dd_open,
+    .fs_dir = 0,
+    .fs_open = grub_fs_blocklist_dd_open,
     //.read = grub_fs_blocklist_read,
-    .close = grub_fs_blocklist_dd_close,
+    .fs_close = grub_fs_blocklist_dd_close,
     .next = 0
   };
 
@@ -275,8 +275,8 @@ grub_blocklist_convert (grub_file_t file)
     }
   else
     {
-      if (file->fs->close)
-	(file->fs->close) (file);
+      if (file->fs->fs_close)
+	(file->fs->fs_close) (file);
       file->fs = &grub_fs_blocklist_dd;
       file->data = c.blocks;
     }

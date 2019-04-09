@@ -912,10 +912,10 @@ fail:
 static struct grub_fs grub_qnx6_fs =
 {
    .name = "qnx6",
-   .dir = grub_qnx6_dir,
-   .open = grub_qnx6_open,
-   .read = grub_qnx6_read,
-   .close = grub_qnx6_close,
+   .fs_dir = grub_qnx6_dir,
+   .fs_open = grub_qnx6_open,
+   .fs_read = grub_qnx6_read,
+   .fs_close = grub_qnx6_close,
 #ifdef GRUB_UTIL
    .reserved_first_sector = 1,
    .blocklist_install = 1,

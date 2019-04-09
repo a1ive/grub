@@ -513,10 +513,10 @@ fail:
 static struct grub_fs grub_qnx4_fs =
 {
    .name = "qnx4",
-   .dir = grub_qnx4_dir,
-   .open = grub_qnx4_open,
-   .read = grub_qnx4_read,
-   .close = grub_qnx4_close,
+   .fs_dir = grub_qnx4_dir,
+   .fs_open = grub_qnx4_open,
+   .fs_read = grub_qnx4_read,
+   .fs_close = grub_qnx4_close,
 #ifdef GRUB_UTIL
    .reserved_first_sector = 1,
    .blocklist_install = 1,

@@ -357,7 +357,7 @@ void iterate_directory(const char *dirname, int (*callback)(const char *filename
     if (device) {
         grub_fs_t fs = grub_fs_probe(device);
         if (fs)
-            fs->dir(device, dirname, callback, data);
+            fs->fs_dir(device, dirname, callback, data);
         grub_device_close(device);
     }
     grub_free(device_name);
