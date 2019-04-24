@@ -22,7 +22,8 @@
 /* TODO: Add a general protection exception handler.
          Accessing a reserved or unimplemented MSR address results in a GP#. */
 
-extern __inline void grub_msr_write(grub_uint32_t msr_id, grub_uint64_t msr_value)
+static inline void
+grub_msr_write(grub_uint32_t msr_id, grub_uint64_t msr_value)
 {
     grub_uint32_t low = msr_value, high = msr_value >> 32;
 
