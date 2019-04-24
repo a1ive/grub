@@ -1102,6 +1102,7 @@ module = {
   cflags = '$(CFLAGS_POSIX)';
   cppflags = '$(CPPFLAGS_POSIX)';
   pci_cppflags = '$(CPPFLAGS_POSIX) -DENABLE_LUA_PCI';
+  enable = x86;
 };
 
 module = {
@@ -1936,6 +1937,7 @@ module = {
   arm64 = loader/arm64/linux.c;
   riscv32 = loader/riscv/linux.c;
   riscv64 = loader/riscv/linux.c;
+  efi = loader/efi/linux.c;
   common = loader/linux.c;
   common = lib/cmdline.c;
   enable = noemu;
@@ -2002,7 +2004,6 @@ module = {
 module = {
   name = linuxefi;
   efi = loader/i386/efi/linux.c;
-  efi = loader/efi/linux.c;
   enable = i386_efi;
   enable = x86_64_efi;
 };
@@ -3085,6 +3086,7 @@ module = {
 
 module = {
   name = vhd;
+  enable = x86;
   common = disk/vhd.c;
 };
 
