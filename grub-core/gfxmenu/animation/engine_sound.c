@@ -24,7 +24,7 @@
 #include <grub/mm.h>
 #include <grub/env.h>
 #include <grub/speaker.h>
-#include <grub/engine_sound.h>
+#include <grub/i386/engine_sound.h>
 
 /*
  * In some public places, or a quiet place, whether it will disturb others?

@@ -34,7 +34,7 @@
 #include <grub/dl.h>
 
 #if defined (__i386__) || defined (__x86_64__)
-#include <grub/engine_sound.h>
+#include <grub/i386/engine_sound.h>
 #include <grub/speaker.h>
 #endif
 
@@ -705,9 +705,10 @@ run_menu (grub_menu_t menu, int nested, int *auto_boot)
 #endif
 
   /* Speed of engine.  */
-  grub_uint64_t s1_time, s2_time;
+  grub_uint64_t s1_time;
   grub_uint64_t frame_speed = engine_get_speed (ENGINE_FRAME_SPEED);
 #if defined (__i386__) || defined (__x86_64__)
+  grub_uint64_t s2_time;
   grub_uint64_t sound_speed = engine_get_speed (ENGINE_SOUND_SPEED);
 #endif
 
@@ -813,9 +814,9 @@ run_menu (grub_menu_t menu, int nested, int *auto_boot)
     }
 
   /* Initialize the sound engine.  */
+#if defined (__i386__) || defined (__x86_64__)
   s2_time = grub_get_time_ms ();
 
-#if defined (__i386__) || defined (__x86_64__)
   if (!sound_open && sound_speed)
     {
       grub_err_t err;
@@ -849,8 +850,10 @@ run_menu (grub_menu_t menu, int nested, int *auto_boot)
 	  grub_env_unset ("timeout");
           *auto_boot = 1;
 	  menu_fini ();
+#if defined (__i386__) || defined (__x86_64__)
       if (sound_open)
 	    player_fini ();
+#endif
 	  return default_entry;
 	}
 

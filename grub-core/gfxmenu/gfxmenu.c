@@ -39,7 +39,7 @@
 #include <grub/i18n.h>
 
 #if defined (__i386__) || defined (__x86_64__)
-#include <grub/engine_sound.h>
+#include <grub/i386/engine_sound.h>
 #endif
 
 GRUB_MOD_LICENSE ("GPLv3+");
