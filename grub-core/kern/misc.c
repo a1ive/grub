@@ -163,12 +163,24 @@ grub_real_dprintf (const char *file, const int line, const char *condition,
 		   const char *fmt, ...)
 {
   va_list args;
+  char *negcond;
+  int negated = 0;
   const char *debug = grub_env_get ("debug");
 
   if (! debug)
     return;
 
-  if (grub_strword (debug, "all") || grub_strword (debug, condition))
+  negcond = grub_zalloc (grub_strlen (condition) + 2);
+  if (negcond)
+    {
+      grub_strcpy (negcond, "-");
+      grub_strcpy (negcond+1, condition);
+      negated = grub_strword (debug, negcond);
+      grub_free (negcond);
+    }
+    
+  if (!negated &&
+      (grub_strword (debug, "all") || grub_strword (debug, condition)))
     {
       grub_printf ("%s:%d: ", file, line);
       va_start (args, fmt);
