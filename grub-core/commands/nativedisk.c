@@ -89,6 +89,8 @@ get_uuid (const char *name, char **uuid, int getnative)
     case GRUB_DISK_DEVICE_HOST_ID:
       /* To access coreboot roms.  */
     case GRUB_DISK_DEVICE_CBFSDISK_ID:
+      /* Virtual file system */
+    case GRUB_DISK_DEVICE_VFS_ID:
       /* GRUB-only memdisk. Can't match any of firmware devices.  */
     case GRUB_DISK_DEVICE_MEMDISK_ID:
       grub_dprintf ("nativedisk", "Skipping native disk %s\n",

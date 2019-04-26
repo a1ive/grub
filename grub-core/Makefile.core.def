@@ -3136,6 +3136,13 @@ module = {
 };
 
 module = {
+  name = vdisk;
+  common = vdisk/vdiskctl.c;
+  common = vdisk/vdisk.c;
+  common = vdisk/vfs.c;
+};
+
+module = {
   name = bootmgr;
   common = commands/efi/bootmgr.c;
   enable = efi;
