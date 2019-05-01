@@ -30,7 +30,7 @@
 #include <grub/mm.h>
 #include <grub/efi/efi.h>
 #include <grub/efi/api.h>
-#include "wimboot.h"
+#include <grub/i386/efi/wimboot.h>
 
 GRUB_MOD_LICENSE ("GPLv3+");
 
@@ -61,21 +61,6 @@ enum options_wimboot
   WIMBOOT_INDEX,
   WIMBOOT_PAUSE
 };
-
-/** Use raw (unpatched) BCD files */
-int cmdline_rawbcd;
-
-/** Use raw (unpatched) WIM files */
-int cmdline_rawwim;
-
-/** Allow graphical output from bootmgr/bootmgfw */
-int cmdline_gui;
-
-/** Pause before booting OS */
-int cmdline_pause;
-
-/** WIM boot index */
-unsigned int cmdline_index;
 
 struct newc_head
 {
@@ -380,30 +365,7 @@ grub_wimboot_boot (int argc, char *argv[])
   grub_efi_handle_t image_handle;
   grub_efi_uintn_t pages;
   grub_efi_loaded_image_t *loaded_image;
-  /*
-  char *wimboot_ldr = (char *)grub_env_get ("wimbootldr");
-  const char *root = grub_env_get("root");
-  if (! wimboot_ldr)
-    {
-      if (root)
-	    grub_sprintf(wimboot_ldr, "(%s)/test/aboot.efi", root);
-      else
-	    grub_strcpy(wimboot_ldr, "/test/aboot.efi");
-    }
-  grub_file_t file = grub_file_open(wimboot_ldr, GRUB_FILE_TYPE_LINUX_KERNEL);
-  if (file == 0)
-  {
-	  grub_printf("The critical wimboot loader file does not exist: %s\n", wimboot_ldr);
-	  return grub_errno;
-  }
-  grub_ssize_t size;
-  size = grub_file_size (file);
-  if (!size)
-    {
-      grub_error (GRUB_ERR_BAD_OS, N_("premature end of wimboot"));
-      goto fail;
-    }
-  */
+
   pages = (((grub_efi_uintn_t) wimboot_bin_len + ((1 << 12) - 1)) >> 12);
   status = efi_call_4 (b->allocate_pages, GRUB_EFI_ALLOCATE_ANY_PAGES,
 			      GRUB_EFI_LOADER_CODE,
@@ -523,7 +485,7 @@ grub_cmd_wimboot (grub_extcmd_context_t ctxt,
   char wim_addr[64];
   char wim_size[64];
   grub_sprintf(wim_addr, "addr=%ld", (unsigned long) wimboot_mem);
-  grub_sprintf(wim_size, "size=%ld", size);
+  grub_sprintf(wim_size, "size=%ld", (unsigned long) size);
   wim_args = (char **)grub_malloc(7 * sizeof(char **));
   wim_args[1] = (char *)"\\wimboot";
   wim_args[1] = wim_addr;
@@ -573,7 +535,7 @@ static grub_extcmd_t cmd;
 
 GRUB_MOD_INIT(wimboot)
 {
-    cmd = grub_register_extcmd ("wimboot", grub_cmd_wimboot, 0,
+  cmd = grub_register_extcmd ("wimboot", grub_cmd_wimboot, 0,
     N_("[--rawbcd] [--index=n] [--pause] @:NAME:PATH"),
     N_("Windows Imaging Format bootloader"),
     options_wimboot);
@@ -581,5 +543,5 @@ GRUB_MOD_INIT(wimboot)
 
 GRUB_MOD_FINI(wimboot)
 {
-    grub_unregister_extcmd (cmd);
+  grub_unregister_extcmd (cmd);
 }

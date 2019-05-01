@@ -3,14 +3,6 @@
 
 #include <grub/file.h>
 #include <grub/term.h>
- 
-extern int cmdline_rawbcd;
-extern int cmdline_rawwim;
-extern int cmdline_gui;
-extern int cmdline_pause;
-extern unsigned int cmdline_index;
-
-extern unsigned int wimboot_nfiles;
 
 struct grub_wimboot_component
 {
