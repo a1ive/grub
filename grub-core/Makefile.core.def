@@ -3154,3 +3154,10 @@ module = {
   common = commands/efi/bootmgr.c;
   enable = efi;
 };
+
+module = {
+  name = wimboot;
+  common = commands/efi/wimboot.c;
+  enable = i386_efi;
+  enable = x86_64_efi;
+};
