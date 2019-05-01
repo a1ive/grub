@@ -109,7 +109,7 @@ grub_efi_driver_load (grub_size_t size, void *boot_image, int connect)
   status = efi_call_3 (b->handle_protocol,
         driver_handle,
         &loaded_image_protocol_guid,
-        &loaded_image);
+        (void **)&loaded_image);
   if (status != GRUB_EFI_SUCCESS)
   {
     grub_printf ("Not a dirver\n");
@@ -221,7 +221,7 @@ grub_cmd_ramdisk (grub_extcmd_context_t ctxt,
   
   grub_efi_driver_load (RamDiskDxe_efi_len, RamDiskDxe_efi, 1);
   
-  status = efi_call_3 (b->locate_protocol, &ramdisk_guid, NULL, &ramdisk_p);
+  status = efi_call_3 (b->locate_protocol, &ramdisk_guid, NULL, (void **)&ramdisk_p);
   if (status == GRUB_EFI_SUCCESS)
     grub_printf ("RAMDISK_PROTOCOL installed.\n");
   else
@@ -259,11 +259,11 @@ grub_cmd_ramdisk (grub_extcmd_context_t ctxt,
   grub_printf ("register ramdisk\n");
   if (state[0].set)
     status = efi_call_5 (ramdisk_p->register_ramdisk,
-                       (grub_efi_uint64_t) buffer, size, &vdisk_hd_guid,
+                       ((grub_efi_uint64_t)(grub_efi_uintn_t) buffer), size, &vdisk_hd_guid,
                        NULL, &dp);
   else
     status = efi_call_5 (ramdisk_p->register_ramdisk,
-                       (grub_efi_uint64_t) buffer, size, &vdisk_cd_guid,
+                       ((grub_efi_uint64_t)(grub_efi_uintn_t) buffer), size, &vdisk_cd_guid,
                        NULL, &dp);
   
   if (status != GRUB_EFI_SUCCESS)
