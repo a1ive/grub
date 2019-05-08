@@ -3143,6 +3143,12 @@ module = {
 };
 
 module = {
+  name = efiload;
+  common = commands/efi/efiload.c;
+  enable = efi;
+};
+
+module = {
   name = ramdisk;
   common = commands/efi/ramdisk.c;
   enable = i386_efi;
