@@ -50,6 +50,7 @@ static const struct grub_arg_option options_wimboot[] = {
   {"index", 'i', 0, N_("Use WIM image index n."),
    N_("n"), ARG_TYPE_INT},
   {"pause", 'p', 0, N_("Show info and wait for keypress."), 0, 0},
+  {"inject", 'j', 0, N_("Set inject dir."), 0, ARG_TYPE_STRING},
   {0, 0, 0, 0, 0, 0}
 };
 
@@ -59,7 +60,8 @@ enum options_wimboot
   WIMBOOT_RAWBCD,
   WIMBOOT_RAWWIM,
   WIMBOOT_INDEX,
-  WIMBOOT_PAUSE
+  WIMBOOT_PAUSE,
+  WIMBOOT_INJECT
 };
 
 struct newc_head
@@ -486,8 +488,8 @@ grub_cmd_wimboot (grub_extcmd_context_t ctxt,
   char wim_size[64];
   grub_sprintf(wim_addr, "addr=%ld", (unsigned long) wimboot_mem);
   grub_sprintf(wim_size, "size=%ld", (unsigned long) size);
-  wim_args = (char **)grub_malloc(7 * sizeof(char **));
-  wim_args[1] = (char *)"\\wimboot";
+  wim_args = (char **)grub_malloc(9 * sizeof(char **));
+  wim_args[0] = (char *)"\\wimboot";
   wim_args[1] = wim_addr;
   wim_args[2] = wim_size;
   
@@ -515,6 +517,13 @@ grub_cmd_wimboot (grub_extcmd_context_t ctxt,
   if (state[WIMBOOT_INDEX].set)
   {
     grub_sprintf(wim_args[i], "index=%ld", grub_strtoul (state[WIMBOOT_INDEX].arg, NULL, 10));
+    i++;
+  }
+  
+  if (state[WIMBOOT_INJECT].set)
+  {
+	wim_args[i] = (char *)"inject=";
+    grub_strcat(wim_args[i], state[WIMBOOT_INJECT].arg);
     i++;
   }
 
