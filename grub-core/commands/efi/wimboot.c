@@ -25,7 +25,6 @@
 #include <grub/types.h>
 #include <grub/term.h>
 #include <grub/dl.h>
-#include <grub/env.h>
 #include <grub/extcmd.h>
 #include <grub/mm.h>
 #include <grub/efi/efi.h>
@@ -516,7 +515,8 @@ grub_cmd_wimboot (grub_extcmd_context_t ctxt,
   
   if (state[WIMBOOT_INDEX].set)
   {
-    grub_sprintf(wim_args[i], "index=%ld", grub_strtoul (state[WIMBOOT_INDEX].arg, NULL, 10));
+	wim_args[i] = (char *)"index=";
+	grub_strcat(wim_args[i], state[WIMBOOT_INDEX].arg);
     i++;
   }
   
