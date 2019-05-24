@@ -22,7 +22,6 @@
 #include <grub/loader.h>
 #include <grub/file.h>
 #include <grub/err.h>
-#include <grub/env.h>
 #include <grub/device.h>
 #include <grub/disk.h>
 #include <grub/misc.h>
@@ -35,7 +34,7 @@
 #include <grub/efi/disk.h>
 #include <grub/efi/pe32.h>
 #include <grub/efi/linux.h>
-#include <grub/command.h>
+#include <grub/extcmd.h>
 #include <grub/i18n.h>
 #include <grub/net.h>
 #if defined (__i386__) || defined (__x86_64__)
@@ -46,6 +45,20 @@
 GRUB_MOD_LICENSE ("GPLv3+");
 
 static grub_dl_t my_mod;
+
+static const struct grub_arg_option options_chain[] = {
+  {"alt", 'a', 0, N_("Use alternative secure boot loader."), 0, 0},
+  {"text", 't', 0, N_("Set terminal to text."), 0, 0},
+  {"boot", 'b', 0, N_("Start Image (for command line)."), 0, 0},
+  {0, 0, 0, 0, 0, 0}
+};
+
+enum options_chain
+{
+  CHAIN_ALT,
+  CHAIN_TEXT,
+  CHAIN_BOOT
+};
 
 static grub_efi_physical_address_t address;
 static grub_efi_uintn_t pages;
@@ -99,12 +112,12 @@ grub_chainloader_boot (void)
 	      *grub_utf16_to_utf8 ((grub_uint8_t *) buf,
 				   exit_data, exit_data_size) = 0;
 
-	      grub_error (GRUB_ERR_BAD_OS, buf);
+	      grub_printf ("%s\n", buf);
 	      grub_free (buf);
 	    }
 	}
       else
-	grub_error (GRUB_ERR_BAD_OS, "unknown error");
+	grub_printf ("Exit status code: 0x%08lx\n", status);
     }
 
   if (exit_data)
@@ -809,9 +822,10 @@ grub_secureboot_chainloader_boot (void)
 }
 
 static grub_err_t
-grub_cmd_chainloader (grub_command_t cmd __attribute__ ((unused)),
+grub_cmd_chainloader (grub_extcmd_context_t ctxt,
 		      int argc, char *argv[])
 {
+  struct grub_arg_list *state = ctxt->state;
   grub_file_t file = 0;
   grub_efi_status_t status;
   grub_efi_boot_services_t *b;
@@ -820,7 +834,6 @@ grub_cmd_chainloader (grub_command_t cmd __attribute__ ((unused)),
   grub_efi_loaded_image_t *loaded_image;
   char *filename;
   void *boot_image = 0;
-  const char *usesb;
 
   if (argc == 0)
     return grub_error (GRUB_ERR_BAD_ARGUMENT, N_("filename expected"));
@@ -866,8 +879,11 @@ grub_cmd_chainloader (grub_command_t cmd __attribute__ ((unused)),
   if (! file)
     goto fail;
 
-  /* Get the root device's device path.  */
-  dev = grub_device_open (0);
+  /* Get the device path from filename. */
+  char *devname = grub_file_get_device_name (filename);
+  dev = grub_device_open (devname);
+  if (devname)
+    grub_free (devname);
   if (! dev)
     goto fail;
 
@@ -896,16 +912,17 @@ grub_cmd_chainloader (grub_command_t cmd __attribute__ ((unused)),
 
   if (! dp)
     {
-      grub_error (GRUB_ERR_BAD_DEVICE, "not a valid root device");
-      goto fail;
+      grub_printf ("file path: NULL\n");
+      file_path = NULL;
     }
-
-  file_path = make_file_path (dp, filename);
-  if (! file_path)
-    goto fail;
-
-  //grub_printf ("file path: ");
-  //grub_efi_print_device_path (file_path);
+  else
+    {
+      file_path = make_file_path (dp, filename);
+      if (! file_path)
+        goto fail;
+	  grub_printf ("file path: ");
+      grub_efi_print_device_path (file_path);
+	}
 
   fsize = grub_file_size (file);
   if (!fsize)
@@ -981,19 +998,31 @@ grub_cmd_chainloader (grub_command_t cmd __attribute__ ((unused)),
     }
 #endif
 
-  usesb = grub_env_get ("grub_chainloader_sb");
-  if (usesb && grub_strtoul (usesb, 0, 0) && grub_linuxefi_secure_validate((void *)(unsigned long)address, fsize))
+  if (state[CHAIN_TEXT].set)
+	grub_script_execute_sourcecode ("terminal_output console");
+
+  if (state[CHAIN_ALT].set)
     {
-      grub_efi_guid_t guid = SHIM_LOCK_GUID;
-      grub_efi_shim_lock_t *shim_lock;
-      shim_lock = grub_efi_locate_protocol (&guid, NULL);
-      if (shim_lock)
-        {
-          grub_file_close (file);
-          grub_loader_set (grub_secureboot_chainloader_boot,
+	  if (grub_linuxefi_secure_validate((void *)(unsigned long)address, fsize))
+      {
+        grub_efi_guid_t guid = SHIM_LOCK_GUID;
+        grub_efi_shim_lock_t *shim_lock;
+        shim_lock = grub_efi_locate_protocol (&guid, NULL);
+        if (shim_lock)
+          {
+            grub_file_close (file);
+            grub_loader_set (grub_secureboot_chainloader_boot,
 		       grub_secureboot_chainloader_unload, 0);
-          return 0;
-        }
+			if (state[CHAIN_BOOT].set)
+              {
+				handle_image ((void *)(unsigned long)address, fsize);
+                grub_printf ("Exit secure boot loader.\n");
+				grub_loader_unset (); 
+              } 
+            return 0;
+          }
+	  }
+	  grub_printf ("shim_lock protocol not found.\n");
     }
 
   status = efi_call_6 (b->load_image, 0, grub_efi_image_handle, file_path,
@@ -1029,6 +1058,13 @@ grub_cmd_chainloader (grub_command_t cmd __attribute__ ((unused)),
   grub_device_close (dev);
 
   grub_loader_set (grub_chainloader_boot, grub_chainloader_unload, 0);
+  
+  if (state[CHAIN_BOOT].set)
+    {
+      status = efi_call_3 (b->start_image, image_handle, NULL, NULL);
+      grub_printf ("Exit status code: 0x%08lx\n", status);
+	  grub_loader_unset ();
+    }
   return 0;
 
  fail:
@@ -1052,16 +1088,17 @@ grub_cmd_chainloader (grub_command_t cmd __attribute__ ((unused)),
   return grub_errno;
 }
 
-static grub_command_t cmd;
+static grub_extcmd_t cmd;
 
 GRUB_MOD_INIT(chainloader)
 {
-  cmd = grub_register_command ("chainloader", grub_cmd_chainloader,
-			       0, N_("Load another boot loader."));
+  cmd = grub_register_extcmd ("chainloader", grub_cmd_chainloader, 0,
+			       N_("[--alt] [--text] FILE CMDLINE"),
+				   N_("Load another boot loader."), options_chain);
   my_mod = mod;
 }
 
 GRUB_MOD_FINI(chainloader)
 {
-  grub_unregister_command (cmd);
+  grub_unregister_extcmd (cmd);
 }
