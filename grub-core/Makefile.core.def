@@ -3167,3 +3167,9 @@ module = {
   enable = i386_efi;
   enable = x86_64_efi;
 };
+
+module = {
+  name = getargs;
+  common = commands/efi/getargs.c;
+  enable = efi;
+};
