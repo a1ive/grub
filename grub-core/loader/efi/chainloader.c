@@ -117,7 +117,7 @@ grub_chainloader_boot (void)
 	    }
 	}
       else
-	grub_printf ("Exit status code: 0x%08lx\n", status);
+	grub_printf ("Exit status code: 0x%08lx\n", (long unsigned int) status);
     }
 
   if (exit_data)
@@ -1062,7 +1062,7 @@ grub_cmd_chainloader (grub_extcmd_context_t ctxt,
   if (state[CHAIN_BOOT].set)
     {
       status = efi_call_3 (b->start_image, image_handle, NULL, NULL);
-      grub_printf ("Exit status code: 0x%08lx\n", status);
+      grub_printf ("Exit status code: 0x%08lx\n", (long unsigned int) status);
 	  grub_loader_unset ();
     }
   return 0;
