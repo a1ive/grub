@@ -46,10 +46,9 @@ static const struct grub_arg_option options_wimboot[] = {
   {"gui", 'g', 0, N_("Display graphical boot messages."), 0, 0},
   {"rawbcd", 'b', 0, N_("Disable rewriting .exe to .efi in the BCD file."), 0, 0},
   {"rawwim", 'w', 0, N_("Disable patching the wim file."), 0, 0},
-  {"index", 'i', 0, N_("Use WIM image index n."),
-   N_("n"), ARG_TYPE_INT},
+  {"index", 'i', 0, N_("Use WIM image index n."), N_("n"), ARG_TYPE_INT},
   {"pause", 'p', 0, N_("Show info and wait for keypress."), 0, 0},
-  {"inject", 'j', 0, N_("Set inject dir."), 0, ARG_TYPE_STRING},
+  {"inject", 'j', 0, N_("Set inject dir."), N_("PATH"), ARG_TYPE_STRING},
   {0, 0, 0, 0, 0, 0}
 };
 
