@@ -1092,8 +1092,9 @@ static grub_extcmd_t cmd;
 
 GRUB_MOD_INIT(chainloader)
 {
-  cmd = grub_register_extcmd ("chainloader", grub_cmd_chainloader, 0,
-			       N_("[--alt] [--text] FILE CMDLINE"),
+  cmd = grub_register_extcmd ("chainloader", grub_cmd_chainloader,
+				   GRUB_COMMAND_ACCEPT_DASH | GRUB_COMMAND_OPTIONS_AT_START,
+				   N_("[--alt] [--text] FILE CMDLINE"),
 				   N_("Load another boot loader."), options_chain);
   my_mod = mod;
 }
