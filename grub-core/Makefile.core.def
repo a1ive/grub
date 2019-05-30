@@ -3173,3 +3173,10 @@ module = {
   common = commands/efi/getargs.c;
   enable = efi;
 };
+
+module = {
+  name = shell;
+  common = commands/efi/shell.c;
+  enable = i386_efi;
+  enable = x86_64_efi;
+};
