@@ -21,14 +21,18 @@
 #include <grub/efi/api.h>
 #include <grub/efi/efi.h>
 #include <grub/efi/disk.h>
+#include <grub/device.h>
 #include <grub/err.h>
 #include <grub/extcmd.h>
 #include <grub/file.h>
 #include <grub/i18n.h>
 #include <grub/misc.h>
 #include <grub/mm.h>
+#include <grub/net.h>
 #include <grub/types.h>
+#include <grub/term.h>
 #include <grub/i386/efi/shell.h>
+#include <grub/i386/efi/shell_efi.h>
 
 GRUB_MOD_LICENSE ("GPLv3+");
 
@@ -43,6 +47,7 @@ static const struct grub_arg_option options_shell[] = {
   {"nointerrupt", 0, 0, N_("Execution interruption is not allowed."), 0, 0},
   {"nonesting", 0, 0, N_("Specifies that the EFI_SHELL_PROTOCOL.Execute API nesting of a new Shell instance is optional and dependent on the nonesting shell environment variable."), 0, 0},
   {"exit", 0, 0, N_("After running the command line specified when launched, the UEFI Shell must immediately exit."), 0, 0},
+  {"device", 0, 0, N_("Specifies the device path."), N_("(hdx,y)"), ARG_TYPE_STRING},
   {0, 0, 0, 0, 0, 0}
 };
 
@@ -57,10 +62,11 @@ enum options_shell
   SHELL_STARTUP,
   SHELL_NOINTERRUPT,
   SHELL_NONESTING,
-  SHELL_EXIT
+  SHELL_EXIT,
+  SHELL_DEVICE
 };
 
-static grub_err_t
+grub_err_t
 grub_efi_shell_chain (int argc, char *argv[], grub_efi_device_path_t *dp)
 {
   grub_efi_status_t status;
@@ -217,7 +223,48 @@ grub_cmd_shell (grub_extcmd_context_t ctxt, int argc, char **args)
     shell_args[i+j] = args[j];
   }
   i += argc;
-  grub_efi_shell_chain (i, shell_args, NULL);
+  grub_device_t dev = 0;
+  grub_efi_device_path_t *dp = NULL;
+  grub_efi_handle_t dev_handle = 0;
+  if (state[SHELL_DEVICE].set)
+  {
+    int namelen = grub_strlen (state[SHELL_DEVICE].arg);
+    if ((state[SHELL_DEVICE].arg[0] == '(') && (state[SHELL_DEVICE].arg[namelen - 1] == ')'))
+    {
+      state[SHELL_DEVICE].arg[namelen - 1] = 0;
+      dev = grub_device_open (&state[SHELL_DEVICE].arg[1]);
+    }
+    else
+      dev = grub_device_open (state[SHELL_DEVICE].arg);
+  }
+  if (!dev)
+    goto chain;
+  if (dev->disk)
+    dev_handle = grub_efidisk_get_device_handle (dev->disk);
+  else if (dev->net && dev->net->server)
+  {
+    grub_net_network_level_address_t addr;
+    struct grub_net_network_level_interface *inf;
+    grub_net_network_level_address_t gateway;
+    grub_err_t err;
+    err = grub_net_resolve_address (dev->net->server, &addr);
+    if (err)
+      goto chain;
+    err = grub_net_route_address (addr, &gateway, &inf);
+    if (err)
+      goto chain;
+    dev_handle = grub_efinet_get_device_handle (inf->card);
+  }
+  if (dev_handle)
+    dp = grub_efi_get_device_path (dev_handle);
+chain:
+  grub_printf ("DevicePath: ");
+  if (!dp)
+    grub_printf ("NULL");
+  else
+    grub_efi_print_device_path (dp);
+  grub_printf ("\n");
+  grub_efi_shell_chain (i, shell_args, dp);
 fail:
   return grub_errno;
 }
