@@ -1,6 +1,6 @@
 /*
  *  GRUB  --  GRand Unified Bootloader
- *  Copyright (C) 2009,2018  Free Software Foundation, Inc.
+ *  Copyright (C) 2009,2018,2019  Free Software Foundation, Inc.
  *
  *  GRUB is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -39,6 +39,7 @@
 #include <grub/bitmap.h>
 #include <grub/time.h>
 #include <grub/gfxmenu_view.h>
+#include <grub/script_sh.h>
 
 #ifdef ENABLE_LUA_PCI
 #include <grub/pci.h>
@@ -286,25 +287,13 @@ static int string_to_utf8(lua_State *L) {
 static int
 grub_lua_run (lua_State *state)
 {
-  int n;
-  char **args;
   const char *s;
 
   s = luaL_checkstring (state, 1);
-  if ((! grub_parser_split_cmdline (s, 0, 0, &n, &args))
-      && (n >= 0))
-    {
-      grub_command_t cmd;
-
-      cmd = grub_command_find (args[0]);
-      if (cmd)
-	(cmd->func) (cmd, n-1, &args[1]);
-      else
-	grub_error (GRUB_ERR_FILE_NOT_FOUND, "command not found");
-
-      grub_free (args[0]);
-      grub_free (args);
-    }
+  grub_err_t err;
+  err = grub_script_execute_sourcecode (s);
+  if (!err)
+    grub_error (GRUB_ERR_UNKNOWN_COMMAND, "ERROR");
 
   return push_result (state);
 }
