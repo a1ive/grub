@@ -585,12 +585,6 @@ char *strpbrk(const char *s, const char *accept)
 }
 */
 
-char *strrchr(const char *s, int c)
-{
-    grub_errno = GRUB_ERR_NONE;
-    return grub_strrchr(s, c);
-}
-
 time_t time(time_t *tm)
 {
     return grub_get_time_ms()*1000;

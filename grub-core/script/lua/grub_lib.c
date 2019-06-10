@@ -1005,6 +1005,26 @@ grub_lua_gettext (lua_State *state)
   return 1;
 }
 
+/* Lua function: get_time_ms() : returns the time in milliseconds.  */
+static int
+grub_lua_get_time_ms (lua_State *state)
+{
+  lua_pushinteger (state, grub_get_time_ms ());
+  return 1;
+}
+
+static int
+grub_lua_random (lua_State *state)
+{
+  uint16_t r = grub_get_time_ms ();
+  uint16_t m;
+  m = luaL_checkinteger (state, 1);
+  r = ((r * 7621) + 1) % 32768;
+  lua_pushinteger (state, r % m);
+  return 1;
+}
+
+
 luaL_Reg grub_lua_lib[] =
   {
     {"run", grub_lua_run},
@@ -1042,27 +1062,10 @@ luaL_Reg grub_lua_lib[] =
     {"refresh", grub_lua_refresh},
     {"read", grub_lua_read},
     {"gettext", grub_lua_gettext},
+    {"get_time_ms", grub_lua_get_time_ms},
+    {"random", grub_lua_random},
     {0, 0}
   };
-
-/* Lua function: get_time_ms() : returns the time in milliseconds.  */
-static int
-lua_sys_get_time_ms (lua_State *state)
-{
-  lua_pushinteger (state, grub_get_time_ms ());
-  return 1;
-}
-
-static int
-lua_sys_random (lua_State *state)
-{
-  uint16_t r = grub_get_time_ms ();
-  uint16_t m;
-  m = luaL_checkinteger (state, 1);
-  r = ((r * 7621) + 1) % 32768;
-  lua_pushinteger (state, r % m);    
-  return 1;
-}
 
 static int
 lua_input_read (lua_State *state)
@@ -1285,12 +1288,6 @@ static int lua_gbk_toutf8(lua_State *state) {
     return luaL_error(state, "string/number expected, got %s",
             luaL_typename(state, 1));
 }
-
-luaL_Reg syslib[] = {
-    {"get_time_ms", lua_sys_get_time_ms},
-    {"random", lua_sys_random},
-    {0, 0}
-};
 
 luaL_Reg inputlib[] = {
     {"getkey", lua_input_getkey},

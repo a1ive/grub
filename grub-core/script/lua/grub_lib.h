@@ -20,7 +20,6 @@
 #define GRUB_LUA_LIB_HEADER 1
 
 extern luaL_Reg grub_lua_lib[];
-extern luaL_Reg syslib[];
 extern luaL_Reg inputlib[];
 extern luaL_Reg videolib[];
 extern luaL_Reg gbklib[];

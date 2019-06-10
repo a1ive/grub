@@ -85,6 +85,12 @@ strchr (const char *s, int c)
 }
 
 static inline char *
+strrchr (const char *s, int c)
+{
+    return grub_strrchr(s, c);
+}
+
+static inline char *
 strncpy (char *dest, const char *src, grub_size_t n)
 {
   return grub_strncpy (dest, src, n);

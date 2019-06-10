@@ -178,7 +178,6 @@ GRUB_MOD_INIT (lua)
       luaL_register (state, "grub", grub_lua_lib);
       luaL_register (state, "video", videolib);
       luaL_register (state, "input", inputlib);
-      luaL_register (state, "sys", syslib);
       luaL_register (state, "gbk", gbklib);
       lua_gc (state, LUA_GCRESTART, 0);
       cmd = grub_register_command ("lua", grub_cmd_lua, N_("[FILE]"),

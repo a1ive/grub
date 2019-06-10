@@ -330,9 +330,10 @@ static int ll_loadlib (lua_State *L) {
 
 
 static int readable (const char *filename) {
-  FILE *f = fopen(filename, "r");  /* try to open file */
-  if (f == NULL) return 0;  /* open failed */
-  fclose(f);
+  grub_file_t file = grub_file_open (filename, GRUB_FILE_TYPE_SKIP_SIGNATURE);
+  if (! file)
+    return 0;  /* open failed */
+  grub_file_close (file);
   return 1;
 }
 

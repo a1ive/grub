@@ -21,6 +21,7 @@
 
 #include <grub/types.h>
 #include <grub/mm.h>
+#include <grub/env.h>
 #include <grub/err.h>
 #include <grub/misc.h>
 #include <grub/setjmp.h>
@@ -43,5 +44,11 @@
 #define longjmp		grub_longjmp
 
 #define fputs(s,f)	grub_printf("%s", s)
+
+static inline const char *
+getenv (const char *name)
+{
+  return grub_env_get (name);
+}
 
 #endif
