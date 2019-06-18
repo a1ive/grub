@@ -112,6 +112,8 @@ grub_gfxmenu_try (int entry, grub_menu_t menu, int nested)
   view->menu = menu;
   view->nested = nested;
   view->first_timeout = -1;
+  if (menu->size)
+    view->menu_title_offset = grub_zalloc (sizeof (*view->menu_title_offset) * menu->size);
 
   grub_video_set_viewport (0, 0, mode_info.width, mode_info.height);
   if (view->double_repaint)
@@ -128,6 +130,7 @@ grub_gfxmenu_try (int entry, grub_menu_t menu, int nested)
   instance->print_timeout = grub_gfxmenu_print_timeout;
   instance->clear_timeout = grub_gfxmenu_clear_timeout;
   instance->set_animation_state = grub_gfxmenu_set_animation_state;
+  instance->scroll_chosen_entry = grub_gfxmenu_scroll_chosen_entry;
 
   grub_menu_register_viewer (instance);
 

@@ -395,6 +395,15 @@ menu_set_chosen_entry (int entry)
     cur->set_chosen_entry (entry, cur->data);
 }
 
+static void
+menu_scroll_chosen_entry (int diren)
+{
+  struct grub_menu_viewer *cur;
+  for (cur = viewers; cur; cur = cur->next)
+    if (cur->scroll_chosen_entry)
+      cur->scroll_chosen_entry (cur->data, diren);
+}
+
 /* Speed of engine.  */
 static grub_uint64_t
 engine_get_speed (const char *incantation)
@@ -976,6 +985,12 @@ run_menu (grub_menu_t menu, int nested, int *auto_boot)
 #endif
 	      break;
 
+	    case GRUB_TERM_CTRL | 'l':
+	      menu_scroll_chosen_entry (1);
+	      break;
+	    case GRUB_TERM_CTRL | 'r':
+	      menu_scroll_chosen_entry (-1);
+	      break;
 	    case '\n':
 	    case '\r':
 	    //case GRUB_TERM_KEY_RIGHT:

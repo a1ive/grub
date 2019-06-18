@@ -63,6 +63,8 @@ void
 grub_gfxmenu_set_chosen_entry (int entry, void *data);
 void
 grub_gfxmenu_set_animation_state (int need_refresh, void *data);
+void
+grub_gfxmenu_scroll_chosen_entry (void *data, int diren);
 
 grub_err_t grub_font_draw_string (const char *str,
 				  grub_font_t font,
@@ -121,6 +123,8 @@ struct grub_gfxmenu_view
   int nested;
 
   int first_timeout;
+  
+  int *menu_title_offset;
   
   int is_animation;
   int need_refresh;

@@ -187,12 +187,14 @@ label_set_property (void *vself, const char *name, const char *value)
 	    value = _("Press enter to boot the selected OS, "
 	       "`e' to edit the commands before booting "
 	       "or `c' for a command-line. ESC to return previous menu.");
-           else if (grub_strcmp (value, "@KEYMAP_MIDDLE@") == 0)
+	   else if (grub_strcmp (value, "@KEYMAP_MIDDLE@") == 0)
 	    value = _("Press enter to boot the selected OS, "
 	       "`e' to edit the commands before booting "
 	       "or `c' for a command-line.");
 	   else if (grub_strcmp (value, "@KEYMAP_SHORT@") == 0)
 	    value = _("enter: boot, `e': options, `c': cmd-line");
+	   else if (grub_strcmp (value, "@KEYMAP_SCROLL_ENTRY@") == 0)
+	    value = _("ctrl+l: scroll entry left, ctrl+r: scroll entry right");
 	   /* FIXME: Add more templates here if needed.  */
 	  self->template = grub_strdup (value);
 	  self->text = grub_xasprintf (value, self->value);

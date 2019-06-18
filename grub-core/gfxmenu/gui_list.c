@@ -24,6 +24,7 @@
 #include <grub/gfxmenu_view.h>
 #include <grub/gfxwidgets.h>
 #include <grub/color.h>
+#include <grub/charset.h>
 
 enum scrollbar_slice_mode {
   SCROLLBAR_SLICE_WEST,
@@ -314,6 +315,33 @@ draw_scrollbar (list_impl_t self,
   thumb->draw (thumb, thumbx, thumby);
 }
 
+static const char *
+grub_utf8_offset_code (const char *src, grub_size_t srcsize, int num)
+{
+  int count = 0;
+  grub_uint32_t code = 0;
+
+  while (srcsize && num)
+    {
+      if (srcsize != (grub_size_t)-1)
+	srcsize--;
+      if (!grub_utf8_process ((grub_uint8_t)*src++, &code, &count))
+	return 0;
+      if (count != 0)
+	continue;
+      if (code == 0)
+	return 0;
+      if (code > GRUB_UNICODE_LAST_VALID)
+	return 0;
+      --num;
+    }
+
+  if (!num)
+    return src;
+
+  return 0;
+}
+
 /* Draw the list of items.  */
 static void
 draw_menu (list_impl_t self, int num_shown_items)
@@ -436,6 +464,14 @@ draw_menu (list_impl_t self, int num_shown_items)
 
       const char *item_title =
         grub_menu_get_entry (self->view->menu, menu_index)->title;
+
+      {
+    int off = self->view->menu_title_offset[menu_index];
+    const char *scrolled_title;
+    scrolled_title = grub_utf8_offset_code (item_title, grub_strlen (item_title), off);
+    if (scrolled_title)
+	  item_title = scrolled_title;
+      }
 
       sviewport.y = item_top + top_pad;
       sviewport.width = viewport_width;
