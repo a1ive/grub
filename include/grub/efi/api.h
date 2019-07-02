@@ -1282,6 +1282,15 @@ struct grub_efi_boot_services
 
   void
   (*set_mem) (void *buffer, grub_efi_uintn_t size, grub_efi_uint8_t value);
+  
+  grub_efi_status_t
+  (*create_event_ex) (grub_efi_uint32_t type,
+		   grub_efi_tpl_t notify_tpl,
+		   void (*notify_function) (grub_efi_event_t event,
+					    void *context),
+		   const void *notify_context,
+           const grub_efi_guid_t *event_group,
+		   grub_efi_event_t *event);
 };
 typedef struct grub_efi_boot_services grub_efi_boot_services_t;
 
