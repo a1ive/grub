@@ -20,6 +20,7 @@
 #define GRUB_EFI_PE32_HEADER	1
 
 #include <grub/types.h>
+#include <grub/efi/api.h>
 #include <grub/efi/memory.h>
 
 /* The MSDOS compatibility stub. This was copied from the output of
