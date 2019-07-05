@@ -3137,13 +3137,6 @@ module = {
 };
 
 module = {
-  name = vdisk;
-  common = vdisk/vdiskctl.c;
-  common = vdisk/vdisk.c;
-  common = vdisk/vfs.c;
-};
-
-module = {
   name = efiload;
   common = commands/efi/efiload.c;
   enable = efi;
