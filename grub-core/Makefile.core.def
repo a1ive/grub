@@ -386,11 +386,6 @@ kernel = {
   extra_dist = kern/mips/cache_flush.S;
 };
 
-module = {
-  name = increment;
-  common = commands/increment.c;
-};
-
 program = {
   name = grub-emu;
   mansection = 1;
@@ -582,6 +577,11 @@ module = {
   name = trig;
   common_nodist = trigtables.c;
   extra_dist = gentrigtables.c;
+};
+
+module = {
+  name = increment;
+  common = commands/increment.c;
 };
 
 module = {
@@ -1018,14 +1018,6 @@ module = {
   name = hexdump;
   common = commands/hexdump.c;
   common = lib/hexdump.c;
-};
-
-module = {
-  name = hwmatch;
-  i386_pc = commands/i386/pc/hwmatch.c;
-  enable = i386_pc;
-  cflags = '$(CFLAGS_POSIX) $(CFLAGS_GNULIB)';
-  cppflags = '$(CPPFLAGS_POSIX) $(CPPFLAGS_GNULIB)';
 };
 
 module = {
@@ -2666,12 +2658,6 @@ module = {
 };
 
 module = {
-  name = '915resolution';
-  i386_pc = commands/i386/pc/915resolution.c;
-  enable = i386_pc;
-};
-
-module = {
   name = fdlibm;
   cppflags = '-I$(srcdir)/bits/python -I$(srcdir)/lib/fdlibm -D_IEEE_LIBM -D__LITTLE_ENDIAN= -U__gnu_linux__ -U__ELF__ ';
   cflags = '-fno-strict-aliasing -Wdeclaration-after-statement -fshort-wchar -maccumulate-outgoing-args -Wno-empty-body -Wno-float-equal -Wno-maybe-uninitialized -Wno-missing-field-initializers -Wno-missing-declarations -Wno-missing-format-attribute -Wno-missing-noreturn -Wno-missing-prototypes -Wno-nested-externs -Wno-old-style-definition -Wno-parentheses -Wno-redundant-decls -Wno-sign-compare -Wno-shadow -Wno-type-limits -Wno-undef -Wno-uninitialized -Wno-unused -Wno-unused-parameter -Wno-unused-value -Wno-unused-variable -Wno-write-strings -Wno-error=format-nonliteral';
@@ -3078,14 +3064,6 @@ module = {
 };
 
 module = {
-  name = qrcode;
-  common = lib/qrcode/qrcode.c;
-  common = lib/qrcode/qr_encode.c;
-  cflags = '$(CFLAGS_POSIX)';
-  cppflags = '$(CPPFLAGS_POSIX)';
-};
-
-module = {
   name = vhd;
   enable = x86;
   common = disk/vhd.c;
@@ -3125,12 +3103,6 @@ module = {
 };
 
 module = {
-  name = fwconfig;
-  common = commands/fwconfig.c;
-  enable = x86;
-};
-
-module = {
   name = sbpolicy;
   common = commands/efi/sbpolicy.c;
   enable = efi;
@@ -3147,12 +3119,6 @@ module = {
   common = commands/efi/ramdisk.c;
   enable = i386_efi;
   enable = x86_64_efi;
-};
-
-module = {
-  name = bootmgr;
-  common = commands/efi/bootmgr.c;
-  enable = efi;
 };
 
 module = {
