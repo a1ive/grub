@@ -128,97 +128,6 @@ grub_chainloader_boot (void)
   return grub_errno;
 }
 
-static void
-copy_file_path (grub_efi_file_path_device_path_t *fp,
-		const char *str, grub_efi_uint16_t len)
-{
-  grub_efi_char16_t *p, *path_name;
-  grub_efi_uint16_t size;
-
-  fp->header.type = GRUB_EFI_MEDIA_DEVICE_PATH_TYPE;
-  fp->header.subtype = GRUB_EFI_FILE_PATH_DEVICE_PATH_SUBTYPE;
-
-  path_name = grub_malloc (len * GRUB_MAX_UTF16_PER_UTF8 * sizeof (*path_name));
-  if (!path_name)
-    return;
-
-  size = grub_utf8_to_utf16 (path_name, len * GRUB_MAX_UTF16_PER_UTF8,
-			     (const grub_uint8_t *) str, len, 0);
-  for (p = path_name; p < path_name + size; p++)
-    if (*p == '/')
-      *p = '\\';
-
-  grub_memcpy (fp->path_name, path_name, size * sizeof (*fp->path_name));
-  /* File Path is NULL terminated */
-  fp->path_name[size++] = '\0';
-  fp->header.length = size * sizeof (grub_efi_char16_t) + sizeof (*fp);
-  grub_free (path_name);
-}
-
-static grub_efi_device_path_t *
-make_file_path (grub_efi_device_path_t *dp, const char *filename)
-{
-  char *dir_start;
-  char *dir_end;
-  grub_size_t size;
-  grub_efi_device_path_t *d;
-
-  dir_start = grub_strchr (filename, ')');
-  if (! dir_start)
-    dir_start = (char *) filename;
-  else
-    dir_start++;
-
-  dir_end = grub_strrchr (dir_start, '/');
-  if (! dir_end)
-    {
-      grub_error (GRUB_ERR_BAD_FILENAME, "invalid EFI file path");
-      return 0;
-    }
-
-  size = 0;
-  d = dp;
-  while (1)
-    {
-      size += GRUB_EFI_DEVICE_PATH_LENGTH (d);
-      if ((GRUB_EFI_END_ENTIRE_DEVICE_PATH (d)))
-	break;
-      d = GRUB_EFI_NEXT_DEVICE_PATH (d);
-    }
-
-  /* File Path is NULL terminated. Allocate space for 2 extra characters */
-  /* FIXME why we split path in two components? */
-  file_path = grub_malloc (size
-			   + ((grub_strlen (dir_start) + 2)
-			      * GRUB_MAX_UTF16_PER_UTF8
-			      * sizeof (grub_efi_char16_t))
-			   + sizeof (grub_efi_file_path_device_path_t) * 2);
-  if (! file_path)
-    return 0;
-
-  grub_memcpy (file_path, dp, size);
-
-  /* Fill the file path for the directory.  */
-  d = (grub_efi_device_path_t *) ((char *) file_path
-				  + ((char *) d - (char *) dp));
-  grub_efi_print_device_path (d);
-  copy_file_path ((grub_efi_file_path_device_path_t *) d,
-		  dir_start, dir_end - dir_start);
-
-  /* Fill the file path for the file.  */
-  d = GRUB_EFI_NEXT_DEVICE_PATH (d);
-  copy_file_path ((grub_efi_file_path_device_path_t *) d,
-		  dir_end + 1, grub_strlen (dir_end + 1));
-
-  /* Fill the end of device path nodes.  */
-  d = GRUB_EFI_NEXT_DEVICE_PATH (d);
-  d->type = GRUB_EFI_END_DEVICE_PATH_TYPE;
-  d->subtype = GRUB_EFI_END_ENTIRE_DEVICE_PATH_SUBTYPE;
-  d->length = sizeof (*d);
-
-  return file_path;
-}
-
 typedef union
 {
   struct grub_pe32_header_32 pe32;
@@ -970,7 +879,7 @@ grub_cmd_chainloader (grub_extcmd_context_t ctxt,
     }
   else
     {
-      file_path = make_file_path (dp, filename);
+      file_path = grub_efi_file_device_path (dp, filename);
       if (! file_path)
         goto fail;
 	  grub_printf ("file path: ");

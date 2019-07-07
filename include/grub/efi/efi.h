@@ -94,6 +94,31 @@ extern void (*EXPORT_VAR(grub_efi_net_config)) (grub_efi_handle_t hnd,
 						char **device,
 						char **path);
 
+grub_efi_uintn_t
+EXPORT_FUNC (grub_efi_get_dp_size) (const grub_efi_device_path_protocol_t *dp);
+
+grub_efi_device_path_protocol_t*
+EXPORT_FUNC (grub_efi_create_device_node) (grub_efi_uint8_t node_type,
+             grub_efi_uintn_t node_subtype,
+             grub_efi_uint16_t node_length);
+
+grub_efi_device_path_protocol_t*
+EXPORT_FUNC (grub_efi_append_device_path) (const grub_efi_device_path_protocol_t *dp1,
+                                           const grub_efi_device_path_protocol_t *dp2);
+
+grub_efi_device_path_protocol_t*
+EXPORT_FUNC (grub_efi_append_device_node)
+             (const grub_efi_device_path_protocol_t *device_path,
+              const grub_efi_device_path_protocol_t *device_node);
+
+grub_efi_device_path_t*
+EXPORT_FUNC (grub_efi_file_device_path)
+             (grub_efi_device_path_t *dp, const char *filename);
+
+void
+copy_file_path (grub_efi_file_path_device_path_t *fp, 
+                const char *str, grub_efi_uint16_t len);
+
 #if defined(__arm__) || defined(__aarch64__) || defined(__riscv)
 void *EXPORT_FUNC(grub_efi_get_firmware_fdt)(void);
 grub_err_t EXPORT_FUNC(grub_efi_get_ram_base)(grub_addr_t *);
