@@ -3115,13 +3115,6 @@ module = {
 };
 
 module = {
-  name = ramdisk;
-  common = commands/efi/ramdisk.c;
-  enable = i386_efi;
-  enable = x86_64_efi;
-};
-
-module = {
   name = wimboot;
   common = commands/efi/wimboot.c;
   enable = i386_efi;
