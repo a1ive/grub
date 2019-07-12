@@ -51,7 +51,7 @@ grub_smbios_get_eps (void)
 }
 
 /* Locate the SMBIOS3 entry point structure depending on the hardware. */
-static struct grub_smbios_eps3 *
+struct grub_smbios_eps3 *
 grub_smbios_get_eps3 (void)
 {
   static struct grub_smbios_eps3 *eps = NULL;
