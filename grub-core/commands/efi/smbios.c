@@ -1,7 +1,7 @@
 /* smbios.c - get smbios tables. */
 /*
  *  GRUB  --  GRand Unified Bootloader
- *  Copyright (C) 2015  Free Software Foundation, Inc.
+ *  Copyright (C) 2015,2019  Free Software Foundation, Inc.
  *
  *  GRUB is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -37,6 +37,7 @@ grub_machine_smbios_get_eps (void)
 	return (struct grub_smbios_eps *)
 	  grub_efi_system_table->configuration_table[i].vendor_table;
     }
+
   return 0;
 }
 
@@ -55,5 +56,6 @@ grub_machine_smbios_get_eps3 (void)
 	return (struct grub_smbios_eps3 *)
 	  grub_efi_system_table->configuration_table[i].vendor_table;
     }
+
   return 0;
 }

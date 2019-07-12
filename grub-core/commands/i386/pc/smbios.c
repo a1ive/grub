@@ -1,7 +1,7 @@
 /* smbios.c - get smbios tables. */
 /*
  *  GRUB  --  GRand Unified Bootloader
- *  Copyright (C) 2015  Free Software Foundation, Inc.
+ *  Copyright (C) 2015,2019  Free Software Foundation, Inc.
  *
  *  GRUB is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -27,11 +27,11 @@ grub_machine_smbios_get_eps (void)
   grub_uint8_t *ptr;
 
   grub_dprintf ("smbios", "Looking for SMBIOS EPS. Scanning BIOS\n");
-  for (ptr = (grub_uint8_t *) 0xf0000; ptr < (grub_uint8_t *) 0x100000;
-       ptr += 16)
+  for (ptr = (grub_uint8_t *) 0xf0000; ptr < (grub_uint8_t *) 0x100000; ptr += 16)
     if (grub_memcmp (ptr, "_SM_", 4) == 0
 	&& grub_byte_checksum (ptr, sizeof (struct grub_smbios_eps)) == 0)
       return (struct grub_smbios_eps *) ptr;
+
   return 0;
 }
 
@@ -41,10 +41,10 @@ grub_machine_smbios_get_eps3 (void)
   grub_uint8_t *ptr;
 
   grub_dprintf ("smbios", "Looking for SMBIOS3 EPS. Scanning BIOS\n");
-  for (ptr = (grub_uint8_t *) 0xf0000; ptr < (grub_uint8_t *) 0x100000;
-       ptr += 16)
+  for (ptr = (grub_uint8_t *) 0xf0000; ptr < (grub_uint8_t *) 0x100000; ptr += 16)
     if (grub_memcmp (ptr, "_SM3_", 5) == 0
 	&& grub_byte_checksum (ptr, sizeof (struct grub_smbios_eps3)) == 0)
       return (struct grub_smbios_eps3 *) ptr;
+
   return 0;
 }

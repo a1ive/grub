@@ -1,6 +1,6 @@
 /*
  *  GRUB  --  GRand Unified Bootloader
- *  Copyright (C) 2015  Free Software Foundation, Inc.
+ *  Copyright (C) 2015,2019  Free Software Foundation, Inc.
  *
  *  GRUB is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -19,6 +19,7 @@
 #ifndef GRUB_SMBIOS_HEADER
 #define GRUB_SMBIOS_HEADER	1
 
+#include <grub/symbol.h>
 #include <grub/types.h>
 
 #define GRUB_SMBIOS_TYPE_END_OF_TABLE ((grub_uint8_t)127)
@@ -60,9 +61,9 @@ struct grub_smbios_eps3
   grub_uint64_t table_address;
 } GRUB_PACKED;
 
-struct grub_smbios_eps *grub_smbios_get_eps (void);
-struct grub_smbios_eps3 *grub_smbios_get_eps3 (void);
-struct grub_smbios_eps *grub_machine_smbios_get_eps (void);
-struct grub_smbios_eps3 *grub_machine_smbios_get_eps3 (void);
+extern struct grub_smbios_eps *grub_machine_smbios_get_eps (void);
+extern struct grub_smbios_eps3 *grub_machine_smbios_get_eps3 (void);
+
+extern struct grub_smbios_eps *EXPORT_FUNC (grub_smbios_get_eps) (void);
 
 #endif /* ! GRUB_SMBIOS_HEADER */

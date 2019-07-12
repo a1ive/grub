@@ -1,7 +1,7 @@
 /* smbios.c - retrieve smbios information. */
 /*
  *  GRUB  --  GRand Unified Bootloader
- *  Copyright (C) 2013,2014,2015  Free Software Foundation, Inc.
+ *  Copyright (C) 2013,2014,2015,2019  Free Software Foundation, Inc.
  *
  *  GRUB is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -27,86 +27,96 @@
 
 GRUB_MOD_LICENSE ("GPLv3+");
 
+/* Abstract useful values found in either the SMBIOS3 or SMBIOS EPS. */
+static struct {
+  grub_addr_t start;
+  grub_addr_t end;
+  grub_uint16_t structures;
+} table_desc;
+
+static grub_extcmd_t cmd;
 
 /* Locate the SMBIOS entry point structure depending on the hardware. */
 struct grub_smbios_eps *
 grub_smbios_get_eps (void)
 {
   static struct grub_smbios_eps *eps = NULL;
+
   if (eps != NULL)
     return eps;
+
   eps = grub_machine_smbios_get_eps ();
+
   return eps;
 }
 
 /* Locate the SMBIOS3 entry point structure depending on the hardware. */
-struct grub_smbios_eps3 *
+static struct grub_smbios_eps3 *
 grub_smbios_get_eps3 (void)
 {
   static struct grub_smbios_eps3 *eps = NULL;
+
   if (eps != NULL)
     return eps;
+
   eps = grub_machine_smbios_get_eps3 ();
+
   return eps;
 }
-
-/* Abstract useful values found in either the SMBIOS3 or SMBIOS EPS. */
-static struct {
-  grub_addr_t start;
-  grub_addr_t end;
-  grub_uint16_t structures;
-} table_desc = {0, 0, 0};
-
 
 /*
  * These functions convert values from the various SMBIOS structure field types
  * into a string formatted to be returned to the user.  They expect that the
- * structure and offset were already validated.  The given buffer stores the
- * newly formatted string if needed.  When the requested data is successfully
- * retrieved and formatted, the pointer to the string is returned; otherwise,
- * NULL is returned on failure.
+ * structure and offset were already validated.  When the requested data is
+ * successfully retrieved and formatted, the pointer to the string is returned;
+ * otherwise, NULL is returned on failure.  Don't free the result.
  */
 
 static const char *
-grub_smbios_format_byte (char *buffer, grub_size_t size,
-                         const grub_uint8_t *structure, grub_uint8_t offset)
+grub_smbios_format_byte (const grub_uint8_t *structure, grub_uint8_t offset)
 {
-  grub_snprintf (buffer, size, "%u", structure[offset]);
+  static char buffer[sizeof ("255")];
+
+  grub_snprintf (buffer, sizeof (buffer), "%u", structure[offset]);
+
   return (const char *)buffer;
 }
 
 static const char *
-grub_smbios_format_word (char *buffer, grub_size_t size,
-                         const grub_uint8_t *structure, grub_uint8_t offset)
+grub_smbios_format_word (const grub_uint8_t *structure, grub_uint8_t offset)
 {
+  static char buffer[sizeof ("65535")];
+
   grub_uint16_t value = grub_get_unaligned16 (structure + offset);
-  grub_snprintf (buffer, size, "%u", value);
+  grub_snprintf (buffer, sizeof (buffer), "%u", value);
+
   return (const char *)buffer;
 }
 
 static const char *
-grub_smbios_format_dword (char *buffer, grub_size_t size,
-                          const grub_uint8_t *structure, grub_uint8_t offset)
+grub_smbios_format_dword (const grub_uint8_t *structure, grub_uint8_t offset)
 {
+  static char buffer[sizeof ("4294967295")];
+
   grub_uint32_t value = grub_get_unaligned32 (structure + offset);
-  grub_snprintf (buffer, size, "%" PRIuGRUB_UINT32_T, value);
+  grub_snprintf (buffer, sizeof (buffer), "%" PRIuGRUB_UINT32_T, value);
+
   return (const char *)buffer;
 }
 
 static const char *
-grub_smbios_format_qword (char *buffer, grub_size_t size,
-                          const grub_uint8_t *structure, grub_uint8_t offset)
+grub_smbios_format_qword (const grub_uint8_t *structure, grub_uint8_t offset)
 {
+  static char buffer[sizeof ("18446744073709551615")];
+
   grub_uint64_t value = grub_get_unaligned64 (structure + offset);
-  grub_snprintf (buffer, size, "%" PRIuGRUB_UINT64_T, value);
+  grub_snprintf (buffer, sizeof (buffer), "%" PRIuGRUB_UINT64_T, value);
+
   return (const char *)buffer;
 }
 
-/* The matching string pointer is returned directly to avoid extra copying. */
 static const char *
-grub_smbios_get_string (char *buffer __attribute__ ((unused)),
-                        grub_size_t size __attribute__ ((unused)),
-                        const grub_uint8_t *structure, grub_uint8_t offset)
+grub_smbios_get_string (const grub_uint8_t *structure, grub_uint8_t offset)
 {
   const grub_uint8_t *ptr = structure + structure[1];
   const grub_uint8_t *table_end = (const grub_uint8_t *)table_desc.end;
@@ -135,25 +145,24 @@ grub_smbios_get_string (char *buffer __attribute__ ((unused)),
 }
 
 static const char *
-grub_smbios_format_uuid (char *buffer, grub_size_t size,
-                         const grub_uint8_t *structure, grub_uint8_t offset)
+grub_smbios_format_uuid (const grub_uint8_t *structure, grub_uint8_t offset)
 {
+  static char buffer[sizeof ("ffffffff-ffff-ffff-ffff-ffffffffffff")];
   const grub_uint8_t *f = structure + offset; /* little-endian fields */
   const grub_uint8_t *g = f + 8; /* byte-by-byte fields */
-  grub_snprintf (buffer, size,
+
+  grub_snprintf (buffer, sizeof (buffer),
                  "%02x%02x%02x%02x-%02x%02x-%02x%02x-"
                  "%02x%02x-%02x%02x%02x%02x%02x%02x",
                  f[3], f[2], f[1], f[0], f[5], f[4], f[7], f[6],
                  g[0], g[1], g[2], g[3], g[4], g[5], g[6], g[7]);
+
   return (const char *)buffer;
 }
 
-
 /* List the field formatting functions and the number of bytes they need. */
-#define MAXIMUM_FORMAT_LENGTH (sizeof ("ffffffff-ffff-ffff-ffff-ffffffffffff"))
 static const struct {
-  const char *(*format) (char *buffer, grub_size_t size,
-                         const grub_uint8_t *structure, grub_uint8_t offset);
+  const char *(*format) (const grub_uint8_t *structure, grub_uint8_t offset);
   grub_uint8_t field_length;
 } field_extractors[] = {
   {grub_smbios_format_byte, 1},
@@ -167,10 +176,11 @@ static const struct {
 /* List command options, with structure field getters ordered as above. */
 #define FIRST_GETTER_OPT (3)
 #define SETTER_OPT (FIRST_GETTER_OPT + ARRAY_SIZE(field_extractors))
+
 static const struct grub_arg_option options[] = {
-  {"type",       't', 0, N_("Match entries with the given type."),
+  {"type",       't', 0, N_("Match structures with the given type."),
                          N_("type"), ARG_TYPE_INT},
-  {"handle",     'h', 0, N_("Match entries with the given handle."),
+  {"handle",     'h', 0, N_("Match structures with the given handle."),
                          N_("handle"), ARG_TYPE_INT},
   {"match",      'm', 0, N_("Select a structure when several match."),
                          N_("match"), ARG_TYPE_INT},
@@ -190,7 +200,6 @@ static const struct grub_arg_option options[] = {
                          N_("variable"), ARG_TYPE_STRING},
   {0, 0, 0, 0, 0, 0}
 };
-
 
 /*
  * Return a matching SMBIOS structure.
@@ -225,7 +234,6 @@ grub_smbios_match_structure (const grub_int16_t type,
           && (type < 0 || type == structure_type)
           && (match == 0 || match == ++matches))
         return ptr;
-
       else
         {
           ptr += ptr[1];
@@ -238,7 +246,6 @@ grub_smbios_match_structure (const grub_int16_t type,
 
   return NULL;
 }
-
 
 static grub_err_t
 grub_cmd_smbios (grub_extcmd_context_t ctxt,
@@ -254,7 +261,6 @@ grub_cmd_smbios (grub_extcmd_context_t ctxt,
 
   const grub_uint8_t *structure;
   const char *value;
-  char buffer[MAXIMUM_FORMAT_LENGTH];
   grub_int32_t option;
   grub_int8_t field_type = -1;
   grub_uint8_t i;
@@ -283,7 +289,7 @@ grub_cmd_smbios (grub_extcmd_context_t ctxt,
   if (state[2].set)
     {
       option = grub_strtol (state[2].arg, NULL, 0);
-      if (option <= 0)
+      if (option <= 0 || option > 65535)
         return grub_error (GRUB_ERR_BAD_ARGUMENT,
                            N_("the match must be a positive integer"));
       match = (grub_uint16_t)option;
@@ -323,8 +329,7 @@ grub_cmd_smbios (grub_extcmd_context_t ctxt,
                        N_("the field ends outside the structure"));
 
   /* Format the requested structure field into a readable string. */
-  value = field_extractors[field_type].format (buffer, sizeof (buffer),
-                                               structure, offset);
+  value = field_extractors[field_type].format (structure, offset);
   if (value == NULL)
     return grub_error (GRUB_ERR_IO,
                        N_("failed to retrieve the structure field"));
@@ -337,9 +342,6 @@ grub_cmd_smbios (grub_extcmd_context_t ctxt,
 
   return GRUB_ERR_NONE;
 }
-
-
-static grub_extcmd_t cmd;
 
 GRUB_MOD_INIT(smbios)
 {

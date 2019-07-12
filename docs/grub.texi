@@ -5124,21 +5124,27 @@ return.  Only one of these options may be specified at a time.
 @item
 When given @option{--get-byte}, return the value of the byte
 at @var{offset} bytes into the selected SMBIOS structure.
+It will be formatted as an unsigned decimal integer.
 @item
 When given @option{--get-word}, return the value of the word (two bytes)
 at @var{offset} bytes into the selected SMBIOS structure.
+It will be formatted as an unsigned decimal integer.
 @item
 When given @option{--get-dword}, return the value of the dword (four bytes)
 at @var{offset} bytes into the selected SMBIOS structure.
+It will be formatted as an unsigned decimal integer.
 @item
 When given @option{--get-qword}, return the value of the qword (eight bytes)
 at @var{offset} bytes into the selected SMBIOS structure.
+It will be formatted as an unsigned decimal integer.
 @item
 When given @option{--get-string}, return the string with its index found
 at @var{offset} bytes into the selected SMBIOS structure.
 @item
 When given @option{--get-uuid}, return the value of the UUID (sixteen bytes)
 at @var{offset} bytes into the selected SMBIOS structure.
+It will be formatted as lower-case hyphenated hexadecimal digits, with the
+first three fields as little-endian, and the rest printed byte-by-byte.
 @end itemize
 
 The default action is to print the value of the requested field to the console,
