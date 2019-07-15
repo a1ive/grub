@@ -287,6 +287,32 @@ static int string_to_utf8(lua_State *L) {
 static int
 grub_lua_run (lua_State *state)
 {
+  int n;
+  char **args;
+  const char *s;
+
+  s = luaL_checkstring (state, 1);
+  if ((! grub_parser_split_cmdline (s, 0, 0, &n, &args))
+      && (n >= 0))
+    {
+      grub_command_t cmd;
+
+      cmd = grub_command_find (args[0]);
+      if (cmd)
+	(cmd->func) (cmd, n-1, &args[1]);
+      else
+	grub_error (GRUB_ERR_FILE_NOT_FOUND, "command not found");
+
+      grub_free (args[0]);
+      grub_free (args);
+    }
+
+  return push_result (state);
+}
+
+static int
+grub_lua_script (lua_State *state)
+{
   const char *s;
 
   s = luaL_checkstring (state, 1);
@@ -1028,6 +1054,7 @@ grub_lua_random (lua_State *state)
 luaL_Reg grub_lua_lib[] =
   {
     {"run", grub_lua_run},
+    {"script", grub_lua_script},
     {"getenv", grub_lua_getenv},
     {"setenv", grub_lua_setenv},
     {"exportenv", grub_lua_exportenv},
