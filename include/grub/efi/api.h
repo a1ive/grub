@@ -89,6 +89,11 @@
     { 0x8e, 0x39, 0x00, 0xa0, 0xc9, 0x69, 0x72, 0x3b } \
   }
 
+#define GRUB_EFI_BLOCK_IO2_GUID \
+  { 0xa77b2472, 0xe282, 0x4e9f, \
+    { 0xa2, 0x45, 0xc2, 0xc0, 0xe2, 0x7b, 0xbc, 0xc1 } \
+  }
+
 #define GRUB_EFI_SERIAL_IO_GUID \
   { 0xbb25cf6f, 0xf1d4, 0x11d2, \
     { 0x9a, 0x0c, 0x00, 0x90, 0x27, 0x3f, 0xc1, 0xfd } \
@@ -237,6 +242,11 @@
 #define GRUB_EFI_HII_CONFIGURATION_ACCESS_PROTOCOL_GUID \
   { 0x330d4706, 0xf2a0, 0x4e4f, \
     { 0xa3, 0x69, 0xb6, 0x6f, 0xa8, 0xd5, 0x43, 0x85 } \
+  }
+
+#define GRUB_EFI_COMPONENT_NAME_PROTOCOL_GUID \
+  { 0x107a772c, 0xd5e1, 0x11d4, \
+    { 0x9a, 0x46, 0x0, 0x90, 0x27, 0x3f, 0xc1, 0x4d } \
   }
 
 #define GRUB_EFI_COMPONENT_NAME2_PROTOCOL_GUID \
@@ -1698,6 +1708,7 @@ struct grub_efi_simple_network
 };
 typedef struct grub_efi_simple_network grub_efi_simple_network_t;
 
+#define EFI_BLOCK_IO_PROTOCOL_REVISION  0x00010000
 
 struct grub_efi_block_io
 {
@@ -1718,6 +1729,53 @@ struct grub_efi_block_io
   grub_efi_status_t (*flush_blocks) (struct grub_efi_block_io *this);
 };
 typedef struct grub_efi_block_io grub_efi_block_io_t;
+
+typedef struct
+{
+  grub_efi_event_t event;
+  grub_efi_status_t transaction_status;
+} grub_efi_block_io2_token_t;
+
+struct grub_efi_block_io2
+{
+  grub_efi_block_io_media_t *media;
+  grub_efi_status_t (*reset_ex) (struct grub_efi_block_io2 *this,
+			      grub_efi_boolean_t extended_verification);
+  grub_efi_status_t (*read_blocks_ex) (struct grub_efi_block_io2 *this,
+				    grub_efi_uint32_t media_id,
+				    grub_efi_lba_t lba,
+                    grub_efi_block_io2_token_t *token,
+				    grub_efi_uintn_t buffer_size,
+				    void *buffer);
+  grub_efi_status_t (*write_blocks_ex) (struct grub_efi_block_io2 *this,
+				     grub_efi_uint32_t media_id,
+				     grub_efi_lba_t lba,
+                     grub_efi_block_io2_token_t *token,
+				     grub_efi_uintn_t buffer_size,
+				     void *buffer);
+  grub_efi_status_t (*flush_blocks_ex) (struct grub_efi_block_io2 *this,
+                                        grub_efi_block_io2_token_t *token);
+};
+typedef struct grub_efi_block_io2 grub_efi_block_io2_t;
+
+struct grub_efi_component_name_protocol {
+  grub_efi_status_t (*get_driver_name) (struct grub_efi_component_name_protocol *this,
+                                        grub_efi_char8_t *language,
+                                        grub_efi_char16_t **driver_name);
+  grub_efi_status_t (*get_controller_name) (struct grub_efi_component_name_protocol *this,
+                                            grub_efi_handle_t controller_handle,
+                                            grub_efi_handle_t child_handle,
+                                            grub_efi_char8_t *language,
+                                            grub_efi_char16_t **controller_name);
+  /// A Null-terminated ASCII string that contains one or more
+  /// ISO 639-2 language codes. This is the list of language codes
+  /// that this protocol supports.
+  grub_efi_char8_t *supported_languages;
+};
+typedef struct grub_efi_component_name_protocol grub_efi_component_name_protocol_t;
+
+#define CR(RECORD, TYPE, FIELD) \
+    ((TYPE *) ((char *) (RECORD) - (char *) &(((TYPE *) 0)->FIELD)))
 
 #if (GRUB_TARGET_SIZEOF_VOID_P == 4) || defined (__ia64__) \
   || defined (__aarch64__) || defined (__MINGW64__) || defined (__CYGWIN__) \
