@@ -27,6 +27,11 @@
 
 GRUB_MOD_LICENSE ("GPLv3+");
 
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-align"
+#endif
+
 int fb_ver_minor = 6;
 
 struct grub_fb_data
@@ -258,6 +263,10 @@ static struct grub_fs grub_fb_fs =
     .fs_label = grub_fbfs_label,
     .next = 0
   };
+
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif
 
 GRUB_MOD_INIT(fb)
 {
