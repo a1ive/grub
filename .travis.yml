@@ -24,6 +24,20 @@ branches:
   only:
     - master
 
+env:
+  global:
+    # Include all cross toolchain paths, so we can just call them later down.
+    - PATH=/usr/bin:/bin:/tmp/cross/gcc-8.1.0-nolibc/aarch64-linux/bin:/tmp/cross/gcc-8.1.0-nolibc/arm-linux-gnueabi/bin:/tmp/cross/gcc-8.1.0-nolibc/ia64-linux/bin:/tmp/cross/gcc-8.1.0-nolibc/mips64-linux/bin:/tmp/cross/gcc-8.1.0-nolibc/powerpc64-linux/bin:/tmp/cross/gcc-8.1.0-nolibc/riscv32-linux/bin:/tmp/cross/gcc-8.1.0-nolibc/riscv64-linux/bin:/tmp/cross/gcc-8.1.0-nolibc/sparc64-linux/bin
+
+
+before_script:
+  # Install necessary toolchains based on $CROSS_TARGETS variable.
+  - mkdir /tmp/cross
+  # These give us binaries like /tmp/cross/gcc-8.1.0-nolibc/ia64-linux/bin/ia64-linux-gcc
+  - for i in $CROSS_TARGETS; do
+        ( cd /tmp/cross; wget -t 3 -O - https://mirrors.kernel.org/pub/tools/crosstool/files/bin/x86_64/8.1.0/x86_64-gcc-8.1.0-nolibc-$i.tar.xz | tar xJ );
+    done
+
 script:
   # Comments must be outside the command strings below, or the Travis parser
   # will get confused.
@@ -33,6 +47,14 @@ script:
   - for target in $GRUB_TARGETS; do
       plat=${target#*-};
       arch=${target%-*};
+      [ "$arch" = "arm64" ] && arch=aarch64-linux;
+      [ "$arch" = "arm" ] && arch=arm-linux-gnueabi;
+      [ "$arch" = "ia64" ] && arch=ia64-linux;
+      [ "$arch" = "mipsel" ] && arch=mips64-linux;
+      [ "$arch" = "powerpc" ] && arch=powerpc64-linux;
+      [ "$arch" = "riscv32" ] && arch=riscv32-linux;
+      [ "$arch" = "riscv64" ] && arch=riscv64-linux;
+      [ "$arch" = "sparc64" ] && arch=sparc64-linux;
       echo "Building $target";
       mkdir obj-$target;
       JOBS=`getconf _NPROCESSORS_ONLN 2> /dev/null || echo 1`;
@@ -67,15 +89,15 @@ matrix:
   #   env:
   #     - GRUB_TARGETS="mips-arc mipsel-arc mipsel-qemu_mips mips-qemu_mips"
   #     - CROSS_TARGETS="mips64-linux"
-  # - name: "arm"
-  #   env:
+    - name: "arm"
+      env:
   #     - GRUB_TARGETS="arm-coreboot arm-efi arm-uboot"
-  #     - GRUB_TARGETS="arm-efi"
-  #     - CROSS_TARGETS="arm-linux-gnueabi"
-  # - name: "arm64"
-  #   env:
-  #     - GRUB_TARGETS="arm64-efi"
-  #     - CROSS_TARGETS="aarch64-linux"
+        - GRUB_TARGETS="arm-efi"
+        - CROSS_TARGETS="arm-linux-gnueabi"
+    - name: "arm64"
+      env:
+        - GRUB_TARGETS="arm64-efi"
+        - CROSS_TARGETS="aarch64-linux"
   # - name: "riscv32"
   #   env:
   #     - GRUB_TARGETS="riscv32-efi"
