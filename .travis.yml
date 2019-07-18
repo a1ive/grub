@@ -20,6 +20,10 @@ addons:
     - unifont
     - autopoint
 
+branches:
+  only:
+    - master
+
 before_script:
   # Install necessary toolchains based on $CROSS_TARGETS variable.
   - mkdir /tmp/cross
@@ -79,14 +83,15 @@ matrix:
   #   env:
   #     - GRUB_TARGETS="mips-arc mipsel-arc mipsel-qemu_mips mips-qemu_mips"
   #     - CROSS_TARGETS="mips64-linux"
-  # - name: "arm"
-  #   env:
+    - name: "arm"
+      env:
   #     - GRUB_TARGETS="arm-coreboot arm-efi arm-uboot"
-  #     - CROSS_TARGETS="arm-linux-gnueabi"
-  # - name: "arm64"
-  #   env:
-  #     - GRUB_TARGETS="arm64-efi"
-  #     - CROSS_TARGETS="aarch64-linux"
+        - GRUB_TARGETS="arm-efi"
+        - CROSS_TARGETS="arm-linux-gnueabi"
+    - name: "arm64"
+      env:
+        - GRUB_TARGETS="arm64-efi"
+        - CROSS_TARGETS="aarch64-linux"
   # - name: "riscv32"
   #   env:
   #     - GRUB_TARGETS="riscv32-efi"
