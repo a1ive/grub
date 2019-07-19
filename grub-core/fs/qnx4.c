@@ -143,6 +143,11 @@ struct grub_qnx4_data
 
 static grub_dl_t my_mod;
 
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-align"
+#endif
+
 static grub_uint32_t try_extent(qnx4_xtnt_t *extent, grub_uint32_t *offset)
 {
    grub_uint32_t sblk = grub_le_to_cpu32(extent->xtnt_blk);
@@ -522,6 +527,10 @@ static struct grub_fs grub_qnx4_fs =
    .blocklist_install = 1,
 #endif
 };
+
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif
 
 GRUB_MOD_INIT(qnx4)
 {

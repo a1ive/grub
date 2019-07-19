@@ -234,6 +234,11 @@ struct grub_qnx6_data_t
 
 static grub_dl_t my_mod;
 
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-align"
+#endif
+
 //-----------------------------------------------------------------------------
 
 /**
@@ -921,6 +926,10 @@ static struct grub_fs grub_qnx6_fs =
    .blocklist_install = 1,
 #endif
 };
+
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif
 
 GRUB_MOD_INIT(qnx6)
 {
