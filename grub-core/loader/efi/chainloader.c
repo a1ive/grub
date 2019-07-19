@@ -71,6 +71,11 @@ static grub_efi_handle_t dev_handle;
 
 static grub_efi_status_t (*entry_point) (grub_efi_handle_t image_handle, grub_efi_system_table_t *system_table);
 
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-align"
+#endif
+
 static grub_err_t
 grub_chainloader_unload (void)
 {
@@ -1055,6 +1060,10 @@ grub_cmd_chainloader (grub_extcmd_context_t ctxt,
 }
 
 static grub_extcmd_t cmd;
+
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif
 
 GRUB_MOD_INIT(chainloader)
 {
