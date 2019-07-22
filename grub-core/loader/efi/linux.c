@@ -24,6 +24,11 @@
 #include <grub/efi/pe32.h>
 #include <grub/efi/linux.h>
 
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-align"
+#endif
+
 grub_efi_boolean_t
 grub_linuxefi_secure_validate (void *data __attribute__ ((unused)), grub_uint32_t size __attribute__ ((unused)))
 {
@@ -43,3 +48,7 @@ grub_efi_linux_boot (void *kernel_addr, grub_off_t offset,
 
   return GRUB_ERR_BUG;
 }
+
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif
