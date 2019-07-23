@@ -16,8 +16,8 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef GRUB_EFI_RAMDISK_HEADER
-#define GRUB_EFI_RAMDISK_HEADER
+#ifndef GRUB_EFI_SIMPLEFILESYSTEM_HEADER
+#define GRUB_EFI_SIMPLEFILESYSTEM_HEADER
 
 #include <grub/types.h>
 #include <grub/efi/api.h>
