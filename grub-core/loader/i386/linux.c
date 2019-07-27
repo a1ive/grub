@@ -36,6 +36,7 @@
 #include <grub/lib/cmdline.h>
 #include <grub/linux.h>
 #include <grub/machine/kernel.h>
+#include <grub/i386/linux_private.h>
 
 GRUB_MOD_LICENSE ("GPLv3+");
 
@@ -96,14 +97,8 @@ static struct idt_descriptor idt_desc =
   };
 #endif
 
-static inline grub_size_t
-page_align (grub_size_t size)
-{
-  return (size + (1 << 12) - 1) & (~((1 << 12) - 1));
-}
-
 /* Helper for find_mmap_size.  */
-static int
+static inline int
 count_hook (grub_uint64_t addr __attribute__ ((unused)),
 	    grub_uint64_t size __attribute__ ((unused)),
 	    grub_memory_type_t type __attribute__ ((unused)), void *data)
@@ -115,7 +110,7 @@ count_hook (grub_uint64_t addr __attribute__ ((unused)),
 }
 
 /* Find the optimal number of pages for the memory map. */
-static grub_size_t
+grub_size_t
 find_mmap_size (void)
 {
   grub_size_t count = 0, mmap_size;
@@ -210,27 +205,7 @@ allocate_pages (grub_size_t prot_size, grub_size_t *align,
   return err;
 }
 
-static grub_err_t
-grub_e820_add_region (struct grub_e820_mmap *e820_map, int *e820_num,
-                      grub_uint64_t start, grub_uint64_t size,
-                      grub_uint32_t type)
-{
-  int n = *e820_num;
-
-  if ((n > 0) && (e820_map[n - 1].addr + e820_map[n - 1].size == start) &&
-      (e820_map[n - 1].type == type))
-      e820_map[n - 1].size += size;
-  else
-    {
-      e820_map[n].addr = start;
-      e820_map[n].size = size;
-      e820_map[n].type = type;
-      (*e820_num)++;
-    }
-  return GRUB_ERR_NONE;
-}
-
-static grub_err_t
+grub_err_t
 grub_linux_setup_video (struct linux_kernel_params *params)
 {
   struct grub_video_mode_info mode_info;
@@ -340,14 +315,39 @@ grub_linux_setup_video (struct linux_kernel_params *params)
   return GRUB_ERR_NONE;
 }
 
-/* Context for grub_linux_boot.  */
-struct grub_linux_boot_ctx
+grub_err_t
+grub_e820_add_region (struct grub_e820_mmap *e820_map, int *e820_num,
+                      grub_uint64_t start, grub_uint64_t size,
+                      grub_uint32_t type)
 {
-  grub_addr_t real_mode_target;
-  grub_size_t real_size;
-  struct linux_kernel_params *params;
-  int e820_num;
-};
+  int n = *e820_num;
+
+  if ((n > 0) && (e820_map[n - 1].addr + e820_map[n - 1].size == start) &&
+      (e820_map[n - 1].type == type))
+      e820_map[n - 1].size += size;
+  else
+    {
+      e820_map[n].addr = start;
+      e820_map[n].size = size;
+      e820_map[n].type = type;
+      (*e820_num)++;
+    }
+  return GRUB_ERR_NONE;
+}
+
+/* GRUB types conveniently match E820 types.  */
+int
+grub_linux_boot_mmap_fill (grub_uint64_t addr, grub_uint64_t size,
+			   grub_memory_type_t type, void *data)
+{
+  struct grub_linux_boot_ctx *ctx = data;
+
+  if (grub_e820_add_region (ctx->params->e820_map, &ctx->e820_num,
+			    addr, size, type))
+    return 1;
+
+  return 0;
+}
 
 /* Helper for grub_linux_boot.  */
 static int
@@ -381,20 +381,6 @@ grub_linux_boot_mmap_find (grub_uint64_t addr, grub_uint64_t size,
 		(unsigned) (ctx->real_size + efi_mmap_size));
   ctx->real_mode_target = ((addr + size) - (ctx->real_size + efi_mmap_size));
   return 1;
-}
-
-/* GRUB types conveniently match E820 types.  */
-static int
-grub_linux_boot_mmap_fill (grub_uint64_t addr, grub_uint64_t size,
-			   grub_memory_type_t type, void *data)
-{
-  struct grub_linux_boot_ctx *ctx = data;
-
-  if (grub_e820_add_region (ctx->params->e820_map, &ctx->e820_num,
-			    addr, size, type))
-    return 1;
-
-  return 0;
 }
 
 static grub_err_t
