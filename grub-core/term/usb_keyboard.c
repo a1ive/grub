@@ -20,15 +20,11 @@
 #include <grub/term.h>
 #include <grub/time.h>
 #include <grub/misc.h>
-#include <grub/term.h>
 #include <grub/usb.h>
 #include <grub/dl.h>
-#include <grub/time.h>
 #include <grub/keyboard_layouts.h>
 
 GRUB_MOD_LICENSE ("GPLv3+");
-
-
 
 enum
   {
