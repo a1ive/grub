@@ -1,5 +1,10 @@
 /* Generator object implementation */
 
+#if __GNUC__ >= 9
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-function-type"
+#endif
+
 #include "Python.h"
 #include "frameobject.h"
 #include "genobject.h"
@@ -415,3 +420,7 @@ PyGen_NeedsFinalizing(PyGenObject *gen)
     /* No blocks except loops, it's safe to skip finalization. */
     return 0;
 }
+
+#if __GNUC__ >= 9
+#pragma GCC diagnostic pop
+#endif

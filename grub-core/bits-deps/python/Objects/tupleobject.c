@@ -1,6 +1,11 @@
 
 /* Tuple object implementation */
 
+#if __GNUC__ >= 9
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-function-type"
+#endif
+
 #include "Python.h"
 
 /* Speed optimization to avoid frequent malloc/free of small tuples */
@@ -1035,3 +1040,7 @@ tuple_iter(PyObject *seq)
     _PyObject_GC_TRACK(it);
     return (PyObject *)it;
 }
+
+#if __GNUC__ >= 9
+#pragma GCC diagnostic pop
+#endif

@@ -5,6 +5,10 @@
 
 #include <ctype.h>
 
+#if __GNUC__ >= 9
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-function-type"
+#endif
 
 /* Support type attribute cache */
 
@@ -6910,3 +6914,7 @@ PyTypeObject PySuper_Type = {
     PyType_GenericNew,                          /* tp_new */
     PyObject_GC_Del,                            /* tp_free */
 };
+
+#if __GNUC__ >= 9
+#pragma GCC diagnostic pop
+#endif

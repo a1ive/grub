@@ -1,5 +1,10 @@
 /* Frame object implementation */
 
+#if __GNUC__ >= 9
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-function-type"
+#endif
+
 #include "Python.h"
 
 #include "code.h"
@@ -1019,3 +1024,7 @@ PyFrame_Fini(void)
     Py_XDECREF(builtin_object);
     builtin_object = NULL;
 }
+
+#if __GNUC__ >= 9
+#pragma GCC diagnostic pop
+#endif

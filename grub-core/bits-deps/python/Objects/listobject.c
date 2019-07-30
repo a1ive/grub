@@ -1,5 +1,10 @@
 /* List object implementation */
 
+#if __GNUC__ >= 9
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-function-type"
+#endif
+
 #include "Python.h"
 
 #ifdef STDC_HEADERS
@@ -3051,3 +3056,7 @@ listreviter_len(listreviterobject *it)
         len = 0;
     return PyLong_FromSsize_t(len);
 }
+
+#if __GNUC__ >= 9
+#pragma GCC diagnostic pop
+#endif

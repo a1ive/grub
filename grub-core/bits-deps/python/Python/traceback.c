@@ -1,6 +1,11 @@
 
 /* Traceback implementation */
 
+#if __GNUC__ >= 9
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-function-type"
+#endif
+
 #include "Python.h"
 
 #include "code.h"
@@ -277,3 +282,8 @@ PyTraceBack_Print(PyObject *v, PyObject *f)
         err = tb_printinternal((PyTracebackObject *)v, f, limit);
     return err;
 }
+
+#if __GNUC__ >= 9
+#pragma GCC diagnostic pop
+#endif
+

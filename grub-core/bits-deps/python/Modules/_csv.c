@@ -17,6 +17,10 @@ module instead.
 #include "Python.h"
 #include "structmember.h"
 
+#if __GNUC__ >= 9
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-function-type"
+#endif
 
 /* begin 2.2 compatibility macros */
 #ifndef PyDoc_STRVAR
@@ -1639,3 +1643,7 @@ init_csv(void)
         return;
     PyModule_AddObject(module, "Error", error_obj);
 }
+
+#if __GNUC__ >= 9
+#pragma GCC diagnostic pop
+#endif

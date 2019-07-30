@@ -3,6 +3,11 @@
 /* XXX There should be overflow checks here, but it's hard to check
    for any kind of float exception without losing portability. */
 
+#if __GNUC__ >= 9
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-function-type"
+#endif
+
 #include "Python.h"
 #include "structseq.h"
 
@@ -2714,3 +2719,7 @@ _PyFloat_Unpack8(const unsigned char *p, int le)
         return x;
     }
 }
+
+#if __GNUC__ >= 9
+#pragma GCC diagnostic pop
+#endif

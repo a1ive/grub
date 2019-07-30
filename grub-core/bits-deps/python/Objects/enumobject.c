@@ -2,6 +2,11 @@
 
 #include "Python.h"
 
+#if __GNUC__ >= 9
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-function-type"
+#endif
+
 typedef struct {
     PyObject_HEAD
     Py_ssize_t en_index;           /* current index of enumeration */
@@ -385,3 +390,7 @@ PyTypeObject PyReversed_Type = {
     reversed_new,                   /* tp_new */
     PyObject_GC_Del,                /* tp_free */
 };
+
+#if __GNUC__ >= 9
+#pragma GCC diagnostic pop
+#endif

@@ -4,6 +4,11 @@
    Derived from Lib/sets.py and Objects/dictobject.c.
 */
 
+#if __GNUC__ >= 9
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-function-type"
+#endif
+
 #include "Python.h"
 #include "structmember.h"
 
@@ -2522,4 +2527,8 @@ test_c_api(PySetObject *so)
 
 #undef assertRaises
 
+#endif
+
+#if __GNUC__ >= 9
+#pragma GCC diagnostic pop
 #endif

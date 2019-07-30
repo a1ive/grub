@@ -1,3 +1,7 @@
+#if __GNUC__ >= 9
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-function-type"
+#endif
 
 #include "Python.h"
 #include "structmember.h"
@@ -4129,3 +4133,7 @@ inititertools(void)
     if (PyType_Ready(&_grouper_type) < 0)
         return;
 }
+
+#if __GNUC__ >= 9
+#pragma GCC diagnostic pop
+#endif

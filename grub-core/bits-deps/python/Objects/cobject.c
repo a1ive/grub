@@ -3,6 +3,10 @@
 
 #include "Python.h"
 
+#if __GNUC__ >= 9
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-function-type"
+#endif
 
 /* Declarations for objects of type PyCObject */
 
@@ -170,3 +174,7 @@ PyTypeObject PyCObject_Type = {
     0,				/*tp_flags*/
     PyCObject_Type__doc__	/*tp_doc*/
 };
+
+#if __GNUC__ >= 9
+#pragma GCC diagnostic pop
+#endif

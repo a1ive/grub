@@ -1,5 +1,10 @@
 /* Range object implementation */
 
+#if __GNUC__ >= 9
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-function-type"
+#endif
+
 #include "Python.h"
 
 typedef struct {
@@ -343,3 +348,7 @@ range_reverse(PyObject *seq)
 
     return (PyObject *)it;
 }
+
+#if __GNUC__ >= 9
+#pragma GCC diagnostic pop
+#endif

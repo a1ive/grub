@@ -3,6 +3,11 @@
 /* An array is a uniform list -- all items have the same type.
    The item type is restricted to simple C types like int or float */
 
+#if __GNUC__ >= 9
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-function-type"
+#endif
+
 #define PY_SSIZE_T_CLEAN
 #include "Python.h"
 #include "structmember.h"
@@ -2314,3 +2319,7 @@ initarray(void)
     PyModule_AddObject(m, "array", (PyObject *)&Arraytype);
     /* No need to check the error here, the caller will do that */
 }
+
+#if __GNUC__ >= 9
+#pragma GCC diagnostic pop
+#endif

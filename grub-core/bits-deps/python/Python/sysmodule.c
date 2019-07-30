@@ -14,6 +14,11 @@ Data members:
 - ps1, ps2: optional primary and secondary prompts (strings)
 */
 
+#if __GNUC__ >= 9
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-function-type"
+#endif
+
 #include "Python.h"
 #include "structseq.h"
 #include "code.h"
@@ -1798,3 +1803,7 @@ PySys_WriteStderr(const char *format, ...)
     mywrite("stderr", stderr, format, va);
     va_end(va);
 }
+
+#if __GNUC__ >= 9
+#pragma GCC diagnostic pop
+#endif

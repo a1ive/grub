@@ -1,6 +1,11 @@
 
 /* Integer object implementation */
 
+#if __GNUC__ >= 9
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-function-type"
+#endif
+
 #include "Python.h"
 #include <ctype.h>
 #include <float.h>
@@ -1574,3 +1579,8 @@ PyInt_Fini(void)
         }
     }
 }
+
+#if __GNUC__ >= 9
+#pragma GCC diagnostic pop
+#endif
+

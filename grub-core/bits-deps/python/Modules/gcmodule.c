@@ -18,6 +18,11 @@
 
 */
 
+#if __GNUC__ >= 9
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-function-type"
+#endif
+
 #include "Python.h"
 #include "frameobject.h"        /* for PyFrame_ClearFreeList */
 
@@ -1569,3 +1574,7 @@ _PyObject_GC_Del(PyObject *op)
 {
     PyObject_GC_Del(op);
 }
+
+#if __GNUC__ >= 9
+#pragma GCC diagnostic pop
+#endif

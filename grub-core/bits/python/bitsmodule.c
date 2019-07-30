@@ -40,6 +40,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "bitsmodule.h"
 #include "datatype.h"
 
+#if __GNUC__ >= 9
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-function-type"
+#endif
+
 static PyObject *pyblocklist = NULL;
 static grub_disk_addr_t partition_start_sector = 0;
 
@@ -574,3 +579,7 @@ PyMODINIT_FUNC init_bits(void)
 {
     (void) Py_InitModule("_bits", bitsMethods);
 }
+
+#if __GNUC__ >= 9
+#pragma GCC diagnostic pop
+#endif

@@ -2,6 +2,11 @@
 #include "Python.h"
 #include "structmember.h"
 
+#if __GNUC__ >= 9
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-function-type"
+#endif
+
 /* _functools module written and maintained
    by Hye-Shik Chang <perky@FreeBSD.org>
    with adaptations by Raymond Hettinger <python@rcn.com>
@@ -413,3 +418,7 @@ init_functools(void)
         PyModule_AddObject(m, name+1, (PyObject *)typelist[i]);
     }
 }
+
+#if __GNUC__ >= 9
+#pragma GCC diagnostic pop
+#endif

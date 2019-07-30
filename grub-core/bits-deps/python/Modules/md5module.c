@@ -9,6 +9,11 @@
 
 /* MD5 objects */
 
+#if __GNUC__ >= 9
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-function-type"
+#endif
+
 #include "Python.h"
 #include "structmember.h"
 #include "md5.h"
@@ -337,3 +342,7 @@ init_md5(void)
     PyModule_AddIntConstant(m, "digest_size", 16);
     /* No need to check the error here, the caller will do that */
 }
+
+#if __GNUC__ >= 9
+#pragma GCC diagnostic pop
+#endif

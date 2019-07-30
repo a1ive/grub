@@ -30,6 +30,11 @@
 
 GRUB_MOD_LICENSE ("GPLv3+");
 
+#if __GNUC__ >= 9
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Waddress-of-packed-member"
+#endif
+
 static grub_uint8_t grub_gpt_magic[] = GRUB_GPT_HEADER_MAGIC;
 
 static grub_err_t
@@ -775,3 +780,8 @@ grub_gpt_free (grub_gpt_t gpt)
   grub_free (gpt->entries);
   grub_free (gpt);
 }
+
+#if __GNUC__ >= 9
+#pragma GCC diagnostic pop
+#endif
+

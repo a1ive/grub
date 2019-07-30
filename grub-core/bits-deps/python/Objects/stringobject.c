@@ -1,5 +1,10 @@
 /* String (str/bytes) object implementation */
 
+#if __GNUC__ >= 9
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-function-type"
+#endif
+
 #define PY_SSIZE_T_CLEAN
 
 #include "Python.h"
@@ -4880,3 +4885,7 @@ void _Py_ReleaseInternedStrings(void)
     PyDict_Clear(interned);
     Py_CLEAR(interned);
 }
+
+#if __GNUC__ >= 9
+#pragma GCC diagnostic pop
+#endif

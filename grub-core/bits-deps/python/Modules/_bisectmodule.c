@@ -5,6 +5,11 @@ Converted to C by Dmitry Vasiliev (dima at hlabs.spb.ru).
 
 #include "Python.h"
 
+#if __GNUC__ >= 9
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-function-type"
+#endif
+
 static Py_ssize_t
 internal_bisect_right(PyObject *list, PyObject *item, Py_ssize_t lo, Py_ssize_t hi)
 {
@@ -244,3 +249,8 @@ init_bisect(void)
 {
     Py_InitModule3("_bisect", bisect_methods, module_doc);
 }
+
+#if __GNUC__ >= 9
+#pragma GCC diagnostic pop
+#endif
+

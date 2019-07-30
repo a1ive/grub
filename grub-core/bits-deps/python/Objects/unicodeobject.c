@@ -39,6 +39,11 @@ OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 */
 
+#if __GNUC__ >= 9
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-function-type"
+#endif
+
 #define PY_SSIZE_T_CLEAN
 #include "Python.h"
 
@@ -9021,4 +9026,8 @@ _PyUnicode_Fini(void)
 
 #ifdef __cplusplus
 }
+#endif
+
+#if __GNUC__ >= 9
+#pragma GCC diagnostic pop
 #endif

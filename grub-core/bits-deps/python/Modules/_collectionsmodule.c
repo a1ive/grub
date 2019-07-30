@@ -47,6 +47,11 @@
  * other.
  */
 
+#if __GNUC__ >= 9
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-function-type"
+#endif
+
 typedef struct BLOCK {
     PyObject *data[BLOCKLEN];
     struct BLOCK *rightlink;
@@ -1774,3 +1779,7 @@ init_collections(void)
 
     return;
 }
+
+#if __GNUC__ >= 9
+#pragma GCC diagnostic pop
+#endif

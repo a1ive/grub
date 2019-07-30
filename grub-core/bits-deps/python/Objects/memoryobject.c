@@ -3,6 +3,11 @@
 
 #include "Python.h"
 
+#if __GNUC__ >= 9
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-function-type"
+#endif
+
 static Py_ssize_t
 get_shape0(Py_buffer *buf)
 {
@@ -841,3 +846,7 @@ PyTypeObject PyMemoryView_Type = {
     0,                                        /* tp_alloc */
     memory_new,                               /* tp_new */
 };
+
+#if __GNUC__ >= 9
+#pragma GCC diagnostic pop
+#endif

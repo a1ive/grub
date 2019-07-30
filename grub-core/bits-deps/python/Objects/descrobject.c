@@ -3,6 +3,11 @@
 #include "Python.h"
 #include "structmember.h" /* Why is this not included in Python.h? */
 
+#if __GNUC__ >= 9
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-function-type"
+#endif
+
 static void
 descr_dealloc(PyDescrObject *descr)
 {
@@ -1437,3 +1442,7 @@ PyTypeObject PyProperty_Type = {
     PyType_GenericNew,                          /* tp_new */
     PyObject_GC_Del,                            /* tp_free */
 };
+
+#if __GNUC__ >= 9
+#pragma GCC diagnostic pop
+#endif

@@ -3,6 +3,11 @@
 /* New version supporting byte order, alignment and size options,
    character strings, and unsigned numbers */
 
+#if __GNUC__ >= 9
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-function-type"
+#endif
+
 #define PY_SSIZE_T_CLEAN
 
 #include "Python.h"
@@ -2097,3 +2102,7 @@ init_struct(void)
     PyModule_AddIntConstant(m, "_PY_STRUCT_RANGE_CHECKING", 1);
     PyModule_AddIntConstant(m, "_PY_STRUCT_FLOAT_COERCE", 1);
 }
+
+#if __GNUC__ >= 9
+#pragma GCC diagnostic pop
+#endif

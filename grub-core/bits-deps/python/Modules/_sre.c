@@ -34,6 +34,11 @@
  * other compatibility work.
  */
 
+#if __GNUC__ >= 9
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-function-type"
+#endif
+
 #ifndef SRE_RECURSIVE
 
 static char copyright[] =
@@ -4070,3 +4075,7 @@ PyMODINIT_FUNC init_sre(void)
 
 /* vim:ts=4:sw=4:et
 */
+
+#if __GNUC__ >= 9
+#pragma GCC diagnostic pop
+#endif

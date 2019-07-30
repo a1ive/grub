@@ -2,6 +2,11 @@
 
 /* XXX The functional organization of this file is terrible */
 
+#if __GNUC__ >= 9
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-function-type"
+#endif
+
 #include "Python.h"
 #include "longintrepr.h"
 #include "structseq.h"
@@ -4404,3 +4409,7 @@ _PyLong_Init(void)
         PyStructSequence_InitType(&Long_InfoType, &long_info_desc);
     return 1;
 }
+
+#if __GNUC__ >= 9
+#pragma GCC diagnostic pop
+#endif

@@ -1,6 +1,10 @@
 #include "Python.h"
 #include "structmember.h"
 
+#if __GNUC__ >= 9
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-function-type"
+#endif
 
 #define GET_WEAKREFS_LISTPTR(o) \
         ((PyWeakReference **) PyObject_GET_WEAKREFS_LISTPTR(o))
@@ -983,3 +987,7 @@ PyObject_ClearWeakRefs(PyObject *object)
         PyErr_Restore(err_type, err_value, err_tb);
     }
 }
+
+#if __GNUC__ >= 9
+#pragma GCC diagnostic pop
+#endif

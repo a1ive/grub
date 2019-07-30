@@ -1,6 +1,11 @@
 /* Implementation helper: a struct that looks like a tuple.  See timemodule
    and posixmodule for example uses. */
 
+#if __GNUC__ >= 9
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-function-type"
+#endif
+
 #include "Python.h"
 #include "structmember.h"
 #include "structseq.h"
@@ -539,3 +544,7 @@ PyStructSequence_InitType(PyTypeObject *type, PyStructSequence_Desc *desc)
     SET_DICT_FROM_INT(real_length_key, n_members);
     SET_DICT_FROM_INT(unnamed_fields_key, n_unnamed_members);
 }
+
+#if __GNUC__ >= 9
+#pragma GCC diagnostic pop
+#endif

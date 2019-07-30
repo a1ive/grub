@@ -1,6 +1,11 @@
 
 /* Method object implementation */
 
+#if __GNUC__ >= 9
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-function-type"
+#endif
+
 #include "Python.h"
 #include "structmember.h"
 
@@ -425,3 +430,8 @@ PyCFunction_New(PyMethodDef *ml, PyObject *self)
 {
     return PyCFunction_NewEx(ml, self, NULL);
 }
+
+#if __GNUC__ >= 9
+#pragma GCC diagnostic pop
+#endif
+

@@ -4,6 +4,11 @@
  * Thanks go to Tim Peters and Michael Hudson for debugging.
  */
 
+#if __GNUC__ >= 9
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-function-type"
+#endif
+
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
 #include "structmember.h"
@@ -2209,3 +2214,7 @@ _PyExc_Fini(void)
     Py_CLEAR(PyExc_MemoryErrorInst);
     Py_CLEAR(PyExc_RecursionErrorInst);
 }
+
+#if __GNUC__ >= 9
+#pragma GCC diagnostic pop
+#endif

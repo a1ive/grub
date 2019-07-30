@@ -1,5 +1,10 @@
 /* Iterator objects */
 
+#if __GNUC__ >= 9
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-function-type"
+#endif
+
 #include "Python.h"
 
 typedef struct {
@@ -233,3 +238,7 @@ PyTypeObject PyCallIter_Type = {
     (iternextfunc)calliter_iternext,            /* tp_iternext */
     0,                                          /* tp_methods */
 };
+
+#if __GNUC__ >= 9
+#pragma GCC diagnostic pop
+#endif

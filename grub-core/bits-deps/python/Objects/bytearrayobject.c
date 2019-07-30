@@ -1,5 +1,10 @@
 /* PyBytes (bytearray) implementation */
 
+#if __GNUC__ >= 9
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-function-type"
+#endif
+
 #define PY_SSIZE_T_CLEAN
 #include "Python.h"
 #include "structmember.h"
@@ -3077,3 +3082,8 @@ bytearray_iter(PyObject *seq)
     _PyObject_GC_TRACK(it);
     return (PyObject *)it;
 }
+
+#if __GNUC__ >= 9
+#pragma GCC diagnostic pop
+#endif
+

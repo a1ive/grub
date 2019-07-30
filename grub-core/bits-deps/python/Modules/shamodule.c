@@ -18,6 +18,10 @@
 #include "Python.h"
 #include "structmember.h"
 
+#if __GNUC__ >= 9
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-function-type"
+#endif
 
 /* Endianness testing and definitions */
 #define TestEndianness(variable) {int i=1; variable=PCT_BIG_ENDIAN;\
@@ -621,3 +625,8 @@ init_sha(void)
     insint("digestsize", 20);
     insint("digest_size", 20);
 }
+
+#if __GNUC__ >= 9
+#pragma GCC diagnostic pop
+#endif
+

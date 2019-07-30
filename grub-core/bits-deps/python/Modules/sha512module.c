@@ -16,6 +16,11 @@
 
 /* SHA objects */
 
+#if __GNUC__ >= 9
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-function-type"
+#endif
+
 #include "Python.h"
 #include "structmember.h"
 
@@ -771,4 +776,8 @@ init_sha512(void)
         return;
 }
 
+#endif
+
+#if __GNUC__ >= 9
+#pragma GCC diagnostic pop
 #endif

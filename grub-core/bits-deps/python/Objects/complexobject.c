@@ -5,6 +5,11 @@
 
 /* Submitted by Jim Hugunin */
 
+#if __GNUC__ >= 9
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-function-type"
+#endif
+
 #include "Python.h"
 #include "structmember.h"
 
@@ -1354,4 +1359,8 @@ PyTypeObject PyComplex_Type = {
     PyObject_Del,                               /* tp_free */
 };
 
+#endif
+
+#if __GNUC__ >= 9
+#pragma GCC diagnostic pop
 #endif

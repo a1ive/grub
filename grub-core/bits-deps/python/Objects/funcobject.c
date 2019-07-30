@@ -1,6 +1,11 @@
 
 /* Function object implementation */
 
+#if __GNUC__ >= 9
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-function-type"
+#endif
+
 #include "Python.h"
 #include "code.h"
 #include "eval.h"
@@ -894,3 +899,8 @@ PyStaticMethod_New(PyObject *callable)
     }
     return (PyObject *)sm;
 }
+
+#if __GNUC__ >= 9
+#pragma GCC diagnostic pop
+#endif
+

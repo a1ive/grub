@@ -9,6 +9,10 @@
 
 #include "Python.h"
 
+#if __GNUC__ >= 9
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-function-type"
+#endif
 
 /* Set a key error with the specified argument, wrapping it in a
  * tuple automatically so that tuple keys are not unpacked as the
@@ -3351,3 +3355,7 @@ dictvalues_new(PyObject *dict)
 {
     return dictview_new(dict, &PyDictValues_Type);
 }
+
+#if __GNUC__ >= 9
+#pragma GCC diagnostic pop
+#endif

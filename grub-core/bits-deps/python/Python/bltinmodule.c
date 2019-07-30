@@ -1,5 +1,10 @@
 /* Built-in functions */
 
+#if __GNUC__ >= 9
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-function-type"
+#endif
+
 #include "Python.h"
 #include "Python-ast.h"
 
@@ -3079,3 +3084,8 @@ Fail_1:
     return NULL;
 }
 #endif
+
+#if __GNUC__ >= 9
+#pragma GCC diagnostic pop
+#endif
+

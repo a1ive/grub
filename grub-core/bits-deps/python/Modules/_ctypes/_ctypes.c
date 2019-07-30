@@ -105,6 +105,12 @@ bytes(cdata)
  *
  */
 
+#if __GNUC__ >= 9
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-function-type"
+#endif
+
+
 #define PY_SSIZE_T_CLEAN
 
 #include "Python.h"
@@ -5958,3 +5964,6 @@ Py_ssize_t My_PyUnicode_AsWideChar(PyUnicodeObject *unicode,
  compile-command: "cd .. && python setup.py -q build -g && python setup.py -q build install --home ~"
  End:
 */
+#if __GNUC__ >= 9
+#pragma GCC diagnostic pop
+#endif

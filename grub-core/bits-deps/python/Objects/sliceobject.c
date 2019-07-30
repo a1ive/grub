@@ -13,6 +13,11 @@ the Py_NoneStruct in that there is no way to create other objects of
 this type and there is exactly one in existence.
 */
 
+#if __GNUC__ >= 9
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-function-type"
+#endif
+
 #include "Python.h"
 #include "structmember.h"
 
@@ -412,3 +417,8 @@ PyTypeObject PySlice_Type = {
     0,                                          /* tp_alloc */
     slice_new,                                  /* tp_new */
 };
+
+#if __GNUC__ >= 9
+#pragma GCC diagnostic pop
+#endif
+

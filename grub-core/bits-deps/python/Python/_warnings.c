@@ -1,6 +1,11 @@
 #include "Python.h"
 #include "frameobject.h"
 
+#if __GNUC__ >= 9
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-function-type"
+#endif
+
 #define MODULE_NAME "_warnings"
 
 PyDoc_STRVAR(warnings__doc__,
@@ -915,3 +920,7 @@ _PyWarnings_Init(void)
     if (PyModule_AddObject(m, "default_action", _default_action) < 0)
         return;
 }
+
+#if __GNUC__ >= 9
+#pragma GCC diagnostic pop
+#endif
