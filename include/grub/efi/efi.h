@@ -24,6 +24,45 @@
 #include <grub/dl.h>
 #include <grub/efi/api.h>
 
+#define TRUE  ((grub_efi_boolean_t)(1==1))
+
+#define FALSE ((grub_efi_boolean_t)(0==1))
+
+/* DevicePath */
+#define HW_VENDOR_DP              0x04
+#define MSG_ATAPI_DP              0x01
+#define MEDIA_HARDDRIVE_DP        0x01
+#define MEDIA_FILEPATH_DP         0x04
+
+#define MEDIA_DEVICE_PATH         0x04
+#define MESSAGING_DEVICE_PATH     0x03
+#define HARDWARE_DEVICE_PATH      0x01
+
+#define EFI_DEVPATH_INIT( Name, Type, SubType)  \
+{  \
+  .type    = (Type),                  \
+  .subtype = (SubType),               \
+  .length  = sizeof (Name) & 0xffff,  \
+}
+
+#define EFI_DEVPATH_END_INIT(name)  \
+  EFI_DEVPATH_INIT (name, GRUB_EFI_END_DEVICE_PATH_TYPE,  \
+  GRUB_EFI_END_ENTIRE_DEVICE_PATH_SUBTYPE)
+
+#define EFIBLOCK_DEVPATH_VENDOR_INIT(name)  \
+{  \
+  .header = EFI_DEVPATH_INIT (name, HARDWARE_DEVICE_PATH, HW_VENDOR_DP),  \
+  .vendor_guid = EFI_VDISK_GUID,  \
+}
+
+#define EFIBLOCK_DEVPATH_ATA_INIT(name)  \
+{  \
+  .header = EFI_DEVPATH_INIT (name, MESSAGING_DEVICE_PATH, MSG_ATAPI_DP),  \
+  .primary_secondary = 0,  \
+  .slave_master = 0,  \
+  .lun = 0,  \
+}
+
 /* Functions.  */
 void *EXPORT_FUNC(grub_efi_locate_protocol) (grub_efi_guid_t *protocol,
 					     void *registration);
