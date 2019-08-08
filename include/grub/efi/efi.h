@@ -32,6 +32,7 @@
 #define HW_VENDOR_DP              0x04
 #define MSG_ATAPI_DP              0x01
 #define MEDIA_HARDDRIVE_DP        0x01
+#define MEDIA_CDROM_DP            0x02
 #define MEDIA_FILEPATH_DP         0x04
 
 #define MEDIA_DEVICE_PATH         0x04
@@ -49,18 +50,40 @@
   EFI_DEVPATH_INIT (name, GRUB_EFI_END_DEVICE_PATH_TYPE,  \
   GRUB_EFI_END_ENTIRE_DEVICE_PATH_SUBTYPE)
 
-#define EFIBLOCK_DEVPATH_VENDOR_INIT(name)  \
+#define EFI_DEVPATH_VENDOR_INIT(name)  \
 {  \
   .header = EFI_DEVPATH_INIT (name, HARDWARE_DEVICE_PATH, HW_VENDOR_DP),  \
   .vendor_guid = EFI_VDISK_GUID,  \
 }
 
-#define EFIBLOCK_DEVPATH_ATA_INIT(name)  \
+#define EFI_DEVPATH_ATA_INIT(name)  \
 {  \
   .header = EFI_DEVPATH_INIT (name, MESSAGING_DEVICE_PATH, MSG_ATAPI_DP),  \
   .primary_secondary = 0,  \
   .slave_master = 0,  \
   .lun = 0,  \
+}
+
+#define EFI_DEVPATH_CD_INIT(name)  \
+{  \
+  .header = EFI_DEVPATH_INIT (name, MEDIA_DEVICE_PATH, MEDIA_CDROM_DP),  \
+  .boot_entry = 1,  \
+  .partition_start = 0,  \
+  .partition_size = 0,  \
+}
+
+#define EFI_DEVPATH_HD_INIT(name)  \
+{  \
+  .header = EFI_DEVPATH_INIT (name, MEDIA_DEVICE_PATH, MEDIA_HARDDRIVE_DP),\
+  .partition_number = 1,  \
+  .partition_start = 0,  \
+  .partition_size = 0,  \
+  .partition_signature[0] = 0,  \
+  .partition_signature[1] = 0,  \
+  .partition_signature[2] = 0,  \
+  .partition_signature[3] = 0,  \
+  .partmap_type = 1,  \
+  .signature_type = 1,  \
 }
 
 /* Functions.  */
