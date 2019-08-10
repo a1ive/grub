@@ -1724,11 +1724,6 @@ module = {
 };
 
 module = {
-  name = hello;
-  common = hello/hello.c;
-};
-
-module = {
   name = gzio;
   common = io/gzio.c;
 };
