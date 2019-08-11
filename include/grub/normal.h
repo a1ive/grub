@@ -115,10 +115,6 @@ grub_menu_text_register_instances (int entry, grub_menu_t menu, int nested);
 grub_err_t
 grub_show_menu (grub_menu_t menu, int nested, int autobooted);
 
-/* Defined in `handler.c'.  */
-void read_handler_list (void);
-void free_handler_list (void);
-
 /* Defined in `dyncmd.c'.  */
 void read_command_list (const char *prefix);
 
