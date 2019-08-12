@@ -225,7 +225,8 @@ check_symbols (const struct grub_module_verifier_arch *arch,
       s = find_section (arch, e, ".moddeps");
 
       if (!s)
-	grub_util_error ("%s: no symbol table and no .moddeps section", modname);
+	/*grub_util_error ("%s: no symbol table and no .moddeps section", modname);*/
+	return; /* An empty module happens for all_video.module for Xen */
 
       if (!s->sh_size)
 	grub_util_error ("%s: no symbol table and empty .moddeps section", modname);
