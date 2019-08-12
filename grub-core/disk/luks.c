@@ -307,6 +307,14 @@ configure_ciphers (grub_disk_t disk, const char *check_uuid,
   return newdev;
 }
 
+// Leave this definition below to minimize diff
+static grub_err_t
+luks_try_recover_key (grub_disk_t source,
+		  grub_cryptodisk_t dev,
+          struct grub_luks_phdr header,
+          grub_size_t keysize,
+          grub_uint8_t *split_key);
+
 static grub_err_t
 luks_recover_key (grub_disk_t source,
 		  grub_cryptodisk_t dev)
@@ -314,13 +322,9 @@ luks_recover_key (grub_disk_t source,
   struct grub_luks_phdr header;
   grub_size_t keysize;
   grub_uint8_t *split_key = NULL;
-  char passphrase[MAX_PASSPHRASE] = "";
-  grub_uint8_t candidate_digest[sizeof (header.mkDigest)];
   unsigned i;
-  grub_size_t length;
   grub_err_t err;
   grub_size_t max_stripes = 1;
-  char *tmp;
 
   err = grub_disk_read (source, 0, 0, sizeof (header), &header);
   if (err)
@@ -340,6 +344,32 @@ luks_recover_key (grub_disk_t source,
   if (!split_key)
     return grub_errno;
 
+  // Try get unlock disk
+  err = luks_try_recover_key(source, dev, header, keysize, split_key);
+  while (err != GRUB_ERR_NONE) {
+      grub_puts_ (N_("Incorrect password. Please try again..."));
+      grub_errno = GRUB_ERR_NONE;
+      err = luks_try_recover_key(source, dev, header, keysize, split_key);
+  }
+
+  grub_free(split_key);
+  return err;
+}
+
+static grub_err_t
+luks_try_recover_key (grub_disk_t source,
+		  grub_cryptodisk_t dev,
+          struct grub_luks_phdr header,
+          grub_size_t keysize,
+          grub_uint8_t *split_key)
+{
+  char passphrase[MAX_PASSPHRASE] = "";
+  grub_uint8_t candidate_digest[sizeof (header.mkDigest)];
+  unsigned i;
+  grub_size_t length;
+  grub_err_t err;
+  char *tmp;
+
   /* Get the passphrase from the user.  */
   tmp = NULL;
   if (source->partition)
@@ -350,7 +380,6 @@ luks_recover_key (grub_disk_t source,
   grub_free (tmp);
   if (!grub_password_get (passphrase, MAX_PASSPHRASE))
     {
-      grub_free (split_key);
       return grub_error (GRUB_ERR_BAD_ARGUMENT, "Passphrase not supplied");
     }
 
@@ -378,7 +407,6 @@ luks_recover_key (grub_disk_t source,
 
       if (gcry_err)
 	{
-	  grub_free (split_key);
 	  return grub_crypto_gcry_error (gcry_err);
 	}
 
@@ -387,7 +415,6 @@ luks_recover_key (grub_disk_t source,
       gcry_err = grub_cryptodisk_setkey (dev, digest, keysize); 
       if (gcry_err)
 	{
-	  grub_free (split_key);
 	  return grub_crypto_gcry_error (gcry_err);
 	}
 
@@ -400,14 +427,12 @@ luks_recover_key (grub_disk_t source,
 			    length, split_key);
       if (err)
 	{
-	  grub_free (split_key);
 	  return err;
 	}
 
       gcry_err = grub_cryptodisk_decrypt (dev, split_key, length, 0);
       if (gcry_err)
 	{
-	  grub_free (split_key);
 	  return grub_crypto_gcry_error (gcry_err);
 	}
 
@@ -416,7 +441,6 @@ luks_recover_key (grub_disk_t source,
 			   grub_be_to_cpu32 (header.keyblock[i].stripes));
       if (gcry_err)
 	{
-	  grub_free (split_key);
 	  return grub_crypto_gcry_error (gcry_err);
 	}
 
@@ -433,7 +457,6 @@ luks_recover_key (grub_disk_t source,
 				     sizeof (candidate_digest));
       if (gcry_err)
 	{
-	  grub_free (split_key);
 	  return grub_crypto_gcry_error (gcry_err);
 	}
 
@@ -454,16 +477,12 @@ luks_recover_key (grub_disk_t source,
       gcry_err = grub_cryptodisk_setkey (dev, candidate_key, keysize); 
       if (gcry_err)
 	{
-	  grub_free (split_key);
 	  return grub_crypto_gcry_error (gcry_err);
 	}
-
-      grub_free (split_key);
 
       return GRUB_ERR_NONE;
     }
 
-  grub_free (split_key);
   return GRUB_ACCESS_DENIED;
 }
 
