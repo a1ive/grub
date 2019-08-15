@@ -25,6 +25,7 @@
 #include <grub/extcmd.h>
 #include <grub/i18n.h>
 #include <grub/charset.h>
+#include <grub/env.h>
 #ifdef GRUB_MACHINE_EFI
 #include <grub/efi/api.h>
 #include <grub/efi/efi.h>
@@ -48,7 +49,12 @@ grub_cmd_version (grub_command_t cmd __attribute__ ((unused)),
   const grub_efi_system_table_t *st = grub_efi_system_table;
   grub_efi_uint16_t uefi_major_rev = st->hdr.revision >> 16;
   grub_efi_uint16_t uefi_minor_rev = st->hdr.revision & 0xffff;
-  grub_printf ("UEFI revision: v%d.%d (", uefi_major_rev, uefi_minor_rev);
+  grub_efi_uint8_t uefi_minor_1 = uefi_minor_rev / 10;
+  grub_efi_uint8_t uefi_minor_2 = uefi_minor_rev % 10;
+  grub_printf ("UEFI revision: v%d.%d", uefi_major_rev, uefi_minor_1);
+  if (uefi_minor_2)
+    grub_printf (".%d", uefi_minor_2);
+  grub_printf (" (");
   {
     char *vendor;
     grub_uint16_t *vendor_utf16;
@@ -64,7 +70,6 @@ grub_cmd_version (grub_command_t cmd __attribute__ ((unused)),
   }
   grub_printf ("0x%08x)\n", st->firmware_revision);
 #endif
-
   return 0;
 }
 
