@@ -273,6 +273,9 @@ AC_SUBST(target_cpu)
 AC_SUBST(platform)
 
 # Define default variables
+GRUB_BUILD_DATE="$(date +'%Y%m%d')"
+AC_SUBST(GRUB_BUILD_DATE)
+
 have_with_rpm_version=n
 AC_ARG_WITH([rpm_version],
 	    AS_HELP_STRING([--with-rpm-version=VERSION],

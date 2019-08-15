@@ -24,20 +24,46 @@
 #include <grub/misc.h>
 #include <grub/extcmd.h>
 #include <grub/i18n.h>
+#include <grub/charset.h>
+#ifdef GRUB_MACHINE_EFI
+#include <grub/efi/api.h>
+#include <grub/efi/efi.h>
+#endif
 
 GRUB_MOD_LICENSE ("GPLv3+");
 
 static grub_err_t
-grub_cmd_version (grub_command_t cmd UNUSED, int argc, char **args UNUSED)
+grub_cmd_version (grub_command_t cmd __attribute__ ((unused)),
+                  int argc __attribute__ ((unused)),
+                  char **args __attribute__ ((unused)))
 {
-  if (argc != 0)
-    return grub_error (GRUB_ERR_BAD_ARGUMENT, N_("no arguments expected"));
-
-  grub_printf (_("GNU GRUB  version %s\n"), PACKAGE_VERSION);
-  grub_printf (_("Platform %s-%s\n"), GRUB_TARGET_CPU, GRUB_PLATFORM);
+  grub_printf (_("GNU GRUB version: %s\n"), PACKAGE_VERSION);
+  grub_printf (_("Platform: %s-%s\n"), GRUB_TARGET_CPU, GRUB_PLATFORM);
   if (grub_strlen(GRUB_RPM_VERSION) != 0)
-    grub_printf (_("RPM package version %s\n"), GRUB_RPM_VERSION);
-  grub_printf (_("Compiler version %s\n"), __VERSION__);
+    grub_printf (_("RPM package version: %s\n"), GRUB_RPM_VERSION);
+  grub_printf (_("Compiler version: %s\n"), __VERSION__);
+  grub_printf (_("Build date: %s\n"), GRUB_BUILD_DATE);
+
+#ifdef GRUB_MACHINE_EFI
+  const grub_efi_system_table_t *st = grub_efi_system_table;
+  grub_efi_uint16_t uefi_major_rev = st->hdr.revision >> 16;
+  grub_efi_uint16_t uefi_minor_rev = st->hdr.revision & 0xffff;
+  grub_printf ("UEFI revision: v%d.%d (", uefi_major_rev, uefi_minor_rev);
+  {
+    char *vendor;
+    grub_uint16_t *vendor_utf16;
+    
+    for (vendor_utf16 = st->firmware_vendor; *vendor_utf16; vendor_utf16++);
+    vendor = grub_malloc (4 * (vendor_utf16 - st->firmware_vendor) + 1);
+    if (!vendor)
+      return grub_errno;
+    *grub_utf16_to_utf8 ((grub_uint8_t *) vendor, st->firmware_vendor,
+			 vendor_utf16 - st->firmware_vendor) = 0;
+    grub_printf ("%s, ", vendor);
+    grub_free (vendor);
+  }
+  grub_printf ("0x%08x)\n", st->firmware_revision);
+#endif
 
   return 0;
 }
