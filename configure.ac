@@ -275,6 +275,17 @@ AC_SUBST(platform)
 # Define default variables
 GRUB_BUILD_DATE="$(date +'%Y%m%d')"
 AC_SUBST(GRUB_BUILD_DATE)
+GRUB_VERSION="$PACKAGE_VERSION-$GRUB_BUILD_DATE"
+
+AC_CHECK_PROGS([GIT], [git])
+if test "x$GIT" = x; then
+  AC_MSG_WARN([git is not found])
+  GRUB_VERSION_GIT=""
+else
+  GRUB_VERSION_GIT="$(git log --format=%h -1)"
+  GRUB_VERSION="$GRUB_VERSION-$GRUB_VERSION_GIT"
+fi
+AC_SUBST(GRUB_VERSION_GIT)
 
 have_with_rpm_version=n
 AC_ARG_WITH([rpm_version],
@@ -284,11 +295,15 @@ AC_ARG_WITH([rpm_version],
 	    [have_with_rpm_version=n])
 if test x$have_with_rpm_version = xy; then
   rpm_version="$with_rpm_version"
+  GRUB_VERSION="$GRUB_VERSION-$rpm_version"
 else
   rpm_version=""
 fi
 GRUB_RPM_VERSION="$rpm_version"
 AC_SUBST(GRUB_RPM_VERSION)
+
+AC_MSG_NOTICE("$GRUB_VERSION")
+AC_SUBST(GRUB_VERSION)
 
 have_with_bootdir=n
 AC_ARG_WITH([bootdir],
