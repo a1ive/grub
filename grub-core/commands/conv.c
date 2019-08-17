@@ -13800,55 +13800,6 @@ void str_normalize_utf8(char *text, unsigned options)
 	text[i_to] = 0;
 }
 
-void str_normalize_gbk(char *text, unsigned options)
-{
-	const char *pTransTable =
-	    (options & SNO_TO_LOWER) ? _pUpper2Lower : (
-	        (options & SNO_TO_UPPER) ? _pLower2Upper :
-	        _pPlain);
-	const unsigned short *pTransTable_gbk =
-	    (options & SNO_TO_SIMPLIFIED) ? _pTrad2Simp_gbk : _pPlain_gbk;
-	unsigned i_from = 0, i_to = 0, flag = 0;
-
-	for (; text[i_from]; i_from ++)
-	{
-		if (flag && (options & SNO_TO_HALF))
-		{
-			if ((unsigned char)text[i_from - 1] == 0xA1
-			    && (unsigned char)text[i_from] == 0xA1)
-			{
-				flag = 0;
-				text[i_from] = ' ';
-			}
-			else if ((unsigned char)text[i_from - 1] == 0xA3
-			         && (char)text[i_from] < 0
-			         && (unsigned char)text[i_from] > 0xA0)
-			{
-				flag = 0;
-				text[i_from] &= ~0x80;
-			}
-		}
-
-		if (flag)
-		{
-			flag = 0;
-			unsigned short tmp =
-			    pTransTable_gbk[COMPBYTE(text[i_from - 1], text[i_from]) & ~0x8000];
-			text[i_to ++] = tmp & 0xFF;
-			text[i_to ++] = tmp >> 8;
-		}
-		else if (text[i_from] < 0)
-			flag = 1;
-		else
-			text[i_to ++] = pTransTable[(unsigned int)text[i_from]];
-	}
-
-	if (flag)
-		text[i_to ++] = text[i_from - 1];
-
-	text[i_to] = 0;
-}
-
 int gbk_to_utf8(const char *from, unsigned int from_len, char **to, unsigned int *to_len)
 {
 	char *result = *to;

@@ -2672,7 +2672,7 @@ module = {
 module = {
   name = conv;
   common = commands/conv.c;
-  cflags = '$(CFLAGS_POSIX)';
+  cflags = '$(CFLAGS_POSIX) -fsigned-char';
   cppflags = '$(CPPFLAGS_POSIX)';
 };
 

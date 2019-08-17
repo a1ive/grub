@@ -22,7 +22,6 @@ extern "C" {
 #define SNO_TO_SIMPLIFIED   8
 
 void str_normalize_init(void);
-void str_normalize_gbk(char *text, unsigned options);
 void str_normalize_utf8(char *text, unsigned options);
 
 int gbk_to_utf8(const char *from, unsigned int from_len, char **to, unsigned int *to_len);
