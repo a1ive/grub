@@ -52,6 +52,19 @@ static const struct grub_arg_option options[] =
     {0, 0, 0, 0, 0, 0}
   };
 
+enum options
+{
+    PROBE_SET,
+    PROBE_DRIVER,
+    PROBE_PARTMAP,
+    PROBE_FS,
+    PROBE_FSUUID,
+    PROBE_LABEL,
+    PROBE_PARTUUID,
+    PROBE_BOOTABLE,
+    PROBE_QUIET,
+};
+
 static grub_err_t
 grub_cmd_probe (grub_extcmd_context_t ctxt, int argc, char **args)
 {
@@ -76,27 +89,27 @@ grub_cmd_probe (grub_extcmd_context_t ctxt, int argc, char **args)
   if (! dev)
     return grub_errno;
 
-  if (state[1].set)
+  if (state[PROBE_DRIVER].set)
     {
       const char *val = "none";
       if (dev->net)
 	val = dev->net->protocol->name;
       if (dev->disk)
 	val = dev->disk->dev->name;
-      if (state[0].set)
-	grub_env_set (state[0].arg, val);
+      if (state[PROBE_SET].set)
+	grub_env_set (state[PROBE_SET].arg, val);
       else
 	grub_printf ("%s", val);
       grub_device_close (dev);
       return GRUB_ERR_NONE;
     }
-  if (state[2].set)
+  if (state[PROBE_PARTMAP].set)
     {
       const char *val = "none";
       if (dev->disk && dev->disk->partition)
 	val = dev->disk->partition->partmap->name;
-      if (state[0].set)
-	grub_env_set (state[0].arg, val);
+      if (state[PROBE_SET].set)
+	grub_env_set (state[PROBE_SET].arg, val);
       else
 	grub_printf ("%s", val);
       grub_device_close (dev);
@@ -105,21 +118,21 @@ grub_cmd_probe (grub_extcmd_context_t ctxt, int argc, char **args)
   fs = grub_fs_probe (dev);
   if (! fs)
     return grub_errno;
-  if (state[3].set)
+  if (state[PROBE_FS].set)
     {
-      if (state[0].set)
-	grub_env_set (state[0].arg, fs->name);
+      if (state[PROBE_SET].set)
+	grub_env_set (state[PROBE_SET].arg, fs->name);
       else
 	grub_printf ("%s", fs->name);
       grub_device_close (dev);
       return GRUB_ERR_NONE;
     }
-  if (state[4].set)
+  if (state[PROBE_FSUUID].set)
     {
       char *uuid;
       if (! fs->fs_uuid)
         {
-          if (state[8].set)
+          if (state[PROBE_QUIET].set)
 	        return GRUB_ERR_NONE;
 	      else
             return grub_error (GRUB_ERR_NOT_IMPLEMENTED_YET,
@@ -130,27 +143,27 @@ grub_cmd_probe (grub_extcmd_context_t ctxt, int argc, char **args)
 	return err;
       if (! uuid)
         {
-          if (state[8].set)
+          if (state[PROBE_QUIET].set)
 	        return GRUB_ERR_NONE;
 	      else
             return grub_error (GRUB_ERR_NOT_IMPLEMENTED_YET,
 			               N_("%s does not support UUIDs"), fs->name);
         }
 
-      if (state[0].set)
-	grub_env_set (state[0].arg, uuid);
+      if (state[PROBE_SET].set)
+	grub_env_set (state[PROBE_SET].arg, uuid);
       else
 	grub_printf ("%s", uuid);
       grub_free (uuid);
       grub_device_close (dev);
       return GRUB_ERR_NONE;
     }
-  if (state[5].set)
+  if (state[PROBE_LABEL].set)
     {
       char *label;
       if (! fs->fs_label)
         {
-          if (state[8].set)
+          if (state[PROBE_QUIET].set)
 	        return GRUB_ERR_NONE;
 	      else
             return grub_error (GRUB_ERR_NOT_IMPLEMENTED_YET,
@@ -161,22 +174,22 @@ grub_cmd_probe (grub_extcmd_context_t ctxt, int argc, char **args)
 	return err;
       if (! label)
         {
-          if (state[8].set)
+          if (state[PROBE_QUIET].set)
 	        return GRUB_ERR_NONE;
 	      else
             return grub_error (GRUB_ERR_NOT_IMPLEMENTED_YET,
 			               N_("filesystem `%s' does not support labels"), fs->name);
         }
 
-      if (state[0].set)
-	grub_env_set (state[0].arg, label);
+      if (state[PROBE_SET].set)
+	grub_env_set (state[PROBE_SET].arg, label);
       else
 	grub_printf ("%s", label);
       grub_free (label);
       grub_device_close (dev);
       return GRUB_ERR_NONE;
     }
-  if (state[6].set)
+  if (state[PROBE_PARTUUID].set)
     {
       char *partuuid = NULL; /* NULL to silence a spurious GCC warning */
       grub_uint8_t diskbuf[16];
@@ -220,15 +233,15 @@ grub_cmd_probe (grub_extcmd_context_t ctxt, int argc, char **args)
       else
        partuuid = grub_strdup (""); /* a freeable empty string */
 
-      if (state[0].set)
-       grub_env_set (state[0].arg, partuuid);
+      if (state[PROBE_SET].set)
+       grub_env_set (state[PROBE_SET].arg, partuuid);
       else
        grub_printf ("%s", partuuid);
       grub_free (partuuid);
       grub_device_close (dev);
       return GRUB_ERR_NONE;
     }
-  if (state[7].set)
+  if (state[PROBE_BOOTABLE].set)
     {
       const char *val = "none";
       if (dev->disk &&
@@ -237,8 +250,8 @@ grub_cmd_probe (grub_extcmd_context_t ctxt, int argc, char **args)
           grub_strcmp (dev->disk->partition->partmap->name, "msdos") == 0)
         if (dev->disk->partition->flag & 0x80)
           val = "bootable";
-      if (state[0].set)
-        grub_env_set (state[0].arg, val);
+      if (state[PROBE_SET].set)
+        grub_env_set (state[PROBE_SET].arg, val);
       else
         grub_printf ("%s", val);
       grub_device_close (dev);
