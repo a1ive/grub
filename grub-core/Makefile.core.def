@@ -2798,3 +2798,8 @@ module = {
   enable = i386_efi;
   enable = x86_64_efi;
 };
+
+module = {
+  name = partnew;
+  common = commands/partnew.c;
+};
