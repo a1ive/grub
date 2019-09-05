@@ -64,7 +64,6 @@ struct block_ctx
 {
   grub_disk_addr_t start;
   unsigned long length;
-  grub_disk_addr_t part_start;
 };
 static struct block_ctx file_block;
 
@@ -74,7 +73,7 @@ read_block (grub_disk_addr_t sector, unsigned offset __attribute ((unused)),
 {
   struct block_ctx *ctx = data;
 
-  ctx->start = sector - ctx->part_start + 1 - (length >> GRUB_DISK_SECTOR_BITS);
+  ctx->start = sector + 1 - (length >> GRUB_DISK_SECTOR_BITS);
 }
 
 static grub_err_t
@@ -92,7 +91,7 @@ file_to_block (const char *name)
     return grub_error (GRUB_ERR_BAD_DEVICE,
                        "this command is available only for disk devices");
 
-  file_block.part_start = grub_partition_get_start (file->device->disk->partition);
+  // grub_partition_get_start (file->device->disk->partition);
 
   file->read_hook = read_block;
   file->read_hook_data = &file_block;
@@ -107,7 +106,7 @@ file_to_block (const char *name)
 }
 
 static void
-msdos_part (grub_disk_t disk, unsigned long num)
+msdos_part (grub_disk_t disk, unsigned long num, grub_uint8_t type)
 {
   struct grub_msdos_partition_mbr *mbr = NULL;
   mbr = grub_zalloc (GRUB_DISK_SECTOR_SIZE);
@@ -143,8 +142,13 @@ msdos_part (grub_disk_t disk, unsigned long num)
   }
   grub_printf ("Partition %ld:\n", num);
   num--;
+  mbr->entries[num].type = type;
+  mbr->entries[num].start = file_block.start;
+  mbr->entries[num].length = file_block.length;
   grub_printf ("TYPE=0x%02X START=%10d LENGTH=%10d\n", mbr->entries[num].type,
                mbr->entries[num].start, mbr->entries[num].length);
+  /* Write the MBR. */
+  grub_disk_write (disk, 0, 0, GRUB_DISK_SECTOR_SIZE, mbr);
 fail:
   if (mbr)
     grub_free (mbr);
@@ -156,6 +160,7 @@ grub_cmd_partnew (grub_extcmd_context_t ctxt, int argc, char *argv[])
   struct grub_arg_list *state = ctxt->state;
   grub_disk_t disk = 0;
   unsigned long num = 1;
+  grub_uint8_t type = 0x00;
   if (argc != 2)
   {
     grub_error (GRUB_ERR_BAD_ARGUMENT, N_("device name expected"));
@@ -208,14 +213,23 @@ grub_cmd_partnew (grub_extcmd_context_t ctxt, int argc, char *argv[])
     if (grub_errno)
       goto fail;
     grub_printf ("FILE START %10ld LENGTH %10ld\n",
-                 file_block.start, file_block.length);
+                 (unsigned long) file_block.start, file_block.length);
   }
+  else if (state[PARTNEW_START].set && state[PARTNEW_LENGTH].set)
+  {
+    file_block.start = grub_strtoul (state[PARTNEW_START].arg, NULL, 10);
+    file_block.length = grub_strtoul (state[PARTNEW_LENGTH].arg, NULL, 10);
+  }
+  else
+    goto fail;
   num = grub_strtoul (argv[1], NULL, 10);
+  if (state[PARTNEW_TYPE].set)
+    type = (grub_uint8_t) grub_strtoul (state[PARTNEW_TYPE].arg, NULL, 16);
   if (mbr->entries[0].type != GRUB_PC_PARTITION_TYPE_GPT_DISK)
   {
     grub_printf ("Partition table: msdos\n");
     grub_free (mbr);
-    msdos_part (disk, num);
+    msdos_part (disk, num, type);
   }
   else
   {
