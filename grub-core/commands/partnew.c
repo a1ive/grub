@@ -35,19 +35,88 @@
 
 #define MAX_MBR_PARTITIONS  4
 
-GRUB_MOD_LICENSE ("GPLv2+");
+GRUB_MOD_LICENSE ("GPLv3+");
+
+static const struct grub_arg_option options_partnew[] = {
+  {"active", 'a', 0, N_("Make the partition active."), 0, 0},
+  {"file", 'f', 0,
+      N_("File that will be used as the content of the new partition"),
+      N_("PATH"), ARG_TYPE_STRING},
+  {"type", 't', 0,
+      N_("Partition type (0x00 for auto or 0x10 for hidden-auto)."),
+      N_("HEX"), ARG_TYPE_STRING},
+  {"start", 's', 0, N_("Starting address (in sector units)."),
+      N_("n"), ARG_TYPE_INT},
+  {"length", 'l', 0, N_("Length (in sector units)."), N_("n"), ARG_TYPE_INT},
+  {0, 0, 0, 0, 0, 0}
+};
+
+enum options_partnew
+{
+  PARTNEW_ACTIVE,
+  PARTNEW_FILE,
+  PARTNEW_TYPE,
+  PARTNEW_START,
+  PARTNEW_LENGTH,
+};
+
+struct block_ctx
+{
+  grub_disk_addr_t start;
+  unsigned long length;
+  grub_disk_addr_t part_start;
+};
+static struct block_ctx file_block;
 
 static void
-msdos_part (grub_disk_t disk)
+read_block (grub_disk_addr_t sector, unsigned offset __attribute ((unused)),
+                unsigned length, void *data)
+{
+  struct block_ctx *ctx = data;
+
+  ctx->start = sector - ctx->part_start + 1 - (length >> GRUB_DISK_SECTOR_BITS);
+}
+
+static grub_err_t
+file_to_block (const char *name)
+{
+  grub_file_t file = 0;
+  char buf[GRUB_DISK_SECTOR_SIZE];
+
+  file = grub_file_open (name,
+                GRUB_FILE_TYPE_PRINT_BLOCKLIST | GRUB_FILE_TYPE_NO_DECOMPRESS);
+  if (!file)
+    return grub_errno;
+
+  if (!file->device->disk)
+    return grub_error (GRUB_ERR_BAD_DEVICE,
+                       "this command is available only for disk devices");
+
+  file_block.part_start = grub_partition_get_start (file->device->disk->partition);
+
+  file->read_hook = read_block;
+  file->read_hook_data = &file_block;
+
+  grub_file_read (file, buf, sizeof (buf));
+
+  file_block.length = grub_file_size (file) >> GRUB_DISK_SECTOR_BITS;
+
+  grub_file_close (file);
+
+  return grub_errno;
+}
+
+static void
+msdos_part (grub_disk_t disk, unsigned long num)
 {
   struct grub_msdos_partition_mbr *mbr = NULL;
-  mbr = grub_zalloc (sizeof (struct grub_msdos_partition_mbr));
+  mbr = grub_zalloc (GRUB_DISK_SECTOR_SIZE);
   if (!mbr)
   {
     grub_error (GRUB_ERR_OUT_OF_MEMORY, N_("out of memory"));
     goto fail;
   }
-  if (grub_disk_read (disk, 0, 0, sizeof (struct grub_msdos_partition_mbr), mbr))
+  if (grub_disk_read (disk, 0, 0, GRUB_DISK_SECTOR_SIZE, mbr))
   {
     if (!grub_errno)
       grub_error (GRUB_ERR_BAD_OS, N_("premature end of disk"));
@@ -57,7 +126,7 @@ msdos_part (grub_disk_t disk)
   int i;
   for (i=0; i < MAX_MBR_PARTITIONS; i++)
   {
-    grub_printf ("PART %d TYPE=%02X START=%10d LENGTH=%10d ", i,
+    grub_printf ("PART %d TYPE=0x%02X START=%10d LENGTH=%10d ", i + 1,
                  mbr->entries[i].type, mbr->entries[i].start,
                  mbr->entries[i].length);
     if (mbr->entries[i].flag == 0x80)
@@ -67,17 +136,27 @@ msdos_part (grub_disk_t disk)
     grub_printf ("\n");
   }
 
+  if (num > 4 || num == 0)
+  {
+    grub_printf ("Unsupported partition number: %ld\n", num);
+    goto fail;
+  }
+  grub_printf ("Partition %ld:\n", num);
+  num--;
+  grub_printf ("TYPE=0x%02X START=%10d LENGTH=%10d\n", mbr->entries[num].type,
+               mbr->entries[num].start, mbr->entries[num].length);
 fail:
   if (mbr)
     grub_free (mbr);
 }
 
 static grub_err_t
-grub_cmd_partnew (grub_extcmd_context_t ctxt __attribute__ ((unused)),
-                  int argc, char *argv[])
+grub_cmd_partnew (grub_extcmd_context_t ctxt, int argc, char *argv[])
 {
+  struct grub_arg_list *state = ctxt->state;
   grub_disk_t disk = 0;
-  if (argc != 1)
+  unsigned long num = 1;
+  if (argc != 2)
   {
     grub_error (GRUB_ERR_BAD_ARGUMENT, N_("device name expected"));
     goto fail;
@@ -103,13 +182,13 @@ grub_cmd_partnew (grub_extcmd_context_t ctxt __attribute__ ((unused)),
   }
   /* check partmap */
   struct grub_msdos_partition_mbr *mbr = NULL;
-  mbr = grub_zalloc (sizeof (struct grub_msdos_partition_mbr));
+  mbr = grub_zalloc (GRUB_DISK_SECTOR_SIZE);
   if (!mbr)
   {
     grub_error (GRUB_ERR_OUT_OF_MEMORY, N_("out of memory"));
     goto fail;
   }
-  if (grub_disk_read (disk, 0, 0, sizeof (struct grub_msdos_partition_mbr), mbr))
+  if (grub_disk_read (disk, 0, 0, GRUB_DISK_SECTOR_SIZE, mbr))
   {
     if (!grub_errno)
       grub_error (GRUB_ERR_BAD_OS, N_("premature end of disk"));
@@ -122,19 +201,29 @@ grub_cmd_partnew (grub_extcmd_context_t ctxt __attribute__ ((unused)),
     grub_free (mbr);
     goto fail;
   }
+
+  if (state[PARTNEW_FILE].set)
+  {
+    file_to_block (state[PARTNEW_FILE].arg);
+    if (grub_errno)
+      goto fail;
+    grub_printf ("FILE START %10ld LENGTH %10ld\n",
+                 file_block.start, file_block.length);
+  }
+  num = grub_strtoul (argv[1], NULL, 10);
   if (mbr->entries[0].type != GRUB_PC_PARTITION_TYPE_GPT_DISK)
   {
     grub_printf ("Partition table: msdos\n");
     grub_free (mbr);
-    msdos_part (disk);
+    msdos_part (disk, num);
   }
   else
   {
     grub_printf ("Partition table: gpt\n");
     grub_free (mbr);
-    //gpt_part (disk);
+    //gpt_part (disk, num);
   }
-  
+
 fail:
   if (disk)
     grub_disk_close (disk);
@@ -145,8 +234,9 @@ static grub_extcmd_t cmd;
 
 GRUB_MOD_INIT(partnew)
 {
-  cmd = grub_register_extcmd ("partnew", grub_cmd_partnew, 0, N_("DISK"),
-			      N_("Say `Hello World'."), 0);
+  cmd = grub_register_extcmd ("partnew", grub_cmd_partnew, 0,
+                N_("[--active] [--type] [--start --length | --file] DISK PARTNUM"),
+                N_("Create a primary partition."), options_partnew);
 }
 
 GRUB_MOD_FINI(partnew)
