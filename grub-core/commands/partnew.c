@@ -106,7 +106,7 @@ file_to_block (const char *name)
 }
 
 static void
-msdos_part (grub_disk_t disk, unsigned long num, grub_uint8_t type)
+msdos_part (grub_disk_t disk, unsigned long num, grub_uint8_t type, int active)
 {
   struct grub_msdos_partition_mbr *mbr = NULL;
   mbr = grub_zalloc (GRUB_DISK_SECTOR_SIZE);
@@ -131,6 +131,8 @@ msdos_part (grub_disk_t disk, unsigned long num, grub_uint8_t type)
     if (mbr->entries[i].flag == 0x80)
     {
       grub_printf ("ACTIVE");
+      if (active)
+        mbr->entries[i].flag = 0;
     }
     grub_printf ("\n");
   }
@@ -143,6 +145,8 @@ msdos_part (grub_disk_t disk, unsigned long num, grub_uint8_t type)
   grub_printf ("Partition %ld:\n", num);
   num--;
   mbr->entries[num].type = type;
+  if (active)
+    mbr->entries[num].flag = 0x80;
   mbr->entries[num].start = file_block.start;
   mbr->entries[num].length = file_block.length;
   grub_printf ("TYPE=0x%02X START=%10d LENGTH=%10d\n", mbr->entries[num].type,
@@ -161,6 +165,7 @@ grub_cmd_partnew (grub_extcmd_context_t ctxt, int argc, char *argv[])
   grub_disk_t disk = 0;
   unsigned long num = 1;
   grub_uint8_t type = 0x00;
+  int active = 0;
   if (argc != 2)
   {
     grub_error (GRUB_ERR_BAD_ARGUMENT, N_("device name expected"));
@@ -225,17 +230,19 @@ grub_cmd_partnew (grub_extcmd_context_t ctxt, int argc, char *argv[])
   num = grub_strtoul (argv[1], NULL, 10);
   if (state[PARTNEW_TYPE].set)
     type = (grub_uint8_t) grub_strtoul (state[PARTNEW_TYPE].arg, NULL, 16);
+  if (state[PARTNEW_ACTIVE].set)
+    active = 1;
   if (mbr->entries[0].type != GRUB_PC_PARTITION_TYPE_GPT_DISK)
   {
     grub_printf ("Partition table: msdos\n");
     grub_free (mbr);
-    msdos_part (disk, num, type);
+    msdos_part (disk, num, type, active);
   }
   else
   {
     grub_printf ("Partition table: gpt\n");
     grub_free (mbr);
-    //gpt_part (disk, num);
+    //gpt_part (disk, num, type);
   }
 
 fail:
