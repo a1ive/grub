@@ -27,6 +27,25 @@ typedef struct grub_file FILE;
 
 #define EOF    -1
 
+
+static inline int 
+vprintf ( const char *fmt, va_list args ) {
+  return grub_vprintf (fmt, args);
+};
+
+static inline int
+printf (const char *fmt, ...)
+{
+  va_list ap;
+  int ret;
+
+  va_start (ap, fmt);
+  ret = grub_vprintf (fmt, ap);
+  va_end (ap);
+
+  return ret;
+}
+
 static inline int
 snprintf (char *str, grub_size_t n, const char *fmt, ...)
 {
