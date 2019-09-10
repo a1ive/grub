@@ -48,6 +48,12 @@ strcmp (const char *s1, const char *s2)
   return grub_strcmp (s1, s2);
 }
 
+static inline int
+strncmp (const char *str1, const char *str2, size_t n)
+{
+  return grub_strncmp (str1, str2, n);
+}
+
 static inline int 
 strcasecmp (const char *s1, const char *s2)
 {
@@ -101,6 +107,19 @@ strcoll (const char *s1, const char *s2)
 {
   return grub_strcmp (s1, s2);
 }
+
+static inline unsigned long int
+strtoul (const char *str, char **endptr, int base)
+{
+  return grub_strtoul (str, endptr, base);
+}
+
+static inline long
+strtol (const char *str, char **endptr, int base)
+{
+  return grub_strtol (str, endptr, base);
+}
+
 
 static inline void *
 memchr (const void *s, int c, grub_size_t n)
