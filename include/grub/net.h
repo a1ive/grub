@@ -480,6 +480,12 @@ grub_net_configure_by_dhcp_ack (const char *name,
 				grub_size_t size,
 				int is_def, char **device, char **path);
 
+void
+grub_net_process_dhcp_ack (struct grub_net_network_level_interface *inter,
+			   const struct grub_net_bootp_packet *bp,
+			   grub_size_t size,
+			   int is_def, char **device, char **path);
+
 grub_err_t
 grub_net_add_ipv4_local (struct grub_net_network_level_interface *inf,
 			 int mask);

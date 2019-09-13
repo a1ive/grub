@@ -843,6 +843,8 @@ static const char *
 defserver_get_env (struct grub_env_var *var __attribute__ ((unused)),
 		   const char *val __attribute__ ((unused)))
 {
+  if (!grub_net_default_server)
+    grub_net_default_server = grub_strdup (grub_env_get ("net_pxe_next_server"));
   return grub_net_default_server ? : "";
 }
 

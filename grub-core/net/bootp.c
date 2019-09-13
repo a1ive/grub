@@ -213,40 +213,18 @@ again:
 
 #define OFFSET_OF(x, y) ((grub_size_t)((grub_uint8_t *)((y)->x) - (grub_uint8_t *)(y)))
 
-struct grub_net_network_level_interface *
-grub_net_configure_by_dhcp_ack (const char *name,
-				struct grub_net_card *card,
-				grub_net_interface_flags_t flags,
-				const struct grub_net_bootp_packet *bp,
-				grub_size_t size,
-				int is_def, char **device, char **path)
+void
+grub_net_process_dhcp_ack (struct grub_net_network_level_interface *inter,
+			   const struct grub_net_bootp_packet *bp,
+			   grub_size_t size,
+			   int is_def, char **device, char **path)
 {
-  grub_net_network_level_address_t addr;
-  grub_net_link_level_address_t hwaddr;
-  struct grub_net_network_level_interface *inter;
   int mask = -1;
   char server_ip[sizeof ("xxx.xxx.xxx.xxx")];
   const grub_uint8_t *opt;
   grub_uint8_t opt_len, overload = 0;
   const char *boot_file = 0, *server_name = 0;
   grub_size_t boot_file_len, server_name_len;
-
-  addr.type = GRUB_NET_NETWORK_LEVEL_PROTOCOL_IPV4;
-  addr.ipv4 = bp->your_ip;
-
-  if (device)
-    *device = 0;
-  if (path)
-    *path = 0;
-
-  grub_memcpy (hwaddr.mac, bp->mac_addr,
-	       bp->hw_len < sizeof (hwaddr.mac) ? bp->hw_len
-	       : sizeof (hwaddr.mac));
-  hwaddr.type = GRUB_NET_LINK_LEVEL_PROTOCOL_ETHERNET;
-
-  inter = grub_net_add_addr (name, card, &addr, &hwaddr, flags);
-  if (!inter)
-    return 0;
 
   opt = find_dhcp_option (bp, size, GRUB_NET_DHCP_OVERLOAD, &opt_len);
   if (opt && opt_len == 1)
@@ -285,7 +263,7 @@ grub_net_configure_by_dhcp_ack (const char *name,
 		     ((grub_uint8_t *) &bp->server_ip)[1],
 		     ((grub_uint8_t *) &bp->server_ip)[2],
 		     ((grub_uint8_t *) &bp->server_ip)[3]);
-      grub_env_set_net_property (name, "next_server", server_ip, sizeof (server_ip));
+      grub_env_set_net_property (inter->name, "next_server", server_ip, sizeof (server_ip));
       grub_print_error ();
     }
 
@@ -297,12 +275,6 @@ grub_net_configure_by_dhcp_ack (const char *name,
       grub_print_error ();
     }
 
-  if (is_def)
-    {
-      grub_env_set ("net_default_interface", name);
-      grub_env_export ("net_default_interface");
-    }
-
   if (device && !*device && bp->server_ip)
     {
       *device = grub_xasprintf ("tftp,%s", server_ip);
@@ -311,7 +283,7 @@ grub_net_configure_by_dhcp_ack (const char *name,
 
   if (server_name)
     {
-      grub_env_set_net_property (name, "dhcp_server_name", server_name, server_name_len);
+      grub_env_set_net_property (inter->name, "dhcp_server_name", server_name, server_name_len);
       if (is_def && !grub_net_default_server)
 	{
 	  grub_net_default_server = grub_strdup (server_name);
@@ -324,9 +296,15 @@ grub_net_configure_by_dhcp_ack (const char *name,
 	}
     }
 
+  if (!grub_net_default_server)
+  {
+    grub_net_default_server = grub_strdup (grub_env_get ("net_pxe_next_server"));
+    grub_env_set ("net_default_server", grub_net_default_server);
+  }
+
   if (boot_file)
     {
-      grub_env_set_net_property (name, "boot_file", boot_file, boot_file_len);
+      grub_env_set_net_property (inter->name, "boot_file", boot_file, boot_file_len);
       if (path)
 	{
 	  *path = grub_strndup (boot_file, boot_file_len);
@@ -368,7 +346,7 @@ grub_net_configure_by_dhcp_ack (const char *name,
       target.ipv4.masksize = 0;
       gw.type = GRUB_NET_NETWORK_LEVEL_PROTOCOL_IPV4;
       gw.ipv4 = grub_get_unaligned32 (opt);
-      rname = grub_xasprintf ("%s:default", name);
+      rname = grub_xasprintf ("%s:default", inter->name);
       if (rname)
 	grub_net_add_route_gw (rname, target, gw, 0);
       grub_free (rname);
@@ -392,20 +370,59 @@ grub_net_configure_by_dhcp_ack (const char *name,
 
   opt = find_dhcp_option (bp, size, GRUB_NET_BOOTP_HOSTNAME, &opt_len);
   if (opt && opt_len)
-    grub_env_set_net_property (name, "hostname", (const char *) opt, opt_len);
+    grub_env_set_net_property (inter->name, "hostname", (const char *) opt, opt_len);
 
   opt = find_dhcp_option (bp, size, GRUB_NET_BOOTP_DOMAIN, &opt_len);
   if (opt && opt_len)
-    grub_env_set_net_property (name, "domain", (const char *) opt, opt_len);
+    grub_env_set_net_property (inter->name, "domain", (const char *) opt, opt_len);
 
   opt = find_dhcp_option (bp, size, GRUB_NET_BOOTP_ROOT_PATH, &opt_len);
   if (opt && opt_len)
-    grub_env_set_net_property (name, "rootpath", (const char *) opt, opt_len);
+    grub_env_set_net_property (inter->name, "rootpath", (const char *) opt, opt_len);
 
   opt = find_dhcp_option (bp, size, GRUB_NET_BOOTP_EXTENSIONS_PATH, &opt_len);
   if (opt && opt_len)
-    grub_env_set_net_property (name, "extensionspath", (const char *) opt, opt_len);
-  
+    grub_env_set_net_property (inter->name, "extensionspath", (const char *) opt, opt_len);
+}
+
+struct grub_net_network_level_interface *
+grub_net_configure_by_dhcp_ack (const char *name,
+				struct grub_net_card *card,
+				grub_net_interface_flags_t flags,
+				const struct grub_net_bootp_packet *bp,
+				grub_size_t size,
+				int is_def, char **device, char **path)
+{
+  grub_net_network_level_address_t addr;
+  grub_net_link_level_address_t hwaddr;
+  struct grub_net_network_level_interface *inter;
+
+  addr.type = GRUB_NET_NETWORK_LEVEL_PROTOCOL_IPV4;
+  addr.ipv4 = bp->your_ip;
+
+  if (device)
+    *device = 0;
+  if (path)
+    *path = 0;
+
+  grub_memcpy (hwaddr.mac, bp->mac_addr,
+	       bp->hw_len < sizeof (hwaddr.mac) ? bp->hw_len
+	       : sizeof (hwaddr.mac));
+  hwaddr.type = GRUB_NET_LINK_LEVEL_PROTOCOL_ETHERNET;
+
+  inter = grub_net_add_addr (name, card, &addr, &hwaddr, flags);
+  if (!inter)
+    return 0;
+
+  if (is_def)
+    {
+      grub_env_set ("net_default_interface", name);
+      grub_env_export ("net_default_interface");
+      grub_net_default_server = 0;
+    }
+
+  grub_net_process_dhcp_ack (inter, bp, size, is_def, device, path);
+
   inter->dhcp_ack = grub_malloc (size);
   if (inter->dhcp_ack)
     {

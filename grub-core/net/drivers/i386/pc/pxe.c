@@ -359,15 +359,24 @@ static void
 grub_pc_net_config_real (char **device, char **path)
 {
   struct grub_net_bootp_packet *bp;
+  struct grub_net_network_level_interface *inter;
 
   bp = grub_pxe_get_cached (GRUB_PXENV_PACKET_TYPE_DHCP_ACK);
 
   if (!bp)
     return;
-  grub_net_configure_by_dhcp_ack ("pxe", &grub_pxe_card, 0,
-				  bp, GRUB_PXE_BOOTP_SIZE,
-				  1, device, path);
+  inter = grub_net_configure_by_dhcp_ack ("pxe", &grub_pxe_card, 0,
+					  bp, GRUB_PXE_BOOTP_SIZE,
+					  1, device, path);
 
+
+  /* Boot server PXE options add and override boot file/server */
+  bp = grub_pxe_get_cached (GRUB_PXENV_PACKET_TYPE_CACHED_REPLY);
+
+
+  if (bp)
+    grub_net_process_dhcp_ack (inter, bp, GRUB_PXE_BOOTP_SIZE,
+			       1, device, path);
 }
 
 static struct grub_preboot *fini_hnd;
