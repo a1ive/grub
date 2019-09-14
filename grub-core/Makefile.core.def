@@ -2812,3 +2812,13 @@ module = {
   name = partnew;
   common = commands/partnew.c;
 };
+
+module = {
+  name = grubfm;
+  common = grubfm/fm.c;
+  common = grubfm/lib.c;
+  common = grubfm/list.c;
+  common = grubfm/type.c;
+  common = grubfm/open.c;
+  cflags = '-Wno-unused-parameter';
+};

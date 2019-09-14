@@ -1,0 +1,11 @@
+AutoGen definitions Makefile.tpl;
+
+module = {
+  name = grubfm;
+  common = contrib/grubfm/fm.c;
+  common = contrib/grubfm/lib.c;
+  common = contrib/grubfm/list.c;
+  common = contrib/grubfm/type.c;
+  common = contrib/grubfm/open.c;
+  cflags = '-Wno-unused-parameter';
+};
