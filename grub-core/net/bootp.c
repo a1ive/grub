@@ -213,6 +213,41 @@ again:
 
 #define OFFSET_OF(x, y) ((grub_size_t)((grub_uint8_t *)((y)->x) - (grub_uint8_t *)(y)))
 
+void grub_net_merge_dhcp_ack (struct grub_net_bootp_packet *target,
+                              struct grub_net_bootp_packet *source)
+{
+  if (source->opcode)
+    target->opcode = source->opcode;
+  if (source->hw_type)
+    target->hw_type = source->hw_type;
+  if (source->hw_len)
+    target->hw_len = source->hw_len;
+  if (source->gate_hops)
+    target->gate_hops = source->gate_hops;
+  if (source->ident)
+    target->ident = source->ident;
+  if (source->seconds)
+    target->seconds = source->seconds;
+  if (source->flags)
+    target->flags = source->flags;
+  if (source->client_ip)
+    target->client_ip = source->client_ip;
+  if (source->your_ip)
+    target->your_ip = source->your_ip;
+  if (source->server_ip)
+    target->server_ip = source->server_ip;
+  if (source->gateway_ip)
+    target->gateway_ip = source->gateway_ip;
+  if (source->mac_addr)
+    grub_memcpy (&target->mac_addr, &source->mac_addr, 6);
+  if (source->server_name[0])
+    grub_memcpy (&target->server_name, &source->server_name, 64);
+  if (source->boot_file[0])
+    grub_memcpy (&target->boot_file, &source->boot_file, 128);
+  if (source->vendor[0])
+    grub_memcpy (&target->vendor, &source->vendor, 60);
+}
+
 void
 grub_net_process_dhcp_ack (struct grub_net_network_level_interface *inter,
 			   const struct grub_net_bootp_packet *bp,

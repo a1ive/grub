@@ -444,7 +444,7 @@ struct grub_net_bootp_packet
   grub_net_bootp_mac_addr_t mac_addr;
   char server_name[64];
   char boot_file[128];
-  grub_uint8_t vendor[0];
+  grub_uint8_t vendor[60];
 } GRUB_PACKED;
 
 #define	GRUB_NET_BOOTP_RFC1048_MAGIC_0	0x63
@@ -471,6 +471,10 @@ enum
     GRUB_NET_DHCP_BOOTFILE_NAME = 67,
     GRUB_NET_BOOTP_END = 0xff
   };
+
+void 
+grub_net_merge_dhcp_ack (struct grub_net_bootp_packet *target,
+                         struct grub_net_bootp_packet *source);
 
 struct grub_net_network_level_interface *
 grub_net_configure_by_dhcp_ack (const char *name,

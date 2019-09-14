@@ -610,7 +610,7 @@ typedef grub_efi_uintn_t grub_efi_tpl_t;
 typedef grub_uint8_t grub_efi_mac_address_t[32];
 typedef grub_uint8_t grub_efi_ipv4_address_t[4];
 typedef grub_uint16_t grub_efi_ipv6_address_t[8];
-typedef grub_uint8_t grub_efi_ip_address_t[8] __attribute__ ((aligned(4)));
+typedef grub_uint8_t grub_efi_ip_address_t[16] __attribute__ ((aligned(4)));
 typedef grub_efi_uint64_t grub_efi_physical_address_t;
 typedef grub_efi_uint64_t grub_efi_virtual_address_t;
 
@@ -1498,12 +1498,33 @@ typedef grub_uint8_t grub_efi_pxe_packet_t[1472];
 
 typedef struct grub_efi_pxe_mode
 {
-  grub_uint8_t unused[52];
+  grub_efi_boolean_t started;
+  grub_efi_boolean_t ipv6_available;
+  grub_efi_boolean_t ipv6_supported;
+  grub_efi_boolean_t using_ipv6;
+  grub_efi_boolean_t bis_supported;
+  grub_efi_boolean_t bis_detected;
+  grub_efi_boolean_t auto_arp;
+  grub_efi_boolean_t send_guid;
+  grub_efi_boolean_t dhcp_discover_valid;
+  grub_efi_boolean_t dhcp_ack_received;
+  grub_efi_boolean_t proxy_offer_received;
+  grub_efi_boolean_t pxe_discover_valid;
+  grub_efi_boolean_t pxe_reply_received;
+  grub_efi_boolean_t pxe_bis_reply_received;
+  grub_efi_boolean_t icmp_error_received;
+  grub_efi_boolean_t tftp_error_received;
+  grub_efi_boolean_t make_callbacks;
+  grub_efi_uint8_t ttl;
+  grub_efi_uint8_t tos;
+  grub_efi_ip_address_t station_ip;
+  grub_efi_ip_address_t subnet_mask;
   grub_efi_pxe_packet_t dhcp_discover;
   grub_efi_pxe_packet_t dhcp_ack;
   grub_efi_pxe_packet_t proxy_offer;
   grub_efi_pxe_packet_t pxe_discover;
   grub_efi_pxe_packet_t pxe_reply;
+  grub_efi_pxe_packet_t pxe_bis_reply;
 } grub_efi_pxe_mode_t;
 
 typedef struct grub_efi_pxe
