@@ -172,13 +172,16 @@ grubfm_add_menu (const char *title, const char *icon,
       return;
     class[0] = grub_strdup (icon);
     class[1] = NULL;
+    grub_normal_add_menu_entry (1, args, class, NULL, NULL, hotkey,
+                                NULL, src, 0, hidden);
+    if (class[0])
+      grub_free (class[0]);
+    if (class)
+      grub_free (class);
   }
-  grub_normal_add_menu_entry (1, args, class, NULL, NULL, hotkey,
-                              NULL, src, 0, hidden);
-  if (class[0])
-    grub_free (class[0]);
-  if (class)
-    grub_free (class);
+  else
+    grub_normal_add_menu_entry (1, args, NULL, NULL, NULL, hotkey,
+                                NULL, src, 0, hidden);
   if (args)
     grub_free (args);
 }
