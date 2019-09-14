@@ -19,6 +19,7 @@
 #include <grub/types.h>
 #include <grub/misc.h>
 #include <grub/mm.h>
+#include <grub/env.h>
 #include <grub/err.h>
 #include <grub/dl.h>
 #include <grub/extcmd.h>
@@ -29,14 +30,30 @@
 GRUB_MOD_LICENSE ("GPLv3+");
 GRUB_MOD_DUAL_LICENSE ("MIT");
 
-static grub_err_t
-grub_cmd_ini (grub_extcmd_context_t ctxt __attribute__ ((unused)),
-              int argc, char **args)
+static const struct grub_arg_option options_get[] =
 {
-  if (argc != 3)
+  {"set", 's', 0,
+   N_("Set a variable to return value."), N_("VARNAME"), ARG_TYPE_STRING},
+  {0, 0, 0, 0, 0, 0}
+};
+
+enum options_get
+{
+  INIGET_SET,
+};
+
+static grub_err_t
+grub_cmd_ini_get (grub_extcmd_context_t ctxt, int argc, char **args)
+{
+  struct grub_arg_list *state = ctxt->state;
+  if (argc != 2)
     return grub_error (GRUB_ERR_BAD_ARGUMENT, "string required");
   
   ini_t *config = ini_load (args[0]);
+  char *input = NULL;
+  char *section = NULL;
+  char *key = NULL;
+  const char *name = NULL;
  
   if (!config)
   {
@@ -44,24 +61,41 @@ grub_cmd_ini (grub_extcmd_context_t ctxt __attribute__ ((unused)),
     return 0;
   }
 
-  const char *name = ini_get(config, args[1], args[2]);
+  input = grub_strdup (args[1]);
+  key = grub_strchr (input, ':');
+  if (!key)
+    key = input;
+  else
+  {
+    section = input;
+    *key = '\0';
+    key++;
+  }
+  name = ini_get(config, section, key);
   if (name)
   {
-    grub_printf("[%s] %s: %s\n", args[1], args[2], name);
+    if (state[INIGET_SET].set)
+      grub_env_set (state[INIGET_SET].arg, name);
+    else
+      grub_printf("%s%s%s = %s\n", section?:"", section?":":"", key, name);
   }
 
+  if (input)
+    grub_free (input);
   ini_free(config);
   return 0;
 }
 
-static grub_extcmd_t cmd;
+static grub_extcmd_t cmd_get;
 
 GRUB_MOD_INIT(ini)
 {
-  cmd = grub_register_extcmd ("ini", grub_cmd_ini, 0, N_("FILE SECTION KEY"),
-			      N_("INI parser"), 0);
+  cmd_get = grub_register_extcmd ("ini_get", grub_cmd_ini_get, 0,
+                  N_("[--set=VARNAME] FILE [SECTION:]KEY"),
+                  N_("Get value from ini files."), options_get);
 }
 
 GRUB_MOD_FINI(ini)
 {
+  grub_unregister_extcmd (cmd_get);
 }
