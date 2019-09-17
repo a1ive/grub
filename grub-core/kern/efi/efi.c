@@ -191,9 +191,9 @@ grub_efi_set_virtual_address_map (grub_efi_uintn_t memory_map_size,
   return grub_error (GRUB_ERR_IO, "set_virtual_address_map failed");
 }
 
-grub_err_t
-grub_efi_set_variable(const char *var, const grub_efi_guid_t *guid,
-		      void *data, grub_size_t datasize)
+grub_efi_status_t
+grub_efi_set_var_attr(const char *var, const grub_efi_guid_t *guid,
+                      void *data, grub_size_t datasize, grub_efi_uint32_t attr)
 {
   grub_efi_status_t status;
   grub_efi_runtime_services_t *r;
@@ -210,12 +210,21 @@ grub_efi_set_variable(const char *var, const grub_efi_guid_t *guid,
 
   r = grub_efi_system_table->runtime_services;
 
-  status = efi_call_5 (r->set_variable, var16, guid, 
-		       (GRUB_EFI_VARIABLE_NON_VOLATILE
-			| GRUB_EFI_VARIABLE_BOOTSERVICE_ACCESS
-			| GRUB_EFI_VARIABLE_RUNTIME_ACCESS),
-		       datasize, data);
+  status = efi_call_5 (r->set_variable, var16, guid, attr, datasize, data);
   grub_free (var16);
+  return status;
+}
+
+grub_err_t
+grub_efi_set_variable(const char *var, const grub_efi_guid_t *guid,
+		      void *data, grub_size_t datasize)
+{
+  grub_efi_status_t status;
+  status = grub_efi_set_var_attr(var, guid, data, datasize,
+                                 (GRUB_EFI_VARIABLE_NON_VOLATILE
+                                 | GRUB_EFI_VARIABLE_BOOTSERVICE_ACCESS
+                                 | GRUB_EFI_VARIABLE_RUNTIME_ACCESS));
+
   if (status == GRUB_EFI_SUCCESS)
     return GRUB_ERR_NONE;
 
