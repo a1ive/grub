@@ -243,16 +243,56 @@ done:
   return grub_errno;
 }
 
-static grub_extcmd_t cmd;
+
+#define  MOKSBSTATE_GUID  \
+{ 0x605dab50, 0xe046, 0x4300, {0xab, 0xb6, 0x3d, 0xd8, 0x10, 0xdd, 0x8b, 0x23}}
+
+static grub_err_t
+grub_cmd_moksbset (grub_extcmd_context_t ctxt __attribute__((unused)),
+                   int argc __attribute__ ((unused)),
+                   char **args __attribute__ ((unused)))
+{
+  grub_efi_runtime_services_t *r;
+  grub_efi_uint32_t var_attr;
+  grub_efi_guid_t moksb_guid = MOKSBSTATE_GUID;
+  grub_efi_uint8_t data = 1;
+  grub_efi_status_t status;
+  r = grub_efi_system_table->runtime_services;
+
+  var_attr = (GRUB_EFI_VARIABLE_NON_VOLATILE |
+                GRUB_EFI_VARIABLE_BOOTSERVICE_ACCESS);
+  status = grub_efi_set_var_attr ("MokSBState", &moksb_guid, &data, 1, var_attr);
+  if (status != GRUB_EFI_SUCCESS)
+    grub_printf ("Writing MokSBState variable error\n");
+  else
+    grub_printf ("Wrote MokSBState variable\n");
+
+  var_attr |= GRUB_EFI_VARIABLE_RUNTIME_ACCESS;
+  status = grub_efi_set_var_attr ("MokSBStateRT", &moksb_guid, &data,
+                                  1, var_attr);
+  if (status != GRUB_EFI_SUCCESS)
+    grub_printf ("Writing MokSBStateRT variable error\n");
+  else
+    grub_printf ("Wrote MokSBStateRT variable\n");
+
+  grub_efi_stall (10000000);
+  efi_call_4 (r->reset_system, GRUB_EFI_RESET_WARM, GRUB_EFI_SUCCESS, 0, NULL);
+  return 0;
+}
+
+static grub_extcmd_t cmd, cmd_moksb;
 
 GRUB_MOD_INIT(sbpolicy)
 {
   cmd = grub_register_extcmd ("sbpolicy", grub_cmd_sbpolicy, 0, 
                   N_("[-i|-u|-s]"),
                   N_("Install override security policy."), options);
+  cmd_moksb = grub_register_extcmd ("moksbset", grub_cmd_moksbset, 0, 0,
+                                    N_("Disable shim validation."), 0);
 }
 
 GRUB_MOD_FINI(sbpolicy)
 {
   grub_unregister_extcmd (cmd);
+  grub_unregister_extcmd (cmd_moksb);
 }
