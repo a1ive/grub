@@ -128,7 +128,7 @@ grubfm_open_wim_wimboot (grub_file_t file UNUSED, char *path)
                         " @:bcd:(wimboot)/bcd @:boot.sdi:(wimboot)/boot.sdi" 
                         " @:boot.wim:\"%s\"", path);
 #endif /* __i386__ || __x86_64__ */
-#elif GRUB_MACHINE_PCBIOS
+#elif defined (GRUB_MACHINE_PCBIOS)
   REQUIRE ("linux16");
   src = grub_xasprintf ("set lang=en_US\n"
                         "terminal_output console\n"
