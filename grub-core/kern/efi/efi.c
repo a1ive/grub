@@ -285,6 +285,29 @@ grub_efi_get_variable (const char *var, const grub_efi_guid_t *guid,
   return NULL;
 }
 
+grub_efi_status_t
+grub_efi_allocate_pool (grub_efi_memory_type_t pool_type,
+                        grub_efi_uintn_t buffer_size, void **buffer)
+{
+  grub_efi_boot_services_t *b;
+  grub_efi_status_t status;
+
+  b = grub_efi_system_table->boot_services;
+  status = efi_call_3 (b->allocate_pool, pool_type, buffer_size, buffer);
+  return status;
+}
+
+grub_efi_status_t
+grub_efi_free_pool (void *buffer)
+{
+  grub_efi_boot_services_t *b;
+  grub_efi_status_t status;
+
+  b = grub_efi_system_table->boot_services;
+  status = efi_call_1 (b->free_pool, buffer);
+  return status;
+}
+
 grub_efi_boolean_t
 grub_efi_secure_boot (void)
 {

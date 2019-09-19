@@ -139,6 +139,10 @@ grub_err_t EXPORT_FUNC (grub_efi_set_virtual_address_map) (grub_efi_uintn_t memo
 							   grub_efi_uintn_t descriptor_size,
 							   grub_efi_uint32_t descriptor_version,
 							   grub_efi_memory_descriptor_t *virtual_map);
+grub_efi_status_t
+EXPORT_FUNC(grub_efi_allocate_pool) (grub_efi_memory_type_t pool_type,
+                                     grub_efi_uintn_t buffer_size, void **buffer);
+grub_efi_status_t EXPORT_FUNC(grub_efi_free_pool) (void *buffer);
 void *EXPORT_FUNC (grub_efi_get_variable) (const char *variable,
 					   const grub_efi_guid_t *guid,
 					   grub_size_t *datasize_out);
