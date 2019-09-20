@@ -165,6 +165,17 @@ grub_set_prefix_and_root (void)
 	  grub_free (cmdpath);
 	}
     }
+  if (fwdevice && fwpath)
+    {
+      char *cmdpath;
+      char *fw_path;
+      fw_path = grub_xasprintf ("(%s)/%s", fwdevice, fwpath);
+      if (fw_path)
+    {
+      grub_env_set ("fw_path", fw_path);
+      grub_free (fw_path);
+    }
+  }
 
   if (prefix)
     {
