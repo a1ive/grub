@@ -364,6 +364,8 @@ grub_cmd_normal (struct grub_command *cmd __attribute__ ((unused)),
 	}
 
       prefix = grub_env_get ("prefix");
+      if (!prefix)
+        prefix = fw_path;
       if (prefix)
 	{
 	  config = grub_xasprintf ("%s/grub.cfg", prefix);
