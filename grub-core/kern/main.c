@@ -167,7 +167,6 @@ grub_set_prefix_and_root (void)
     }
   if (fwdevice && fwpath)
     {
-      char *cmdpath;
       char *fw_path;
       fw_path = grub_xasprintf ("(%s)/%s", fwdevice, fwpath);
       if (fw_path)
