@@ -166,7 +166,7 @@ grub_reboot (void)
 void
 grub_exit (int retval)
 {
-  int rc = GRUB_EFI_LOAD_ERROR;
+  int rc = (int) GRUB_EFI_LOAD_ERROR;
 
   if (retval == 0)
     rc = GRUB_EFI_SUCCESS;

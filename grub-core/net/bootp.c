@@ -378,7 +378,7 @@ grub_net_process_dhcp_ack (struct grub_net_network_level_interface *inter,
   opt = find_dhcp_option (bp, size, GRUB_NET_BOOTP_CLIENT_ID, &opt_len);
   if (opt)
     {
-      set_env_limn_ro (name, "clientid", (char *) opt, opt_len);
+      set_env_limn_ro (inter->name, "clientid", (char *) opt, opt_len);
     }
 
   opt = find_dhcp_option (bp, size, GRUB_NET_BOOTP_CLIENT_UUID, &opt_len);
@@ -403,7 +403,7 @@ grub_net_process_dhcp_ack (struct grub_net_network_level_interface *inter,
               val[2 * i + 1+ j] = '-';
             }
         }
-      set_env_limn_ro (name, "clientuuid", (char *) val, 2 * opt_len + 4);
+      set_env_limn_ro (inter->name, "clientuuid", (char *) val, 2 * opt_len + 4);
     }
 
   /* We do not implement dead gateway detection and the first entry SHOULD
