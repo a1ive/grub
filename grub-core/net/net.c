@@ -1737,6 +1737,12 @@ grub_net_restore_hw (void)
   return GRUB_ERR_NONE;
 }
 
+
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wvla"
+#endif
+
 grub_err_t
 grub_net_search_configfile (char *config)
 {
@@ -1854,6 +1860,10 @@ grub_net_search_configfile (char *config)
 
   return GRUB_ERR_NONE;
 }
+
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif
 
 static struct grub_preboot *fini_hnd;
 
