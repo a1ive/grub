@@ -35,7 +35,6 @@
       return;  \
   } while (0)
 
-#define UNUSED __attribute__ ((unused))
 static void
 grubfm_add_menu_back (const char *filename)
 {
