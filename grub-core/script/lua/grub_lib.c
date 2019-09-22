@@ -815,7 +815,8 @@ grub_lua_add_menu (lua_State *state)
       if (! p)
 	return push_result (state);
 
-      grub_normal_add_menu_entry (n, args, NULL, NULL, NULL, NULL, NULL, p, 0, 0);
+      grub_normal_add_menu_entry (n, args, NULL, NULL, NULL, NULL, NULL, p, 0,
+                                  0, NULL, NULL);
     }
   else
     {
@@ -861,7 +862,8 @@ grub_lua_add_icon_menu (lua_State *state)
       p = grub_strdup (source);
       if (! p)
 	return push_result (state);
-      grub_normal_add_menu_entry (n, args, class, NULL, NULL, NULL, NULL, p, 0, 0);
+      grub_normal_add_menu_entry (n, args, class, NULL, NULL, NULL, NULL, p, 0,
+                                  0, NULL, NULL);
     }
   else
     {
@@ -894,7 +896,8 @@ grub_lua_add_hidden_menu (lua_State *state)
       if (! p)
 	return push_result (state);
 	  hotkey = grub_strdup (luaL_checklstring (state, 1, 0));
-      grub_normal_add_menu_entry (n, args, NULL, NULL, NULL, hotkey, NULL, p, 0, 1);
+      grub_normal_add_menu_entry (n, args, NULL, NULL, NULL, hotkey, NULL, p, 0,
+                                  1, NULL, NULL);
     }
   else
     {
