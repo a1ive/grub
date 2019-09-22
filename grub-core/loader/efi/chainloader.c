@@ -83,7 +83,7 @@ grub_chainloader_unload (void)
 
   b = grub_efi_system_table->boot_services;
   efi_call_1 (b->unload_image, image_handle);
-  efi_call_2 (b->free_pages, address, pages);
+  grub_efi_free_pages (address, pages);
 
   grub_free (file_path);
   grub_free (cmdline);
@@ -126,7 +126,7 @@ grub_chainloader_boot (void)
     }
 
   if (exit_data)
-    efi_call_1 (b->free_pool, exit_data);
+    grub_efi_free_pool (exit_data);
 
   grub_loader_unset ();
 
@@ -485,10 +485,9 @@ grub_efi_get_media_file_path (grub_efi_device_path_t *dp)
 static grub_efi_boolean_t
 handle_image (void *data, grub_efi_uint32_t datasize)
 {
-  grub_efi_boot_services_t *b;
   grub_efi_loaded_image_t *li, li_bak;
   grub_efi_status_t efi_status;
-  char *buffer = NULL;
+  void *buffer = NULL;
   char *buffer_aligned = NULL;
   grub_efi_uint32_t i;
   struct grub_pe32_section_table *section;
@@ -497,8 +496,6 @@ handle_image (void *data, grub_efi_uint32_t datasize)
   grub_uint32_t section_alignment;
   grub_uint32_t buffer_size;
   int found_entry_point = 0;
-
-  b = grub_efi_system_table->boot_services;
 
   if (read_header (data, datasize, &context))
     {
@@ -533,8 +530,8 @@ handle_image (void *data, grub_efi_uint32_t datasize)
   grub_printf ("chain: image size is %08lx, datasize is %08x\n",
 	       (long unsigned)context.image_size, datasize);
 
-  efi_status = efi_call_3 (b->allocate_pool, GRUB_EFI_LOADER_DATA,
-			   buffer_size, (void**) &buffer);
+  efi_status = grub_efi_allocate_pool (GRUB_EFI_LOADER_DATA, buffer_size, 
+                                       &buffer);
 
   if (efi_status != GRUB_EFI_SUCCESS)
     {
@@ -749,14 +746,14 @@ handle_image (void *data, grub_efi_uint32_t datasize)
   grub_dprintf ("chain", "entry_point returned 0x%"PRIxGRUB_EFI_STATUS"\n",
                 efi_status);
   grub_memcpy (li, &li_bak, sizeof (grub_efi_loaded_image_t));
-  efi_status = efi_call_1 (b->free_pool, buffer);
+  efi_status = grub_efi_free_pool (buffer);
 
   return 1;
 
 error_exit:
   grub_printf ("chain: error_exit: grub_errno: %d\n", grub_errno);
   if (buffer)
-      efi_call_1 (b->free_pool, buffer);
+      grub_efi_free_pool (buffer);
   
   if (grub_errno)
     grub_print_error ();
@@ -767,10 +764,7 @@ error_exit:
 static grub_err_t
 grub_secureboot_chainloader_unload (void)
 {
-  grub_efi_boot_services_t *b;
-
-  b = grub_efi_system_table->boot_services;
-  efi_call_2 (b->free_pages, address, pages);
+  grub_efi_free_pages (address, pages);
   grub_free (file_path);
   grub_free (cmdline);
   cmdline = 0;
@@ -1050,7 +1044,7 @@ grub_cmd_chainloader (grub_extcmd_context_t ctxt,
   grub_free (file_path);
 
   if (address)
-    efi_call_2 (b->free_pages, address, pages);
+    grub_efi_free_pages (address, pages);
 
   if (cmdline)
     grub_free (cmdline);
