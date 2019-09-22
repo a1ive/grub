@@ -1737,12 +1737,6 @@ grub_net_restore_hw (void)
   return GRUB_ERR_NONE;
 }
 
-
-#ifdef __GNUC__
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wvla"
-#endif
-
 grub_err_t
 grub_net_search_configfile (char *config)
 {
@@ -1789,13 +1783,24 @@ grub_net_search_configfile (char *config)
     {
       /* By the Client UUID. */
 
-      char client_uuid_var[sizeof ("net_") + grub_strlen (inf->name) +
-                           sizeof ("_clientuuid") + 1];
-      grub_snprintf (client_uuid_var, sizeof (client_uuid_var),
+      char *client_uuid_var;
+      grub_size_t client_uuid_var_size;
+
+      client_uuid_var_size = grub_snprintf (NULL, 0,
+                     "net_%s_clientuuid", inf->name);
+      if (client_uuid_var_size <= 0)
+	continue;
+      client_uuid_var_size += 1;
+      client_uuid_var = grub_malloc(client_uuid_var_size);
+      if (!client_uuid_var)
+	continue;
+      grub_snprintf (client_uuid_var, client_uuid_var_size,
                      "net_%s_clientuuid", inf->name);
 
       const char *client_uuid;
       client_uuid = grub_env_get (client_uuid_var);
+
+      grub_free(client_uuid_var);
 
       if (client_uuid)
         {
@@ -1860,10 +1865,6 @@ grub_net_search_configfile (char *config)
 
   return GRUB_ERR_NONE;
 }
-
-#ifdef __GNUC__
-#pragma GCC diagnostic pop
-#endif
 
 static struct grub_preboot *fini_hnd;
 
