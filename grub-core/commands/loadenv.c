@@ -23,6 +23,7 @@
 #include <grub/disk.h>
 #include <grub/misc.h>
 #include <grub/env.h>
+#include <grub/loadenv.h>
 #include <grub/partition.h>
 #include <grub/lib/envblk.h>
 #include <grub/extcmd.h>
@@ -79,7 +80,7 @@ open_envblk_file (char *filename,
   return file;
 }
 
-static grub_envblk_t
+grub_envblk_t
 read_envblk_file (grub_file_t file)
 {
   grub_off_t offset = 0;
@@ -117,14 +118,7 @@ read_envblk_file (grub_file_t file)
   return envblk;
 }
 
-struct grub_env_whitelist
-{
-  grub_size_t len;
-  char **list;
-};
-typedef struct grub_env_whitelist grub_env_whitelist_t;
-
-static int
+int
 test_whitelist_membership (const char* name,
                            const grub_env_whitelist_t* whitelist)
 {
@@ -138,7 +132,7 @@ test_whitelist_membership (const char* name,
 }
 
 /* Helper for grub_cmd_load_env.  */
-static int
+int
 set_var (const char *name, const char *value, void *whitelist)
 {
   if (! whitelist)
