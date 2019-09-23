@@ -32,6 +32,8 @@ configure
 core_compress_test
 DISTLIST
 docs/*.info
+docs/*.info-1
+docs/*.info-2
 docs/stamp-vti
 docs/version.texi
 ehci_test
