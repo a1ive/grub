@@ -20,6 +20,7 @@
 #include <grub/env.h>
 #include <grub/i18n.h>
 #include <grub/command.h>
+#include <grub/net.h>
 #include <grub/net/ip.h>
 #include <grub/net/netbuff.h>
 #include <grub/net/udp.h>
@@ -546,6 +547,26 @@ grub_net_process_dhcp_ack (struct grub_net_network_level_interface *inter,
   opt = find_dhcp_option (bp, size, GRUB_NET_BOOTP_ROOT_PATH, &opt_len);
   if (opt && opt_len)
     grub_env_set_net_property (inter->name, "rootpath", (const char *) opt, opt_len);
+
+  opt = find_dhcp_option (bp, size, GRUB_NET_BOOTP_VENDOR_CLASS_IDENTIFIER, &opt_len);
+  if (opt && opt_len)
+    {
+      grub_env_set_net_property (inter->name, "vendor_class_identifier",
+                                 (const char *) opt, opt_len);
+      if (opt && grub_strcmp ((const char *)opt, "HTTPClient") == 0)
+        {
+          char *proto, *ip, *pa;
+          if (dissect_url (bp->boot_file, &proto, &ip, &pa))
+          {
+            grub_env_set_net_property (inter->name, "boot_file",
+                                       pa, grub_strlen (pa));
+
+            grub_free (proto);
+            grub_free (ip);
+            grub_free (pa);
+          }
+        }
+    }
 
   opt = find_dhcp_option (bp, size, GRUB_NET_BOOTP_EXTENSIONS_PATH, &opt_len);
   if (opt && opt_len)
