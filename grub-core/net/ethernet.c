@@ -29,6 +29,8 @@
 
 #define LLCADDRMASK 0x7f
 
+#pragma GCC diagnostic ignored "-Wcast-align"
+
 struct llchdr
 {
   grub_uint8_t dsap;
