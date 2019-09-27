@@ -742,7 +742,7 @@ static void create_entry (struct bls_entry *entry)
 
   if (!devicetree)
     {
-      devicetree = expand_val (grub_env_get("devicetree"));
+      devicetree = expand_val ((char *) grub_env_get("devicetree"));
       add_dt_prefix = true;
     }
 
