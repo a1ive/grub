@@ -27,6 +27,8 @@
 
 #ifndef ASM_FILE
 
+#include <grub/err.h>
+
 struct grub_envblk
 {
   char *buf;
