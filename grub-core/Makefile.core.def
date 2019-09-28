@@ -1171,6 +1171,13 @@ module = {
 };
 
 module = {
+  name = peinfo;
+  common = commands/peinfo.c;
+  cflags = '$(CFLAGS_POSIX)';
+  cppflags = '$(CPPFLAGS_POSIX)';
+};
+
+module = {
   name = probe;
   common = commands/probe.c;
 };
