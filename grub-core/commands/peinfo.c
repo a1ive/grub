@@ -30,6 +30,8 @@
 
 GRUB_MOD_LICENSE ("GPLv3+");
 
+#pragma GCC diagnostic ignored "-Wcast-align"
+
 enum {
   FMT_NONE = 0,
   FMT_STR,
