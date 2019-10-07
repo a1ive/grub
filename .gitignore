@@ -1,9 +1,11 @@
 *~
 00_header
+01_*
 10_*
 20_linux_xen
 20_ppc_terminfo
 30_os-prober
+30_uefi-firmware
 40_custom
 41_custom
 *.1
@@ -72,6 +74,8 @@ grub-fstest.exe
 grub_fstest_init.c
 grub_fstest_init.h
 grub_func_test
+grub-get-kernel-settings
+grub-get-kernel-settings.*
 grub-install
 grub-install.exe
 grub-kbdcomp
@@ -124,13 +128,16 @@ grub_script.tab.c
 grub_script.tab.h
 grub_script.yy.c
 grub_script.yy.h
+grub-set-bootflag
 grub-set-default
+grub-set-password
 grub_setup_init.c
 grub_setup_init.h
 grub-shell
 grub-shell-tester
 grub-sparc64-setup
 grub-sparc64-setup.exe
+grub-switch-to-blscfg
 /grub-syslinux2cfg
 /grub-syslinux2cfg.exe
 gzcompress_test
