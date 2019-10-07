@@ -27,6 +27,7 @@
 #include <grub/i18n.h>
 #include <grub/misc.h>
 #include <grub/mm.h>
+#include <grub/term.h>
 #include <grub/types.h>
 
 GRUB_MOD_LICENSE ("GPLv3+");
@@ -275,7 +276,9 @@ grub_cmd_moksbset (grub_extcmd_context_t ctxt __attribute__((unused)),
   else
     grub_printf ("Wrote MokSBStateRT variable\n");
 
-  grub_efi_stall (10000000);
+  grub_printf ("Press any key to reboot ...\n");
+  grub_getkey ();
+  //grub_efi_stall (5000000);
   efi_call_4 (r->reset_system, GRUB_EFI_RESET_WARM, GRUB_EFI_SUCCESS, 0, NULL);
   return 0;
 }
