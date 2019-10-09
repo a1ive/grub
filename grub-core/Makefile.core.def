@@ -2810,6 +2810,14 @@ module = {
 };
 
 module = {
+  name = tetris;
+  common = commands/i386/tetris.c;
+  enable = i386_efi;
+  enable = x86_64_efi;
+  enable = i386_pc;
+};
+
+module = {
   name = efiload;
   common = commands/efi/efiload.c;
   enable = efi;
