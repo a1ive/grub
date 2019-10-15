@@ -2837,6 +2837,11 @@ module = {
 };
 
 module = {
+  name = uuid;
+  common = commands/uuid.c;
+};
+
+module = {
   name = shell;
   common = commands/efi/shell.c;
   enable = i386_efi;
