@@ -397,7 +397,6 @@ void EXPORT_FUNC(grub_real_dprintf) (const char *file,
 void EXPORT_FUNC(grub_qdprintf) (const char *condition,
 				 const char *fmt, ...) __attribute__ ((format (GNU_PRINTF, 2, 3)));
 int EXPORT_FUNC(grub_vprintf) (const char *fmt, va_list args);
-int EXPORT_FUNC(grub_sprintf) (char *str, const char *fmt, ...) __attribute__ ((format (printf, 2, 3)));
 int EXPORT_FUNC(grub_snprintf) (char *str, grub_size_t n, const char *fmt, ...)
      __attribute__ ((format (GNU_PRINTF, 3, 4)));
 int EXPORT_FUNC(grub_vsnprintf) (char *str, grub_size_t n, const char *fmt,
@@ -409,6 +408,17 @@ void EXPORT_FUNC(grub_exit) (int rc) __attribute__ ((noreturn));
 grub_uint64_t EXPORT_FUNC(grub_divmod64) (grub_uint64_t n,
 					  grub_uint64_t d,
 					  grub_uint64_t *r);
+
+static inline int
+grub_sprintf (char *str, const char *fmt, ...)
+{
+  va_list ap;
+  int ret;
+  va_start (ap, fmt);
+  ret = grub_vsnprintf (str, GRUB_UINT_MAX, fmt, ap);
+  va_end (ap);
+  return ret;
+}
 
 /* Must match softdiv group in gentpl.py.  */
 #if !defined(GRUB_MACHINE_EMU) && (defined(__arm__) || defined(__ia64__) || \

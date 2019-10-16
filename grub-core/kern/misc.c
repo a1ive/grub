@@ -1202,19 +1202,6 @@ grub_vsnprintf (char *str, grub_size_t n, const char *fmt, va_list ap)
 }
 
 int
-grub_sprintf (char *str, const char *fmt, ...)
-{
-  va_list ap;
-  int ret;
-
-  va_start (ap, fmt);
-  ret = grub_vsnprintf (str, GRUB_UINT_MAX, fmt, ap);
-  va_end (ap);
-
-  return ret;
-}
-
-int
 grub_snprintf (char *str, grub_size_t n, const char *fmt, ...)
 {
   va_list ap;
