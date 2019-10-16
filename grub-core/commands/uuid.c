@@ -30,6 +30,8 @@ GRUB_MOD_LICENSE ("GPLv3+");
 
 #define GUID_LEN 37
 
+#pragma GCC diagnostic ignored "-Wcast-align"
+
 /* rand() and srand() */
 static grub_uint32_t next = 1;
 
