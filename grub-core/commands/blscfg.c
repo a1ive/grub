@@ -732,10 +732,6 @@ static void create_entry (struct bls_entry *entry)
 
   title = bls_get_val (entry, "title", NULL);
   options = expand_val (bls_get_val (entry, "options", NULL));
-
-  if (!options)
-    options = expand_val ((char *)grub_env_get("default_kernelopts"));
-
   initrds = bls_make_list (entry, "initrd", NULL);
 
   devicetree = expand_val (bls_get_val (entry, "devicetree", NULL));
