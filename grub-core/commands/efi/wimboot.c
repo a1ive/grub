@@ -29,7 +29,7 @@
 #include <grub/mm.h>
 #include <grub/efi/efi.h>
 #include <grub/efi/api.h>
-#include <grub/i386/efi/wimboot.h>
+#include <grub/efi/wimboot.h>
 
 GRUB_MOD_LICENSE ("GPLv3+");
 
