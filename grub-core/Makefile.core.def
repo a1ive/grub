@@ -2854,6 +2854,12 @@ module = {
 };
 
 module = {
+  name = grubprot;
+  common = lib/efi/grubprot.c;
+  enable = efi;
+};
+
+module = {
   name = grubfm;
   common = grubfm/fm.c;
   common = grubfm/lib.c;
