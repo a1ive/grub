@@ -20,8 +20,7 @@
 #include <grub/dl.h>
 #include <grub/efi/api.h>
 #include <grub/efi/efi.h>
-#include <grub/efi/efiload.h>
-#include <grub/efi/grubprot.h>
+#include <grub/efi/protocol.h>
 #include <grub/charset.h>
 #include <grub/command.h>
 #include <grub/device.h>
@@ -30,7 +29,6 @@
 #include <grub/i18n.h>
 #include <grub/misc.h>
 #include <grub/mm.h>
-#include <grub/net.h>
 #include <grub/types.h>
 #include <grub/term.h>
 
@@ -117,14 +115,10 @@ prot_env_set (const char *name, const char *val)
   return GRUB_EFI_SUCCESS;
 }
 
-static grub_efi_status_t
-prot_env_get (const char *name, char **val)
+static const char *
+prot_env_get (const char *name)
 {
-  char *env = (char *)grub_env_get (name);
-  val = &env;
-  if (!val)
-    return GRUB_EFI_NOT_FOUND;
-  return GRUB_EFI_SUCCESS;
+  return grub_env_get (name);
 }
 
 static void
@@ -144,16 +138,6 @@ prot_compare_dp (const grub_efi_device_path_t *dp1,
                  const grub_efi_device_path_t *dp2)
 {
   return grub_efi_compare_device_paths (dp1, dp2);
-}
-
-static grub_efi_status_t
-prot_load_driver (grub_efi_uintn_t size, void *boot_image, int connect)
-{
-  grub_err_t err;
-  err = grub_efi_driver_load (size, boot_image, connect);
-  if (err)
-    return GRUB_EFI_LOAD_ERROR;
-  return GRUB_EFI_SUCCESS;
 }
 
 static grub_efi_status_t
@@ -187,7 +171,7 @@ prot_test (void)
 static grub_efi_grub_protocol_t grub_prot;
 static grub_efi_guid_t grub_prot_guid = GRUB_EFI_GRUB_PROTOCOL_GUID;
 
-static void
+void
 grub_prot_init (void)
 {
   grub_prot.file_open = prot_file_open;
@@ -202,7 +186,6 @@ grub_prot_init (void)
   grub_prot.env_unset = prot_env_unset;
   grub_prot.secure_boot = prot_secure_boot;
   grub_prot.compare_dp = prot_compare_dp;
-  grub_prot.load_driver = prot_load_driver;
   grub_prot.execute = prot_execute;
   grub_prot.wait_key = prot_wait_key;
   grub_prot.get_key = prot_get_key;
@@ -216,7 +199,7 @@ grub_prot_init (void)
               GRUB_EFI_NATIVE_INTERFACE, &grub_prot);
 }
 
-static void
+void
 grub_prot_fini (void)
 {
   grub_efi_boot_services_t *b;
@@ -224,14 +207,4 @@ grub_prot_fini (void)
   b = grub_efi_system_table->boot_services;
   efi_call_3 (b->uninstall_protocol_interface,
               &grub_efi_image_handle, &grub_prot_guid, &grub_prot);
-}
-
-GRUB_MOD_INIT(grubprot)
-{
-  grub_prot_init ();
-}
-
-GRUB_MOD_FINI(grubprot)
-{
-  grub_prot_fini ();
 }

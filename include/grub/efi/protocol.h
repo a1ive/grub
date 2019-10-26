@@ -16,13 +16,12 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef GRUB_EFI_GRUB_PROTOCOL_HEADER
-#define GRUB_EFI_GRUB_PROTOCOL_HEADER
+#ifndef EFI_GRUB_PROTOCOL_HEADER
+#define EFI_GRUB_PROTOCOL_HEADER
 
 #include <grub/types.h>
 #include <grub/efi/api.h>
 #include <grub/efi/efi.h>
-#include <grub/efi/efiload.h>
 #include <grub/misc.h>
 #include <grub/file.h>
 #include <grub/env.h>
@@ -36,32 +35,28 @@
 struct grub_efi_grub_protocol
 {
   /* file */
-  grub_efi_status_t (*file_open) (grub_file_t *file, /* out */
+  grub_efi_status_t (*file_open) (grub_file_t *file,
                                   const char *name,
                                   enum grub_file_type type);
-  grub_efi_status_t (*file_open_w) (grub_file_t *file, /* out */
+  grub_efi_status_t (*file_open_w) (grub_file_t *file,
                                     const grub_efi_char16_t *name,
                                     enum grub_file_type type);
-  grub_efi_intn_t (*file_read) (grub_file_t *file /* in out */,
-                                void *buf /* out */,
+  grub_efi_intn_t (*file_read) (grub_file_t *file,
+                                void *buf,
                                 grub_efi_uintn_t len);
-  grub_efi_uint64_t (*file_seek) (grub_file_t *file /* in out */,
+  grub_efi_uint64_t (*file_seek) (grub_file_t *file,
                                   grub_efi_uint64_t offset);
-  grub_efi_status_t (*file_close) (grub_file_t *file /* in out */);
+  grub_efi_status_t (*file_close) (grub_file_t *file);
   grub_efi_uint64_t (*file_size) (const grub_file_t file);
   grub_efi_uint64_t (*file_tell) (const grub_file_t file);
   /* env */
   grub_efi_status_t (*env_set) (const char *name, const char *val);
-  grub_efi_status_t (*env_get) (const char *name, char **val /* out */);
+  const char * (*env_get) (const char *name);
   void (*env_unset) (const char *name);
   /* efi */
   grub_efi_boolean_t (*secure_boot) (void);
   grub_efi_int32_t (*compare_dp) (const grub_efi_device_path_t *dp1,
                                   const grub_efi_device_path_t *dp2);
-  /*efiload */
-  grub_efi_status_t (*load_driver) (grub_efi_uintn_t size,
-                                    void *boot_image,
-                                    int connect);
   /* command */
   grub_efi_status_t (*execute) (const char *name, int argc, char **argv);
   /* term */
@@ -71,5 +66,11 @@ struct grub_efi_grub_protocol
   void (*test) (void);
 };
 typedef struct grub_efi_grub_protocol grub_efi_grub_protocol_t;
+
+void
+grub_prot_init (void);
+
+void
+grub_prot_fini (void);
 
 #endif
