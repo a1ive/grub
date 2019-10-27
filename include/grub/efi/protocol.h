@@ -64,6 +64,8 @@ struct grub_efi_grub_protocol
   grub_efi_uint32_t (*get_key) (void);
   /* test */
   void (*test) (void);
+  /* private data */
+  grub_efi_uintn_t (*private_data) (void **addr);
 };
 typedef struct grub_efi_grub_protocol grub_efi_grub_protocol_t;
 

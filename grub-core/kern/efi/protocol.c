@@ -168,12 +168,24 @@ prot_test (void)
   grub_printf ("UEFI GRUB PROTOCOL\n");
 }
 
+static grub_efi_uintn_t
+prot_private_data (void **addr)
+{
+  *addr = grub_efi_protocol_data_addr;
+  if (!*addr)
+    return 0;
+  return grub_efi_protocol_data_len;
+}
+
 static grub_efi_grub_protocol_t grub_prot;
 static grub_efi_guid_t grub_prot_guid = GRUB_EFI_GRUB_PROTOCOL_GUID;
 
 void
 grub_prot_init (void)
 {
+  grub_efi_protocol_data_addr = NULL;
+  grub_efi_protocol_data_len = 0;
+
   grub_prot.file_open = prot_file_open;
   grub_prot.file_open_w = prot_file_open_w;
   grub_prot.file_read = prot_file_read;
@@ -190,6 +202,7 @@ grub_prot_init (void)
   grub_prot.wait_key = prot_wait_key;
   grub_prot.get_key = prot_get_key;
   grub_prot.test = prot_test;
+  grub_prot.private_data = prot_private_data;
   /* install */
   grub_efi_boot_services_t *b;
 

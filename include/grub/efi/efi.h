@@ -210,6 +210,9 @@ void grub_efi_set_prefix (void);
 extern grub_efi_system_table_t *EXPORT_VAR(grub_efi_system_table);
 extern grub_efi_handle_t EXPORT_VAR(grub_efi_image_handle);
 
+extern grub_efi_uintn_t EXPORT_VAR(grub_efi_protocol_data_len);
+extern void *EXPORT_VAR(grub_efi_protocol_data_addr);
+
 extern int EXPORT_VAR(grub_efi_is_finished);
 
 struct grub_net_card;

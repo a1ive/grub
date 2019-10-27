@@ -35,6 +35,9 @@ grub_efi_handle_t grub_efi_image_handle;
 /* The pointer to a system table. Filled in by the startup code.  */
 grub_efi_system_table_t *grub_efi_system_table;
 
+grub_efi_uintn_t grub_efi_protocol_data_len;
+void *grub_efi_protocol_data_addr;
+
 static grub_efi_guid_t console_control_guid = GRUB_EFI_CONSOLE_CONTROL_GUID;
 static grub_efi_guid_t loaded_image_guid = GRUB_EFI_LOADED_IMAGE_GUID;
 static grub_efi_guid_t device_path_guid = GRUB_EFI_DEVICE_PATH_GUID;
