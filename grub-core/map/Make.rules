@@ -1,12 +1,16 @@
 ARCH = $(shell uname -m | sed 's/i.86/ia32/;s/arm.*/arm/')
 ifeq ($(ARCH),ia32)
   ARCH3264 = -m32 -D__i386__
+  export GRUBARCH = i386
 else ifeq ($(ARCH),x86_64)
   ARCH3264 = -D__x86_64__
+  export GRUBARCH = x86_64
 else ifeq ($(ARCH),aarch64)
   ARCH3264 = -D__aarch64__
+  export GRUBARCH = arm64
 else ifeq ($(ARCH),arm)
   ARCH3264 = -D__arm__
+  export GRUBARCH = arm
 else
   $(error unknown architecture $(ARCH))
 endif
