@@ -123,20 +123,8 @@ vdisk_install (grub_file_t file);
 EFI_STATUS
 vpart_install (void);
 /* dputil */
-CHAR16 *
-StrStr (
-  IN      CONST CHAR16              *String,
-  IN      CONST CHAR16              *SearchString
-  );
-EFI_GUID *
-CopyGuid (
-  OUT EFI_GUID       *DestinationGuid,
-  IN CONST EFI_GUID  *SourceGuid
-  );
+CHAR16 *wstrstr (CONST CHAR16 *str, CONST CHAR16 *search_str);
+EFI_GUID *guidcpy (EFI_GUID *dest, CONST EFI_GUID *src);
 EFI_DEVICE_PATH_PROTOCOL *
-CreateDeviceNode (
-  IN UINT8                           NodeType,
-  IN UINT8                           NodeSubType,
-  IN UINT16                          NodeLength
-  );
+create_device_node (UINT8 node_type, UINT8 node_subtype, UINT16 node_len);
 #endif

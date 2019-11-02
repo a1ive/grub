@@ -92,9 +92,9 @@ vdisk_install (grub_file_t file)
   else
     vdisk.addr = 0;
 
-  tmp_dp = CreateDeviceNode (HARDWARE_DEVICE_PATH, HW_VENDOR_DP,
+  tmp_dp = create_device_node (HARDWARE_DEVICE_PATH, HW_VENDOR_DP,
                              sizeof(VENDOR_DEVICE_PATH));
-  ((VENDOR_DEVICE_PATH *)tmp_dp)->Guid = VDISK_GUID;
+  guidcpy (&((VENDOR_DEVICE_PATH *)tmp_dp)->Guid, &VDISK_GUID);
   vdisk.dp = AppendDevicePathNode (NULL, tmp_dp);
   if (tmp_dp)
     FreePool (tmp_dp);
@@ -118,9 +118,6 @@ vdisk_install (grub_file_t file)
   vdisk.media.LastBlock = DivU64x32 (vdisk.size + vdisk.bs - 1, vdisk.bs, 0) - 1;
   /* info */
   printf ("VDISK file=%s type=%d\n", vdisk.file->name, vdisk.type);
-  printf ("VDISK addr=%ld size=%ld bs=%d\n", vdisk.addr, vdisk.size,
-          vdisk.media.BlockSize);
-  printf ("VDISK blks=%ld\n", vdisk.media.LastBlock);
   text_dp = DevicePathToStr (vdisk.dp);
   printf ("VDISK DevicePath: %ls\n",text_dp);
   if (text_dp)

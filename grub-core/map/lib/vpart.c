@@ -62,7 +62,7 @@ get_mbr_info (void)
 
   vpart.addr = vpart.addr + vdisk.addr;
 
-  tmp_dp = CreateDeviceNode (MEDIA_DEVICE_PATH, MEDIA_HARDDRIVE_DP,
+  tmp_dp = create_device_node (MEDIA_DEVICE_PATH, MEDIA_HARDDRIVE_DP,
                              sizeof (HARDDRIVE_DEVICE_PATH));
   ((HARDDRIVE_DEVICE_PATH*)tmp_dp)->PartitionNumber = part_num;
   ((HARDDRIVE_DEVICE_PATH*)tmp_dp)->PartitionStart  = part_addr;
@@ -120,7 +120,7 @@ get_gpt_info (void)
     {
       part_addr = gpt_entry->StartingLBA * FD_BLOCK_SIZE;
       part_size = (gpt_entry->EndingLBA - gpt_entry->StartingLBA) * FD_BLOCK_SIZE;
-      CopyGuid (&gpt_part_signature, &gpt_entry->UniquePartitionGUID); 
+      guidcpy (&gpt_part_signature, &gpt_entry->UniquePartitionGUID); 
       part_num = i + 1;
       break;
     }
@@ -134,12 +134,12 @@ get_gpt_info (void)
   vpart.addr = (UINTN) part_addr + vdisk.addr;
   vpart.size = part_size;
 
-  tmp_dp = CreateDeviceNode (MEDIA_DEVICE_PATH, MEDIA_HARDDRIVE_DP,
+  tmp_dp = create_device_node (MEDIA_DEVICE_PATH, MEDIA_HARDDRIVE_DP,
                              sizeof (HARDDRIVE_DEVICE_PATH));
   ((HARDDRIVE_DEVICE_PATH*)tmp_dp)->PartitionNumber = part_num;
   ((HARDDRIVE_DEVICE_PATH*)tmp_dp)->PartitionStart = part_addr;
   ((HARDDRIVE_DEVICE_PATH*)tmp_dp)->PartitionSize = part_size;
-  CopyGuid ((EFI_GUID *)&(((HARDDRIVE_DEVICE_PATH*)tmp_dp)->Signature[0]),
+  guidcpy ((EFI_GUID *)&(((HARDDRIVE_DEVICE_PATH*)tmp_dp)->Signature[0]),
             &gpt_part_signature);
   ((HARDDRIVE_DEVICE_PATH*)tmp_dp)->MBRType = 2;
   ((HARDDRIVE_DEVICE_PATH*)tmp_dp)->SignatureType = 2;
@@ -218,7 +218,7 @@ get_iso_info (void)
   }
   vpart.addr = vpart.addr + vdisk.addr;
 
-  tmp_dp = CreateDeviceNode (MEDIA_DEVICE_PATH, MEDIA_CDROM_DP,
+  tmp_dp = create_device_node (MEDIA_DEVICE_PATH, MEDIA_CDROM_DP,
                              sizeof (CDROM_DEVICE_PATH));
   ((CDROM_DEVICE_PATH*)tmp_dp)->BootEntry = 1;
   ((CDROM_DEVICE_PATH*)tmp_dp)->PartitionStart = (vpart.addr - vdisk.addr) /
@@ -276,9 +276,6 @@ vpart_install (void)
   vpart.media.LastBlock = DivU64x32 (vpart.size + vdisk.bs - 1, vdisk.bs, 0) - 1;
   /* info */
   printf ("VPART file=%s type=%d\n", vpart.file->name, vpart.type);
-  printf ("VPART addr=%ld size=%ld bs=%d\n", vpart.addr, vpart.size,
-          vpart.media.BlockSize);
-  printf ("VPART blks=%ld\n", vpart.media.LastBlock);
   text_dp = DevicePathToStr (vpart.dp);
   printf ("VPART DevicePath: %ls\n",text_dp);
   if (text_dp)
@@ -327,7 +324,7 @@ vpart_install (void)
                          &gEfiComponentName2ProtocolGuid, (VOID**)&cn2_protocol);
       uefi_call_wrapper (cn2_protocol->GetDriverName, 3,
                          cn2_protocol, (CHAR8 *)"en-us", &driver_name);
-      if(driver_name && StrStr (driver_name, L"FAT File System Driver"))
+      if(driver_name && wstrstr (driver_name, L"FAT File System Driver"))
       {
         fat_handle = buf[i];
         break;

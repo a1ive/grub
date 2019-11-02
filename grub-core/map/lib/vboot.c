@@ -22,6 +22,20 @@
 #include <sstdlib.h>
 #include <private.h>
 
+static BOOLEAN
+guidcmp (EFI_GUID g1, EFI_GUID g2)
+{
+  int i;
+  if (g1.Data1 != g2.Data1 || g1.Data2 != g2.Data2 || g1.Data3 != g2.Data3)
+    return FALSE;
+  for (i = 0; i < 8; i++)
+  {
+    if (g1.Data4[i] != g2.Data4[i])
+      return FALSE;
+  }
+  return TRUE;
+}
+
 EFI_HANDLE
 vpart_boot (EFI_HANDLE *part_handle)
 {
@@ -34,18 +48,18 @@ vpart_boot (EFI_HANDLE *part_handle)
   return NULL;
 
   boot_file = FileDevicePath (part_handle, EFI_REMOVABLE_MEDIA_FILE_NAME);
+  text_dp = DevicePathToStr (boot_file);
+  printf ("DevicePath: %ls\n", text_dp);
+  if (text_dp)
+    FreePool (text_dp);
 
   status = uefi_call_wrapper (gBS->LoadImage, 6, TRUE, efi_image_handle,
                 boot_file, NULL, 0, (VOID **)&boot_image_handle);
   if (status != EFI_SUCCESS)
   {
-  printf ("failed to load image\n");
-  return NULL;
+    printf ("failed to load image\n");
+    return NULL;
   }
-  text_dp = DevicePathToStr (boot_file);
-  printf ("DevicePath: %ls\n", text_dp);
-  if (text_dp)
-  FreePool (text_dp);
   return boot_image_handle;
 }
 
@@ -60,7 +74,6 @@ vdisk_boot (void)
   EFI_DEVICE_PATH *boot_file = NULL;
   EFI_HANDLE boot_image_handle = NULL;
   CHAR16 *text_dp = NULL;
-  EFI_GUID vdisk_guid = VDISK_GUID;
 
   status = uefi_call_wrapper (gBS->LocateHandleBuffer, 5, ByProtocol,
                               &gEfiSimpleFileSystemProtocolGuid, NULL, &count, &buf);
@@ -69,15 +82,19 @@ vdisk_boot (void)
     printf ("SimpleFileSystemProtocol not found.\n");
     return NULL;
   }
-  printf ("Handles found %ld\n",count);
+  printf ("handle count: %zd\n", count);
   for (i = 0; i < count; i++)
   {
     tmp_dp = DevicePathFromHandle (buf[i]);
-
+    text_dp = DevicePathToStr (tmp_dp);
+    printf ("DevicePath: %ls\n",text_dp);
+    if (text_dp)
+      FreePool (text_dp);
     if (((VENDOR_DEVICE_PATH*)tmp_dp)->Header.Type != HARDWARE_DEVICE_PATH ||
         ((VENDOR_DEVICE_PATH*)tmp_dp)->Header.SubType != HW_VENDOR_DP ||
-        !CompareGuid (&((VENDOR_DEVICE_PATH*)tmp_dp)->Guid, &vdisk_guid))
+        !guidcmp (((VENDOR_DEVICE_PATH*)tmp_dp)->Guid, VDISK_GUID))
       continue;
+
     boot_file = FileDevicePath (buf[i], EFI_REMOVABLE_MEDIA_FILE_NAME);
 
     status = uefi_call_wrapper (gBS->LoadImage, 6, TRUE, efi_image_handle,
@@ -91,7 +108,7 @@ vdisk_boot (void)
     printf ("handle not found\n");
     return NULL;
   }
-  printf ("handle: %ld\n",i);
+  printf ("handle: %zd\n", i);
   text_dp = DevicePathToStr (boot_file);
   printf ("DevicePath: %ls\n",text_dp);
   if (text_dp)

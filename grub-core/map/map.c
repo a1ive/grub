@@ -76,7 +76,6 @@ efi_main (EFI_HANDLE image_handle, EFI_SYSTEM_TABLE *systab)
   printf ("mem: %d\n", cmd->mem);
   printf ("type: %d\n", cmd->type);
   printf ("file: %s\n", cmd->file->name);
-  printf ("size: %ld\n", cmd->file->size);
 
   printf ("vdisk_install\n");
   status = vdisk_install (cmd->file);

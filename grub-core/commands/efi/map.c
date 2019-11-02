@@ -45,6 +45,8 @@ enum disk_type
   HD,
   CD,
   FD,
+  MBR,
+  GPT,
 };
 
 struct grub_private_data

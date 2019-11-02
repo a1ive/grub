@@ -23,95 +23,62 @@
 #include <private.h>
 
 static UINT64
-WriteUnaligned64 (
-  OUT UINT64                    *Buffer,
-  IN  UINT64                    Value
-  )
+write_unaligned64 (UINT64 *buf, UINT64 val)
 {
-  return *Buffer = Value;
+  return *buf = val;
 }
 
 static UINT64
-ReadUnaligned64 (
-  IN CONST UINT64              *Buffer
-  )
+read_unaligned64 (CONST UINT64 *buf)
 {
-  return *Buffer;
+  return *buf;
 }
 
-CHAR16 *
-StrStr (
-  IN      CONST CHAR16              *String,
-  IN      CONST CHAR16              *SearchString
-  )
+CHAR16 *wstrstr
+(CONST CHAR16 *str, CONST CHAR16 *search_str)
 {
-  CONST CHAR16 *FirstMatch;
-  CONST CHAR16 *SearchStringTmp;
-
-  if (*SearchString == L'\0') {
-    return (CHAR16 *) String;
-  }
-
-  while (*String != L'\0') {
-    SearchStringTmp = SearchString;
-    FirstMatch = String;
-
-    while ((*String == *SearchStringTmp)
-            && (*String != L'\0')) {
-      String++;
-      SearchStringTmp++;
+  CONST CHAR16 *first_match;
+  CONST CHAR16 *search_str_tmp;
+  if (*search_str == L'\0')
+    return (CHAR16 *) str;
+  while (*str != L'\0')
+  {
+    search_str_tmp = search_str;
+    first_match = str;
+    while ((*str == *search_str_tmp) && (*str != L'\0'))
+    {
+      str++;
+      search_str_tmp++;
     }
-
-    if (*SearchStringTmp == L'\0') {
-      return (CHAR16 *) FirstMatch;
-    }
-
-    if (*String == L'\0') {
+    if (*search_str_tmp == L'\0')
+      return (CHAR16 *) first_match;
+    if (*str == L'\0')
       return NULL;
-    }
-
-    String = FirstMatch + 1;
+    str = first_match + 1;
   }
-
   return NULL;
 }
 
 EFI_GUID *
-CopyGuid (
-  OUT EFI_GUID       *DestinationGuid,
-  IN CONST EFI_GUID  *SourceGuid
-  )
+guidcpy (EFI_GUID *dest, CONST EFI_GUID *src)
 {
-  WriteUnaligned64 (
-    (UINT64*)DestinationGuid,
-    ReadUnaligned64 ((CONST UINT64*)SourceGuid)
-    );
-  WriteUnaligned64 (
-    (UINT64*)DestinationGuid + 1,
-    ReadUnaligned64 ((CONST UINT64*)SourceGuid + 1)
-    );
-  return DestinationGuid;
+  write_unaligned64 ((UINT64*)dest, read_unaligned64 ((CONST UINT64*)src));
+  write_unaligned64 ((UINT64*)dest + 1, read_unaligned64 ((CONST UINT64*)src + 1));
+  return dest;
 }
 
 EFI_DEVICE_PATH_PROTOCOL *
-CreateDeviceNode (
-  IN UINT8                           NodeType,
-  IN UINT8                           NodeSubType,
-  IN UINT16                          NodeLength
-  )
+create_device_node (UINT8 node_type, UINT8 node_subtype, UINT16 node_len)
 {
-  EFI_DEVICE_PATH_PROTOCOL      *DevicePath;
-
-  if (NodeLength < sizeof (EFI_DEVICE_PATH_PROTOCOL)) {
+  EFI_DEVICE_PATH_PROTOCOL *dp;
+  if (node_len < sizeof (EFI_DEVICE_PATH_PROTOCOL))
     return NULL;
+  dp = AllocateZeroPool (node_len);
+  if (dp != NULL)
+  {
+     dp->Type    = node_type;
+     dp->SubType = node_subtype;
+     SetDevicePathNodeLength (dp, node_len);
   }
-
-  DevicePath = AllocateZeroPool (NodeLength);
-  if (DevicePath != NULL) {
-     DevicePath->Type    = NodeType;
-     DevicePath->SubType = NodeSubType;
-     SetDevicePathNodeLength (DevicePath, NodeLength);
-  }
-
-  return DevicePath;
+  return dp;
 }
