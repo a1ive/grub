@@ -207,9 +207,14 @@ grub_prot_init (void)
   grub_efi_boot_services_t *b;
 
   b = grub_efi_system_table->boot_services;
-  efi_call_4 (b->install_protocol_interface,
-              &grub_efi_image_handle, &grub_prot_guid,
-              GRUB_EFI_NATIVE_INTERFACE, &grub_prot);
+  grub_efi_grub_protocol_t *installed_grub = NULL;
+  installed_grub = grub_efi_locate_protocol (&grub_prot_guid, NULL);
+  if (installed_grub)
+    installed_grub->private_data = grub_prot.private_data;
+  else
+    efi_call_4 (b->install_protocol_interface,
+                &grub_efi_image_handle, &grub_prot_guid,
+                GRUB_EFI_NATIVE_INTERFACE, &grub_prot);
 }
 
 void
