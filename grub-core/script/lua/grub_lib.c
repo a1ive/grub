@@ -1053,6 +1053,22 @@ grub_lua_random (lua_State *state)
   return 1;
 }
 
+static int
+grub_lua_disk_getsize (lua_State *state)
+{
+  const char *name;
+  name = luaL_checkstring (state, 1);
+  grub_disk_t disk = 0;
+  disk = grub_disk_open (name);
+  if (disk)
+  {
+    lua_pushinteger (state, grub_disk_get_size (disk));
+    grub_disk_close (disk);
+  }
+  else
+    lua_pushinteger (state, 0);
+  return 1;
+}
 
 luaL_Reg grub_lua_lib[] =
   {
@@ -1094,6 +1110,7 @@ luaL_Reg grub_lua_lib[] =
     {"gettext", grub_lua_gettext},
     {"get_time_ms", grub_lua_get_time_ms},
     {"random", grub_lua_random},
+    {"disk_getsize", grub_lua_disk_getsize},
     {0, 0}
   };
 
