@@ -29,8 +29,7 @@ check_image (void)
   mbr = AllocateZeroPool (FD_BLOCK_SIZE);
   if (!mbr)
     return FD;
-  uefi_call_wrapper (grub->file_seek, 2, &vdisk.file, 0);
-  uefi_call_wrapper (grub->file_read, 2, &vdisk.file, mbr, FD_BLOCK_SIZE);
+  read (cmd->disk, &vdisk.file, mbr, FD_BLOCK_SIZE, 0);
   if (mbr->Signature != MBR_SIGNATURE)
   {
     FreePool (mbr);
@@ -53,11 +52,11 @@ vdisk_install (grub_file_t file)
 {
   EFI_STATUS status;
   EFI_DEVICE_PATH *tmp_dp;
-  UINT64 size;
   enum disk_type type;
   CHAR16 *text_dp = NULL;
 
   vdisk.file = file;
+  vdisk.disk = cmd->disk;
   type = check_image ();
   /* block size */
   if (cmd->type == CD || type == CD)
@@ -68,7 +67,7 @@ vdisk_install (grub_file_t file)
   else
     vdisk.bs = FD_BLOCK_SIZE;
 
-  vdisk.size = uefi_call_wrapper (grub->file_size, 1, vdisk.file);
+  vdisk.size = get_size (cmd->disk, vdisk.file);
   uefi_call_wrapper (grub->env_set, 2, "enable_progress_indicator", "1");
   if (cmd->mem)
   {
@@ -79,15 +78,7 @@ vdisk_install (grub_file_t file)
       return EFI_NOT_FOUND;
     }
     printf ("Loading, please wait ...\n");
-    uefi_call_wrapper (grub->file_seek, 2, &vdisk.file, 0);
-    size = uefi_call_wrapper (grub->file_read, 3,
-                              &vdisk.file, (VOID *)vdisk.addr, (UINTN)vdisk.size);
-    if (size != vdisk.size)
-    {
-      printf ("failed to read\n");
-      FreePool (&vdisk.addr);
-      return EFI_NOT_FOUND;
-    }
+    read (cmd->disk, &vdisk.file, (VOID *)vdisk.addr, (UINTN)vdisk.size, 0);
   }
   else
     vdisk.addr = 0;
@@ -117,7 +108,6 @@ vdisk_install (grub_file_t file)
   vdisk.media.BlockSize = vdisk.bs;
   vdisk.media.LastBlock = DivU64x32 (vdisk.size + vdisk.bs - 1, vdisk.bs, 0) - 1;
   /* info */
-  printf ("VDISK file=%s type=%d\n", vdisk.file->name, vdisk.type);
   text_dp = DevicePathToStr (vdisk.dp);
   printf ("VDISK DevicePath: %ls\n",text_dp);
   if (text_dp)

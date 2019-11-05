@@ -38,8 +38,7 @@ get_mbr_info (void)
   if (!mbr)
     return FALSE;
 
-  uefi_call_wrapper (grub->file_seek, 2, &vdisk.file, 0);
-  uefi_call_wrapper (grub->file_read, 3, &vdisk.file, mbr, FD_BLOCK_SIZE);
+  read (cmd->disk, &vdisk.file, mbr, FD_BLOCK_SIZE, 0);
 
   for(i = 0; i < 4; i++)
   {
@@ -94,9 +93,8 @@ get_gpt_info (void)
   if(!gpt)
     return FALSE;
 
-  uefi_call_wrapper (grub->file_seek, 2,
-                     &vdisk.file, PRIMARY_PART_HEADER_LBA * FD_BLOCK_SIZE);
-  uefi_call_wrapper (grub->file_read, 3, &vdisk.file, gpt, FD_BLOCK_SIZE);
+  read (cmd->disk, &vdisk.file, gpt, FD_BLOCK_SIZE,
+        PRIMARY_PART_HEADER_LBA * FD_BLOCK_SIZE);
 
   if (gpt->Header.Signature != _EFI_PTAB_HEADER_ID)
   {
@@ -113,9 +111,8 @@ get_gpt_info (void)
 
   for (i=0; i < gpt->NumberOfPartitionEntries; i++)
   {
-    uefi_call_wrapper (grub->file_seek, 2,
-                       &vdisk.file, gpt_entry_pos+i*gpt_entry_size);
-    uefi_call_wrapper (grub->file_read, 3, &vdisk.file, gpt_entry, gpt_entry_size);
+    read (cmd->disk, &vdisk.file, gpt_entry, gpt_entry_size,
+          gpt_entry_pos + i * gpt_entry_size);
     if (CompareGuid (&gpt_entry->PartitionTypeGUID, &EfiPartTypeSystemPartitionGuid))
     {
       part_addr = gpt_entry->StartingLBA * FD_BLOCK_SIZE;
@@ -165,9 +162,7 @@ get_iso_info (void)
   if (!vol)
     return FALSE;
 
-  uefi_call_wrapper (grub->file_seek, 2,
-                     &vdisk.file, CD_BOOT_SECTOR * CD_BLOCK_SIZE);
-  uefi_call_wrapper (grub->file_read, 3, &vdisk.file, vol, CD_BLOCK_SIZE);
+  read (cmd->disk, &vdisk.file, vol, CD_BLOCK_SIZE, CD_BOOT_SECTOR * CD_BLOCK_SIZE);
 
   if (vol->Unknown.Type != CDVOL_TYPE_STANDARD ||
       CompareMem (vol->BootRecordVolume.SystemId, CDVOL_ELTORITO_ID,
@@ -178,9 +173,8 @@ get_iso_info (void)
   }
 
   catalog = (ELTORITO_CATALOG*) vol;
-  uefi_call_wrapper (grub->file_seek, 2, &vdisk.file,
-                     *((UINT32*) vol->BootRecordVolume.EltCatalog) * CD_BLOCK_SIZE);
-  uefi_call_wrapper (grub->file_read, 3, &vdisk.file, catalog, CD_BLOCK_SIZE);
+  read (cmd->disk, &vdisk.file, catalog, CD_BLOCK_SIZE,
+        *((UINT32*) vol->BootRecordVolume.EltCatalog) * CD_BLOCK_SIZE);
   if (catalog[0].Catalog.Indicator != ELTORITO_ID_CATALOG)
   {
     FreePool (vol);
@@ -197,10 +191,7 @@ get_iso_info (void)
       vpart.addr = catalog[i+1].Boot.Lba * CD_BLOCK_SIZE;
       vpart.size = catalog[i+1].Boot.SectorCount * FD_BLOCK_SIZE;
 
-      uefi_call_wrapper (grub->file_seek, 2, &vdisk.file,
-                         vpart.addr + 0x13);
-      uefi_call_wrapper (grub->file_read, 3, &vdisk.file,
-                         &dbr_img_buf, dbr_img_size);
+      read (cmd->disk, &vdisk.file, &dbr_img_buf, dbr_img_size, vpart.addr + 0x13);
       dbr_img_size = dbr_img_buf * FD_BLOCK_SIZE;
       vpart.size = vpart.size > dbr_img_size ? vpart.size : dbr_img_size;
 
@@ -259,6 +250,7 @@ vpart_install (void)
 
   vpart.handle = NULL;
   vpart.file = vdisk.file;
+  vpart.disk = vdisk.disk;
   vpart.mem = vdisk.mem;
   vpart.type = vdisk.type;
 
@@ -275,7 +267,6 @@ vpart_install (void)
   vpart.media.BlockSize = vdisk.bs;
   vpart.media.LastBlock = DivU64x32 (vpart.size + vdisk.bs - 1, vdisk.bs, 0) - 1;
   /* info */
-  printf ("VPART file=%s type=%d\n", vpart.file->name, vpart.type);
   text_dp = DevicePathToStr (vpart.dp);
   printf ("VPART DevicePath: %ls\n",text_dp);
   if (text_dp)

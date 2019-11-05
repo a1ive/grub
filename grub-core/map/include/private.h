@@ -73,7 +73,8 @@ struct grub_private_data
   BOOLEAN mem;
   BOOLEAN pause;
   enum disk_type type;
-  grub_file_t file;
+  BOOLEAN disk;
+  VOID *file;
 };
 
 typedef struct
@@ -81,7 +82,8 @@ typedef struct
   BOOLEAN present;
   EFI_HANDLE handle;
   EFI_DEVICE_PATH *dp;
-  grub_file_t file;
+  BOOLEAN disk;
+  VOID *file;
   BOOLEAN mem;
   UINTN addr;
   UINT64 size;
@@ -99,6 +101,8 @@ extern EFI_HANDLE efi_image_handle;
 extern vdisk_t vdisk;
 extern vdisk_t vpart;
 void pause (void);
+VOID read (BOOLEAN disk, VOID **file, VOID *buf, UINTN len, UINT64 offset);
+UINT64 get_size (BOOLEAN disk, VOID *file);
 /* vblock */
 extern EFI_BLOCK_IO_PROTOCOL blockio_template;
 EFI_STATUS EFIAPI

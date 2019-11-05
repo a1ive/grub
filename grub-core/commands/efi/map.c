@@ -54,7 +54,8 @@ struct grub_private_data
   grub_efi_boolean_t mem;
   grub_efi_boolean_t pause;
   enum disk_type type;
-  grub_file_t file;
+  grub_efi_boolean_t disk;
+  void *file;
 };
 
 static struct grub_private_data map;
@@ -64,6 +65,7 @@ static const struct grub_arg_option options_map[] =
   {"mem", 'm', 0, N_("Copy to RAM."), 0, 0},
   {"pause", 'p', 0, N_("Show info and wait for keypress."), 0, 0},
   {"type", 't', 0, N_("Specify the disk type."), N_("CD/HD/FD"), ARG_TYPE_STRING},
+  {"disk", 'd', 0, N_("Map the entire disk."), 0, 0},
   {0, 0, 0, 0, 0, 0}
 };
 
@@ -72,6 +74,7 @@ enum options_map
   MAP_MEM,
   MAP_PAUSE,
   MAP_TYPE,
+  MAP_DISK,
 };
 
 static grub_err_t
@@ -149,17 +152,27 @@ grub_cmd_map (grub_extcmd_context_t ctxt, int argc, char **args)
     grub_error (GRUB_ERR_BAD_ARGUMENT, N_("filename expected"));
     goto fail;
   }
-  map.file = grub_file_open (args[0], GRUB_FILE_TYPE_LOOPBACK);
-  if (!map.file)
+  if (state[MAP_DISK].set)
   {
-    grub_error (GRUB_ERR_FILE_READ_ERROR, N_("failed to open file"));
-    goto fail;
+    map.disk = TRUE;
+    map.file = grub_disk_open (args[0]);
+    map.type = HD;
+  }
+  else
+  {
+    map.disk = FALSE;
+    map.file = grub_file_open (args[0], GRUB_FILE_TYPE_LOOPBACK);
+    map.type = CD;
+    char c = grub_tolower (args[0][grub_strlen (args[0]) - 1]);
+    if (c != 'o') /* iso */
+      map.type = HD;
   }
 
-  map.type = CD;
-  char c = grub_tolower (args[0][grub_strlen (args[0]) - 1]);
-  if (c != 'o') /* iso */
-    map.type = HD;
+  if (!map.file)
+  {
+    grub_error (GRUB_ERR_FILE_READ_ERROR, N_("failed to open file/disk"));
+    goto fail;
+  }
 
   if (state[MAP_TYPE].set)
   {
@@ -176,7 +189,12 @@ grub_cmd_map (grub_extcmd_context_t ctxt, int argc, char **args)
 
 fail:
   if (map.file)
-    grub_file_close (map.file);
+  {
+    if (map.disk)
+      grub_disk_close (map.file);
+    else
+      grub_file_close (map.file);
+  }
   return grub_errno;
 }
 

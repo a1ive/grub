@@ -96,6 +96,35 @@ enum grub_file_type
 typedef VOID (*grub_disk_read_hook_t) (UINT64 sector, UINT32 offset,
                                        UINT32 length, VOID *data);
 
+#define GRUB_DISK_SECTOR_SIZE 0x200
+#define GRUB_DISK_SECTOR_BITS 9
+
+struct grub_disk
+{
+  /* The disk name.  */
+  const char *name;
+  /* The underlying disk device.  */
+  VOID *dev;
+  /* The total number of sectors.  */
+  UINT64 total_sectors;
+  /* Logarithm of sector size.  */
+  UINT32 log_sector_size;
+  /* Maximum number of sectors read divided by GRUB_DISK_CACHE_SIZE.  */
+  UINT32 max_agglomerate;
+  /* The id used by the disk cache manager.  */
+  UINTN id;
+  /* The partition information. This is machine-specific.  */
+  VOID *partition;
+  /* Called when a sector was read. OFFSET is between 0 and
+     the sector size minus 1, and LENGTH is between 0 and the sector size.  */
+  grub_disk_read_hook_t read_hook;
+  /* Caller-specific data passed to the read hook.  */
+  VOID *read_hook_data;
+  /* Device-specific data.  */
+  VOID *data;
+};
+typedef struct grub_disk *grub_disk_t;
+
 struct grub_file
 {
   /* File name.  */
@@ -158,6 +187,12 @@ struct grub_efi_grub_protocol
   VOID (*test) (VOID);
   /* private data */
   UINTN (*private_data) (VOID **addr);
+  /* disk */
+  EFI_STATUS (*disk_open) (grub_disk_t *disk, const char *name);
+  VOID (*disk_close) (grub_disk_t *disk);
+  EFI_STATUS (*disk_read) (grub_disk_t *disk, UINT64 sector,
+                           UINT64 offset, UINTN size, VOID *buf);
+  UINT64 (*disk_size) (grub_disk_t disk);
 };
 typedef struct grub_efi_grub_protocol grub_efi_grub_protocol_t;
 

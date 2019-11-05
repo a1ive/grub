@@ -77,9 +77,8 @@ blockio_read (EFI_BLOCK_IO_PROTOCOL *this, UINT32 media_id,
   }
   else
   {
-    uefi_call_wrapper (grub->file_seek, 2, &data->file, data->addr +
-                       MultU64x32 (lba, data->media.BlockSize));
-    uefi_call_wrapper (grub->file_read, 3, &data->file, buf, len);
+    read (data->disk, &data->file, buf, len,
+          data->addr + MultU64x32 (lba, data->media.BlockSize));
   }
   return EFI_SUCCESS;
 }

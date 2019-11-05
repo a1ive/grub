@@ -32,24 +32,37 @@ grub_efi_grub_protocol_t *grub = NULL;
 struct grub_private_data *cmd;
 vdisk_t vdisk, vpart;
 
-static void
-die (const char *fmt, ...)
-{
-  va_list args;
-  /* Print message */
-  va_start ( args, fmt );
-  vprintf ( fmt, args );
-  va_end ( args );
-  /* Exit */
-  uefi_call_wrapper (gBS->Exit, 4, efi_image_handle, EFI_LOAD_ERROR, 0, NULL);
-}
-
 void
 pause (void)
 {
   printf ( "Press any key to continue booting..." );
   uefi_call_wrapper (grub->wait_key, 0);
   printf ( "\n" );
+}
+
+VOID
+read (BOOLEAN disk, VOID **file, VOID *buf, UINTN len, UINT64 offset)
+{
+  if (!disk)
+  {
+    uefi_call_wrapper (grub->file_seek, 2, (grub_file_t *)file, offset);
+    uefi_call_wrapper (grub->file_read, 3, (grub_file_t *)file, buf, len);
+  }
+  else
+  {
+    uefi_call_wrapper (grub->disk_read, 5, (grub_disk_t *)file, 0, offset, len, buf);
+  }
+}
+
+UINT64
+get_size (BOOLEAN disk, VOID *file)
+{
+  UINT64 size = 0;
+  if (!disk)
+    size = uefi_call_wrapper (grub->file_size, 1, file);
+  else
+    size = uefi_call_wrapper (grub->disk_size, 1, file) << GRUB_DISK_SECTOR_BITS;
+  return size;
 }
 
 EFI_STATUS
@@ -68,14 +81,18 @@ efi_main (EFI_HANDLE image_handle, EFI_SYSTEM_TABLE *systab)
                               &grub_guid, NULL, (VOID **)&grub);
   if (status != EFI_SUCCESS)
   {
-    die ("Could not open grub protocol: %#lx\n", ((unsigned long) status));
+    printf ("Could not open grub protocol: %#lx\n", ((unsigned long) status));
+    goto fail;
   }
   uefi_call_wrapper (grub->test, 0);
   uefi_call_wrapper (grub->private_data, 1, (VOID **)&cmd);
 
   printf ("mem: %d\n", cmd->mem);
   printf ("type: %d\n", cmd->type);
-  printf ("file: %s\n", cmd->file->name);
+  if (cmd->disk)
+    printf ("disk: %s\n", ((grub_disk_t)(cmd->file))->name);
+  else
+    printf ("file: %s\n", ((grub_file_t)(cmd->file))->name);
 
   printf ("vdisk_install\n");
   status = vdisk_install (cmd->file);
