@@ -69,7 +69,7 @@ struct grub_efi_grub_protocol
   grub_efi_uintn_t (*private_data) (void **addr);
   /* disk */
   grub_efi_status_t (*disk_open) (grub_disk_t *disk, const char *name);
-  grub_efi_status_t (*disk_close) (grub_disk_t *disk);
+  void (*disk_close) (grub_disk_t *disk);
   grub_efi_status_t (*disk_read) (grub_disk_t *disk, grub_efi_uint64_t sector,
                                   grub_efi_uint64_t offset, grub_efi_uintn_t size,
                                   void *buf);

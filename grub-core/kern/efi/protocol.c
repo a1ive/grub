@@ -186,14 +186,10 @@ prot_disk_open (grub_disk_t *disk, const char *name)
   return GRUB_EFI_SUCCESS;
 }
 
-static grub_efi_status_t
+static void
 prot_disk_close (grub_disk_t *disk)
 {
-  grub_err_t err;
-  err = grub_disk_close (*disk);
-  if (err)
-    return GRUB_EFI_LOAD_ERROR;
-  return GRUB_EFI_SUCCESS;
+  grub_disk_close (*disk);
 }
 
 static grub_efi_status_t
