@@ -177,6 +177,42 @@ prot_private_data (void **addr)
   return grub_efi_protocol_data_len;
 }
 
+static grub_efi_status_t
+prot_disk_open (grub_disk_t *disk, const char *name)
+{
+  *disk = grub_disk_open (name);
+  if (!*disk)
+    return GRUB_EFI_NOT_FOUND;
+  return GRUB_EFI_SUCCESS;
+}
+
+static grub_efi_status_t
+prot_disk_close (grub_disk_t *disk)
+{
+  grub_err_t err;
+  err = grub_disk_close (*disk);
+  if (err)
+    return GRUB_EFI_LOAD_ERROR;
+  return GRUB_EFI_SUCCESS;
+}
+
+static grub_efi_status_t
+prot_disk_read (grub_disk_t *disk, grub_efi_uint64_t sector,
+                grub_efi_uint64_t offset, grub_efi_uintn_t size, void *buf)
+{
+  grub_err_t err;
+  err = grub_disk_read (*disk, sector, offset, size, buf);
+  if (err)
+    return GRUB_EFI_LOAD_ERROR;
+  return GRUB_EFI_SUCCESS;
+}
+
+static grub_efi_uint64_t
+prot_disk_size (grub_disk_t disk)
+{
+  return grub_disk_get_size (disk);
+}
+
 static grub_efi_grub_protocol_t grub_prot;
 static grub_efi_guid_t grub_prot_guid = GRUB_EFI_GRUB_PROTOCOL_GUID;
 
@@ -203,6 +239,10 @@ grub_prot_init (void)
   grub_prot.get_key = prot_get_key;
   grub_prot.test = prot_test;
   grub_prot.private_data = prot_private_data;
+  grub_prot.disk_open = prot_disk_open;
+  grub_prot.disk_close = prot_disk_close;
+  grub_prot.disk_read = prot_disk_read;
+  grub_prot.disk_size = prot_disk_size;
   /* install */
   grub_efi_boot_services_t *b;
 
