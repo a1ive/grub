@@ -21,7 +21,7 @@ struct grub_wimboot_context
 //WIMBOOT BINARY
 #ifdef __x86_64__
 #include <grub/x86_64/efi/wimboot_bin.h>
-#elif __i386__
+#elif defined(__i386__)
 #include <grub/i386/efi/wimboot_bin.h>
 #endif /* WIMBOOT_BIN */
 #endif /* _WIMBOOT_H */
