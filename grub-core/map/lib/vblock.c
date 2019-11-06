@@ -53,9 +53,6 @@ blockio_read (EFI_BLOCK_IO_PROTOCOL *this, UINT32 media_id,
 
   data = VDISK_BLOCKIO_TO_PARENT(this);
 
-  //printf ("block_io read %ld from %ld\n", len, lba);
-  //printf ("file: %s\n", data->file->name);
-  //uefi_call_wrapper (grub->wait_key, 0);
   if (media_id != data->media.MediaId)
     return EFI_MEDIA_CHANGED;
 
@@ -78,7 +75,7 @@ blockio_read (EFI_BLOCK_IO_PROTOCOL *this, UINT32 media_id,
   else
   {
     read (data->disk, &data->file, buf, len,
-          data->addr + MultU64x32 (lba, data->media.BlockSize));
+          (UINT64)data->addr + MultU64x32 (lba, data->media.BlockSize));
   }
   return EFI_SUCCESS;
 }

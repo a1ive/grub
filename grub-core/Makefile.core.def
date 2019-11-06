@@ -2801,7 +2801,6 @@ module = {
 module = {
   name = map;
   common = commands/efi/map.c;
-  enable = i386_efi;
   enable = x86_64_efi;
 };
 

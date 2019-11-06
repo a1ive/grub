@@ -44,8 +44,10 @@
 
 #define CD_BOOT_SECTOR 17
 #define CD_BLOCK_SIZE 2048
+#define CD_SHIFT 11
 
-#define FD_BLOCK_SIZE 512
+#define FD_BLOCK_SIZE 512 /* 0x200 */
+#define FD_SHIFT 9
 #define BLOCK_OF_1_44MB 0xB40
 
 #define VDISK_BLOCKIO_TO_PARENT(a) STD_CR(a, vdisk_t, block_io)

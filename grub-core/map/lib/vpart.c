@@ -47,7 +47,7 @@ get_mbr_info (void)
       part_addr = *(UINT32*)(mbr->Partition[i].StartingLBA);
       vpart.addr = part_addr * FD_BLOCK_SIZE;
       part_size = *(UINT32*)(mbr->Partition[i].SizeInLBA);
-      vpart.size = part_size * FD_BLOCK_SIZE;
+      vpart.size = LShiftU64 (part_size, FD_SHIFT);
       part_num = i + 1;
       break;
     }
@@ -102,7 +102,7 @@ get_gpt_info (void)
     return FALSE; 
   }
 
-  gpt_entry_pos = gpt->PartitionEntryLBA * FD_BLOCK_SIZE;
+  gpt_entry_pos = LShiftU64 (gpt->PartitionEntryLBA, FD_SHIFT);
   gpt_entry_size = gpt->SizeOfPartitionEntry;  
   gpt_entry = AllocateZeroPool (gpt->SizeOfPartitionEntry *
                                 gpt->NumberOfPartitionEntries);
@@ -115,8 +115,9 @@ get_gpt_info (void)
           gpt_entry_pos + i * gpt_entry_size);
     if (CompareGuid (&gpt_entry->PartitionTypeGUID, &EfiPartTypeSystemPartitionGuid))
     {
-      part_addr = gpt_entry->StartingLBA * FD_BLOCK_SIZE;
-      part_size = (gpt_entry->EndingLBA - gpt_entry->StartingLBA) * FD_BLOCK_SIZE;
+      part_addr = LShiftU64 (gpt_entry->StartingLBA, FD_SHIFT);
+      part_size = LShiftU64(gpt_entry->EndingLBA - gpt_entry->StartingLBA,
+                            FD_SHIFT);
       guidcpy (&gpt_part_signature, &gpt_entry->UniquePartitionGUID); 
       part_num = i + 1;
       break;
@@ -214,7 +215,7 @@ get_iso_info (void)
   ((CDROM_DEVICE_PATH*)tmp_dp)->BootEntry = 1;
   ((CDROM_DEVICE_PATH*)tmp_dp)->PartitionStart = (vpart.addr - vdisk.addr) /
                                                  CD_BLOCK_SIZE;
-  ((CDROM_DEVICE_PATH*)tmp_dp)->PartitionSize = vpart.size / CD_BLOCK_SIZE;
+  ((CDROM_DEVICE_PATH*)tmp_dp)->PartitionSize = RShiftU64(vpart.size, CD_SHIFT);
   vpart.dp = AppendDevicePathNode (vdisk.dp, tmp_dp);
   FreePool (tmp_dp);
   FreePool (vol);
@@ -225,7 +226,7 @@ EFI_STATUS
 vpart_install (void)
 {
   EFI_STATUS status;
-  CHAR16 * text_dp = NULL;
+  CHAR16 *text_dp = NULL;
 
   switch (vdisk.type)
   {
@@ -267,6 +268,13 @@ vpart_install (void)
   vpart.media.BlockSize = vdisk.bs;
   vpart.media.LastBlock = DivU64x32 (vpart.size + vdisk.bs - 1, vdisk.bs, 0) - 1;
   /* info */
+  printf ("VPART file=%s type=%d\n",
+          vpart.disk ? ((grub_disk_t)(vpart.file))->name :
+          ((grub_file_t)(vpart.file))->name, vpart.type);
+  printf ("VPART addr=%ld size=%lld\n", (unsigned long)vpart.addr,
+          (unsigned long long)vpart.size);
+  printf ("VPART blksize=%d lastblk=%lld\n", vpart.media.BlockSize,
+          (unsigned long long)vpart.media.LastBlock);
   text_dp = DevicePathToStr (vpart.dp);
   printf ("VPART DevicePath: %ls\n",text_dp);
   if (text_dp)

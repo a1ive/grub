@@ -61,7 +61,8 @@ get_size (BOOLEAN disk, VOID *file)
   if (!disk)
     size = uefi_call_wrapper (grub->file_size, 1, file);
   else
-    size = uefi_call_wrapper (grub->disk_size, 1, file) << GRUB_DISK_SECTOR_BITS;
+    size = LShiftU64 (uefi_call_wrapper (grub->disk_size, 1, file),
+                      GRUB_DISK_SECTOR_BITS);
   return size;
 }
 

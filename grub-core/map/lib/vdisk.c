@@ -108,6 +108,13 @@ vdisk_install (grub_file_t file)
   vdisk.media.BlockSize = vdisk.bs;
   vdisk.media.LastBlock = DivU64x32 (vdisk.size + vdisk.bs - 1, vdisk.bs, 0) - 1;
   /* info */
+  printf ("VDISK file=%s type=%d\n",
+          vdisk.disk ? ((grub_disk_t)(vdisk.file))->name :
+          ((grub_file_t)(vdisk.file))->name, vdisk.type);
+  printf ("VDISK addr=%ld size=%lld\n", (unsigned long)vdisk.addr,
+          (unsigned long long)vdisk.size);
+  printf ("VDISK blksize=%d lastblk=%lld\n", vdisk.media.BlockSize,
+          (unsigned long long)vdisk.media.LastBlock);
   text_dp = DevicePathToStr (vdisk.dp);
   printf ("VDISK DevicePath: %ls\n",text_dp);
   if (text_dp)

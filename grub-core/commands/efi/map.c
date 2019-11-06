@@ -34,8 +34,6 @@
 
 #ifdef __x86_64__
 #include <grub/x86_64/efi/map.h>
-#elif __i386__
-#include <grub/i386/efi/map.h>
 #endif
 
 GRUB_MOD_LICENSE ("GPLv3+");
