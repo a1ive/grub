@@ -89,7 +89,7 @@
 %type <cmd> grubcmd ifclause ifcmd forcmd whilecmd untilcmd
 %type <cmd> command commands1 statement
 
-%pure-parser
+%define api.pure
 %lex-param   { struct grub_parser_param *state };
 %parse-param { struct grub_parser_param *state };
 
