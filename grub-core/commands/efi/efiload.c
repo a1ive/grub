@@ -46,7 +46,7 @@ connect_all_efi (void)
   grub_efi_handle_t *handle_buffer;
   grub_efi_uintn_t index;
   grub_efi_boot_services_t *b;
-
+  grub_printf ("DEBUG: Connecting ...\n");
   b = grub_efi_system_table->boot_services;
   status = efi_call_5 (b->locate_handle_buffer,
                        GRUB_EFI_ALL_HANDLES,
@@ -58,12 +58,14 @@ connect_all_efi (void)
 
   for (index = 0; index < handle_count; index++)
   {
-    status = efi_call_4 (b->connect_controller, handle_buffer[index], NULL, NULL, 1);
+    status = efi_call_4 (b->connect_controller,
+                         handle_buffer[index], NULL, NULL, TRUE);
   }
 
-  if (handle_buffer != NULL)
+  if (handle_buffer)
+  {
     efi_call_1 (b->free_pool, handle_buffer);
-
+  }
   return GRUB_EFI_SUCCESS;
 }
 
@@ -76,34 +78,32 @@ grub_efi_driver_load (grub_size_t size, void *boot_image, int connect)
   grub_efi_loaded_image_t *loaded_image;
 
   b = grub_efi_system_table->boot_services;
-  status = efi_call_6 (b->load_image, 0, grub_efi_image_handle, NULL,
-		       boot_image, size,
-		       &driver_handle);
-  if (status != GRUB_EFI_SUCCESS)
-    {
-      if (status == GRUB_EFI_OUT_OF_RESOURCES)
-	grub_error (GRUB_ERR_OUT_OF_MEMORY, "out of resources");
-      else
-	grub_error (GRUB_ERR_BAD_OS, "cannot load image");
 
-      goto fail;
-    }
+  status = efi_call_6 (b->load_image, 0, grub_efi_image_handle, NULL,
+                       boot_image, size, &driver_handle);
+  if (status != GRUB_EFI_SUCCESS)
+  {
+    if (status == GRUB_EFI_OUT_OF_RESOURCES)
+      grub_error (GRUB_ERR_OUT_OF_MEMORY, "out of resources");
+    else
+      grub_error (GRUB_ERR_BAD_OS, "cannot load image");
+    goto fail;
+  }
   loaded_image = grub_efi_get_loaded_image (driver_handle);
   if (! loaded_image)
-    {
-      grub_error (GRUB_ERR_BAD_OS, "no loaded image available");
-      goto fail;
-    }
-  
-  status = efi_call_3 (b->handle_protocol,
-        driver_handle,
-        &loaded_image_protocol_guid,
-        (void **)&loaded_image);
+  {
+    grub_error (GRUB_ERR_BAD_OS, "no loaded image available");
+    goto fail;
+  }
+  grub_printf ("DEBUG: Registering loaded image\n");
+  status = efi_call_3 (b->handle_protocol, driver_handle, 
+                       &loaded_image_protocol_guid, (void **)&loaded_image);
   if (status != GRUB_EFI_SUCCESS)
   {
     grub_printf ("Not a dirver\n");
     goto fail;
   }
+  grub_printf ("DEBUG: StartImage: %p\n", boot_image);
   status = efi_call_3 (b->start_image, driver_handle, NULL, NULL);
   if (status != GRUB_EFI_SUCCESS)
   {
@@ -140,7 +140,7 @@ grub_cmd_efiload (grub_extcmd_context_t ctxt,
   grub_ssize_t size;
   grub_efi_physical_address_t address;
   void *boot_image = 0;
-  
+
   b = grub_efi_system_table->boot_services;
   if (argc != 1)
     goto fail;
@@ -150,35 +150,31 @@ grub_cmd_efiload (grub_extcmd_context_t ctxt,
     goto fail;
   size = grub_file_size (file);
   if (!size)
-    {
-      grub_error (GRUB_ERR_BAD_OS, N_("premature end of file %s"),
-		  args[0]);
-      goto fail;
-    }
+  {
+    grub_error (GRUB_ERR_BAD_OS, N_("premature end of file %s"), args[0]);
+    goto fail;
+  }
   pages = (((grub_efi_uintn_t) size + ((1 << 12) - 1)) >> 12);
   status = efi_call_4 (b->allocate_pages, GRUB_EFI_ALLOCATE_ANY_PAGES,
-			      GRUB_EFI_LOADER_CODE,
-			      pages, &address);
+                       GRUB_EFI_LOADER_CODE, pages, &address);
   if (status != GRUB_EFI_SUCCESS)
-    {
-      grub_printf ("Failed to allocate %u pages\n",
-		    (unsigned int) pages);
-      grub_error (GRUB_ERR_OUT_OF_MEMORY, N_("out of memory"));
-      goto fail;
-    }
+  {
+    grub_printf ("Failed to allocate %u pages\n", (unsigned int) pages);
+    grub_error (GRUB_ERR_OUT_OF_MEMORY, N_("out of memory"));
+    goto fail;
+  }
   boot_image = (void *) ((grub_addr_t) address);
   if (grub_file_read (file, boot_image, size) != size)
-    {
-      if (grub_errno == GRUB_ERR_NONE)
-	grub_error (GRUB_ERR_BAD_OS, N_("premature end of file %s"),
-		    args[0]);
-      goto fail;
-    }
+  {
+    if (grub_errno == GRUB_ERR_NONE)
+      grub_error (GRUB_ERR_BAD_OS, N_("premature end of file %s"), args[0]);
+    goto fail;
+  }
   grub_file_close (file);
   if (state[0].set)
     connect = 0;
   grub_errno = grub_efi_driver_load (size, boot_image, connect);
-  
+
   return grub_errno;
 fail:
   grub_printf ("ERROR\n");
