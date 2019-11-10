@@ -1145,6 +1145,29 @@ struct grub_efi_simple_text_output_mode
 };
 typedef struct grub_efi_simple_text_output_mode grub_efi_simple_text_output_mode_t;
 
+struct grub_efi_capsule_header
+{
+  grub_efi_guid_t capsule_guid;
+  grub_efi_uint32_t header_size;
+  grub_efi_uint32_t flags;
+  grub_efi_uint32_t capsule_image_size;
+};
+typedef struct grub_efi_capsule_header grub_efi_capsule_header_t;
+
+struct grub_efi_capsule_block_descriptor
+{
+  grub_efi_uint64_t length;
+  union {
+    grub_efi_physical_address_t data_block;
+    grub_efi_physical_address_t continuation_pointer;
+  };
+};
+typedef struct grub_efi_capsule_block_descriptor grub_efi_capsule_block_descriptor_t;
+
+#define GRUB_EFI_CAPSULE_FLAGS_PERSIST_ACROSS_RESET  0x00010000
+#define GRUB_EFI_CAPSULE_FLAGS_POPULATE_SYSTEM_TABLE 0x00020000
+#define GRUB_EFI_CAPSULE_FLAGS_INITIATE_RESET        0x00040000
+
 /* Tables.  */
 struct grub_efi_table_header
 {
@@ -1436,6 +1459,24 @@ struct grub_efi_runtime_services
 		   grub_efi_status_t reset_status,
 		   grub_efi_uintn_t data_size,
 		   grub_efi_char16_t *reset_data);
+
+  /* UEFI 2.0 additions - check version before using! */
+  grub_efi_status_t
+  (*update_capsule) (grub_efi_capsule_header_t **capsule_header_array,
+                     grub_efi_uintn_t capsule_count,
+                     grub_efi_physical_address_t scatter_gather_list);
+
+  grub_efi_status_t
+  (*query_capsule_capabilities) (grub_efi_capsule_header_t **capsule_header_array,
+                                 grub_efi_uintn_t capsule_count,
+                                 grub_efi_uint64_t *maximum_capsule_size,
+                                 grub_efi_reset_type_t *reset_type);
+
+  grub_efi_status_t
+  (*query_variable_info) (grub_efi_uint32_t attributes,
+                          grub_efi_uint64_t *maximum_variable_storage_size,
+                          grub_efi_uint64_t *remaining_variable_storage_size,
+                          grub_efi_uint64_t *maximum_variable_size);
 };
 typedef struct grub_efi_runtime_services grub_efi_runtime_services_t;
 
