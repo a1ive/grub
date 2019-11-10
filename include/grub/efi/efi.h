@@ -39,53 +39,6 @@
 #define MESSAGING_DEVICE_PATH     0x03
 #define HARDWARE_DEVICE_PATH      0x01
 
-#define EFI_DEVPATH_INIT( Name, Type, SubType)  \
-{  \
-  .type    = (Type),                  \
-  .subtype = (SubType),               \
-  .length  = sizeof (Name) & 0xffff,  \
-}
-
-#define EFI_DEVPATH_END_INIT(name)  \
-  EFI_DEVPATH_INIT (name, GRUB_EFI_END_DEVICE_PATH_TYPE,  \
-  GRUB_EFI_END_ENTIRE_DEVICE_PATH_SUBTYPE)
-
-#define EFI_DEVPATH_VENDOR_INIT(name)  \
-{  \
-  .header = EFI_DEVPATH_INIT (name, HARDWARE_DEVICE_PATH, HW_VENDOR_DP),  \
-  .vendor_guid = EFI_VDISK_GUID,  \
-}
-
-#define EFI_DEVPATH_ATA_INIT(name)  \
-{  \
-  .header = EFI_DEVPATH_INIT (name, MESSAGING_DEVICE_PATH, MSG_ATAPI_DP),  \
-  .primary_secondary = 0,  \
-  .slave_master = 0,  \
-  .lun = 0,  \
-}
-
-#define EFI_DEVPATH_CD_INIT(name)  \
-{  \
-  .header = EFI_DEVPATH_INIT (name, MEDIA_DEVICE_PATH, MEDIA_CDROM_DP),  \
-  .boot_entry = 1,  \
-  .partition_start = 0,  \
-  .partition_size = 0,  \
-}
-
-#define EFI_DEVPATH_HD_INIT(name)  \
-{  \
-  .header = EFI_DEVPATH_INIT (name, MEDIA_DEVICE_PATH, MEDIA_HARDDRIVE_DP),\
-  .partition_number = 1,  \
-  .partition_start = 0,  \
-  .partition_size = 0,  \
-  .partition_signature[0] = 0,  \
-  .partition_signature[1] = 0,  \
-  .partition_signature[2] = 0,  \
-  .partition_signature[3] = 0,  \
-  .partmap_type = 1,  \
-  .signature_type = 1,  \
-}
-
 /* Functions.  */
 void *EXPORT_FUNC(grub_efi_locate_protocol) (grub_efi_guid_t *protocol,
 					     void *registration);
@@ -163,6 +116,13 @@ EXPORT_FUNC (grub_efi_compare_device_paths) (const grub_efi_device_path_t *dp1,
 extern void (*EXPORT_VAR(grub_efi_net_config)) (grub_efi_handle_t hnd, 
 						char **device,
 						char **path);
+
+grub_efi_guid_t *
+EXPORT_FUNC (grub_efi_copy_guid) (grub_efi_guid_t *dest,
+                                  const grub_efi_guid_t *src);
+grub_efi_boolean_t
+EXPORT_FUNC (grub_efi_compare_guid) (const grub_efi_guid_t *g1,
+                                     const grub_efi_guid_t *g2);
 
 grub_efi_uintn_t
 EXPORT_FUNC (grub_efi_get_dp_size) (const grub_efi_device_path_protocol_t *dp);
