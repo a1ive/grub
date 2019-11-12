@@ -2861,6 +2861,12 @@ module = {
 };
 
 module = {
+  name = dp;
+  common = commands/efi/dp.c;
+  enable = efi;
+};
+
+module = {
   name = grubfm;
   common = grubfm/fm.c;
   common = grubfm/lib.c;

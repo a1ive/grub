@@ -1054,21 +1054,6 @@ grub_efi_compare_guid (const grub_efi_guid_t *g1, const grub_efi_guid_t *g2)
   return (grub_efi_boolean_t) (g1_low == g2_low && g1_high == g2_high);
 }
 
-static grub_efi_uintn_t
-device_path_node_length (const void *node)
-{
-  return grub_get_unaligned16 ((grub_efi_uint16_t *)
-                              &((grub_efi_device_path_protocol_t *)(node))->length);
-}
-
-static void
-set_device_path_node_length (void *node, grub_efi_uintn_t len)
-{
-  grub_set_unaligned16 ((grub_efi_uint16_t *)
-                        &((grub_efi_device_path_protocol_t *)(node))->length,
-                        (grub_efi_uint16_t)(len));
-}
-
 /* Compare device paths.  */
 int
 grub_efi_compare_device_paths (const grub_efi_device_path_t *dp1,
@@ -1115,111 +1100,6 @@ grub_efi_compare_device_paths (const grub_efi_device_path_t *dp1,
     }
 
   return 0;
-}
-
-grub_efi_uintn_t
-grub_efi_get_dp_size (const grub_efi_device_path_protocol_t *dp)
-{
-  grub_efi_device_path_t *p;
-  grub_efi_uintn_t total_size = 0;
-  for (p = (grub_efi_device_path_t *) dp; ; p = GRUB_EFI_NEXT_DEVICE_PATH (p))
-  {
-    total_size += GRUB_EFI_DEVICE_PATH_LENGTH (p);
-    if (GRUB_EFI_END_ENTIRE_DEVICE_PATH (p))
-      break;
-  }
-  return total_size;
-}
-
-grub_efi_device_path_protocol_t*
-grub_efi_create_device_node (grub_efi_uint8_t node_type, grub_efi_uintn_t node_subtype,
-                    grub_efi_uint16_t node_length)
-{
-  grub_efi_device_path_protocol_t *dp;
-  if (node_length < sizeof (grub_efi_device_path_protocol_t))
-    return NULL;
-  dp = grub_zalloc (node_length);
-  if (dp != NULL)
-  {
-    dp->type = node_type;
-    dp->subtype = node_subtype;
-    set_device_path_node_length (dp, node_length);
-  }
-  return dp;
-}
-
-grub_efi_device_path_protocol_t*
-grub_efi_append_device_path (const grub_efi_device_path_protocol_t *dp1,
-                    const grub_efi_device_path_protocol_t *dp2)
-{
-  grub_efi_uintn_t size;
-  grub_efi_uintn_t size1;
-  grub_efi_uintn_t size2;
-  grub_efi_device_path_protocol_t *new_dp;
-  grub_efi_device_path_protocol_t *tmp_dp;
-  // If there's only 1 path, just duplicate it.
-  if (dp1 == NULL)
-  {
-    if (dp2 == NULL)
-      return grub_efi_create_device_node (GRUB_EFI_END_DEVICE_PATH_TYPE,
-                                 GRUB_EFI_END_ENTIRE_DEVICE_PATH_SUBTYPE,
-                                 sizeof (grub_efi_device_path_protocol_t));
-    else
-      return grub_efi_duplicate_device_path (dp2);
-  }
-  if (dp2 == NULL)
-    grub_efi_duplicate_device_path (dp1);
-  // Allocate space for the combined device path. It only has one end node of
-  // length EFI_DEVICE_PATH_PROTOCOL.
-  size1 = grub_efi_get_dp_size (dp1);
-  size2 = grub_efi_get_dp_size (dp2);
-  size = size1 + size2 - sizeof (grub_efi_device_path_protocol_t);
-  new_dp = grub_malloc (size);
-
-  if (new_dp != NULL)
-  {
-    new_dp = grub_memcpy (new_dp, dp1, size1);
-    // Over write FirstDevicePath EndNode and do the copy
-    tmp_dp = (grub_efi_device_path_protocol_t *)
-           ((char *) new_dp + (size1 - sizeof (grub_efi_device_path_protocol_t)));
-    grub_memcpy (tmp_dp, dp2, size2);
-  }
-  return new_dp;
-}
-
-grub_efi_device_path_protocol_t*
-grub_efi_append_device_node (const grub_efi_device_path_protocol_t *device_path,
-                    const grub_efi_device_path_protocol_t *device_node)
-{
-  grub_efi_device_path_protocol_t *tmp_dp;
-  grub_efi_device_path_protocol_t *next_node;
-  grub_efi_device_path_protocol_t *new_dp;
-  grub_efi_uintn_t node_length;
-  if (device_node == NULL)
-  {
-    if (device_path == NULL)
-      return grub_efi_create_device_node (GRUB_EFI_END_DEVICE_PATH_TYPE,
-                                 GRUB_EFI_END_ENTIRE_DEVICE_PATH_SUBTYPE,
-                                 sizeof (grub_efi_device_path_protocol_t));
-    else
-      return grub_efi_duplicate_device_path (device_path);
-  }
-  // Build a Node that has a terminator on it
-  node_length = device_path_node_length (device_node);
-
-  tmp_dp = grub_malloc (node_length + sizeof (grub_efi_device_path_protocol_t));
-  if (tmp_dp == NULL)
-    return NULL;
-  tmp_dp = grub_memcpy (tmp_dp, device_node, node_length);
-  // Add and end device path node to convert Node to device path
-  next_node = GRUB_EFI_NEXT_DEVICE_PATH (tmp_dp);
-  next_node->type = GRUB_EFI_END_DEVICE_PATH_TYPE;
-  next_node->subtype = GRUB_EFI_END_ENTIRE_DEVICE_PATH_SUBTYPE;
-  next_node->length = sizeof (grub_efi_device_path_protocol_t);
-  // Append device paths
-  new_dp = grub_efi_append_device_path (device_path, tmp_dp);
-  grub_free (tmp_dp);
-  return new_dp;
 }
 
 void
@@ -1296,7 +1176,7 @@ grub_efi_file_device_path (grub_efi_device_path_t *dp, const char *filename)
   /* Fill the file path for the directory.  */
   d = (grub_efi_device_path_t *) ((char *) file_path
 				  + ((char *) d - (char *) dp));
-  grub_efi_print_device_path (d);
+
   copy_file_path ((grub_efi_file_path_device_path_t *) d,
 		  dir_start, dir_end - dir_start);
 
