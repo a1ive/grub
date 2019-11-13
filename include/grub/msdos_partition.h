@@ -58,6 +58,8 @@
 #define GRUB_PC_PARTITION_TYPE_GPT_DISK		0xee
 #define GRUB_PC_PARTITION_TYPE_LINUX_RAID	0xfd
 
+#define GRUB_PC_MAX_PARTITIONS  4
+
 /* The partition entry.  */
 struct grub_msdos_partition_entry
 {
@@ -94,7 +96,9 @@ struct grub_msdos_partition_entry
 struct grub_msdos_partition_mbr
 {
   /* The code area (actually, including BPB).  */
-  grub_uint8_t code[446];
+  grub_uint8_t code[440];
+  grub_uint8_t unique_signature[4];
+  grub_uint8_t unknown[2];
 
   /* Four partition entries.  */
   struct grub_msdos_partition_entry entries[4];
@@ -102,8 +106,6 @@ struct grub_msdos_partition_mbr
   /* The signature 0xaa55.  */
   grub_uint16_t signature;
 } GRUB_PACKED;
-
-
 
 static inline int
 grub_msdos_partition_is_empty (int type)
