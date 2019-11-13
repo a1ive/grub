@@ -2017,21 +2017,37 @@ struct grub_efi_block_io2
 };
 typedef struct grub_efi_block_io2 grub_efi_block_io2_t;
 
-struct grub_efi_component_name_protocol {
-  grub_efi_status_t (*get_driver_name) (struct grub_efi_component_name_protocol *this,
-                                        grub_efi_char8_t *language,
-                                        grub_efi_char16_t **driver_name);
-  grub_efi_status_t (*get_controller_name) (struct grub_efi_component_name_protocol *this,
-                                            grub_efi_handle_t controller_handle,
-                                            grub_efi_handle_t child_handle,
-                                            grub_efi_char8_t *language,
-                                            grub_efi_char16_t **controller_name);
-  /// A Null-terminated ASCII string that contains one or more
-  /// ISO 639-2 language codes. This is the list of language codes
-  /// that this protocol supports.
+struct grub_efi_component_name_protocol
+{
+  grub_efi_status_t (*get_driver_name)
+          (struct grub_efi_component_name_protocol *this,
+           grub_efi_char8_t *language,
+           grub_efi_char16_t **driver_name);
+  grub_efi_status_t (*get_controller_name)
+          (struct grub_efi_component_name_protocol *this,
+           grub_efi_handle_t controller_handle,
+           grub_efi_handle_t child_handle,
+           grub_efi_char8_t *language,
+           grub_efi_char16_t **controller_name);
   grub_efi_char8_t *supported_languages;
 };
 typedef struct grub_efi_component_name_protocol grub_efi_component_name_protocol_t;
+
+struct grub_efi_component_name2_protocol
+{
+  grub_efi_status_t (*get_driver_name)
+          (struct grub_efi_component_name2_protocol *this,
+           grub_efi_char8_t *language,
+           grub_efi_char16_t **driver_name);
+  grub_efi_status_t (*get_controller_name)
+          (struct grub_efi_component_name2_protocol *this,
+           grub_efi_handle_t controller_handle,
+           grub_efi_handle_t child_handle,
+           grub_efi_char8_t *language,
+           grub_efi_char16_t **controller_name);
+  grub_efi_char8_t *supported_languages;
+};
+typedef struct grub_efi_component_name2_protocol grub_efi_component_name2_protocol_t;
 
 #define CR(RECORD, TYPE, FIELD) \
     ((TYPE *) ((char *) (RECORD) - (char *) &(((TYPE *) 0)->FIELD)))
