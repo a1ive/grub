@@ -107,5 +107,5 @@ struct grub_efi_simple_fs_protocol
   grub_efi_status_t (*open_volume) (struct grub_efi_simple_fs_protocol *this,
                                     grub_efi_file_protocol_t **root);
 };
-
+typedef struct grub_efi_simple_fs_protocol grub_efi_simple_fs_protocol_t;
 #endif
