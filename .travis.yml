@@ -71,7 +71,7 @@ matrix:
   #    - GRUB_TARGETS="x86_64-efi x86_64-xen"
     - name: "i386"
       env:
-       - GRUB_TARGETS="i386-coreboot i386-efi i386-pc"
+       - GRUB_TARGETS="i386-efi i386-pc"
   #    - GRUB_TARGETS="i386-coreboot i386-efi i386-ieee1275 i386-multiboot i386-pc i386-qemu i386-xen i386-xen_pvh"
   # - name: "powerpc"
   #   env:
