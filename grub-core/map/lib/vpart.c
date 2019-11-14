@@ -1,199 +1,216 @@
-/*
- *  UEFI example
- *  Copyright (C) 2019  a1ive
+ /*
+ *  GRUB  --  GRand Unified Bootloader
+ *  Copyright (C) 2019  Free Software Foundation, Inc.
  *
- *  This program is free software: you can redistribute it and/or modify
+ *  GRUB is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
  *  the Free Software Foundation, either version 3 of the License, or
  *  (at your option) any later version.
  *
- *  This program is distributed in the hope that it will be useful,
+ *  GRUB is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
  *
  *  You should have received a copy of the GNU General Public License
- *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ *  along with GRUB.  If not, see <http://www.gnu.org/licenses/>.
+ *
  */
 
-#include <efi.h>
-#include <efilib.h>
-#include <grub.h>
-#include <sstdlib.h>
-#include <private.h>
-#include <efigpt.h>
+#include <grub/efi/efi.h>
+#include <grub/efi/api.h>
+#include <grub/efi/sfs.h>
+#include <grub/eltorito.h>
+#include <grub/msdos_partition.h>
+#include <grub/gpt_partition.h>
 
-static BOOLEAN
+#include <private.h>
+#include <sstdlib.h>
+
+#define EFI_PARTITION   0xef
+// "FAT File System Driver" 
+//static const grub_efi_char16_t FAT_FILE_SYSTEM_DRIVER[] =
+//{ 'F', 'A', 'T', ' ', 'F', 'i', 'l', 'e', ' ',
+//  'S', 'y', 's', 't', 'e', 'm', ' ', 'D', 'r', 'i', 'v', 'e', 'r', '\0' };
+
+static grub_efi_boolean_t
 get_mbr_info (void)
 {
-  MASTER_BOOT_RECORD *mbr = NULL;
-  UINT32 unique_mbr_signature;
-  UINTN  part_addr;
-  UINTN  part_size;
-  EFI_DEVICE_PATH *tmp_dp;
-  UINT32 i;
-  UINT32 part_num = 0;
+  struct grub_msdos_partition_mbr *mbr = NULL;
+  grub_efi_uint32_t unique_mbr_signature;
+  grub_efi_uintn_t  part_addr;
+  grub_efi_uintn_t  part_size;
+  grub_efi_device_path_t *tmp_dp;
+  grub_efi_uint32_t i;
+  grub_efi_uint32_t part_num = 0;
 
-  mbr = AllocateZeroPool (FD_BLOCK_SIZE);
+  mbr = grub_zalloc (FD_BLOCK_SIZE);
   if (!mbr)
     return FALSE;
 
-  read (cmd->disk, &vdisk.file, mbr, FD_BLOCK_SIZE, 0);
+  read (cmd->disk, vdisk.file, mbr, FD_BLOCK_SIZE, 0);
 
   for(i = 0; i < 4; i++)
   {
-    if(mbr->Partition[i].BootIndicator == 0x80)
+    if(mbr->entries[i].flag == 0x80)
     {
-      part_addr = *(UINT32*)(mbr->Partition[i].StartingLBA);
-      vpart.addr = part_addr * FD_BLOCK_SIZE;
-      part_size = *(UINT32*)(mbr->Partition[i].SizeInLBA);
-      vpart.size = LShiftU64 (part_size, FD_SHIFT);
+      part_addr = mbr->entries[i].start;
+      vpart.addr = part_addr << FD_SHIFT;
+      part_size = mbr->entries[i].length;
+      vpart.size = part_size << FD_SHIFT;
       part_num = i + 1;
       break;
     }
   }
   if(!part_num)
   {
-    FreePool (mbr);
+    grub_free (mbr);
     return FALSE;
   }
-  unique_mbr_signature = *(UINT32*)(mbr->UniqueMbrSignature);
+  unique_mbr_signature = *(grub_efi_uint32_t*)(mbr->unique_signature);
 
   vpart.addr = vpart.addr + vdisk.addr;
 
-  tmp_dp = create_device_node (MEDIA_DEVICE_PATH, MEDIA_HARDDRIVE_DP,
-                             sizeof (HARDDRIVE_DEVICE_PATH));
-  ((HARDDRIVE_DEVICE_PATH*)tmp_dp)->PartitionNumber = part_num;
-  ((HARDDRIVE_DEVICE_PATH*)tmp_dp)->PartitionStart  = part_addr;
-  ((HARDDRIVE_DEVICE_PATH*)tmp_dp)->PartitionSize   = part_size;
-  *(UINT32*)((HARDDRIVE_DEVICE_PATH*)tmp_dp)->Signature = unique_mbr_signature;
-  ((HARDDRIVE_DEVICE_PATH*)tmp_dp)->MBRType = 1;
-  ((HARDDRIVE_DEVICE_PATH*)tmp_dp)->SignatureType = 1;
-  vpart.dp = AppendDevicePathNode (vdisk.dp, tmp_dp);
-  FreePool (tmp_dp);
-  FreePool (mbr);
+  tmp_dp = grub_efi_create_device_node (MEDIA_DEVICE_PATH, MEDIA_HARDDRIVE_DP,
+                                        sizeof (grub_efi_hard_drive_device_path_t));
+  ((grub_efi_hard_drive_device_path_t*)tmp_dp)->partition_number = part_num;
+  ((grub_efi_hard_drive_device_path_t*)tmp_dp)->partition_start  = part_addr;
+  ((grub_efi_hard_drive_device_path_t*)tmp_dp)->partition_size   = part_size;
+  *(grub_efi_uint32_t*)((grub_efi_hard_drive_device_path_t*)tmp_dp)
+        ->partition_signature = unique_mbr_signature;
+  ((grub_efi_hard_drive_device_path_t*)tmp_dp)->partmap_type = 1;
+  ((grub_efi_hard_drive_device_path_t*)tmp_dp)->signature_type = 1;
+  vpart.dp = grub_efi_append_device_node (vdisk.dp, tmp_dp);
+  grub_free (tmp_dp);
+  grub_free (mbr);
   return TRUE;
 }
 
-static BOOLEAN
+static grub_efi_boolean_t
 get_gpt_info (void)
 {
-  EFI_PARTITION_TABLE_HEADER *gpt = NULL;
-  EFI_PARTITION_ENTRY *gpt_entry;
-  UINTN gpt_entry_size;
-  UINT64 gpt_entry_pos;
-  UINT64 part_addr;
-  UINT64 part_size;
-  EFI_GUID gpt_part_signature;
-  UINT32 part_num = 0;
-  EFI_DEVICE_PATH *tmp_dp;
-  UINT32 i;
+  struct grub_gpt_header *gpt = NULL;
+  struct grub_gpt_partentry *gpt_entry;
+  grub_efi_uintn_t gpt_entry_size;
+  grub_efi_uint64_t gpt_entry_pos;
+  grub_efi_uint64_t part_addr;
+  grub_efi_uint64_t part_size;
+  grub_gpt_part_guid_t gpt_part_signature;
+  grub_efi_uint32_t part_num = 0;
+  grub_efi_device_path_t *tmp_dp;
+  grub_efi_uint32_t i;
 
-  gpt = AllocateZeroPool (FD_BLOCK_SIZE);
+  /* "EFI PART" */
+  grub_uint8_t GPT_HDR_MAGIC[8] = GRUB_GPT_HEADER_MAGIC;
+  grub_packed_guid_t GPT_EFI_SYSTEM_PART_GUID = GRUB_GPT_PARTITION_TYPE_EFI_SYSTEM;
+  gpt = grub_zalloc (FD_BLOCK_SIZE);
   if(!gpt)
     return FALSE;
 
-  read (cmd->disk, &vdisk.file, gpt, FD_BLOCK_SIZE,
+  read (cmd->disk, vdisk.file, gpt, FD_BLOCK_SIZE,
         PRIMARY_PART_HEADER_LBA * FD_BLOCK_SIZE);
 
-  if (gpt->Header.Signature != _EFI_PTAB_HEADER_ID)
+  for (i = 0; i < 8; i++)
   {
-    FreePool (gpt);
-    return FALSE; 
+    if (gpt->magic[i] != GPT_HDR_MAGIC[i])
+    {
+      grub_free (gpt);
+      return FALSE;
+    }
   }
 
-  gpt_entry_pos = LShiftU64 (gpt->PartitionEntryLBA, FD_SHIFT);
-  gpt_entry_size = gpt->SizeOfPartitionEntry;  
-  gpt_entry = AllocateZeroPool (gpt->SizeOfPartitionEntry *
-                                gpt->NumberOfPartitionEntries);
+  gpt_entry_pos = gpt->partitions << FD_SHIFT;
+  gpt_entry_size = gpt->partentry_size;
+  gpt_entry = grub_zalloc (gpt->partentry_size * gpt->maxpart);
   if(!gpt_entry)
     return FALSE;
 
-  for (i=0; i < gpt->NumberOfPartitionEntries; i++)
+  for (i = 0; i < gpt->maxpart; i++)
   {
-    read (cmd->disk, &vdisk.file, gpt_entry, gpt_entry_size,
+    read (cmd->disk, vdisk.file, gpt_entry, gpt_entry_size,
           gpt_entry_pos + i * gpt_entry_size);
-    if (CompareGuid (&gpt_entry->PartitionTypeGUID, &EfiPartTypeSystemPartitionGuid))
+    if (guidcmp (&gpt_entry->type,
+                 &GPT_EFI_SYSTEM_PART_GUID))
     {
-      part_addr = LShiftU64 (gpt_entry->StartingLBA, FD_SHIFT);
-      part_size = LShiftU64(gpt_entry->EndingLBA - gpt_entry->StartingLBA,
-                            FD_SHIFT);
-      guidcpy (&gpt_part_signature, &gpt_entry->UniquePartitionGUID); 
+      part_addr = gpt_entry->start << FD_SHIFT;
+      part_size = (gpt_entry->end - gpt_entry->start) << FD_SHIFT;
+      guidcpy (&gpt_part_signature, &gpt_entry->guid); 
       part_num = i + 1;
       break;
     }
   }
-  if(part_num==0)
+  if(!part_num)
   {
-    FreePool (gpt_entry);
-    FreePool (gpt);
+    grub_free (gpt_entry);
+    grub_free (gpt);
     return FALSE;
   }
-  vpart.addr = (UINTN) part_addr + vdisk.addr;
+  vpart.addr = (grub_efi_uintn_t) part_addr + vdisk.addr;
   vpart.size = part_size;
 
-  tmp_dp = create_device_node (MEDIA_DEVICE_PATH, MEDIA_HARDDRIVE_DP,
-                             sizeof (HARDDRIVE_DEVICE_PATH));
-  ((HARDDRIVE_DEVICE_PATH*)tmp_dp)->PartitionNumber = part_num;
-  ((HARDDRIVE_DEVICE_PATH*)tmp_dp)->PartitionStart = part_addr;
-  ((HARDDRIVE_DEVICE_PATH*)tmp_dp)->PartitionSize = part_size;
-  guidcpy ((EFI_GUID *)&(((HARDDRIVE_DEVICE_PATH*)tmp_dp)->Signature[0]),
-            &gpt_part_signature);
-  ((HARDDRIVE_DEVICE_PATH*)tmp_dp)->MBRType = 2;
-  ((HARDDRIVE_DEVICE_PATH*)tmp_dp)->SignatureType = 2;
-  vpart.dp = AppendDevicePathNode (vdisk.dp, tmp_dp);
-  FreePool (tmp_dp);
-  FreePool (gpt_entry);
-  FreePool (gpt);
+  tmp_dp = grub_efi_create_device_node (MEDIA_DEVICE_PATH, MEDIA_HARDDRIVE_DP,
+                                        sizeof (grub_efi_hard_drive_device_path_t));
+  ((grub_efi_hard_drive_device_path_t*)tmp_dp)->partition_number = part_num;
+  ((grub_efi_hard_drive_device_path_t*)tmp_dp)->partition_start = part_addr;
+  ((grub_efi_hard_drive_device_path_t*)tmp_dp)->partition_size = part_size;
+  guidcpy ((grub_packed_guid_t *)
+           &(((grub_efi_hard_drive_device_path_t*)tmp_dp)->partition_signature[0]),
+           &gpt_part_signature);
+  ((grub_efi_hard_drive_device_path_t*)tmp_dp)->partmap_type = 2;
+  ((grub_efi_hard_drive_device_path_t*)tmp_dp)->signature_type = 2;
+  vpart.dp = grub_efi_append_device_node (vdisk.dp, tmp_dp);
+  grub_free (tmp_dp);
+  grub_free (gpt_entry);
+  grub_free (gpt);
   return TRUE;
 }
 
-static BOOLEAN
+static grub_efi_boolean_t
 get_iso_info (void)
 {
-  CDROM_VOLUME_DESCRIPTOR *vol = NULL;
-  ELTORITO_CATALOG *catalog=NULL;
-  UINTN dbr_img_size = sizeof (UINT16);
-  UINT16 dbr_img_buf;
-  BOOLEAN boot_entry = FALSE;
-  UINTN i;
-  EFI_DEVICE_PATH_PROTOCOL *tmp_dp;
+  cdrom_volume_descriptor_t *vol = NULL;
+  eltorito_catalog_t *catalog = NULL;
+  grub_efi_uintn_t dbr_img_size = sizeof (grub_efi_uint16_t);
+  grub_efi_uint16_t dbr_img_buf;
+  grub_efi_boolean_t boot_entry = FALSE;
+  grub_efi_uintn_t i;
+  grub_efi_device_path_t *tmp_dp;
 
-  vol = AllocatePool (CD_BLOCK_SIZE);
+  vol = grub_zalloc (CD_BLOCK_SIZE);
   if (!vol)
     return FALSE;
 
-  read (cmd->disk, &vdisk.file, vol, CD_BLOCK_SIZE, CD_BOOT_SECTOR * CD_BLOCK_SIZE);
+  read (cmd->disk, vdisk.file, vol, CD_BLOCK_SIZE, CD_BOOT_SECTOR * CD_BLOCK_SIZE);
 
-  if (vol->Unknown.Type != CDVOL_TYPE_STANDARD ||
-      CompareMem (vol->BootRecordVolume.SystemId, CDVOL_ELTORITO_ID,
-                  sizeof (CDVOL_ELTORITO_ID) - 1) != 0)
+  if (vol->unknown.type != CDVOL_TYPE_STANDARD ||
+      grub_memcmp (vol->boot_record_volume.system_id, CDVOL_ELTORITO_ID,
+                   sizeof (CDVOL_ELTORITO_ID) - 1) != 0)
   {
-    FreePool (vol);
+    grub_free (vol);
     return FALSE;
   }
 
-  catalog = (ELTORITO_CATALOG*) vol;
-  read (cmd->disk, &vdisk.file, catalog, CD_BLOCK_SIZE,
-        *((UINT32*) vol->BootRecordVolume.EltCatalog) * CD_BLOCK_SIZE);
-  if (catalog[0].Catalog.Indicator != ELTORITO_ID_CATALOG)
+  catalog = (eltorito_catalog_t *) vol;
+  read (cmd->disk, vdisk.file, catalog, CD_BLOCK_SIZE,
+        *((grub_efi_uint32_t*) vol->boot_record_volume.elt_catalog) * CD_BLOCK_SIZE);
+  if (catalog[0].catalog.indicator != ELTORITO_ID_CATALOG)
   {
-    FreePool (vol);
+    grub_free (vol);
     return FALSE;
   }
 
   for (i = 0; i < 64; i++)
   {
-    if (catalog[i].Section.Indicator == ELTORITO_ID_SECTION_HEADER_FINAL &&
-        catalog[i].Section.PlatformId == EFI_PARTITION &&
-        catalog[i+1].Boot.Indicator == ELTORITO_ID_SECTION_BOOTABLE)
+    if (catalog[i].section.indicator == ELTORITO_ID_SECTION_HEADER_FINAL &&
+        catalog[i].section.platform_id == EFI_PARTITION &&
+        catalog[i+1].boot.indicator == ELTORITO_ID_SECTION_BOOTABLE)
     {
       boot_entry = TRUE;
-      vpart.addr = catalog[i+1].Boot.Lba * CD_BLOCK_SIZE;
-      vpart.size = catalog[i+1].Boot.SectorCount * FD_BLOCK_SIZE;
+      vpart.addr = catalog[i+1].boot.lba << CD_SHIFT;
+      vpart.size = catalog[i+1].boot.sector_count << FD_SHIFT;
 
-      read (cmd->disk, &vdisk.file, &dbr_img_buf, dbr_img_size, vpart.addr + 0x13);
-      dbr_img_size = dbr_img_buf * FD_BLOCK_SIZE;
+      read (cmd->disk, vdisk.file, &dbr_img_buf, dbr_img_size, vpart.addr + 0x13);
+      dbr_img_size = dbr_img_buf << FD_SHIFT;
       vpart.size = vpart.size > dbr_img_size ? vpart.size : dbr_img_size;
 
       if (vpart.size < BLOCK_OF_1_44MB * FD_BLOCK_SIZE)
@@ -205,49 +222,57 @@ get_iso_info (void)
   }
   if (!boot_entry)
   {
-    FreePool (vol);
+    grub_free (vol);
     return FALSE;
   }
   vpart.addr = vpart.addr + vdisk.addr;
 
-  tmp_dp = create_device_node (MEDIA_DEVICE_PATH, MEDIA_CDROM_DP,
-                             sizeof (CDROM_DEVICE_PATH));
-  ((CDROM_DEVICE_PATH*)tmp_dp)->BootEntry = 1;
-  ((CDROM_DEVICE_PATH*)tmp_dp)->PartitionStart = (vpart.addr - vdisk.addr) /
-                                                 CD_BLOCK_SIZE;
-  ((CDROM_DEVICE_PATH*)tmp_dp)->PartitionSize = RShiftU64(vpart.size, CD_SHIFT);
-  vpart.dp = AppendDevicePathNode (vdisk.dp, tmp_dp);
-  FreePool (tmp_dp);
-  FreePool (vol);
+  tmp_dp = grub_efi_create_device_node (MEDIA_DEVICE_PATH, MEDIA_CDROM_DP,
+                                        sizeof (grub_efi_cdrom_device_path_t));
+  ((grub_efi_cdrom_device_path_t *)tmp_dp)->boot_entry = 1;
+  ((grub_efi_cdrom_device_path_t *)tmp_dp)->partition_start =
+            (vpart.addr - vdisk.addr) >> CD_SHIFT;
+  ((grub_efi_cdrom_device_path_t *)tmp_dp)->partition_size =
+            vpart.size >> CD_SHIFT;
+  vpart.dp = grub_efi_append_device_node (vdisk.dp, tmp_dp);
+  grub_free (tmp_dp);
+  grub_free (vol);
   return TRUE;
 }
 
-EFI_STATUS
+grub_efi_status_t
 vpart_install (void)
 {
-  EFI_STATUS status;
-  CHAR16 *text_dp = NULL;
+  grub_efi_status_t status;
+  char *text_dp = NULL;
+  grub_efi_boot_services_t *b;
+  b = grub_efi_system_table->boot_services;
+  /* guid */
+  grub_efi_guid_t dp_guid = GRUB_EFI_DEVICE_PATH_GUID;
+  grub_efi_guid_t blk_io_guid = GRUB_EFI_BLOCK_IO_GUID;
+  //grub_efi_guid_t sfs_guid = GRUB_EFI_SIMPLE_FILE_SYSTEM_PROTOCOL_GUID;
+  //grub_efi_guid_t cn2_guid = GRUB_EFI_COMPONENT_NAME2_PROTOCOL_GUID;
 
   switch (vdisk.type)
   {
     case CD:
       vpart.present = get_iso_info ();
-      printf ("Found ISO Partition\n");
+      grub_printf ("Found ISO Partition\n");
       break;
     case MBR:
       vpart.present = get_mbr_info ();
-      printf ("Found MBR Partition\n");
+      grub_printf ("Found MBR Partition\n");
       break;
     case GPT:
       vpart.present = get_gpt_info ();
-      printf ("Found GPT Partition\n");
+      grub_printf ("Found GPT Partition\n");
       break;
     default:
       break;
   }
 
   if (!vpart.present)
-    return EFI_NOT_FOUND;
+    return GRUB_EFI_NOT_FOUND;
 
   vpart.handle = NULL;
   vpart.file = vdisk.file;
@@ -255,90 +280,43 @@ vpart_install (void)
   vpart.mem = vdisk.mem;
   vpart.type = vdisk.type;
 
-  CopyMem (&vpart.block_io, &blockio_template, sizeof (EFI_BLOCK_IO_PROTOCOL));
+  grub_memcpy (&vpart.block_io, &blockio_template, sizeof (block_io_protocol_t));
 
-  vpart.block_io.Media = &vpart.media;
-  vpart.media.MediaId = VDISK_MEDIA_ID;
-  vpart.media.RemovableMedia = FALSE;
-  vpart.media.MediaPresent = TRUE;
-  vpart.media.LogicalPartition = TRUE;
-  vpart.media.ReadOnly = TRUE;
-  vpart.media.WriteCaching = FALSE;
-  vpart.media.IoAlign = 16;
-  vpart.media.BlockSize = vdisk.bs;
-  vpart.media.LastBlock = DivU64x32 (vpart.size + vdisk.bs - 1, vdisk.bs, 0) - 1;
+  vpart.block_io.media = &vpart.media;
+  vpart.media.media_id = VDISK_MEDIA_ID;
+  vpart.media.removable_media = FALSE;
+  vpart.media.media_present = TRUE;
+  vpart.media.logical_partition = TRUE;
+  vpart.media.read_only = TRUE;
+  vpart.media.write_caching = FALSE;
+  vpart.media.io_align = 16;
+  vpart.media.block_size = vdisk.bs;
+  vpart.media.last_block =
+              grub_divmod64 (vpart.size + vdisk.bs - 1, vdisk.bs, 0) - 1;
   /* info */
-  printf ("VPART file=%s type=%d\n",
+  grub_printf ("VPART file=%s type=%d\n",
           vpart.disk ? ((grub_disk_t)(vpart.file))->name :
           ((grub_file_t)(vpart.file))->name, vpart.type);
-  printf ("VPART addr=%ld size=%lld\n", (unsigned long)vpart.addr,
+  grub_printf ("VPART addr=%ld size=%lld\n", (unsigned long)vpart.addr,
           (unsigned long long)vpart.size);
-  printf ("VPART blksize=%d lastblk=%lld\n", vpart.media.BlockSize,
-          (unsigned long long)vpart.media.LastBlock);
-  text_dp = DevicePathToStr (vpart.dp);
-  printf ("VPART DevicePath: %ls\n",text_dp);
+  grub_printf ("VPART blksize=%d lastblk=%lld\n", vpart.media.block_size,
+          (unsigned long long)vpart.media.last_block);
+  text_dp = grub_efi_device_path_to_str (vpart.dp);
+  grub_printf ("VPART DevicePath: %s\n",text_dp);
   if (text_dp)
-    FreePool (text_dp);
-  printf ("installing block_io protocol for virtual partition ...\n");
-  status = uefi_call_wrapper (gBS->InstallMultipleProtocolInterfaces,
-                              6, &vpart.handle,
-                              &gEfiDevicePathProtocolGuid, vpart.dp,
-                              &gEfiBlockIoProtocolGuid, &vpart.block_io, NULL);
-  if(status != EFI_SUCCESS)
+    grub_free (text_dp);
+  grub_printf ("installing block_io protocol for virtual partition ...\n");
+  status = efi_call_6 (b->install_multiple_protocol_interfaces,
+                       &vpart.handle,
+                       &dp_guid, vpart.dp,
+                       &blk_io_guid, &vpart.block_io, NULL);
+  if(status != GRUB_EFI_SUCCESS)
   {
-    printf ("failed to install virtual partition\n");
-    return EFI_NOT_FOUND;
+    grub_printf ("failed to install virtual partition\n");
+    return GRUB_EFI_NOT_FOUND;
   }
-  uefi_call_wrapper (gBS->ConnectController, 4, vpart.handle, NULL, NULL, TRUE);
+  efi_call_4 (b->connect_controller, vpart.handle, NULL, NULL, TRUE);
 
-  if(vdisk.type != CD)
-    return EFI_SUCCESS;
-
-  /* for DUET UEFI firmware */
-  {
-    EFI_HANDLE fat_handle = NULL;
-    EFI_HANDLE *buf;
-    UINTN count;
-    UINTN i;
-    EFI_COMPONENT_NAME2_PROTOCOL *cn2_protocol;
-    CHAR16 *driver_name;
-    EFI_SIMPLE_FILE_SYSTEM_PROTOCOL *sfs_protocol = NULL;
-
-    status = uefi_call_wrapper (gBS->HandleProtocol, 3, vpart.handle,
-                                &gEfiSimpleFileSystemProtocolGuid,
-                                (VOID**)&sfs_protocol);
-    if(status == EFI_SUCCESS)
-      return EFI_SUCCESS;
-
-    status = uefi_call_wrapper (gBS->LocateHandleBuffer, 5, ByProtocol,
-                                &gEfiComponentName2ProtocolGuid, NULL,
-                                &count, &buf);
-    if(status != EFI_SUCCESS)
-    {
-      printf ("ComponentNameProtocol not found.\n");
-    }
-    for (i = 0; i < count; i++)
-    {
-      uefi_call_wrapper (gBS->HandleProtocol, 3, buf[i],
-                         &gEfiComponentName2ProtocolGuid, (VOID**)&cn2_protocol);
-      uefi_call_wrapper (cn2_protocol->GetDriverName, 3,
-                         cn2_protocol, (CHAR8 *)"en-us", &driver_name);
-      if(driver_name && wstrstr (driver_name, L"FAT File System Driver"))
-      {
-        fat_handle = buf[i];
-        break;
-      }
-    }
-    if (fat_handle)
-    {
-      status = uefi_call_wrapper (gBS->ConnectController, 4,
-                                  vpart.handle, &fat_handle, NULL, TRUE);
-      return EFI_SUCCESS;
-    }
-    else
-    {
-      printf ("FAT Driver not found.\n");
-      return EFI_NOT_FOUND;
-    }
-  }
+  //if(vdisk.type != CD)
+  return GRUB_EFI_SUCCESS;
 }

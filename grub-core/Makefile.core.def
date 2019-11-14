@@ -2800,7 +2800,13 @@ module = {
 
 module = {
   name = map;
-  common = commands/efi/map.c;
+  common = map/map.c;
+  common = map/lib/sstdlib.c;
+  common = map/lib/vblock.c;
+  common = map/lib/vdisk.c;
+  common = map/lib/vpart.c;
+  common = map/lib/vboot.c;
+  cppflags = '-I$(srcdir)/map/include';
   enable = x86_64_efi;
 };
 

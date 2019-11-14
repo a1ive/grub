@@ -1,105 +1,148 @@
-/*
- *  UEFI example
- *  Copyright (C) 2019  a1ive
+ /*
+ *  GRUB  --  GRand Unified Bootloader
+ *  Copyright (C) 2019  Free Software Foundation, Inc.
  *
- *  This program is free software: you can redistribute it and/or modify
+ *  GRUB is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
  *  the Free Software Foundation, either version 3 of the License, or
  *  (at your option) any later version.
  *
- *  This program is distributed in the hope that it will be useful,
+ *  GRUB is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
  *
  *  You should have received a copy of the GNU General Public License
- *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ *  along with GRUB.  If not, see <http://www.gnu.org/licenses/>.
+ *
  */
 
-#include <efi.h>
-#include <efilib.h>
-#include <grub.h>
+#include <grub/dl.h>
+#include <grub/efi/api.h>
+#include <grub/efi/efi.h>
+#include <grub/device.h>
+#include <grub/err.h>
+#include <grub/extcmd.h>
+#include <grub/file.h>
+#include <grub/i18n.h>
+#include <grub/misc.h>
+#include <grub/mm.h>
+#include <grub/types.h>
+#include <grub/term.h>
+
 #include <sstdlib.h>
 #include <private.h>
 
-/** EFI image handle */
-EFI_HANDLE efi_image_handle;
+GRUB_MOD_LICENSE ("GPLv3+");
 
-/** GRUB PROTOCOL */
-EFI_GUID grub_guid = GRUB_EFI_GRUB_PROTOCOL_GUID;
-grub_efi_grub_protocol_t *grub = NULL;
+static const struct grub_arg_option options_map[] =
+{
+  {"mem", 'm', 0, N_("Copy to RAM."), 0, 0},
+  {"pause", 'p', 0, N_("Show info and wait for keypress."), 0, 0},
+  {"type", 't', 0, N_("Specify the disk type."), N_("CD/HD/FD"), ARG_TYPE_STRING},
+  {"disk", 'd', 0, N_("Map the entire disk."), 0, 0},
+  {0, 0, 0, 0, 0, 0}
+};
 
-struct grub_private_data *cmd;
+enum options_map
+{
+  MAP_MEM,
+  MAP_PAUSE,
+  MAP_TYPE,
+  MAP_DISK,
+};
+
 vdisk_t vdisk, vpart;
 
+static struct map_private_data map;
+struct map_private_data *cmd = &map;
+
 void
-pause (void)
-{
-  printf ( "Press any key to continue booting..." );
-  uefi_call_wrapper (grub->wait_key, 0);
-  printf ( "\n" );
-}
-
-VOID
-read (BOOLEAN disk, VOID **file, VOID *buf, UINTN len, UINT64 offset)
+read (grub_efi_boolean_t disk, void *file, void *buf, grub_efi_uintn_t len, grub_efi_uint64_t offset)
 {
   if (!disk)
   {
-    uefi_call_wrapper (grub->file_seek, 2, (grub_file_t *)file, offset);
-    uefi_call_wrapper (grub->file_read, 3, (grub_file_t *)file, buf, len);
+    grub_file_seek (file, offset);
+    grub_file_read (file, buf, len);
   }
   else
   {
-    uefi_call_wrapper (grub->disk_read, 5, (grub_disk_t *)file, 0, offset, len, buf);
+    grub_disk_read (file, 0, offset, len, buf);
   }
 }
 
-UINT64
-get_size (BOOLEAN disk, VOID *file)
+grub_efi_uint64_t
+get_size (grub_efi_boolean_t disk, void *file)
 {
-  UINT64 size = 0;
+  grub_efi_uint64_t size = 0;
   if (!disk)
-    size = uefi_call_wrapper (grub->file_size, 1, file);
+    size = grub_file_size (file);
   else
-    size = LShiftU64 (uefi_call_wrapper (grub->disk_size, 1, file),
-                      GRUB_DISK_SECTOR_BITS);
+    size = grub_disk_get_size (file) << GRUB_DISK_SECTOR_BITS;
   return size;
 }
 
-EFI_STATUS
-efi_main (EFI_HANDLE image_handle, EFI_SYSTEM_TABLE *systab)
+static grub_err_t
+grub_cmd_map (grub_extcmd_context_t ctxt, int argc, char **args)
 {
-  EFI_STATUS status;
-  EFI_HANDLE boot_image_handle = NULL;
+  struct grub_arg_list *state = ctxt->state;
 
-  InitializeLib(image_handle, systab);
-  efi_image_handle = image_handle;
+  if (state[MAP_MEM].set)
+    map.mem = TRUE;
+  else
+    map.mem = FALSE;
 
-  uefi_call_wrapper (gST->ConOut->ClearScreen, 1, gST->ConOut);
-  printf ("UEFI TEST %p %p\n", image_handle, systab);
+  if (state[MAP_PAUSE].set)
+    map.pause = TRUE;
+  else
+    map.pause = FALSE;
 
-  status = uefi_call_wrapper (gBS->LocateProtocol, 3,
-                              &grub_guid, NULL, (VOID **)&grub);
-  if (status != EFI_SUCCESS)
+  if (argc != 1)
   {
-    printf ("Could not open grub protocol: %#lx\n", ((unsigned long) status));
+    grub_error (GRUB_ERR_BAD_ARGUMENT, N_("filename expected"));
     goto fail;
   }
-  uefi_call_wrapper (grub->test, 0);
-  uefi_call_wrapper (grub->private_data, 1, (VOID **)&cmd);
-
-  printf ("mem: %d\n", cmd->mem);
-  printf ("type: %d\n", cmd->type);
-  if (cmd->disk)
-    printf ("disk: %s\n", ((grub_disk_t)(cmd->file))->name);
-  else
-    printf ("file: %s\n", ((grub_file_t)(cmd->file))->name);
-
-  printf ("vdisk_install\n");
-  status = vdisk_install (cmd->file);
-  if (status != EFI_SUCCESS)
+  if (state[MAP_DISK].set)
   {
-    printf ("Failed to install vdisk.\n");
+    map.disk = TRUE;
+    map.file = grub_disk_open (args[0]);
+    map.type = HD;
+  }
+  else
+  {
+    map.disk = FALSE;
+    map.file = grub_file_open (args[0], GRUB_FILE_TYPE_LOOPBACK);
+    map.type = CD;
+    char c = grub_tolower (args[0][grub_strlen (args[0]) - 1]);
+    if (c != 'o') /* iso */
+      map.type = HD;
+  }
+
+  if (!map.file)
+  {
+    grub_error (GRUB_ERR_FILE_READ_ERROR, N_("failed to open file/disk"));
+    goto fail;
+  }
+
+  if (state[MAP_TYPE].set)
+  {
+    if (state[MAP_TYPE].arg[0] == 'C' || state[MAP_TYPE].arg[0] == 'c')
+      map.type = CD;
+    if (state[MAP_TYPE].arg[0] == 'H' || state[MAP_TYPE].arg[0] == 'h')
+      map.type = HD;
+    if (state[MAP_TYPE].arg[0] == 'F' || state[MAP_TYPE].arg[0] == 'f')
+      map.type = FD;
+  }
+
+  grub_efi_status_t status;
+  grub_efi_handle_t boot_image_handle = NULL;
+  grub_efi_boot_services_t *b;
+  b = grub_efi_system_table->boot_services;
+
+  status = vdisk_install (cmd->file);
+  if (status != GRUB_EFI_SUCCESS)
+  {
+    grub_printf ("Failed to install vdisk.\n");
     goto fail;
   }
   if (vpart.handle)
@@ -108,17 +151,41 @@ efi_main (EFI_HANDLE image_handle, EFI_SYSTEM_TABLE *systab)
     boot_image_handle = vdisk_boot ();
   if (!boot_image_handle)
   {
-    printf ("Failed to boot vdisk.\n");
+    grub_printf ("Failed to boot vdisk.\n");
     goto fail;
   }
   /* wait */
   if (cmd->pause)
     pause ();
   /* boot */
-  status = uefi_call_wrapper (gBS->StartImage, 3, boot_image_handle, 0, NULL);
-  printf ("StartImage returned %#lx\n", (unsigned long) status);
-  return EFI_SUCCESS;
+  grub_script_execute_sourcecode ("terminal_output console");
+  grub_printf ("StartImage: %p\n", boot_image_handle);
+  status = efi_call_3 (b->start_image, boot_image_handle, 0, NULL);
+  grub_printf ("StartImage returned 0x%lx\n", (unsigned long) status);
+  status = efi_call_1 (b->unload_image, boot_image_handle);
+
 fail:
-  printf ("Exit.\n");
-  return status;
+  if (map.file)
+  {
+    if (map.disk)
+      grub_disk_close (map.file);
+    else
+      grub_file_close (map.file);
+  }
+  if (map.pause)
+    pause ();
+  return grub_errno;
+}
+
+static grub_extcmd_t cmd_map;
+
+GRUB_MOD_INIT(map)
+{
+  cmd_map = grub_register_extcmd ("map", grub_cmd_map, 0, N_("FILE"),
+                                  N_("Create virtual disk."), options_map);
+}
+
+GRUB_MOD_FINI(map)
+{
+  grub_unregister_extcmd (cmd_map);
 }

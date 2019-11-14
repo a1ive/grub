@@ -1,117 +1,115 @@
-/*
- *  UEFI example
- *  Copyright (C) 2019  a1ive
+ /*
+ *  GRUB  --  GRand Unified Bootloader
+ *  Copyright (C) 2019  Free Software Foundation, Inc.
  *
- *  This program is free software: you can redistribute it and/or modify
+ *  GRUB is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
  *  the Free Software Foundation, either version 3 of the License, or
  *  (at your option) any later version.
  *
- *  This program is distributed in the hope that it will be useful,
+ *  GRUB is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
  *
  *  You should have received a copy of the GNU General Public License
- *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ *  along with GRUB.  If not, see <http://www.gnu.org/licenses/>.
+ *
  */
 
-#include <efi.h>
-#include <efilib.h>
-#include <grub.h>
-#include <sstdlib.h>
+#include <grub/efi/efi.h>
+#include <grub/efi/api.h>
 #include <private.h>
+#include <sstdlib.h>
 
-static BOOLEAN
-guidcmp (EFI_GUID g1, EFI_GUID g2)
+grub_efi_handle_t
+vpart_boot (grub_efi_handle_t *part_handle)
 {
-  int i;
-  if (g1.Data1 != g2.Data1 || g1.Data2 != g2.Data2 || g1.Data3 != g2.Data3)
-    return FALSE;
-  for (i = 0; i < 8; i++)
-  {
-    if (g1.Data4[i] != g2.Data4[i])
-      return FALSE;
-  }
-  return TRUE;
-}
-
-EFI_HANDLE
-vpart_boot (EFI_HANDLE *part_handle)
-{
-  EFI_STATUS status;
-  EFI_HANDLE boot_image_handle;
-  CHAR16 *text_dp = NULL;
-  EFI_DEVICE_PATH *boot_file;
+  grub_efi_status_t status;
+  grub_efi_handle_t boot_image_handle;
+  char *text_dp = NULL;
+  grub_efi_device_path_t *boot_file;
+  grub_efi_boot_services_t *b;
+  b = grub_efi_system_table->boot_services;
 
   if (!part_handle)
   return NULL;
 
-  boot_file = FileDevicePath (part_handle, EFI_REMOVABLE_MEDIA_FILE_NAME);
-  text_dp = DevicePathToStr (boot_file);
-  printf ("DevicePath: %ls\n", text_dp);
+  boot_file = grub_efi_file_device_path (grub_efi_get_device_path (part_handle),
+                                         EFI_REMOVABLE_MEDIA_FILE_NAME);
+  text_dp = grub_efi_device_path_to_str (boot_file);
+  grub_printf ("DevicePath: %s\n", text_dp);
   if (text_dp)
-    FreePool (text_dp);
+    grub_free (text_dp);
 
-  status = uefi_call_wrapper (gBS->LoadImage, 6, TRUE, efi_image_handle,
-                boot_file, NULL, 0, (VOID **)&boot_image_handle);
-  if (status != EFI_SUCCESS)
+  status = efi_call_6 (b->load_image, TRUE, grub_efi_image_handle,
+                       boot_file, NULL, 0, (void **)&boot_image_handle);
+  if (boot_file)
+    grub_free (boot_file);
+  if (status != GRUB_EFI_SUCCESS)
   {
-    printf ("failed to load image\n");
+    grub_printf ("failed to load image\n");
     return NULL;
   }
   return boot_image_handle;
 }
 
-EFI_HANDLE
+grub_efi_handle_t
 vdisk_boot (void)
 {
-  EFI_STATUS status;
-  UINTN count = 0;
-  UINTN i = 0;
-  EFI_HANDLE *buf = NULL;
-  EFI_DEVICE_PATH *tmp_dp;
-  EFI_DEVICE_PATH *boot_file = NULL;
-  EFI_HANDLE boot_image_handle = NULL;
-  CHAR16 *text_dp = NULL;
+  grub_efi_status_t status;
+  grub_efi_uintn_t count = 0;
+  grub_efi_uintn_t i = 0;
+  grub_efi_handle_t *buf = NULL;
+  grub_efi_device_path_t *tmp_dp;
+  grub_efi_device_path_t *boot_file = NULL;
+  grub_efi_handle_t boot_image_handle = NULL;
+  grub_efi_guid_t sfs_protocol_guid = GRUB_EFI_SIMPLE_FILE_SYSTEM_PROTOCOL_GUID;
+  char *text_dp = NULL;
+  grub_efi_boot_services_t *b;
+  b = grub_efi_system_table->boot_services;
 
-  status = uefi_call_wrapper (gBS->LocateHandleBuffer, 5, ByProtocol,
-                              &gEfiSimpleFileSystemProtocolGuid, NULL, &count, &buf);
-  if(status != EFI_SUCCESS)
+  status = efi_call_5 (b->locate_handle_buffer, GRUB_EFI_BY_PROTOCOL,
+                              &sfs_protocol_guid, NULL, &count, &buf);
+  if(status != GRUB_EFI_SUCCESS)
   {
-    printf ("SimpleFileSystemProtocol not found.\n");
+    grub_printf ("SimpleFileSystemProtocol not found.\n");
     return NULL;
   }
-  printf ("handle count: %zd\n", count);
   for (i = 0; i < count; i++)
   {
-    tmp_dp = DevicePathFromHandle (buf[i]);
-    text_dp = DevicePathToStr (tmp_dp);
-    printf ("DevicePath: %ls\n",text_dp);
+    tmp_dp = grub_efi_get_device_path (buf[i]);
+    text_dp = grub_efi_device_path_to_str (tmp_dp);
+    grub_printf ("DevicePath: %s\n",text_dp);
     if (text_dp)
-      FreePool (text_dp);
-    if (((VENDOR_DEVICE_PATH*)tmp_dp)->Header.Type != HARDWARE_DEVICE_PATH ||
-        ((VENDOR_DEVICE_PATH*)tmp_dp)->Header.SubType != HW_VENDOR_DP ||
-        !guidcmp (((VENDOR_DEVICE_PATH*)tmp_dp)->Guid, VDISK_GUID))
+      grub_free (text_dp);
+    if (((grub_efi_vendor_device_path_t *)tmp_dp)->header.type
+            != HARDWARE_DEVICE_PATH ||
+        ((grub_efi_vendor_device_path_t *)tmp_dp)->header.subtype
+            != HW_VENDOR_DP ||
+        !guidcmp (&((grub_efi_vendor_device_path_t*)tmp_dp)->vendor_guid,
+                  &VDISK_GUID))
       continue;
 
-    boot_file = FileDevicePath (buf[i], EFI_REMOVABLE_MEDIA_FILE_NAME);
+    boot_file = grub_efi_file_device_path (grub_efi_get_device_path (buf[i]),
+                                           EFI_REMOVABLE_MEDIA_FILE_NAME);
 
-    status = uefi_call_wrapper (gBS->LoadImage, 6, TRUE, efi_image_handle,
-                                boot_file, NULL, 0, (VOID**)&boot_image_handle);
-    if (status != EFI_SUCCESS)
+    status = efi_call_6 (b->load_image, TRUE, grub_efi_image_handle,
+                         boot_file, NULL, 0, (void **)&boot_image_handle);
+    if (status != GRUB_EFI_SUCCESS)
       continue;
     break;
   }
   if (!boot_image_handle)
   {
-    printf ("handle not found\n");
+    grub_printf ("boot_image_handle not found\n");
     return NULL;
   }
-  printf ("handle: %zd\n", i);
-  text_dp = DevicePathToStr (boot_file);
-  printf ("DevicePath: %ls\n",text_dp);
+  text_dp = grub_efi_device_path_to_str (boot_file);
+  if (boot_file)
+    grub_free (boot_file);
+  grub_printf ("DevicePath: %s\n",text_dp);
   if (text_dp)
-    FreePool (text_dp);
+    grub_free (text_dp);
   return boot_image_handle;
 }

@@ -1,59 +1,66 @@
-/*
- *  UEFI example
- *  Copyright (C) 2019  a1ive
+ /*
+ *  GRUB  --  GRand Unified Bootloader
+ *  Copyright (C) 2019  Free Software Foundation, Inc.
  *
- *  This program is free software: you can redistribute it and/or modify
+ *  GRUB is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
  *  the Free Software Foundation, either version 3 of the License, or
  *  (at your option) any later version.
  *
- *  This program is distributed in the hope that it will be useful,
+ *  GRUB is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
  *
  *  You should have received a copy of the GNU General Public License
- *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ *  along with GRUB.  If not, see <http://www.gnu.org/licenses/>.
+ *
  */
+#include <grub/efi/efi.h>
+#include <grub/efi/api.h>
+#include <grub/msdos_partition.h>
+#include <grub/env.h>
 
-#include <efi.h>
-#include <efilib.h>
-#include <grub.h>
-#include <sstdlib.h>
 #include <private.h>
+#include <sstdlib.h>
 
 static enum disk_type
 check_image (void)
 {
-  MASTER_BOOT_RECORD *mbr = NULL;
-  mbr = AllocateZeroPool (FD_BLOCK_SIZE);
+  struct grub_msdos_partition_mbr *mbr = NULL;
+  mbr = grub_zalloc (FD_BLOCK_SIZE);
   if (!mbr)
     return FD;
-  read (cmd->disk, &vdisk.file, mbr, FD_BLOCK_SIZE, 0);
-  if (mbr->Signature != MBR_SIGNATURE)
+  read (cmd->disk, vdisk.file, mbr, FD_BLOCK_SIZE, 0);
+  if (mbr->signature != GRUB_PC_PARTITION_SIGNATURE)
   {
-    FreePool (mbr);
+    grub_free (mbr);
     return CD;
   }
-  if (mbr->Partition[0].OSIndicator != PMBR_GPT_PARTITION)
+  if (mbr->entries[0].type != GRUB_PC_PARTITION_TYPE_GPT_DISK)
   {
-    FreePool (mbr);
+    grub_free (mbr);
     return MBR;
   }
   else
   {
-    FreePool (mbr);
+    grub_free (mbr);
     return GPT;
   }
 }
 
-EFI_STATUS
+grub_efi_status_t
 vdisk_install (grub_file_t file)
 {
-  EFI_STATUS status;
-  EFI_DEVICE_PATH *tmp_dp;
+  grub_efi_status_t status;
+  grub_efi_device_path_t *tmp_dp;
   enum disk_type type;
-  CHAR16 *text_dp = NULL;
+  char *text_dp = NULL;
+  grub_efi_boot_services_t *b;
+  b = grub_efi_system_table->boot_services;
+  /* guid */
+  grub_efi_guid_t dp_guid = GRUB_EFI_DEVICE_PATH_GUID;
+  grub_efi_guid_t blk_io_guid = GRUB_EFI_BLOCK_IO_GUID;
 
   vdisk.file = file;
   vdisk.disk = cmd->disk;
@@ -68,74 +75,78 @@ vdisk_install (grub_file_t file)
     vdisk.bs = FD_BLOCK_SIZE;
 
   vdisk.size = get_size (cmd->disk, vdisk.file);
-  uefi_call_wrapper (grub->env_set, 2, "enable_progress_indicator", "1");
+  grub_env_set ("enable_progress_indicator", "1");
   if (cmd->mem)
   {
-    vdisk.addr = (UINTN)AllocatePool ((UINTN)(vdisk.size + 8));
-    if (!vdisk.addr)
+    status = grub_efi_allocate_pool (GRUB_EFI_BOOT_SERVICES_DATA,
+                                     (grub_efi_uintn_t)(vdisk.size + 8),
+                                     (void **)&vdisk.addr);
+    if (status != GRUB_EFI_SUCCESS)
     {
-      printf ("out of memory\n");
-      return EFI_NOT_FOUND;
+      grub_printf ("out of memory\n");
+      return GRUB_EFI_OUT_OF_RESOURCES;
     }
-    printf ("Loading, please wait ...\n");
-    read (cmd->disk, &vdisk.file, (VOID *)vdisk.addr, (UINTN)vdisk.size, 0);
+    grub_printf ("Loading, please wait ...\n");
+    read (cmd->disk, vdisk.file,
+          (void *)vdisk.addr, (grub_efi_uintn_t)vdisk.size, 0);
   }
   else
     vdisk.addr = 0;
 
-  tmp_dp = create_device_node (HARDWARE_DEVICE_PATH, HW_VENDOR_DP,
-                             sizeof(VENDOR_DEVICE_PATH));
-  guidcpy (&((VENDOR_DEVICE_PATH *)tmp_dp)->Guid, &VDISK_GUID);
-  vdisk.dp = AppendDevicePathNode (NULL, tmp_dp);
+  tmp_dp = grub_efi_create_device_node (HARDWARE_DEVICE_PATH, HW_VENDOR_DP,
+                                        sizeof(grub_efi_vendor_device_path_t));
+  guidcpy (&((grub_efi_vendor_device_path_t *)tmp_dp)->vendor_guid, &VDISK_GUID);
+  vdisk.dp = grub_efi_append_device_node (NULL, tmp_dp);
   if (tmp_dp)
-    FreePool (tmp_dp);
+    grub_free (tmp_dp);
   /* vdisk */
   vdisk.present = TRUE;
   vdisk.handle = NULL;
   vdisk.mem = cmd->mem;
   vdisk.type = type;
   /* block_io */
-  CopyMem (&vdisk.block_io, &blockio_template, sizeof (EFI_BLOCK_IO_PROTOCOL));
+  grub_memcpy (&vdisk.block_io, &blockio_template, sizeof (block_io_protocol_t));
   /* media */
-  vdisk.block_io.Media = &vdisk.media;
-  vdisk.media.MediaId = VDISK_MEDIA_ID;
-  vdisk.media.RemovableMedia = FALSE;
-  vdisk.media.MediaPresent = TRUE;
-  vdisk.media.LogicalPartition = FALSE;
-  vdisk.media.ReadOnly = TRUE;
-  vdisk.media.WriteCaching = FALSE;
-  vdisk.media.IoAlign = 16;
-  vdisk.media.BlockSize = vdisk.bs;
-  vdisk.media.LastBlock = DivU64x32 (vdisk.size + vdisk.bs - 1, vdisk.bs, 0) - 1;
+  vdisk.block_io.media = &vdisk.media;
+  vdisk.media.media_id = VDISK_MEDIA_ID;
+  vdisk.media.removable_media = FALSE;
+  vdisk.media.media_present = TRUE;
+  vdisk.media.logical_partition = FALSE;
+  vdisk.media.read_only = TRUE;
+  vdisk.media.write_caching = FALSE;
+  vdisk.media.io_align = 16;
+  vdisk.media.block_size = vdisk.bs;
+  vdisk.media.last_block =
+              grub_divmod64 (vdisk.size + vdisk.bs - 1, vdisk.bs, 0) - 1;
   /* info */
-  printf ("VDISK file=%s type=%d\n",
+  grub_printf ("VDISK file=%s type=%d\n",
           vdisk.disk ? ((grub_disk_t)(vdisk.file))->name :
           ((grub_file_t)(vdisk.file))->name, vdisk.type);
-  printf ("VDISK addr=%ld size=%lld\n", (unsigned long)vdisk.addr,
+  grub_printf ("VDISK addr=%ld size=%lld\n", (unsigned long)vdisk.addr,
           (unsigned long long)vdisk.size);
-  printf ("VDISK blksize=%d lastblk=%lld\n", vdisk.media.BlockSize,
-          (unsigned long long)vdisk.media.LastBlock);
-  text_dp = DevicePathToStr (vdisk.dp);
-  printf ("VDISK DevicePath: %ls\n",text_dp);
+  grub_printf ("VDISK blksize=%d lastblk=%lld\n", vdisk.media.block_size,
+          (unsigned long long)vdisk.media.last_block);
+  text_dp = grub_efi_device_path_to_str (vdisk.dp);
+  grub_printf ("VDISK DevicePath: %s\n",text_dp);
   if (text_dp)
-    FreePool (text_dp);
+    grub_free (text_dp);
+  if (cmd->pause)
+    pause ();
   /* install vpart */
   if (vdisk.type != FD)
   {
     status = vpart_install ();
-    if (status != EFI_SUCCESS)
-      printf ("failed to install virtual partition\n");
   }
-  printf ("installing block_io protocol for virtual disk ...\n");
-  status = uefi_call_wrapper (gBS->InstallMultipleProtocolInterfaces,
-                              6, &vdisk.handle,
-                              &gEfiDevicePathProtocolGuid, vdisk.dp,
-                              &gEfiBlockIoProtocolGuid, &vdisk.block_io, NULL);
-  if (status != EFI_SUCCESS)
+  grub_printf ("installing block_io protocol for virtual disk ...\n");
+  status = efi_call_6 (b->install_multiple_protocol_interfaces,
+                          &vdisk.handle,
+                          &dp_guid, vdisk.dp,
+                          &blk_io_guid, &vdisk.block_io, NULL);
+  if (status != GRUB_EFI_SUCCESS)
   {
-    printf ("failed to install virtual disk\n");
+    grub_printf ("failed to install virtual disk\n");
     return status;
   }
-  uefi_call_wrapper (gBS->ConnectController, 4, vdisk.handle, NULL, NULL, TRUE);
-  return EFI_SUCCESS;
+  efi_call_4 (b->connect_controller, vdisk.handle, NULL, NULL, TRUE);
+  return GRUB_EFI_SUCCESS;
 }

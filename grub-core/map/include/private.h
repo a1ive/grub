@@ -1,34 +1,36 @@
-/*
- *  Copyright (C) 2019  a1ive
+ /*
+ *  GRUB  --  GRand Unified Bootloader
+ *  Copyright (C) 2019  Free Software Foundation, Inc.
  *
- *  This program is free software: you can redistribute it and/or modify
+ *  GRUB is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
  *  the Free Software Foundation, either version 3 of the License, or
  *  (at your option) any later version.
  *
- *  This program is distributed in the hope that it will be useful,
+ *  GRUB is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
  *
  *  You should have received a copy of the GNU General Public License
- *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ *  along with GRUB.  If not, see <http://www.gnu.org/licenses/>.
+ *
  */
 
 #ifndef MAP_PRIVATE_DATA_H
 #define MAP_PRIVATE_DATA_H
 
-#include <efi.h>
-#include <efilib.h>
+#include <grub/efi/api.h>
+#include <grub/efi/efi.h>
+#include <grub/disk.h>
+#include <grub/file.h>
 
 #include <sstdlib.h>
-#include <eltorito.h>
-#include <mbr.h>
 
-#define EFI_REMOVABLE_MEDIA_FILE_NAME_IA32    L"\\EFI\\BOOT\\BOOTIA32.EFI"
-#define EFI_REMOVABLE_MEDIA_FILE_NAME_X64     L"\\EFI\\BOOT\\BOOTX64.EFI"
-#define EFI_REMOVABLE_MEDIA_FILE_NAME_ARM     L"\\EFI\\BOOT\\BOOTARM.EFI"
-#define EFI_REMOVABLE_MEDIA_FILE_NAME_AARCH64 L"\\EFI\\BOOT\\BOOTAA64.EFI"
+#define EFI_REMOVABLE_MEDIA_FILE_NAME_IA32    "/EFI/BOOT/BOOTIA32.EFI"
+#define EFI_REMOVABLE_MEDIA_FILE_NAME_X64     "/EFI/BOOT/BOOTX64.EFI"
+#define EFI_REMOVABLE_MEDIA_FILE_NAME_ARM     "/EFI/BOOT/BOOTARM.EFI"
+#define EFI_REMOVABLE_MEDIA_FILE_NAME_AARCH64 "/EFI/BOOT/BOOTAA64.EFI"
 
 #if defined (__i386__)
   #define EFI_REMOVABLE_MEDIA_FILE_NAME   EFI_REMOVABLE_MEDIA_FILE_NAME_IA32
@@ -42,6 +44,18 @@
   #error Unknown Processor Type
 #endif
 
+#if defined (__x86_64__)
+#if (defined(__GNUC__) && (__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 7)))||(defined(__clang__) && (__clang_major__ > 3 || (__clang_major__ == 3 && __clang_minor__ >= 2)))
+  #define EFIAPI __attribute__((ms_abi))
+#else
+  #error Compiler is too old for GNU_EFI_USE_MS_ABI
+#endif
+#endif
+
+#ifndef EFIAPI
+  #define EFIAPI  // Substitute expresion to force C calling convention 
+#endif
+
 #define CD_BOOT_SECTOR 17
 #define CD_BLOCK_SIZE 2048
 #define CD_SHIFT 11
@@ -50,13 +64,34 @@
 #define FD_SHIFT 9
 #define BLOCK_OF_1_44MB 0xB40
 
-#define VDISK_BLOCKIO_TO_PARENT(a) STD_CR(a, vdisk_t, block_io)
+#define VDISK_BLOCKIO_TO_PARENT(a) CR(a, vdisk_t, block_io)
 
 #define MAX_FILE_NAME_STRING_SIZE 255
 #define MBR_START_LBA 0
+#define PRIMARY_PART_HEADER_LBA 1
 #define VDISK_MEDIA_ID 0x1
 
-static const EFI_GUID VDISK_GUID =
+struct block_io_protocol
+{
+  grub_efi_uint64_t revision;
+  grub_efi_block_io_media_t *media;
+  grub_efi_status_t (EFIAPI *reset) (struct block_io_protocol *this,
+			      grub_efi_boolean_t extended_verification);
+  grub_efi_status_t (EFIAPI *read_blocks) (struct block_io_protocol *this,
+				    grub_efi_uint32_t media_id,
+				    grub_efi_lba_t lba,
+				    grub_efi_uintn_t buffer_size,
+				    void *buffer);
+  grub_efi_status_t (EFIAPI *write_blocks) (struct block_io_protocol *this,
+				     grub_efi_uint32_t media_id,
+				     grub_efi_lba_t lba,
+				     grub_efi_uintn_t buffer_size,
+				     void *buffer);
+  grub_efi_status_t (EFIAPI *flush_blocks) (struct block_io_protocol *this);
+};
+typedef struct block_io_protocol block_io_protocol_t;
+
+static const grub_packed_guid_t VDISK_GUID =
 { 0xebe35ad8, 0x6c1e, 0x40f5,
   { 0xaa, 0xed, 0x0b, 0x91, 0x9a, 0x46, 0xbf, 0x4b }
 };
@@ -70,67 +105,59 @@ enum disk_type
   GPT,
 };
 
-struct grub_private_data
+struct map_private_data
 {
-  BOOLEAN mem;
-  BOOLEAN pause;
+  grub_efi_boolean_t mem;
+  grub_efi_boolean_t pause;
   enum disk_type type;
-  BOOLEAN disk;
-  VOID *file;
+  grub_efi_boolean_t disk;
+  void *file;
 };
 
 typedef struct
 {
-  BOOLEAN present;
-  EFI_HANDLE handle;
-  EFI_DEVICE_PATH *dp;
-  BOOLEAN disk;
-  VOID *file;
-  BOOLEAN mem;
-  UINTN addr;
-  UINT64 size;
-  UINT32 bs;
+  grub_efi_boolean_t present;
+  grub_efi_handle_t handle;
+  grub_efi_device_path_t *dp;
+  grub_efi_boolean_t disk;
+  void *file;
+  grub_efi_boolean_t mem;
+  grub_efi_uintn_t addr;
+  grub_efi_uint64_t size;
+  grub_efi_uint32_t bs;
   enum disk_type type;
-  EFI_BLOCK_IO_PROTOCOL block_io;
-  //EFI_BLOCK_IO2_PROTOCOL block_io2;
-  EFI_BLOCK_IO_MEDIA media;
+  block_io_protocol_t block_io;
+  grub_efi_block_io_media_t media;
 } vdisk_t;
 
 /* main */
-extern struct grub_private_data *cmd;
-extern grub_efi_grub_protocol_t *grub;
-extern EFI_HANDLE efi_image_handle;
+extern struct map_private_data *cmd;
 extern vdisk_t vdisk;
 extern vdisk_t vpart;
-void pause (void);
-VOID read (BOOLEAN disk, VOID **file, VOID *buf, UINTN len, UINT64 offset);
-UINT64 get_size (BOOLEAN disk, VOID *file);
+void read (grub_efi_boolean_t disk, void *file,
+           void *buf, grub_efi_uintn_t len, grub_efi_uint64_t offset);
+grub_efi_uint64_t get_size (grub_efi_boolean_t disk, void *file);
 /* vblock */
-extern EFI_BLOCK_IO_PROTOCOL blockio_template;
-EFI_STATUS EFIAPI
-blockio_reset (EFI_BLOCK_IO_PROTOCOL *this __unused, BOOLEAN extended __unused);
-EFI_STATUS EFIAPI
-blockio_read (EFI_BLOCK_IO_PROTOCOL *this, UINT32 media_id,
-              EFI_LBA lba, UINTN len, VOID *buf);
-EFI_STATUS EFIAPI
-blockio_write (EFI_BLOCK_IO_PROTOCOL *this __unused, UINT32 media_id __unused,
-              EFI_LBA lba __unused, UINTN len __unused, VOID *buf __unused);
-EFI_STATUS EFIAPI
-blockio_flush (EFI_BLOCK_IO_PROTOCOL *this __unused);
+extern block_io_protocol_t blockio_template;
+grub_efi_status_t EFIAPI
+blockio_reset (block_io_protocol_t *this __unused,
+               grub_efi_boolean_t extended __unused);
+grub_efi_status_t EFIAPI
+blockio_read (block_io_protocol_t *this, grub_efi_uint32_t media_id,
+              grub_efi_lba_t lba, grub_efi_uintn_t len, void *buf);
+grub_efi_status_t EFIAPI
+blockio_write (block_io_protocol_t *this __unused,
+               grub_efi_uint32_t media_id __unused,
+               grub_efi_lba_t lba __unused,
+               grub_efi_uintn_t len __unused, void *buf __unused);
+grub_efi_status_t EFIAPI
+blockio_flush (block_io_protocol_t *this __unused);
 /* vboot */
-EFI_HANDLE
-vpart_boot (EFI_HANDLE *part_handle);
-EFI_HANDLE
-vdisk_boot (void);
+grub_efi_handle_t vpart_boot (grub_efi_handle_t *part_handle);
+grub_efi_handle_t vdisk_boot (void);
 /* vdisk */
-EFI_STATUS
-vdisk_install (grub_file_t file);
+grub_efi_status_t vdisk_install (grub_file_t file);
 /* vpart */
-EFI_STATUS
-vpart_install (void);
-/* dputil */
-CHAR16 *wstrstr (CONST CHAR16 *str, CONST CHAR16 *search_str);
-EFI_GUID *guidcpy (EFI_GUID *dest, CONST EFI_GUID *src);
-EFI_DEVICE_PATH_PROTOCOL *
-create_device_node (UINT8 node_type, UINT8 node_subtype, UINT16 node_len);
+grub_efi_status_t vpart_install (void);
+
 #endif
