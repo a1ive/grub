@@ -16,11 +16,12 @@
 
 GRUB_MOD_LICENSE ("GPLv3+");
 
-static void
-dump_vendor_path (char *str, grub_efi_vendor_device_path_t *vendor)
+static char *
+dump_vendor_path (grub_efi_vendor_device_path_t *vendor)
 {
   grub_uint32_t vendor_data_len = vendor->header.length - sizeof (*vendor);
   char data[4];
+  char *str = NULL;
   str = grub_malloc (55 + vendor_data_len * 3);
   grub_snprintf (str, 55,
            "Vendor(%08x-%04x-%04x-%02x%02x-%02x%02x%02x%02x%02x%02x)[%x: ",
@@ -46,6 +47,7 @@ dump_vendor_path (char *str, grub_efi_vendor_device_path_t *vendor)
     }
   }
   grub_strcpy (str + grub_strlen (str), "]");
+  return str;
 }
 
 char *
@@ -106,7 +108,7 @@ grub_efi_device_path_to_str (grub_efi_device_path_t *dp)
           case GRUB_EFI_VENDOR_DEVICE_PATH_SUBTYPE:
           {
             char *tmp_str = NULL;
-            dump_vendor_path (tmp_str, (grub_efi_vendor_device_path_t *) dp);
+            tmp_str = dump_vendor_path ((grub_efi_vendor_device_path_t *) dp);
             node = grub_xasprintf ("/Hardware%s", tmp_str);
             if (tmp_str)
               grub_free (tmp_str);
@@ -369,7 +371,7 @@ grub_efi_device_path_to_str (grub_efi_device_path_t *dp)
           case GRUB_EFI_VENDOR_MESSAGING_DEVICE_PATH_SUBTYPE:
           {
             char *tmp_str = NULL;
-            dump_vendor_path (tmp_str, (grub_efi_vendor_device_path_t *) dp);
+            tmp_str = dump_vendor_path ((grub_efi_vendor_device_path_t *) dp);
             node = grub_xasprintf ("/Messaging%s", tmp_str);
             if (tmp_str)
               grub_free (tmp_str);
@@ -452,7 +454,7 @@ grub_efi_device_path_to_str (grub_efi_device_path_t *dp)
           case GRUB_EFI_VENDOR_MEDIA_DEVICE_PATH_SUBTYPE:
           {
             char *tmp_str = NULL;
-            dump_vendor_path (tmp_str, (grub_efi_vendor_device_path_t *) dp);
+            tmp_str = dump_vendor_path ((grub_efi_vendor_device_path_t *) dp);
             node = grub_xasprintf ("/Media%s", tmp_str);
             if (tmp_str)
               grub_free (tmp_str);
