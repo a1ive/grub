@@ -162,6 +162,15 @@ typedef grub_uint64_t	grub_off_t;
 /* The type for representing a disk block address.  */
 typedef grub_uint64_t	grub_disk_addr_t;
 
+struct grub_packed_guid
+{
+  grub_uint32_t data1;
+  grub_uint16_t data2;
+  grub_uint16_t data3;
+  grub_uint8_t data4[8];
+} GRUB_PACKED;
+typedef struct grub_packed_guid grub_packed_guid_t;
+
 /* Byte-orders.  */
 static inline grub_uint16_t grub_swap_bytes16(grub_uint16_t _x)
 {

@@ -656,14 +656,7 @@ struct grub_efi_guid
 } __attribute__ ((aligned(8)));
 typedef struct grub_efi_guid grub_efi_guid_t;
 
-struct grub_efi_packed_guid
-{
-  grub_uint32_t data1;
-  grub_uint16_t data2;
-  grub_uint16_t data3;
-  grub_uint8_t data4[8];
-} GRUB_PACKED;
-typedef struct grub_efi_packed_guid grub_efi_packed_guid_t;
+typedef grub_packed_guid_t grub_efi_packed_guid_t;
 
 /* XXX although the spec does not specify the padding, this actually
    must have the padding!  */

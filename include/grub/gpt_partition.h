@@ -23,15 +23,8 @@
 #include <grub/partition.h>
 #include <grub/msdos_partition.h>
 
-struct grub_gpt_part_guid
-{
-  grub_uint32_t data1;
-  grub_uint16_t data2;
-  grub_uint16_t data3;
-  grub_uint8_t data4[8];
-} GRUB_PACKED;
-typedef struct grub_gpt_part_guid grub_gpt_part_guid_t;
-typedef struct grub_gpt_part_guid grub_gpt_guid_t;
+typedef grub_packed_guid_t grub_gpt_part_guid_t;
+typedef grub_packed_guid_t grub_gpt_guid_t;
 
 /* Format the raw little-endian GUID as a newly allocated string.  */
 char * grub_gpt_guid_to_str (grub_gpt_guid_t *guid);
