@@ -38,7 +38,7 @@ vpart_boot (grub_efi_handle_t *part_handle)
   boot_file = grub_efi_file_device_path (grub_efi_get_device_path (part_handle),
                                          EFI_REMOVABLE_MEDIA_FILE_NAME);
   text_dp = grub_efi_device_path_to_str (boot_file);
-  grub_printf ("DevicePath: %s\n", text_dp);
+  grub_printf ("LoadImage: %s\n", text_dp);
   if (text_dp)
     grub_free (text_dp);
 
@@ -48,7 +48,7 @@ vpart_boot (grub_efi_handle_t *part_handle)
     grub_free (boot_file);
   if (status != GRUB_EFI_SUCCESS)
   {
-    grub_printf ("failed to load image\n");
+    grub_printf ("Failed to load image\n");
     return NULL;
   }
   return boot_image_handle;
@@ -80,7 +80,7 @@ vdisk_boot (void)
   {
     tmp_dp = grub_efi_get_device_path (buf[i]);
     text_dp = grub_efi_device_path_to_str (tmp_dp);
-    grub_printf ("DevicePath: %s\n",text_dp);
+    grub_printf ("Checking for %s\n",text_dp);
     if (text_dp)
       grub_free (text_dp);
     if (((grub_efi_vendor_device_path_t *)tmp_dp)->header.type
@@ -93,11 +93,18 @@ vdisk_boot (void)
 
     boot_file = grub_efi_file_device_path (grub_efi_get_device_path (buf[i]),
                                            EFI_REMOVABLE_MEDIA_FILE_NAME);
-
+    text_dp = grub_efi_device_path_to_str (boot_file);
+    grub_printf ("LoadImage: %s\n", text_dp);
+    if (text_dp)
+      grub_free (text_dp);
     status = efi_call_6 (b->load_image, TRUE, grub_efi_image_handle,
                          boot_file, NULL, 0, (void **)&boot_image_handle);
     if (status != GRUB_EFI_SUCCESS)
+    {
+      if (boot_file)
+        grub_free (boot_file);
       continue;
+    }
     break;
   }
   if (!boot_image_handle)
@@ -105,11 +112,6 @@ vdisk_boot (void)
     grub_printf ("boot_image_handle not found\n");
     return NULL;
   }
-  text_dp = grub_efi_device_path_to_str (boot_file);
-  if (boot_file)
-    grub_free (boot_file);
-  grub_printf ("DevicePath: %s\n",text_dp);
-  if (text_dp)
-    grub_free (text_dp);
+
   return boot_image_handle;
 }

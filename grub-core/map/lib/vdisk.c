@@ -137,7 +137,7 @@ vdisk_install (grub_file_t file)
   {
     status = vpart_install ();
   }
-  grub_printf ("installing block_io protocol for virtual disk ...\n");
+  grub_printf ("Installing block_io protocol for virtual disk ...\n");
   status = efi_call_6 (b->install_multiple_protocol_interfaces,
                           &vdisk.handle,
                           &dp_guid, vdisk.dp,

@@ -26,6 +26,15 @@
 
 #define __unused __attribute__ (( unused ))
 
+typedef __WCHAR_TYPE__ wchar_t;
+typedef __WINT_TYPE__ wint_t;
+
+#define L( x ) _L ( x )
+#define _L( x ) L ## x
+
+wchar_t *wstrstr
+(const wchar_t *str, const wchar_t *search_str);
+
 grub_efi_boolean_t
 guidcmp (const grub_packed_guid_t *g1, const grub_packed_guid_t *g2);
 grub_packed_guid_t *

@@ -28,10 +28,6 @@
 #include <sstdlib.h>
 
 #define EFI_PARTITION   0xef
-// "FAT File System Driver" 
-//static const grub_efi_char16_t FAT_FILE_SYSTEM_DRIVER[] =
-//{ 'F', 'A', 'T', ' ', 'F', 'i', 'l', 'e', ' ',
-//  'S', 'y', 's', 't', 'e', 'm', ' ', 'D', 'r', 'i', 'v', 'e', 'r', '\0' };
 
 static grub_efi_boolean_t
 get_mbr_info (void)
@@ -250,29 +246,33 @@ vpart_install (void)
   /* guid */
   grub_efi_guid_t dp_guid = GRUB_EFI_DEVICE_PATH_GUID;
   grub_efi_guid_t blk_io_guid = GRUB_EFI_BLOCK_IO_GUID;
-  //grub_efi_guid_t sfs_guid = GRUB_EFI_SIMPLE_FILE_SYSTEM_PROTOCOL_GUID;
-  //grub_efi_guid_t cn2_guid = GRUB_EFI_COMPONENT_NAME2_PROTOCOL_GUID;
+  grub_efi_guid_t sfs_guid = GRUB_EFI_SIMPLE_FILE_SYSTEM_PROTOCOL_GUID;
+  grub_efi_guid_t cn2_guid = GRUB_EFI_COMPONENT_NAME2_PROTOCOL_GUID;
 
   switch (vdisk.type)
   {
     case CD:
+      grub_printf ("Detecting ElTorito partition ... ");
       vpart.present = get_iso_info ();
-      grub_printf ("Found ISO Partition\n");
       break;
     case MBR:
+      grub_printf ("Detecting MBR active partition ... ");
       vpart.present = get_mbr_info ();
-      grub_printf ("Found MBR Partition\n");
       break;
     case GPT:
+      grub_printf ("Detecting GPT ESP partition ... ");
       vpart.present = get_gpt_info ();
-      grub_printf ("Found GPT Partition\n");
       break;
     default:
       break;
   }
 
   if (!vpart.present)
+  {
+    grub_printf ("NOT FOUND\n");
     return GRUB_EFI_NOT_FOUND;
+  }
+  grub_printf ("OK\n");
 
   vpart.handle = NULL;
   vpart.file = vdisk.file;
@@ -294,9 +294,6 @@ vpart_install (void)
   vpart.media.last_block =
               grub_divmod64 (vpart.size + vdisk.bs - 1, vdisk.bs, 0) - 1;
   /* info */
-  grub_printf ("VPART file=%s type=%d\n",
-          vpart.disk ? ((grub_disk_t)(vpart.file))->name :
-          ((grub_file_t)(vpart.file))->name, vpart.type);
   grub_printf ("VPART addr=%ld size=%lld\n", (unsigned long)vpart.addr,
           (unsigned long long)vpart.size);
   grub_printf ("VPART blksize=%d lastblk=%lld\n", vpart.media.block_size,
@@ -305,7 +302,7 @@ vpart_install (void)
   grub_printf ("VPART DevicePath: %s\n",text_dp);
   if (text_dp)
     grub_free (text_dp);
-  grub_printf ("installing block_io protocol for virtual partition ...\n");
+  grub_printf ("Installing block_io protocol for virtual partition ...\n");
   status = efi_call_6 (b->install_multiple_protocol_interfaces,
                        &vpart.handle,
                        &dp_guid, vpart.dp,
@@ -317,6 +314,50 @@ vpart_install (void)
   }
   efi_call_4 (b->connect_controller, vpart.handle, NULL, NULL, TRUE);
 
-  //if(vdisk.type != CD)
-  return GRUB_EFI_SUCCESS;
+  if(vdisk.type != CD)
+    return GRUB_EFI_SUCCESS;
+  /* for DUET UEFI firmware */
+  {
+    grub_efi_handle_t fat_handle = NULL;
+    grub_efi_handle_t *buf;
+    grub_efi_uintn_t count;
+    grub_efi_uintn_t i;
+    grub_efi_component_name2_protocol_t *cn2_protocol;
+    grub_efi_char16_t *driver_name;
+    grub_efi_simple_fs_protocol_t *sfs_protocol = NULL;
+
+    status = efi_call_3 (b->handle_protocol, vpart.handle,
+                         &sfs_guid, (void **)&sfs_protocol);
+    if(status == GRUB_EFI_SUCCESS)
+      return GRUB_EFI_SUCCESS;
+
+    status = efi_call_5 (b->locate_handle_buffer, GRUB_EFI_BY_PROTOCOL,
+                         &cn2_guid, NULL, &count, &buf);
+    if(status != GRUB_EFI_SUCCESS)
+    {
+      grub_printf ("ComponentNameProtocol not found.\n");
+    }
+    for (i = 0; i < count; i++)
+    {
+      efi_call_3 (b->handle_protocol, buf[i], &cn2_guid, (void **)&cn2_protocol);
+      efi_call_3 (cn2_protocol->get_driver_name,
+                  cn2_protocol, (grub_efi_char8_t *)"en-us", &driver_name);
+      if(driver_name && wstrstr (driver_name, L"FAT File System Driver"))
+      {
+        fat_handle = buf[i];
+        break;
+      }
+    }
+    if (fat_handle)
+    {
+      status = efi_call_4 (b->connect_controller,
+                           vpart.handle, &fat_handle, NULL, TRUE);
+      return GRUB_EFI_SUCCESS;
+    }
+    else
+    {
+      grub_printf ("FAT Driver not found.\n");
+      return GRUB_EFI_NOT_FOUND;
+    }
+  }
 }

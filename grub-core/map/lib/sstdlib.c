@@ -22,6 +22,31 @@
 
 #include <sstdlib.h>
 
+wchar_t *wstrstr
+(const wchar_t *str, const wchar_t *search_str)
+{
+  const wchar_t *first_match;
+  const wchar_t *search_str_tmp;
+  if (*search_str == L'\0')
+    return (wchar_t *) str;
+  while (*str != L'\0')
+  {
+    search_str_tmp = search_str;
+    first_match = str;
+    while ((*str == *search_str_tmp) && (*str != L'\0'))
+    {
+      str++;
+      search_str_tmp++;
+    }
+    if (*search_str_tmp == L'\0')
+      return (wchar_t *) first_match;
+    if (*str == L'\0')
+      return NULL;
+    str = first_match + 1;
+  }
+  return NULL;
+}
+
 grub_efi_boolean_t
 guidcmp (const grub_packed_guid_t *g1, const grub_packed_guid_t *g2)
 {
