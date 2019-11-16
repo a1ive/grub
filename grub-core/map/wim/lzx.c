@@ -482,26 +482,26 @@ static int lzx_token ( struct lzx *lzx ) {
   size_t match_length;
   int verbatim_bits;
   int aligned_bits;
-  int main;
+  int lzx_main;
   int length;
   uint8_t *copy;
 
-  /* Get main symelse*/
-  main = lzx_decode ( lzx, &lzx->main );
-  if ( main < 0 )
-    return main;
+  /* Get lzx_main symelse*/
+  lzx_main = lzx_decode ( lzx, &lzx->main );
+  if ( lzx_main < 0 )
+    return lzx_main;
 
   /* Check for literals */
-  if ( main < LZX_MAIN_LIT_CODES ) {
+  if ( lzx_main < LZX_MAIN_LIT_CODES ) {
     if ( lzx->output.data )
-      lzx->output.data[lzx->output.offset] = main;
+      lzx->output.data[lzx->output.offset] = lzx_main;
     lzx->output.offset++;
     return 0;
   }
-  main -= LZX_MAIN_LIT_CODES;
+  lzx_main -= LZX_MAIN_LIT_CODES;
 
   /* Calculate the match length */
-  length_header = ( main & 7 );
+  length_header = ( lzx_main & 7 );
   if ( length_header == 7 ) {
     length = lzx_decode ( lzx, &lzx->length );
     if ( length < 0 )
@@ -512,7 +512,7 @@ static int lzx_token ( struct lzx *lzx ) {
   match_length = ( length_header + 2 + length );
 
   /* Calculate the position slot */
-  position_slot = ( main >> 3 );
+  position_slot = ( lzx_main >> 3 );
   if ( position_slot < LZX_REPEATED_OFFSETS ) {
 
     /* Repeated offset */
