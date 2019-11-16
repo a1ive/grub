@@ -2801,13 +2801,25 @@ module = {
 module = {
   name = map;
   common = map/map.c;
-  common = map/lib/sstdlib.c;
+  common = map/lib/maplib.c;
   common = map/lib/vblock.c;
   common = map/lib/vdisk.c;
   common = map/lib/vpart.c;
   common = map/lib/vboot.c;
-  cflags = '-Wno-strict-aliasing -fshort-wchar';
-  cppflags = '-I$(srcdir)/map/include';
+
+  common = map/wim/huffman.c;
+  common = map/wim/lzx.c;
+  common = map/wim/sha1.c;
+  common = map/wim/wim.c;
+  common = map/wim/wimfile.c;
+  common = map/wim/wimpatch.c;
+  common = map/wimboot/vfat.c;
+  common = map/wimboot/efiboot.c;
+  common = map/wimboot/efifile.c;
+  common = map/wimboot/efiinstall.c;
+
+  cflags = '-Wno-strict-aliasing -Wno-vla -fshort-wchar';
+  cppflags = '-I$(srcdir)/map/include -I$(srcdir)/map/posix -I$(srcdir)/map/wim';
   enable = x86_64_efi;
   enable = i386_efi;
 };
@@ -2836,13 +2848,6 @@ module = {
   name = efiload;
   common = commands/efi/efiload.c;
   enable = efi;
-};
-
-module = {
-  name = wimboot;
-  common = commands/efi/wimboot.c;
-  enable = i386_efi;
-  enable = x86_64_efi;
 };
 
 module = {

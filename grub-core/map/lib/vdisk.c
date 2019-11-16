@@ -22,7 +22,7 @@
 #include <grub/env.h>
 
 #include <private.h>
-#include <sstdlib.h>
+#include <maplib.h>
 
 static enum disk_type
 check_image (void)
@@ -31,7 +31,7 @@ check_image (void)
   mbr = grub_zalloc (FD_BLOCK_SIZE);
   if (!mbr)
     return FD;
-  read (cmd->disk, vdisk.file, mbr, FD_BLOCK_SIZE, 0);
+  file_read (cmd->disk, vdisk.file, mbr, FD_BLOCK_SIZE, 0);
   if (mbr->signature != GRUB_PC_PARTITION_SIGNATURE)
   {
     grub_free (mbr);
@@ -87,7 +87,7 @@ vdisk_install (grub_file_t file)
       return GRUB_EFI_OUT_OF_RESOURCES;
     }
     grub_printf ("Loading, please wait ...\n");
-    read (cmd->disk, vdisk.file,
+    file_read (cmd->disk, vdisk.file,
           (void *)vdisk.addr, (grub_efi_uintn_t)vdisk.size, 0);
   }
   else

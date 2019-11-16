@@ -19,26 +19,17 @@
 
 #include <grub/efi/api.h>
 #include <private.h>
-#include <sstdlib.h>
+#include <maplib.h>
+#include <vfat.h>
 
-block_io_protocol_t blockio_template =
-{
-  EFI_BLOCK_IO_PROTOCOL_REVISION,
-  (grub_efi_block_io_media_t *) 0,
-  blockio_reset,
-  blockio_read,
-  blockio_write,
-  blockio_flush
-};
-
-grub_efi_status_t EFIAPI
+static grub_efi_status_t EFIAPI
 blockio_reset (block_io_protocol_t *this __unused,
                grub_efi_boolean_t extended __unused)
 {
   return GRUB_EFI_SUCCESS;
 }
 
-grub_efi_status_t EFIAPI
+static grub_efi_status_t EFIAPI
 blockio_read (block_io_protocol_t *this, grub_efi_uint32_t media_id,
               grub_efi_lba_t lba, grub_efi_uintn_t len, void *buf)
 {
@@ -52,6 +43,13 @@ blockio_read (block_io_protocol_t *this, grub_efi_uint32_t media_id,
     return GRUB_EFI_SUCCESS;
 
   data = VDISK_BLOCKIO_TO_PARENT(this);
+
+  /* wimboot */
+  if (data->type == VFAT)
+  {
+    vfat_read ((lba + data->lba), (len / VDISK_SECTOR_SIZE), buf);
+    return GRUB_EFI_SUCCESS;
+  }
 
   if (media_id != data->media.media_id)
     return GRUB_EFI_MEDIA_CHANGED;
@@ -74,13 +72,13 @@ blockio_read (block_io_protocol_t *this, grub_efi_uint32_t media_id,
   }
   else
   {
-    read (data->disk, data->file, buf, len,
-          data->addr + lba * data->media.block_size);
+    file_read (data->disk, data->file, buf, len,
+               data->addr + lba * data->media.block_size);
   }
   return GRUB_EFI_SUCCESS;
 }
 
-grub_efi_status_t EFIAPI
+static grub_efi_status_t EFIAPI
 blockio_write (block_io_protocol_t *this __unused,
                grub_efi_uint32_t media_id __unused,
                grub_efi_lba_t lba __unused,
@@ -89,8 +87,18 @@ blockio_write (block_io_protocol_t *this __unused,
   return GRUB_EFI_WRITE_PROTECTED;
 }
 
-grub_efi_status_t EFIAPI
+static grub_efi_status_t EFIAPI
 blockio_flush (block_io_protocol_t *this __unused)
 {
   return GRUB_EFI_SUCCESS;
 }
+
+block_io_protocol_t blockio_template =
+{
+  EFI_BLOCK_IO_PROTOCOL_REVISION,
+  (grub_efi_block_io_media_t *) 0,
+  blockio_reset,
+  blockio_read,
+  blockio_write,
+  blockio_flush
+};

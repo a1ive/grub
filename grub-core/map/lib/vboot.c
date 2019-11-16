@@ -20,7 +20,7 @@
 #include <grub/efi/efi.h>
 #include <grub/efi/api.h>
 #include <private.h>
-#include <sstdlib.h>
+#include <maplib.h>
 
 grub_efi_handle_t
 vpart_boot (grub_efi_handle_t *part_handle)
@@ -28,7 +28,7 @@ vpart_boot (grub_efi_handle_t *part_handle)
   grub_efi_status_t status;
   grub_efi_handle_t boot_image_handle;
   char *text_dp = NULL;
-  grub_efi_device_path_t *boot_file;
+  grub_efi_device_path_t *boot_file = NULL;
   grub_efi_boot_services_t *b;
   b = grub_efi_system_table->boot_services;
 

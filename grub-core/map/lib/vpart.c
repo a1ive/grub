@@ -25,7 +25,7 @@
 #include <grub/gpt_partition.h>
 
 #include <private.h>
-#include <sstdlib.h>
+#include <maplib.h>
 
 #define EFI_PARTITION   0xef
 
@@ -44,7 +44,7 @@ get_mbr_info (void)
   if (!mbr)
     return FALSE;
 
-  read (cmd->disk, vdisk.file, mbr, FD_BLOCK_SIZE, 0);
+  file_read (cmd->disk, vdisk.file, mbr, FD_BLOCK_SIZE, 0);
 
   for(i = 0; i < 4; i++)
   {
@@ -68,7 +68,7 @@ get_mbr_info (void)
   vpart.addr = vpart.addr + vdisk.addr;
 
   tmp_dp = grub_efi_create_device_node (MEDIA_DEVICE_PATH, MEDIA_HARDDRIVE_DP,
-                                        sizeof (grub_efi_hard_drive_device_path_t));
+                                sizeof (grub_efi_hard_drive_device_path_t));
   ((grub_efi_hard_drive_device_path_t*)tmp_dp)->partition_number = part_num;
   ((grub_efi_hard_drive_device_path_t*)tmp_dp)->partition_start  = part_addr;
   ((grub_efi_hard_drive_device_path_t*)tmp_dp)->partition_size   = part_size;
@@ -103,8 +103,8 @@ get_gpt_info (void)
   if(!gpt)
     return FALSE;
 
-  read (cmd->disk, vdisk.file, gpt, FD_BLOCK_SIZE,
-        PRIMARY_PART_HEADER_LBA * FD_BLOCK_SIZE);
+  file_read (cmd->disk, vdisk.file, gpt, FD_BLOCK_SIZE,
+             PRIMARY_PART_HEADER_LBA * FD_BLOCK_SIZE);
 
   for (i = 0; i < 8; i++)
   {
@@ -123,8 +123,8 @@ get_gpt_info (void)
 
   for (i = 0; i < gpt->maxpart; i++)
   {
-    read (cmd->disk, vdisk.file, gpt_entry, gpt_entry_size,
-          gpt_entry_pos + i * gpt_entry_size);
+    file_read (cmd->disk, vdisk.file, gpt_entry, gpt_entry_size,
+               gpt_entry_pos + i * gpt_entry_size);
     if (guidcmp (&gpt_entry->type,
                  &GPT_EFI_SYSTEM_PART_GUID))
     {
@@ -145,7 +145,7 @@ get_gpt_info (void)
   vpart.size = part_size;
 
   tmp_dp = grub_efi_create_device_node (MEDIA_DEVICE_PATH, MEDIA_HARDDRIVE_DP,
-                                        sizeof (grub_efi_hard_drive_device_path_t));
+                                sizeof (grub_efi_hard_drive_device_path_t));
   ((grub_efi_hard_drive_device_path_t*)tmp_dp)->partition_number = part_num;
   ((grub_efi_hard_drive_device_path_t*)tmp_dp)->partition_start = part_addr;
   ((grub_efi_hard_drive_device_path_t*)tmp_dp)->partition_size = part_size;
@@ -176,7 +176,8 @@ get_iso_info (void)
   if (!vol)
     return FALSE;
 
-  read (cmd->disk, vdisk.file, vol, CD_BLOCK_SIZE, CD_BOOT_SECTOR * CD_BLOCK_SIZE);
+  file_read (cmd->disk, vdisk.file,
+             vol, CD_BLOCK_SIZE, CD_BOOT_SECTOR * CD_BLOCK_SIZE);
 
   if (vol->unknown.type != CDVOL_TYPE_STANDARD ||
       grub_memcmp (vol->boot_record_volume.system_id, CDVOL_ELTORITO_ID,
@@ -187,8 +188,8 @@ get_iso_info (void)
   }
 
   catalog = (eltorito_catalog_t *) vol;
-  read (cmd->disk, vdisk.file, catalog, CD_BLOCK_SIZE,
-        *((grub_efi_uint32_t*) vol->boot_record_volume.elt_catalog) * CD_BLOCK_SIZE);
+  file_read (cmd->disk, vdisk.file, catalog, CD_BLOCK_SIZE,
+    *((grub_efi_uint32_t*) vol->boot_record_volume.elt_catalog) * CD_BLOCK_SIZE);
   if (catalog[0].catalog.indicator != ELTORITO_ID_CATALOG)
   {
     grub_free (vol);
@@ -205,7 +206,8 @@ get_iso_info (void)
       vpart.addr = catalog[i+1].boot.lba << CD_SHIFT;
       vpart.size = catalog[i+1].boot.sector_count << FD_SHIFT;
 
-      read (cmd->disk, vdisk.file, &dbr_img_buf, dbr_img_size, vpart.addr + 0x13);
+      file_read (cmd->disk, vdisk.file,
+                 &dbr_img_buf, dbr_img_size, vpart.addr + 0x13);
       dbr_img_size = dbr_img_buf << FD_SHIFT;
       vpart.size = vpart.size > dbr_img_size ? vpart.size : dbr_img_size;
 
