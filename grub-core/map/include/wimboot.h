@@ -61,17 +61,6 @@ struct wimboot_cmdline
   grub_efi_char16_t inject[256];
 };
 
-static inline void die (const char *fmt, ...)
-{
-  va_list args;
-  /* Print message */
-  va_start (args, fmt);
-  grub_vprintf (fmt, args);
-  va_end (args);
-  grub_getkey ();
-  grub_fatal ("Exit.\n");
-}
-
 extern struct wimboot_cmdline wimboot_cmd;
 extern struct vfat_file *bootmgfw;
 extern vdisk_t wimboot_disk, wimboot_part;

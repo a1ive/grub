@@ -20,7 +20,9 @@
 #ifndef _MAPLIB_H
 #define _MAPLIB_H
 
+#include <grub/misc.h>
 #include <grub/mm.h>
+#include <grub/term.h>
 #include <grub/types.h>
 #include <grub/gpt_partition.h>
 #include <grub/efi/api.h>
@@ -36,5 +38,16 @@ grub_packed_guid_t *
 guidcpy (grub_packed_guid_t *dst, const grub_packed_guid_t *src);
 
 void pause (void);
+
+static inline void die (const char *fmt, ...)
+{
+  va_list args;
+  /* Print message */
+  va_start (args, fmt);
+  grub_vprintf (fmt, args);
+  va_end (args);
+  grub_getkey ();
+  grub_fatal ("Exit.\n");
+}
 
 #endif

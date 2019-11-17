@@ -2806,14 +2806,23 @@ module = {
   common = map/lib/vdisk.c;
   common = map/lib/vpart.c;
   common = map/lib/vboot.c;
+  common = map/lib/vfat.c;
 
+  cflags = '-Wno-strict-aliasing -fshort-wchar';
+  cppflags = '-I$(srcdir)/map/include -I$(srcdir)/map/posix';
+  enable = x86_64_efi;
+  enable = i386_efi;
+};
+
+module = {
+  name = wimboot;
   common = map/wim/huffman.c;
   common = map/wim/lzx.c;
   common = map/wim/sha1.c;
   common = map/wim/wim.c;
   common = map/wim/wimfile.c;
   common = map/wim/wimpatch.c;
-  common = map/wimboot/vfat.c;
+  common = map/wimboot/efimain.c;
   common = map/wimboot/efiboot.c;
   common = map/wimboot/efifile.c;
   common = map/wimboot/efiinstall.c;

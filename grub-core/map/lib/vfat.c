@@ -24,7 +24,6 @@
 #include <maplib.h>
 #include <private.h>
 #include <vfat.h>
-#include <wimboot.h>
 
 #if __GNUC__ >= 9
 #pragma GCC diagnostic push
@@ -548,7 +547,7 @@ void vfat_read (uint64_t lba, unsigned int count, void *data)
 {
   struct vfat_region *region;
   void (* build) (uint64_t lba, unsigned int count, void *data);
-  const char *name;
+  //const char *name;
   uint64_t start = lba;
   uint64_t end = (lba + count);
   uint64_t frag_start = start;
@@ -560,11 +559,11 @@ void vfat_read (uint64_t lba, unsigned int count, void *data)
   unsigned int frag_count;
   unsigned int i;
 
-  DBG2 ("Read to %p from 0x%llx+0x%x: ", data, lba, count);
-  do {
+  do
+  {
     /* Initialise fragment to fill remaining space */
     frag_end = end;
-    name = NULL;
+    //name = NULL;
     build = NULL;
 
     /* Truncate fragment and generate data */
@@ -579,7 +578,7 @@ void vfat_read (uint64_t lba, unsigned int count, void *data)
       /* Generate data from file */
       if (file_idx < VDISK_MAX_FILES)
       {
-        name = vfat_files[file_idx].name;
+        //name = vfat_files[file_idx].name;
         build = vfat_file;
       }
     }
@@ -608,15 +607,13 @@ void vfat_read (uint64_t lba, unsigned int count, void *data)
         if (frag_end > region_end)
           frag_end = region_end;
         /* Found a suitable region */
-        name = region->name;
+        //name = region->name;
         build = region->build;
         break;
       }
     }
     /* Generate data from this region */
     frag_count = (frag_end - frag_start);
-    DBG2 ("%s%s (0x%x)", ((frag_start == start) ? "" : ", "),
-           (name ? name : "empty"), frag_count);
     if (build)
     {
       build (frag_start, frag_count, data);
@@ -630,8 +627,6 @@ void vfat_read (uint64_t lba, unsigned int count, void *data)
     data = (char *)data + (frag_count * VDISK_SECTOR_SIZE);
   }
   while (frag_start != end);
-
-  DBG2 ("\n");
 }
 
 /**
