@@ -67,7 +67,13 @@ extern vdisk_t wimboot_disk, wimboot_part;
 /* efiboot */
 void wimboot_boot (struct vfat_file *file);
 /* efifile */
-int add_file (const char *name, void *data, size_t len);
+void
+efi_read_file (struct vfat_file *vfile, void *data, size_t offset, size_t len);
+void
+mem_read_file (struct vfat_file *file, void *data, size_t offset, size_t len);
+int
+add_file (const char *name, void *data, size_t len,
+    void (* read) (struct vfat_file *file, void *data, size_t offset, size_t len));
 void grub_extract (struct grub_wimboot_context *wimboot_ctx);
 /* efiinstall */
 grub_efi_status_t wimboot_install (void);

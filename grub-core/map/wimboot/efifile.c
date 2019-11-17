@@ -47,7 +47,7 @@ struct vfat_file *bootmgfw;
  * @v offset            Offset
  * @v len               Length
  */
-static void
+void
 efi_read_file (struct vfat_file *vfile, void *data, size_t offset, size_t len)
 {
   grub_file_t file = vfile->opaque;
@@ -55,6 +55,12 @@ efi_read_file (struct vfat_file *vfile, void *data, size_t offset, size_t len)
   grub_file_seek (file, offset);
   /* Read from file */
   grub_file_read (file, data, len);
+}
+
+void
+mem_read_file (struct vfat_file *file, void *data, size_t offset, size_t len)
+{
+  memcpy (data, ((char *)file->opaque + offset), len);
 }
 
 #if defined (__i386__)
@@ -115,10 +121,12 @@ isbootmgfw (const char *name)
   return strcasecmp (name, bootarch) == 0;
 }
 
-int add_file (const char *name, void *data, size_t len)
+int add_file (const char *name, void *data, size_t len,
+              void (* read) (struct vfat_file *file,
+                             void *data, size_t offset, size_t len))
 {
   struct vfat_file *vfile;
-  vfile = vfat_add_file (name, data, len, efi_read_file);
+  vfile = vfat_add_file (name, data, len, read);
 
     /* Check for special-case files */
   if (isbootmgfw (name))
@@ -154,7 +162,8 @@ grub_extract (struct grub_wimboot_context *wimboot_ctx)
   {
     add_file (wimboot_ctx->components[i].file_name,
               wimboot_ctx->components[i].file,
-              wimboot_ctx->components[i].file->size);
+              wimboot_ctx->components[i].file->size,
+              efi_read_file);
   }
   /* Check that we have a boot file */
   if (! bootmgfw)
