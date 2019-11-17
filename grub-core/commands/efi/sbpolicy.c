@@ -32,6 +32,18 @@
 
 GRUB_MOD_LICENSE ("GPLv3+");
 
+#if defined (__x86_64__)
+#if (defined(__GNUC__) && (__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 7)))||(defined(__clang__) && (__clang_major__ > 3 || (__clang_major__ == 3 && __clang_minor__ >= 2)))
+  #define EFIAPI __attribute__((ms_abi))
+#else
+  #error Compiler is too old for GNU_EFI_USE_MS_ABI
+#endif
+#endif
+
+#ifndef EFIAPI
+  #define EFIAPI  // Substitute expresion to force C calling convention 
+#endif
+
 static const struct grub_arg_option options[] =
   {
     {"install", 'i', 0, N_("Install override security policy"), 0, 0},
@@ -41,32 +53,36 @@ static const struct grub_arg_option options[] =
   };
 
 struct grub_efi_security2_protocol;
-typedef struct grub_efi_security2_protocol grub_efi_security2_protocol_t;
-typedef grub_efi_status_t (*efi_security2_file_authentication) (
-            const grub_efi_security2_protocol_t *this,
+
+typedef grub_efi_status_t (EFIAPI *efi_security2_file_authentication) (
+            const struct grub_efi_security2_protocol *this,
             const grub_efi_device_path_protocol_t *device_path,
             void *file_buffer,
             grub_efi_uintn_t file_size,
             grub_efi_boolean_t  boot_policy);
 
-struct grub_efi_security2_protocol {
+struct grub_efi_security2_protocol
+{
   efi_security2_file_authentication file_authentication;
 };
+typedef struct grub_efi_security2_protocol grub_efi_security2_protocol_t;
 
 struct grub_efi_security_protocol;
-typedef struct grub_efi_security_protocol grub_efi_security_protocol_t;
-typedef grub_efi_status_t (*efi_security_file_authentication_state) (
-            const grub_efi_security_protocol_t *this,
+
+typedef grub_efi_status_t (EFIAPI *efi_security_file_authentication_state) (
+            const struct grub_efi_security_protocol *this,
             grub_efi_uint32_t authentication_status,
             const grub_efi_device_path_protocol_t *file);
-struct grub_efi_security_protocol {
+struct grub_efi_security_protocol
+{
   efi_security_file_authentication_state file_authentication_state;
 };
+typedef struct grub_efi_security_protocol grub_efi_security_protocol_t;
 
 static efi_security2_file_authentication es2fa = NULL;
 static efi_security_file_authentication_state esfas = NULL;
 
-static grub_efi_status_t
+static grub_efi_status_t EFIAPI
 security2_policy_authentication (
     const grub_efi_security2_protocol_t *this __attribute__ ((unused)),
     const grub_efi_device_path_protocol_t *device_path __attribute__ ((unused)),
@@ -77,7 +93,7 @@ security2_policy_authentication (
   return GRUB_EFI_SUCCESS;
 }
 
-static grub_efi_status_t
+static grub_efi_status_t EFIAPI
 security_policy_authentication (
     const grub_efi_security_protocol_t *this __attribute__ ((unused)),
     grub_efi_uint32_t authentication_status __attribute__ ((unused)),
@@ -113,7 +129,7 @@ security_policy_install(void)
   }
   else
     grub_printf ("EFI_SECURITY2_PROTOCOL not found\n");
-    
+
   grub_printf ("Locate: EFI_SECURITY_PROTOCOL\n");
   security_protocol = grub_efi_locate_protocol (&guid, NULL);
   if (!security_protocol)
@@ -122,7 +138,7 @@ security_policy_install(void)
     grub_printf ("EFI_SECURITY_PROTOCOL not found\n");
     return GRUB_EFI_NOT_FOUND;
   }
-  
+
   grub_printf ("Try: EFI_SECURITY_PROTOCOL\n");
   esfas = security_protocol->file_authentication_state;
   security_protocol->file_authentication_state =
@@ -183,53 +199,55 @@ grub_cmd_sbpolicy (grub_extcmd_context_t ctxt,
   grub_size_t datasize = 0;
   char *data = NULL;
   grub_efi_guid_t global = GRUB_EFI_GLOBAL_VARIABLE_GUID;
-  
+
   if (state[2].set)
-    {
-      if (esfas)
-        grub_printf ("Installed: EFI_SECURITY_PROTOCOL\n");
-      else
-        grub_printf ("Not installed: EFI_SECURITY_PROTOCOL\n");
-      if (es2fa)
-        grub_printf ("Installed: EFI_SECURITY2_PROTOCOL\n");
-      else
-        grub_printf ("Not installed: EFI_SECURITY2_PROTOCOL\n");
-      goto done;
-    }
+  {
+    if (esfas)
+      grub_printf ("Installed: EFI_SECURITY_PROTOCOL\n");
+    else
+      grub_printf ("Not installed: EFI_SECURITY_PROTOCOL\n");
+    if (es2fa)
+      grub_printf ("Installed: EFI_SECURITY2_PROTOCOL\n");
+    else
+      grub_printf ("Not installed: EFI_SECURITY2_PROTOCOL\n");
+    goto done;
+  }
 
   data = grub_efi_get_variable ("SecureBoot", &global,
                           &datasize);
 
   if (!data || !datasize)
-    {
-      grub_printf ("Not a Secure Boot Platform\n");
-      grub_errno = GRUB_ERR_NONE;
-      goto done;
-    }
+  {
+    grub_printf ("Not a Secure Boot Platform\n");
+    grub_errno = GRUB_ERR_NONE;
+    goto done;
+  }
 
   secure_boot = *((grub_uint8_t *)data);
   if (secure_boot)
+  {
+    grub_printf ("SecureBoot Enabled\n");
+    if (state[1].set)
     {
-      grub_printf ("SecureBoot Enabled\n");
-      if (state[1].set)
+      status = security_policy_uninstall();
+      if (status != GRUB_EFI_SUCCESS)
       {
-        status = security_policy_uninstall();
-        if (status != GRUB_EFI_SUCCESS)
-        {
-          grub_error(GRUB_ERR_BAD_ARGUMENT,N_("Failed to uninstall security policy"));
-          goto done;
-        }
-      }
-      else
-      {
-        status = security_policy_install();
-        if (status != GRUB_EFI_SUCCESS)
-        {
-          grub_error(GRUB_ERR_BAD_ARGUMENT,N_("Failed to install override security policy"));
-          goto done;
-        }
+        grub_error (GRUB_ERR_BAD_ARGUMENT,
+                    N_("Failed to uninstall security policy"));
+        goto done;
       }
     }
+    else
+    {
+      status = security_policy_install();
+      if (status != GRUB_EFI_SUCCESS)
+      {
+        grub_error (GRUB_ERR_BAD_ARGUMENT,
+                    N_("Failed to install override security policy"));
+          goto done;
+      }
+    }
+  }
   else
     grub_printf ("SecureBoot Disabled\n");
 

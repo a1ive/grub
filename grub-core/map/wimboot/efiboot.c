@@ -27,6 +27,7 @@
 #include <grub/efi/api.h>
 #include <grub/efi/efi.h>
 #include <grub/efi/graphics_output.h>
+#include <grub/script_sh.h>
 #include <stdio.h>
 #include <string.h>
 #include <vfat.h>
@@ -34,13 +35,13 @@
 #include <wimboot.h>
 #include <maplib.h>
 
-typedef grub_efi_status_t EFIAPI
-(*open_protocol) (grub_efi_handle_t handle,
-                  grub_efi_guid_t *protocol,
-                  void **protocol_interface,
-                  grub_efi_handle_t agent_handle,
-                  grub_efi_handle_t controller_handle,
-                  grub_efi_uint32_t attributes);
+typedef grub_efi_status_t
+(EFIAPI *open_protocol) (grub_efi_handle_t handle,
+                         grub_efi_guid_t *protocol,
+                         void **protocol_interface,
+                         grub_efi_handle_t agent_handle,
+                         grub_efi_handle_t controller_handle,
+                         grub_efi_uint32_t attributes);
 
 static open_protocol orig_open_protocol;
 
@@ -127,12 +128,13 @@ wimboot_boot (struct vfat_file *file)
     loaded->device_handle = wimboot_part.handle;
   /* Intercept calls to OpenProtocol() */
   orig_open_protocol =
-      (open_protocol) loaded->system_table->boot_services->open_protocol;
-  *(open_protocol*)&loaded->system_table->boot_services->open_protocol =
-        efi_open_protocol_wrapper;
+          (open_protocol) loaded->system_table->boot_services->open_protocol;
+  *(open_protocol *)&loaded->system_table->boot_services->open_protocol =
+          efi_open_protocol_wrapper;
   /* Start image */
   if (wimboot_cmd.pause)
     pause();
+  grub_script_execute_sourcecode ("terminal_output console");
   status = efi_call_3 (b->start_image, handle, NULL, NULL);
   if (status != GRUB_EFI_SUCCESS)
   {
