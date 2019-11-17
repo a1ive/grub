@@ -53,7 +53,7 @@ struct grub_wimboot_context
 
 struct wimboot_cmdline
 {
-  //grub_efi_boolean_t gui;
+  grub_efi_boolean_t gui;
   grub_efi_boolean_t rawbcd;
   grub_efi_boolean_t rawwim;
   unsigned int index;

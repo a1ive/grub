@@ -182,7 +182,7 @@ fail:
 }
 
 static const struct grub_arg_option options_wimboot[] = {
-  //{"gui", 'g', 0, N_("Display graphical boot messages."), 0, 0},
+  {"gui", 'g', 0, N_("Display graphical boot messages."), 0, 0},
   {"rawbcd", 'b', 0, N_("Disable rewriting .exe to .efi in the BCD file."), 0, 0},
   {"rawwim", 'w', 0, N_("Disable patching the wim file."), 0, 0},
   {"index", 'i', 0, N_("Use WIM image index n."), N_("n"), ARG_TYPE_INT},
@@ -193,7 +193,7 @@ static const struct grub_arg_option options_wimboot[] = {
 
 enum options_wimboot
 {
-  //WIMBOOT_GUI,
+  WIMBOOT_GUI,
   WIMBOOT_RAWBCD,
   WIMBOOT_RAWWIM,
   WIMBOOT_INDEX,
@@ -203,6 +203,7 @@ enum options_wimboot
 
 struct wimboot_cmdline wimboot_cmd =
 {
+  FALSE,
   FALSE,
   FALSE,
   0,
@@ -293,6 +294,8 @@ grub_cmd_wimboot (grub_extcmd_context_t ctxt,
 
   grub_env_set ("enable_progress_indicator", "1");
 
+  if (state[WIMBOOT_GUI].set)
+    wimboot_cmd.gui = TRUE;
   if (state[WIMBOOT_RAWBCD].set)
     wimboot_cmd.rawbcd = TRUE;
   if (state[WIMBOOT_RAWWIM].set)

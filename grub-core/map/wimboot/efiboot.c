@@ -24,12 +24,58 @@
  *
  */
 
+#include <grub/efi/api.h>
+#include <grub/efi/efi.h>
+#include <grub/efi/graphics_output.h>
 #include <stdio.h>
 #include <string.h>
 #include <vfat.h>
 #include <efiapi.h>
 #include <wimboot.h>
 #include <maplib.h>
+
+typedef grub_efi_status_t EFIAPI
+(*open_protocol) (grub_efi_handle_t handle,
+                  grub_efi_guid_t *protocol,
+                  void **protocol_interface,
+                  grub_efi_handle_t agent_handle,
+                  grub_efi_handle_t controller_handle,
+                  grub_efi_uint32_t attributes);
+
+static open_protocol orig_open_protocol;
+
+static grub_efi_status_t EFIAPI
+efi_open_protocol_wrapper (grub_efi_handle_t handle,
+                           grub_efi_guid_t *protocol,
+                           void **interface, grub_efi_handle_t agent_handle,
+                           grub_efi_handle_t controller_handle,
+                           grub_efi_uint32_t attributes)
+{
+  static unsigned int count;
+  grub_efi_status_t status;
+  grub_efi_guid_t gop_guid = GRUB_EFI_GOP_GUID;
+
+  /* Open the protocol */
+  status = efi_call_6 (orig_open_protocol, handle, protocol, interface,
+                       agent_handle, controller_handle, attributes);
+  if (status != GRUB_EFI_SUCCESS)
+    return status;
+
+  /* Block first attempt by bootmgfw.efi to open
+   * EFI_GRAPHICS_OUTPUT_PROTOCOL.  This forces error messages
+   * to be displayed in text mode (thereby avoiding the totally
+   * blank error screen if the fonts are missing).  We must
+   * allow subsequent attempts to succeed, otherwise the OS will
+   * fail to boot.
+   */
+  if ((memcmp (protocol, &gop_guid, sizeof (*protocol)) == 0) &&
+      (count++ == 0) && (! wimboot_cmd.gui))
+  {
+    printf ("Forcing text mode output\n");
+    return GRUB_EFI_INVALID_PARAMETER;
+  }
+  return GRUB_EFI_SUCCESS;
+}
 
 void
 wimboot_boot (struct vfat_file *file)
@@ -42,6 +88,7 @@ wimboot_boot (struct vfat_file *file)
   unsigned int pages;
   grub_efi_handle_t handle;
   grub_efi_status_t status;
+  grub_efi_loaded_image_t *loaded = NULL;
 
   /* Allocate memory */
   pages = ((file->len + PAGE_SIZE - 1) / PAGE_SIZE);
@@ -71,6 +118,18 @@ wimboot_boot (struct vfat_file *file)
   }
   printf ("Loaded %s\n", file->name);
 
+  /* Get loaded image protocol */
+  loaded = grub_efi_get_loaded_image (handle);
+  if (! loaded)
+    die ("no loaded image available");
+  /* Force correct device handle */
+  if (loaded->device_handle != wimboot_part.handle)
+    loaded->device_handle = wimboot_part.handle;
+  /* Intercept calls to OpenProtocol() */
+  orig_open_protocol =
+      (open_protocol) loaded->system_table->boot_services->open_protocol;
+  *(open_protocol*)&loaded->system_table->boot_services->open_protocol =
+        efi_open_protocol_wrapper;
   /* Start image */
   if (wimboot_cmd.pause)
     pause();
