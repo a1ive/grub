@@ -191,16 +191,175 @@ fail:
   return grub_errno;
 }
 
-static grub_extcmd_t cmd_wimboot;
+static const struct grub_arg_option options_vfat[] = {
+  {"create", 'c', 0, N_("Create virtual FAT disk."), 0, 0},
+  {"add", 'a', 0, N_("Add files to virtual FAT disk."), N_("FILE"), ARG_TYPE_STRING},
+  {"mem", 'm', 0, N_("Copy to memory."), 0, 0},
+  {"install", 'i', 0, N_("Install virtual FAT disk to BIOS."), 0, 0},
+  {"boot", 'b', 0, N_("Boot virtual FAT disk."), 0, 0},
+  {0, 0, 0, 0, 0, 0}
+};
+
+enum options_vfat
+{
+  VFAT_CREATE,
+  VFAT_ADD,
+  VFAT_MEM,
+  VFAT_INSTALL,
+  VFAT_BOOT,
+};
+
+static void
+print_help (void)
+{
+  grub_printf ("\nvfat -- Virtual FAT Disk\n");
+  grub_printf ("vfat --create\n");
+  grub_printf ("    mount virtual disk to (vfat)\n");
+  grub_printf ("vfat [--mem] --add=XXX YYY\n");
+  grub_printf ("    Add file \"YYY\" to disk, file name is \"XXX\"\n");
+  grub_printf ("vfat --install\n");
+  grub_printf ("    Install block_io protocol for virtual disk\n");
+  grub_printf ("vfat --boot\n");
+  grub_printf ("    Boot bootmgfw.efi from virtual disk\n");
+}
+
+static int
+grub_vfatdisk_iterate (grub_disk_dev_iterate_hook_t hook, void *hook_data,
+                       grub_disk_pull_t pull)
+{
+  if (pull != GRUB_DISK_PULL_NONE)
+    return 0;
+  return hook ("vfat", hook_data);
+}
+
+static grub_err_t
+grub_vfatdisk_open (const char *name, grub_disk_t disk)
+{
+  if (grub_strcmp (name, "vfat"))
+      return grub_error (GRUB_ERR_UNKNOWN_DEVICE, "not a vfat disk");
+
+  disk->total_sectors = VDISK_COUNT;
+  disk->max_agglomerate = GRUB_DISK_MAX_MAX_AGGLOMERATE;
+  disk->id = 0;
+
+  return GRUB_ERR_NONE;
+}
+
+static void
+grub_vfatdisk_close (grub_disk_t disk __attribute((unused)))
+{
+}
+
+static grub_err_t
+grub_vfatdisk_read (grub_disk_t disk __attribute((unused)), grub_disk_addr_t sector,
+                    grub_size_t size, char *buf)
+{
+  vfat_read (sector, size, buf);
+  return 0;
+}
+
+static grub_err_t
+grub_vfatdisk_write (grub_disk_t disk __attribute ((unused)),
+                     grub_disk_addr_t sector __attribute ((unused)),
+                     grub_size_t size __attribute ((unused)),
+                     const char *buf __attribute ((unused)))
+{
+  return grub_error (GRUB_ERR_NOT_IMPLEMENTED_YET, "vfat write is not supported");
+}
+
+static struct grub_disk_dev grub_vfatdisk_dev =
+{
+  .name = "vfat",
+  .id = GRUB_DISK_DEVICE_VFAT_ID,
+  .disk_iterate = grub_vfatdisk_iterate,
+  .disk_open = grub_vfatdisk_open,
+  .disk_close = grub_vfatdisk_close,
+  .disk_read = grub_vfatdisk_read,
+  .disk_write = grub_vfatdisk_write,
+  .next = 0
+};
+
+static void
+creatr_vfat (void)
+{
+  grub_disk_dev_t dev;
+  for (dev = grub_disk_dev_list; dev; dev = dev->next)
+  {
+    if (grub_strcmp (dev->name, "vfat") == 0)
+    {
+      grub_printf ("vfat: already exist\n");
+      return;
+    }
+  }
+  grub_disk_dev_register (&grub_vfatdisk_dev);
+}
+
+static grub_err_t
+grub_cmd_vfat (grub_extcmd_context_t ctxt, int argc, char *argv[])
+{
+  struct grub_arg_list *state = ctxt->state;
+  grub_file_t file = 0;
+  void *addr = NULL;
+  char *file_name = NULL;
+  wimboot_cmd.gui = TRUE;
+  wimboot_cmd.rawbcd = TRUE;
+  wimboot_cmd.rawwim = TRUE;
+  wimboot_cmd.pause = FALSE;
+  if (state[VFAT_ADD].set && argc == 1)
+  {
+    file = grub_file_open (argv[0], GRUB_FILE_TYPE_LOOPBACK);
+    if (!file)
+    {
+      grub_file_close (file);
+      goto fail;
+    }
+    file_name = state[VFAT_ADD].arg;
+    if (!file_name)
+      file_name = file->name;
+    if (state[VFAT_MEM].set)
+    {
+      addr = grub_malloc (file->size);
+      if (!addr)
+        goto fail;
+      grub_printf ("Loading %s ...\n", file->name);
+      grub_file_read (file, addr, file->size);
+      add_file (file_name, addr, file->size, mem_read_file);
+      grub_file_close (file);
+      grub_printf ("Added: (mem)%p+%ld -> %s\n",
+                   addr, (unsigned long) file->size, file_name);
+    }
+    else
+    {
+      add_file (file_name, file, file->size, efi_read_file);
+      grub_printf ("Added: %s -> %s\n", file->name, file_name);
+    }
+  }
+  else if (state[VFAT_INSTALL].set)
+    wimboot_install ();
+  else if (state[VFAT_BOOT].set)
+    wimboot_boot (bootmgfw);
+  else if (state[VFAT_CREATE].set)
+    creatr_vfat ();
+  else
+    print_help ();
+fail:
+  return grub_errno;
+}
+
+static grub_extcmd_t cmd_wimboot, cmd_vfat;
 
 GRUB_MOD_INIT(wimboot)
 {
   cmd_wimboot = grub_register_extcmd ("wimboot", grub_cmd_wimboot, 0,
                     N_("[--rawbcd] [--index=n] [--pause] @:NAME:PATH"),
                     N_("Windows Imaging Format bootloader"), options_wimboot);
+  cmd_vfat = grub_register_extcmd ("vfat", grub_cmd_vfat, 0,
+                    N_("[--mem] [--add=FILE PATH]"),
+                    N_("Virtual FAT Disk"), options_vfat);
 }
 
 GRUB_MOD_FINI(wimboot)
 {
   grub_unregister_extcmd (cmd_wimboot);
+  grub_unregister_extcmd (cmd_vfat);
 }
