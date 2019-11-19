@@ -31,6 +31,7 @@ struct grub_loopback
 {
   char *devname;
   grub_file_t file;
+  void *addr;
   struct grub_loopback *next;
   unsigned long id;
 };
@@ -43,6 +44,7 @@ static const struct grub_arg_option options[] =
     /* TRANSLATORS: The disk is simply removed from the list of available ones,
        not wiped, avoid to scare user.  */
     {"delete", 'd', 0, N_("Delete the specified loopback drive."), 0, 0},
+    {"mem", 'm', 0, N_("Copy to RAM."), 0, 0},
     {0, 0, 0, 0, 0, 0}
   };
 
@@ -68,6 +70,8 @@ delete_loopback (const char *name)
 
   grub_free (dev->devname);
   grub_file_close (dev->file);
+  if (dev->addr)
+    grub_free (dev->addr);
   grub_free (dev);
 
   return 0;
@@ -81,6 +85,7 @@ grub_cmd_loopback (grub_extcmd_context_t ctxt, int argc, char **args)
   grub_file_t file;
   struct grub_loopback *newdev;
   grub_err_t ret;
+  void *addr = NULL;
 
   if (argc < 1)
     return grub_error (GRUB_ERR_BAD_ARGUMENT, "device name required");
@@ -95,6 +100,13 @@ grub_cmd_loopback (grub_extcmd_context_t ctxt, int argc, char **args)
   file = grub_file_open (args[1], GRUB_FILE_TYPE_LOOPBACK);
   if (! file)
     return grub_errno;
+  if (state[1].set)
+  {
+    addr = grub_malloc (file->size);
+    if (! addr)
+      goto fail;
+    grub_file_read (file, addr, file->size);
+  }
 
   /* First try to replace the old device.  */
   for (newdev = loopback_list; newdev; newdev = newdev->next)
@@ -102,12 +114,14 @@ grub_cmd_loopback (grub_extcmd_context_t ctxt, int argc, char **args)
       break;
 
   if (newdev)
-    {
-      grub_file_close (newdev->file);
-      newdev->file = file;
-
-      return 0;
-    }
+  {
+    grub_file_close (newdev->file);
+    if (newdev->addr)
+      grub_free (newdev->addr);
+    newdev->file = file;
+    newdev->addr = addr;
+    return 0;
+  }
 
   /* Unable to replace it, make a new entry.  */
   newdev = grub_malloc (sizeof (struct grub_loopback));
@@ -116,12 +130,15 @@ grub_cmd_loopback (grub_extcmd_context_t ctxt, int argc, char **args)
 
   newdev->devname = grub_strdup (args[0]);
   if (! newdev->devname)
-    {
-      grub_free (newdev);
-      goto fail;
-    }
+  {
+    if (newdev->addr)
+      grub_free (newdev->addr);
+    grub_free (newdev);
+    goto fail;
+  }
 
   newdev->file = file;
+  newdev->addr = addr;
   newdev->id = last_id++;
 
   /* Add the new entry to the list.  */
@@ -139,16 +156,16 @@ fail:
 
 static int
 grub_loopback_iterate (grub_disk_dev_iterate_hook_t hook, void *hook_data,
-		       grub_disk_pull_t pull)
+                       grub_disk_pull_t pull)
 {
   struct grub_loopback *d;
   if (pull != GRUB_DISK_PULL_NONE)
     return 0;
   for (d = loopback_list; d; d = d->next)
-    {
-      if (hook (d->devname, hook_data))
-	return 1;
-    }
+  {
+    if (hook (d->devname, hook_data))
+      return 1;
+  }
   return 0;
 }
 
@@ -164,15 +181,23 @@ grub_loopback_open (const char *name, grub_disk_t disk)
   if (! dev)
     return grub_error (GRUB_ERR_UNKNOWN_DEVICE, "can't open device");
 
+  if (dev->addr)
+  {
+    disk->total_sectors = (dev->file->size / GRUB_DISK_SECTOR_SIZE);
+    disk->max_agglomerate = GRUB_DISK_MAX_MAX_AGGLOMERATE;
+    disk->id = dev->id;
+    disk->data = dev;
+    return 0;
+  }
   /* Use the filesize for the disk size, round up to a complete sector.  */
   if (dev->file->size != GRUB_FILE_SIZE_UNKNOWN)
     disk->total_sectors = ((dev->file->size + GRUB_DISK_SECTOR_SIZE - 1)
-			   / GRUB_DISK_SECTOR_SIZE);
+                            / GRUB_DISK_SECTOR_SIZE);
   else
     disk->total_sectors = GRUB_DISK_SIZE_UNKNOWN;
   /* Avoid reading more than 512M.  */
   disk->max_agglomerate = 1 << (29 - GRUB_DISK_SECTOR_BITS
-				- GRUB_DISK_CACHE_BITS);
+                          - GRUB_DISK_CACHE_BITS);
 
   disk->id = dev->id;
 
@@ -183,60 +208,69 @@ grub_loopback_open (const char *name, grub_disk_t disk)
 
 static grub_err_t
 grub_loopback_read (grub_disk_t disk, grub_disk_addr_t sector,
-		    grub_size_t size, char *buf)
+                    grub_size_t size, char *buf)
 {
   grub_file_t file = ((struct grub_loopback *) disk->data)->file;
-  grub_off_t pos;
+  grub_off_t pos = (sector + size) << GRUB_DISK_SECTOR_BITS;
+  char *addr = ((struct grub_loopback *) disk->data)->addr;
+  if (addr)
+  {
+    grub_memcpy (buf, addr + (sector << GRUB_DISK_SECTOR_BITS),
+                 size << GRUB_DISK_SECTOR_BITS);
+    return 0;
+  }
 
   grub_file_seek (file, sector << GRUB_DISK_SECTOR_BITS);
-
   grub_file_read (file, buf, size << GRUB_DISK_SECTOR_BITS);
+
   if (grub_errno)
     return grub_errno;
-
   /* In case there is more data read than there is available, in case
      of files that are not a multiple of GRUB_DISK_SECTOR_SIZE, fill
      the rest with zeros.  */
-  pos = (sector + size) << GRUB_DISK_SECTOR_BITS;
   if (pos > file->size)
-    {
-      grub_size_t amount = pos - file->size;
-      grub_memset (buf + (size << GRUB_DISK_SECTOR_BITS) - amount, 0, amount);
-    }
-
+  {
+    grub_size_t amount = pos - file->size;
+    grub_memset (buf + (size << GRUB_DISK_SECTOR_BITS) - amount, 0, amount);
+  }
   return 0;
 }
 
 static grub_err_t
-grub_loopback_write (grub_disk_t disk __attribute ((unused)),
-		     grub_disk_addr_t sector __attribute ((unused)),
-		     grub_size_t size __attribute ((unused)),
-		     const char *buf __attribute ((unused)))
+grub_loopback_write (grub_disk_t disk, grub_disk_addr_t sector,
+                     grub_size_t size, const char *buf)
 {
+  char *addr = ((struct grub_loopback *) disk->data)->addr;
+  if (addr)
+  {
+    grub_memcpy (addr + (sector << GRUB_DISK_SECTOR_BITS), buf,
+                 size << GRUB_DISK_SECTOR_BITS);
+    return 0;
+  }
+
   return grub_error (GRUB_ERR_NOT_IMPLEMENTED_YET,
-		     "loopback write is not supported");
+                     "loopback write is not supported");
 }
 
 static struct grub_disk_dev grub_loopback_dev =
-  {
-    .name = "loopback",
-    .id = GRUB_DISK_DEVICE_LOOPBACK_ID,
-    .disk_iterate = grub_loopback_iterate,
-    .disk_open = grub_loopback_open,
-    .disk_read = grub_loopback_read,
-    .disk_write = grub_loopback_write,
-    .next = 0
-  };
+{
+  .name = "loopback",
+  .id = GRUB_DISK_DEVICE_LOOPBACK_ID,
+  .disk_iterate = grub_loopback_iterate,
+  .disk_open = grub_loopback_open,
+  .disk_read = grub_loopback_read,
+  .disk_write = grub_loopback_write,
+  .next = 0
+};
 
 static grub_extcmd_t cmd;
 
 GRUB_MOD_INIT(loopback)
 {
   cmd = grub_register_extcmd ("loopback", grub_cmd_loopback, 0,
-			      N_("[-d] DEVICENAME FILE."),
-			      /* TRANSLATORS: The file itself is not destroyed
-				 or transformed into drive.  */
-			      N_("Make a virtual drive from a file."), options);
+                              N_("[-m] [-d] DEVICENAME FILE."),
+  /* TRANSLATORS: The file itself is not destroyed or transformed into drive.  */
+                              N_("Make a virtual drive from a file."), options);
   grub_disk_dev_register (&grub_loopback_dev);
 }
 
