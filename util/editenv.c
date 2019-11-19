@@ -36,8 +36,6 @@ void
 grub_util_create_envblk_file (const char *name)
 {
   FILE *fp;
-  char *buf;
-  char *namenew;
   char *rename_target = xstrdup(name);
   char *buf, *pbuf, *namenew;
 
