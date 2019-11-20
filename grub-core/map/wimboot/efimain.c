@@ -69,70 +69,6 @@ struct wimboot_cmdline wimboot_cmd =
   L"\\Windows\\System32",
 };
 
-static void
-grub_wimboot_close (struct grub_wimboot_context *wimboot_ctx)
-{
-  int i;
-  if (!wimboot_ctx->components)
-    return;
-  for (i = 0; i < wimboot_ctx->nfiles; i++)
-    {
-      grub_free (wimboot_ctx->components[i].file_name);
-      grub_file_close (wimboot_ctx->components[i].file);
-    }
-  grub_free (wimboot_ctx->components);
-  wimboot_ctx->components = 0;
-}
-
-static grub_err_t
-grub_wimboot_init (int argc, char *argv[],
-                   struct grub_wimboot_context *wimboot_ctx)
-{
-  int i;
-
-  wimboot_ctx->nfiles = 0;
-  wimboot_ctx->components = 0;
-  wimboot_ctx->components =
-          grub_zalloc (argc * sizeof (wimboot_ctx->components[0]));
-  if (!wimboot_ctx->components)
-    return grub_errno;
-
-  for (i = 0; i < argc; i++)
-  {
-    const char *fname = argv[i];
-    if (grub_memcmp (argv[i], "@:", 2) == 0)
-    {
-      const char *ptr, *eptr;
-      ptr = argv[i] + 2;
-      while (*ptr == '/')
-        ptr++;
-      eptr = grub_strchr (ptr, ':');
-      if (eptr)
-      {
-        wimboot_ctx->components[i].file_name = grub_strndup (ptr, eptr - ptr);
-        if (!wimboot_ctx->components[i].file_name)
-        {
-          grub_wimboot_close (wimboot_ctx);
-          return grub_errno;
-        }
-        fname = eptr + 1;
-      }
-    }
-    wimboot_ctx->components[i].file = grub_file_open (fname,
-                GRUB_FILE_TYPE_LINUX_INITRD | GRUB_FILE_TYPE_NO_DECOMPRESS);
-    if (!wimboot_ctx->components[i].file)
-    {
-      grub_wimboot_close (wimboot_ctx);
-      return grub_errno;
-    }
-    wimboot_ctx->nfiles++;
-    grub_printf ("file %d: %s path: %s\n",
-                 wimboot_ctx->nfiles, wimboot_ctx->components[i].file_name, fname);
-  }
-
-  return GRUB_ERR_NONE;
-}
-
 static grub_err_t
 grub_cmd_wimboot (grub_extcmd_context_t ctxt,
                   int argc, char *argv[])
@@ -209,91 +145,6 @@ enum options_vfat
   VFAT_BOOT,
 };
 
-static void
-print_help (void)
-{
-  grub_printf ("\nvfat -- Virtual FAT Disk\n");
-  grub_printf ("vfat --create\n");
-  grub_printf ("    mount virtual disk to (vfat)\n");
-  grub_printf ("vfat [--mem] --add=XXX YYY\n");
-  grub_printf ("    Add file \"YYY\" to disk, file name is \"XXX\"\n");
-  grub_printf ("vfat --install\n");
-  grub_printf ("    Install block_io protocol for virtual disk\n");
-  grub_printf ("vfat --boot\n");
-  grub_printf ("    Boot bootmgfw.efi from virtual disk\n");
-}
-
-static int
-grub_vfatdisk_iterate (grub_disk_dev_iterate_hook_t hook, void *hook_data,
-                       grub_disk_pull_t pull)
-{
-  if (pull != GRUB_DISK_PULL_NONE)
-    return 0;
-  return hook ("vfat", hook_data);
-}
-
-static grub_err_t
-grub_vfatdisk_open (const char *name, grub_disk_t disk)
-{
-  if (grub_strcmp (name, "vfat"))
-      return grub_error (GRUB_ERR_UNKNOWN_DEVICE, "not a vfat disk");
-
-  disk->total_sectors = VDISK_COUNT;
-  disk->max_agglomerate = GRUB_DISK_MAX_MAX_AGGLOMERATE;
-  disk->id = 0;
-
-  return GRUB_ERR_NONE;
-}
-
-static void
-grub_vfatdisk_close (grub_disk_t disk __attribute((unused)))
-{
-}
-
-static grub_err_t
-grub_vfatdisk_read (grub_disk_t disk __attribute((unused)), grub_disk_addr_t sector,
-                    grub_size_t size, char *buf)
-{
-  vfat_read (sector, size, buf);
-  return 0;
-}
-
-static grub_err_t
-grub_vfatdisk_write (grub_disk_t disk __attribute ((unused)),
-                     grub_disk_addr_t sector __attribute ((unused)),
-                     grub_size_t size __attribute ((unused)),
-                     const char *buf __attribute ((unused)))
-{
-  return grub_error (GRUB_ERR_NOT_IMPLEMENTED_YET, "vfat write is not supported");
-}
-
-static struct grub_disk_dev grub_vfatdisk_dev =
-{
-  .name = "vfat",
-  .id = GRUB_DISK_DEVICE_VFAT_ID,
-  .disk_iterate = grub_vfatdisk_iterate,
-  .disk_open = grub_vfatdisk_open,
-  .disk_close = grub_vfatdisk_close,
-  .disk_read = grub_vfatdisk_read,
-  .disk_write = grub_vfatdisk_write,
-  .next = 0
-};
-
-static void
-creatr_vfat (void)
-{
-  grub_disk_dev_t dev;
-  for (dev = grub_disk_dev_list; dev; dev = dev->next)
-  {
-    if (grub_strcmp (dev->name, "vfat") == 0)
-    {
-      grub_printf ("vfat: already exist\n");
-      return;
-    }
-  }
-  grub_disk_dev_register (&grub_vfatdisk_dev);
-}
-
 static grub_err_t
 grub_cmd_vfat (grub_extcmd_context_t ctxt, int argc, char *argv[])
 {
@@ -339,9 +190,9 @@ grub_cmd_vfat (grub_extcmd_context_t ctxt, int argc, char *argv[])
   else if (state[VFAT_BOOT].set)
     wimboot_boot (bootmgfw);
   else if (state[VFAT_CREATE].set)
-    creatr_vfat ();
+    create_vfat ();
   else
-    print_help ();
+    print_vfat_help ();
 fail:
   return grub_errno;
 }

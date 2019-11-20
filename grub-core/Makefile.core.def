@@ -2826,6 +2826,7 @@ module = {
   common = map/wimboot/efiboot.c;
   common = map/wimboot/efifile.c;
   common = map/wimboot/efiinstall.c;
+  common = map/wimboot/efivfat.c;
 
   cflags = '-Wno-strict-aliasing -Wno-vla -fshort-wchar';
   cppflags = '-I$(srcdir)/map/include -I$(srcdir)/map/posix -I$(srcdir)/map/wim';

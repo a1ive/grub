@@ -171,3 +171,67 @@ grub_extract (struct grub_wimboot_context *wimboot_ctx)
     die ("FATAL: no %ls or bootmgfw.efi found\n", efi_bootarch);
   }
 }
+
+void
+grub_wimboot_close (struct grub_wimboot_context *wimboot_ctx)
+{
+  int i;
+  if (!wimboot_ctx->components)
+    return;
+  for (i = 0; i < wimboot_ctx->nfiles; i++)
+    {
+      grub_free (wimboot_ctx->components[i].file_name);
+      grub_file_close (wimboot_ctx->components[i].file);
+    }
+  grub_free (wimboot_ctx->components);
+  wimboot_ctx->components = 0;
+}
+
+grub_err_t
+grub_wimboot_init (int argc, char *argv[],
+                   struct grub_wimboot_context *wimboot_ctx)
+{
+  int i;
+
+  wimboot_ctx->nfiles = 0;
+  wimboot_ctx->components = 0;
+  wimboot_ctx->components =
+          grub_zalloc (argc * sizeof (wimboot_ctx->components[0]));
+  if (!wimboot_ctx->components)
+    return grub_errno;
+
+  for (i = 0; i < argc; i++)
+  {
+    const char *fname = argv[i];
+    if (grub_memcmp (argv[i], "@:", 2) == 0)
+    {
+      const char *ptr, *eptr;
+      ptr = argv[i] + 2;
+      while (*ptr == '/')
+        ptr++;
+      eptr = grub_strchr (ptr, ':');
+      if (eptr)
+      {
+        wimboot_ctx->components[i].file_name = grub_strndup (ptr, eptr - ptr);
+        if (!wimboot_ctx->components[i].file_name)
+        {
+          grub_wimboot_close (wimboot_ctx);
+          return grub_errno;
+        }
+        fname = eptr + 1;
+      }
+    }
+    wimboot_ctx->components[i].file = grub_file_open (fname,
+                GRUB_FILE_TYPE_LINUX_INITRD | GRUB_FILE_TYPE_NO_DECOMPRESS);
+    if (!wimboot_ctx->components[i].file)
+    {
+      grub_wimboot_close (wimboot_ctx);
+      return grub_errno;
+    }
+    wimboot_ctx->nfiles++;
+    grub_printf ("file %d: %s path: %s\n",
+                 wimboot_ctx->nfiles, wimboot_ctx->components[i].file_name, fname);
+  }
+
+  return GRUB_ERR_NONE;
+}

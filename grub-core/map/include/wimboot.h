@@ -75,7 +75,14 @@ int
 add_file (const char *name, void *data, size_t len,
     void (* read) (struct vfat_file *file, void *data, size_t offset, size_t len));
 void grub_extract (struct grub_wimboot_context *wimboot_ctx);
+void grub_wimboot_close (struct grub_wimboot_context *wimboot_ctx);
+grub_err_t
+grub_wimboot_init (int argc, char *argv[],
+                   struct grub_wimboot_context *wimboot_ctx);
 /* efiinstall */
 grub_efi_status_t wimboot_install (void);
+/* efivfat */
+void print_vfat_help (void);
+void create_vfat (void);
 
 #endif
