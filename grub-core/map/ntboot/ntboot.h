@@ -34,6 +34,6 @@ enum boot_type
 
 void
 bcd_patch (enum boot_type type, const char *path, const char *diskname,
-           grub_disk_addr_t lba, const char *partmap);
+           grub_disk_addr_t lba, int partnum, const char *partmap);
 
 #endif

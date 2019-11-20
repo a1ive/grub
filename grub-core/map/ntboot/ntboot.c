@@ -122,7 +122,7 @@ grub_cmd_ntboot (grub_extcmd_context_t ctxt,
     bootmgr = grub_file_open (state[NTBOOT_EFI].arg,
                               GRUB_FILE_TYPE_EFI_CHAINLOADED_IMAGE);
   else
-    bootmgr = grub_file_open ("/boot/bootmgfw.efi",
+    bootmgr = grub_file_open ("/efi/microsoft/boot/bootmgfw.efi",
                               GRUB_FILE_TYPE_EFI_CHAINLOADED_IMAGE);
   if (!bootmgr)
   {
@@ -144,9 +144,11 @@ grub_cmd_ntboot (grub_extcmd_context_t ctxt,
   add_file ("boot.sdi", bootsdi, bootsdi->size, efi_read_file);
   bcd_patch (type, filename, file->device->disk->name,
              file->device->disk->partition->start,
+             file->device->disk->partition->number,
              file->device->disk->partition->partmap->name);
   add_file ("bcd", bcd, bcd_len, mem_read_file);
-  grub_getkey ();
+  if (wimboot_cmd.pause)
+    grub_getkey ();
   wimboot_install ();
   wimboot_boot (bootmgfw);
 fail:

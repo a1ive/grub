@@ -26,7 +26,8 @@
 
 #include "ntboot.h"
 #include <stdint.h>
-#include <string.h>
+#include <maplib.h>
+#include <wimboot.h>
 
 static void
 print_hex (grub_size_t offset,
@@ -195,21 +196,94 @@ fail:
     grub_disk_close (disk);
 }
 
+static void
+bcd_patch_gpt_offset (grub_uint8_t *diskguid, grub_uint8_t *partguid)
+{
+  const unsigned char default_partmap[] = { 0x01, 0x00, 0x00, 0x00,
+                                            0x53, 0xb7, 0x53, 0xb7 };
+  const unsigned char default_disk[] = { 0x53, 0xb7, 0x53, 0xb7 };
+  const unsigned char default_part[] = { 0x00, 0x7e, 0x00, 0x00 };
+  grub_size_t offset;
+  const unsigned char gpt_partmap[] = { 0x00 };
+  /* partmap */
+  offset = replace_hex (default_partmap, 8, gpt_partmap, 1, 0);
+  print_hex (offset, "replace", 8, 1);
+  /* disk guid */
+  offset = replace_hex (default_disk, 4, diskguid, 16, 0);
+  print_hex (offset, "replace", 16, 1);
+  /* part guid */
+  offset = replace_hex (default_part, 4, partguid, 16, 0);
+  print_hex (offset, "replace", 16, 1);
+}
+
+static void
+bcd_patch_gpt (const char *diskname, int partnum)
+{
+  struct grub_gpt_header *gpt = NULL;
+  struct grub_gpt_partentry *gpt_entry = NULL;
+  grub_disk_t disk = 0;
+  grub_uint32_t gpt_entry_size;
+  grub_uint64_t gpt_entry_pos;
+  grub_uint8_t diskguid[16];
+  grub_uint8_t partguid[16];
+
+  disk = grub_disk_open (diskname);
+  if (!disk)
+  {
+    grub_printf ("failed to open %s\n", diskname);
+    goto fail;
+  }
+  gpt = grub_zalloc (GRUB_DISK_SECTOR_SIZE);
+  if (!gpt)
+  {
+    grub_printf ("out of memory");
+    goto fail;
+  }
+  if (grub_disk_read (disk, 1, 0, GRUB_DISK_SECTOR_SIZE, gpt))
+  {
+    if (!grub_errno)
+      grub_printf ("premature end of disk");
+    goto fail;
+  }
+  guidcpy ((grub_packed_guid_t *)&diskguid, &gpt->guid);
+  gpt_entry_pos = gpt->partitions << GRUB_DISK_SECTOR_BITS;
+  gpt_entry_size = gpt->partentry_size;
+  gpt_entry = grub_zalloc (gpt_entry_size);
+  if (!gpt_entry)
+  {
+    grub_printf ("out of memory");
+    goto fail;
+  }
+  grub_disk_read (disk, 0, gpt_entry_pos + partnum * gpt_entry_size,
+                  gpt_entry_size, gpt_entry);
+  guidcpy ((grub_packed_guid_t *)&partguid, &gpt_entry->guid);
+  /* write */
+  bcd_patch_gpt_offset (diskguid, partguid);
+fail:
+  if (gpt)
+    grub_free (gpt);
+  if (gpt_entry)
+    grub_free (gpt_entry);
+  if (disk)
+    grub_disk_close (disk);
+}
+
 void
 bcd_patch (enum boot_type type, /* vhd or wim */
            const char *path,    /* file path '/boot/boot.wim' */
            const char *diskname,/* disk name 'hd0' */
            grub_disk_addr_t lba,/* starting_lba */
+           int partnum,         /* partition number */
            const char *partmap) /* partition table 'msdos' */
 {
-  if (partmap[0] == 'g')
-  {
-    grub_printf ("GPT: not supported.\n");
-    return;
-  }
   bcd_patch_guid (type);
   bcd_patch_path (type, path);
-  grub_getkey ();
-  bcd_patch_mbr (diskname, lba);
-  grub_getkey ();
+  if (wimboot_cmd.pause)
+    grub_getkey ();
+  if (partmap[0] == 'g')
+    bcd_patch_gpt (diskname, partnum);
+  else
+    bcd_patch_mbr (diskname, lba);
+  if (wimboot_cmd.pause)
+    grub_getkey ();
 }
