@@ -2835,6 +2835,18 @@ module = {
 };
 
 module = {
+  name = ntboot;
+  common = map/ntboot/ntboot.c;
+  common = map/ntboot/patch.c;
+  common = map/ntboot/bcd.c;
+
+  cflags = '-Wno-strict-aliasing -fshort-wchar';
+  cppflags = '-I$(srcdir)/map/include -I$(srcdir)/map/posix';
+  enable = x86_64_efi;
+  enable = i386_efi;
+};
+
+module = {
   name = setenv;
   common = commands/efi/setenv.c;
   enable = efi;
