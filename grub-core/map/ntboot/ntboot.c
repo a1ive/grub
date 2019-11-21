@@ -113,7 +113,7 @@ grub_cmd_ntboot (grub_extcmd_context_t ctxt,
   if (state[NTBOOT_VHD].set)
     type = BOOT_VHD;
 
-  wimboot_cmd.rawbcd = FALSE;
+  wimboot_cmd.rawbcd = TRUE;
   if (state[NTBOOT_GUI].set)
     wimboot_cmd.gui = TRUE;
   if (state[NTBOOT_PAUSE].set)
@@ -129,19 +129,22 @@ grub_cmd_ntboot (grub_extcmd_context_t ctxt,
     grub_error (GRUB_ERR_FILE_READ_ERROR, N_("failed to open bootmgfw.efi"));
     goto fail;
   }
-  if (state[NTBOOT_SDI].set)
-    bootsdi = grub_file_open (state[NTBOOT_SDI].arg,
-                              GRUB_FILE_TYPE_LOOPBACK);
-  else
-    bootsdi = grub_file_open ("/boot/boot.sdi",
-                              GRUB_FILE_TYPE_LOOPBACK);
-  if (!bootsdi)
-  {
-    grub_error (GRUB_ERR_FILE_READ_ERROR, N_("failed to open boot.sdi"));
-    goto fail;
-  }
   add_file ("bootmgfw.efi", bootmgr, bootmgr->size, efi_read_file);
-  add_file ("boot.sdi", bootsdi, bootsdi->size, efi_read_file);
+
+  if (type == BOOT_WIM)
+  {
+    bootsdi = grub_file_open ("/boot/boot.sdi", GRUB_FILE_TYPE_LOOPBACK);
+    if (state[NTBOOT_SDI].set)
+      bootsdi = grub_file_open (state[NTBOOT_SDI].arg,
+                                GRUB_FILE_TYPE_LOOPBACK);
+    if (!bootsdi)
+    {
+      grub_error (GRUB_ERR_FILE_READ_ERROR, N_("failed to open boot.sdi"));
+      goto fail;
+    }
+    add_file ("boot.sdi", bootsdi, bootsdi->size, efi_read_file);
+  }
+
   bcd_patch (type, filename, file->device->disk->name,
              file->device->disk->partition->start,
              file->device->disk->partition->number,
@@ -154,6 +157,10 @@ grub_cmd_ntboot (grub_extcmd_context_t ctxt,
 fail:
   if (file)
     grub_file_close (file);
+  if (bootmgr)
+    grub_file_close (bootmgr);
+  if (bootsdi)
+    grub_file_close (bootsdi);
   return grub_errno;
 }
 
