@@ -133,10 +133,11 @@ grub_cmd_ntboot (grub_extcmd_context_t ctxt,
 
   if (type == BOOT_WIM)
   {
-    bootsdi = grub_file_open ("/boot/boot.sdi", GRUB_FILE_TYPE_LOOPBACK);
     if (state[NTBOOT_SDI].set)
       bootsdi = grub_file_open (state[NTBOOT_SDI].arg,
                                 GRUB_FILE_TYPE_LOOPBACK);
+    else
+      bootsdi = grub_file_open ("/boot/boot.sdi", GRUB_FILE_TYPE_LOOPBACK);
     if (!bootsdi)
     {
       grub_error (GRUB_ERR_FILE_READ_ERROR, N_("failed to open boot.sdi"));
