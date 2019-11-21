@@ -61,6 +61,15 @@ struct wimboot_cmdline
   grub_efi_char16_t inject[256];
 };
 
+struct grub_vfatdisk_file
+{
+  const char *name;
+  grub_file_t file;
+  void *addr;
+  struct grub_vfatdisk_file *next;
+};
+extern struct grub_vfatdisk_file *vfat_file_list;
+
 extern struct wimboot_cmdline wimboot_cmd;
 extern struct vfat_file *bootmgfw;
 extern vdisk_t wimboot_disk, wimboot_part;
@@ -84,5 +93,6 @@ grub_efi_status_t wimboot_install (void);
 /* efivfat */
 void print_vfat_help (void);
 void create_vfat (void);
+void ls_vfat (void);
 
 #endif

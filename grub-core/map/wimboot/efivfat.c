@@ -47,6 +47,8 @@ print_vfat_help (void)
   grub_printf ("    Install block_io protocol for virtual disk\n");
   grub_printf ("vfat --boot\n");
   grub_printf ("    Boot bootmgfw.efi from virtual disk\n");
+  grub_printf ("vfat --ls\n");
+  grub_printf ("    List all files in virtual disk\n");
 }
 
 static int
@@ -118,4 +120,19 @@ create_vfat (void)
     }
   }
   grub_disk_dev_register (&grub_vfatdisk_dev);
+}
+
+void
+ls_vfat (void)
+{
+  int i = 1;
+  struct grub_vfatdisk_file *f = NULL;
+  for (f = vfat_file_list; f; f = f->next, i++)
+  {
+    grub_printf ("[%d] %s ", i, f->name);
+    if (f->addr)
+      grub_printf ("(mem)%p+%ld\n", f->addr, (unsigned long)f->file->size);
+    else
+      grub_printf ("%s,%ld\n", f->file->name, (unsigned long)f->file->size);
+  }
 }

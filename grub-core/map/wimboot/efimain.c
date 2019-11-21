@@ -133,6 +133,7 @@ static const struct grub_arg_option options_vfat[] = {
   {"mem", 'm', 0, N_("Copy to memory."), 0, 0},
   {"install", 'i', 0, N_("Install virtual FAT disk to BIOS."), 0, 0},
   {"boot", 'b', 0, N_("Boot virtual FAT disk."), 0, 0},
+  {"ls", 'l', 0, N_("List all files in virtual disk."), 0, 0},
   {0, 0, 0, 0, 0, 0}
 };
 
@@ -143,7 +144,10 @@ enum options_vfat
   VFAT_MEM,
   VFAT_INSTALL,
   VFAT_BOOT,
+  VFAT_LS,
 };
+
+struct grub_vfatdisk_file *vfat_file_list;
 
 static grub_err_t
 grub_cmd_vfat (grub_extcmd_context_t ctxt, int argc, char *argv[])
@@ -152,6 +156,7 @@ grub_cmd_vfat (grub_extcmd_context_t ctxt, int argc, char *argv[])
   grub_file_t file = 0;
   void *addr = NULL;
   char *file_name = NULL;
+  struct grub_vfatdisk_file *newfile = NULL;
   wimboot_cmd.gui = TRUE;
   wimboot_cmd.rawbcd = TRUE;
   wimboot_cmd.rawwim = TRUE;
@@ -175,7 +180,6 @@ grub_cmd_vfat (grub_extcmd_context_t ctxt, int argc, char *argv[])
       grub_printf ("Loading %s ...\n", file->name);
       grub_file_read (file, addr, file->size);
       add_file (file_name, addr, file->size, mem_read_file);
-      grub_file_close (file);
       grub_printf ("Added: (mem)%p+%ld -> %s\n",
                    addr, (unsigned long) file->size, file_name);
     }
@@ -184,6 +188,19 @@ grub_cmd_vfat (grub_extcmd_context_t ctxt, int argc, char *argv[])
       add_file (file_name, file, file->size, efi_read_file);
       grub_printf ("Added: %s -> %s\n", file->name, file_name);
     }
+    newfile = grub_malloc (sizeof (struct grub_vfatdisk_file));
+    if (!newfile)
+      goto fail;
+    newfile->name = grub_strdup (file_name);
+    if (!newfile->name)
+    {
+      grub_free (newfile);
+      goto fail;
+    }
+    newfile->file = file;
+    newfile->addr = addr;
+    newfile->next = vfat_file_list;
+    vfat_file_list = newfile;
   }
   else if (state[VFAT_INSTALL].set)
     wimboot_install ();
@@ -191,6 +208,8 @@ grub_cmd_vfat (grub_extcmd_context_t ctxt, int argc, char *argv[])
     wimboot_boot (bootmgfw);
   else if (state[VFAT_CREATE].set)
     create_vfat ();
+  else if (state[VFAT_LS].set)
+    ls_vfat ();
   else
     print_vfat_help ();
 fail:
