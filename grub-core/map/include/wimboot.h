@@ -94,5 +94,16 @@ grub_efi_status_t wimboot_install (void);
 void print_vfat_help (void);
 void create_vfat (void);
 void ls_vfat (void);
+void print_hex (char *addr, grub_size_t offset, const char *prefix,
+                grub_size_t len, int hex);
+grub_size_t
+replace_hex (char *addr, grub_size_t addr_len,
+             const char *search, grub_size_t search_len,
+             const char *replace, grub_size_t replace_len, int count);
+void
+patch_vfat_offset (const char *file, grub_size_t offset, const char *replace);
+void
+patch_vfat_search (const char *file, const char *search,
+                   const char *replace, int count);
 
 #endif

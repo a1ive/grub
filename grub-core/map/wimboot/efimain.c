@@ -134,17 +134,26 @@ static const struct grub_arg_option options_vfat[] = {
   {"install", 'i', 0, N_("Install virtual FAT disk to BIOS."), 0, 0},
   {"boot", 'b', 0, N_("Boot virtual FAT disk."), 0, 0},
   {"ls", 'l', 0, N_("List all files in virtual disk."), 0, 0},
+  /* patch */
+  {"patch", 'p', 0, N_("Patch files in virtual disk."), N_("FILE"), ARG_TYPE_STRING},
+  {"offset", 'o', 0, N_("Set the offset."), N_("n"), ARG_TYPE_INT},
+  {"search", 's', 0, N_("search"), N_("STRING"), ARG_TYPE_STRING},
+  {"count", 'n', 0, N_("count"), N_("FILE"), ARG_TYPE_INT},
   {0, 0, 0, 0, 0, 0}
 };
 
 enum options_vfat
 {
-  VFAT_CREATE,
-  VFAT_ADD,
-  VFAT_MEM,
-  VFAT_INSTALL,
-  VFAT_BOOT,
-  VFAT_LS,
+  OPS_CREATE,
+  OPS_ADD,
+  OPS_MEM,
+  OPS_INSTALL,
+  OPS_BOOT,
+  OPS_LS,
+  OPS_PATCH,
+  OPS_OFFSET,
+  OPS_SEARCH,
+  OPS_COUNT,
 };
 
 struct grub_vfatdisk_file *vfat_file_list;
@@ -161,7 +170,7 @@ grub_cmd_vfat (grub_extcmd_context_t ctxt, int argc, char *argv[])
   wimboot_cmd.rawbcd = TRUE;
   wimboot_cmd.rawwim = TRUE;
   wimboot_cmd.pause = FALSE;
-  if (state[VFAT_ADD].set && argc == 1)
+  if (state[OPS_ADD].set && argc == 1)
   {
     file = grub_file_open (argv[0], GRUB_FILE_TYPE_LOOPBACK);
     if (!file)
@@ -169,10 +178,10 @@ grub_cmd_vfat (grub_extcmd_context_t ctxt, int argc, char *argv[])
       grub_file_close (file);
       goto fail;
     }
-    file_name = state[VFAT_ADD].arg;
+    file_name = state[OPS_ADD].arg;
     if (!file_name)
       file_name = file->name;
-    if (state[VFAT_MEM].set)
+    if (state[OPS_MEM].set)
     {
       addr = grub_malloc (file->size);
       if (!addr)
@@ -202,14 +211,25 @@ grub_cmd_vfat (grub_extcmd_context_t ctxt, int argc, char *argv[])
     newfile->next = vfat_file_list;
     vfat_file_list = newfile;
   }
-  else if (state[VFAT_INSTALL].set)
+  else if (state[OPS_INSTALL].set)
     wimboot_install ();
-  else if (state[VFAT_BOOT].set)
+  else if (state[OPS_BOOT].set)
     wimboot_boot (bootmgfw);
-  else if (state[VFAT_CREATE].set)
+  else if (state[OPS_CREATE].set)
     create_vfat ();
-  else if (state[VFAT_LS].set)
+  else if (state[OPS_LS].set)
     ls_vfat ();
+  else if (state[OPS_PATCH].set && state[OPS_OFFSET].set && argc == 1)
+    patch_vfat_offset (state[OPS_PATCH].arg,
+                       grub_strtoul (state[OPS_OFFSET].arg, NULL, 0),
+                       argv[0]);
+  else if (state[OPS_PATCH].set && state[OPS_SEARCH].set && argc == 1)
+  {
+    int count = 0;
+    if (state[OPS_COUNT].set)
+      count = grub_strtoul (state[OPS_COUNT].arg, NULL, 0);
+    patch_vfat_search (state[OPS_PATCH].arg, state[OPS_SEARCH].arg, argv[0], count);
+  }
   else
     print_vfat_help ();
 fail:

@@ -30,60 +30,9 @@
 #include <wimboot.h>
 
 static void
-print_hex (grub_size_t offset,
-           const char *prefix, grub_size_t len, int hex)
-{
-  grub_size_t i, j;
-  unsigned char *p;
-  p = bcd + offset;
-  grub_printf ("0x%04lx %s:\n", (unsigned long)offset, prefix);
-  for (i = 0, j = 0; i < len; i++, j++, p++)
-  {
-    if (j == 64)
-    {
-      grub_printf ("\n");
-      j = 0;
-    }
-    if (hex)
-      grub_printf (" %02x", *p);
-    else
-    {
-      if (*p > 0x19 && *p < 0x7f)
-        grub_printf ("%c", *p);
-      else
-        grub_printf (".");
-    }
-  }
-  grub_printf ("\n");
-}
-
-static grub_size_t
-replace_hex (const unsigned char *search, grub_size_t search_len,
-             const unsigned char *replace, grub_size_t replace_len, int count)
-{
-  grub_size_t offset, last = 0;
-  int cnt = 0;
-  for (offset = 0; offset + search_len < bcd_len; offset++)
-  {
-    if (grub_memcmp (bcd + offset, search, search_len) == 0)
-    {
-      last = offset;
-      grub_printf (" 0x%04x", (unsigned) offset);
-      cnt++;
-      grub_memcpy (bcd + offset, replace, replace_len);
-      if (count && cnt == count)
-        break;
-    }
-  }
-  if (cnt)
-    grub_printf ("\n");
-  return last;
-}
-
-static void
 bcd_patch_guid_offset (enum boot_type type, grub_size_t offset)
 {
-  unsigned char *p;
+  char *p;
   if (bcd_len < offset)
   {
     grub_printf ("bad BCD file.");
@@ -95,12 +44,12 @@ bcd_patch_guid_offset (enum boot_type type, grub_size_t offset)
     grub_printf ("bad BCD file.");
     return ;
   }
-  print_hex (offset - 0x10, "guid", 76, 0);
+  print_hex (bcd, offset - 0x10, "guid", 76, 0);
   if (type == BOOT_WIM)
     *p = 'a';
   if (type == BOOT_VHD)
     *p = 'b';
-  print_hex (offset - 0x10, "replace", 76, 0);
+  print_hex (bcd, offset - 0x10, "replace", 76, 0);
 }
 
 static void
@@ -131,9 +80,10 @@ bcd_patch_path_offset (const char *search, const char *path)
       c = '\\';
     upath[i] = c;
   }
-  offset = replace_hex ((const unsigned char *)search, grub_strlen (search),
-                        (unsigned char *)upath, len, 2);
-  print_hex (offset, "path", len, 0);
+  offset = replace_hex (bcd, bcd_len,
+                        search, grub_strlen (search),
+                        (char *)upath, len, 2);
+  print_hex (bcd, offset, "path", len, 0);
   grub_free (upath);
 }
 
@@ -151,15 +101,15 @@ bcd_patch_path (enum boot_type type, const char *path)
 static void
 bcd_patch_mbr_offset (grub_uint8_t *start, grub_uint8_t *sgn)
 {
-  const unsigned char default_sgn[] = { 0x53, 0xb7, 0x53, 0xb7 };
-  const unsigned char default_start[] = { 0x00, 0x7e, 0x00, 0x00 };
+  const char default_sgn[] = { 0x53, 0xb7, 0x53, 0xb7 };
+  const char default_start[] = { 0x00, 0x7e, 0x00, 0x00 };
   grub_size_t offset;
   /* starting lba */
-  offset = replace_hex (default_start, 4, start, 8, 0);
-  print_hex (offset, "replace", 8, 1);
+  offset = replace_hex (bcd, bcd_len, default_start, 4, (char *)start, 8, 0);
+  print_hex (bcd, offset, "replace", 8, 1);
   /* unique signature */
-  offset = replace_hex (default_sgn, 4, sgn, 4, 0);
-  print_hex (offset, "replace", 4, 1);
+  offset = replace_hex (bcd, bcd_len, default_sgn, 4, (char *)sgn, 4, 0);
+  print_hex (bcd, offset, "replace", 4, 1);
 }
 
 static void
@@ -199,21 +149,21 @@ fail:
 static void
 bcd_patch_gpt_offset (grub_uint8_t *diskguid, grub_uint8_t *partguid)
 {
-  const unsigned char default_partmap[] = { 0x01, 0x00, 0x00, 0x00,
-                                            0x53, 0xb7, 0x53, 0xb7 };
-  const unsigned char default_disk[] = { 0x53, 0xb7, 0x53, 0xb7 };
-  const unsigned char default_part[] = { 0x00, 0x7e, 0x00, 0x00 };
+  const char default_partmap[] = { 0x01, 0x00, 0x00, 0x00,
+                                   0x53, 0xb7, 0x53, 0xb7 };
+  const char default_disk[] = { 0x53, 0xb7, 0x53, 0xb7 };
+  const char default_part[] = { 0x00, 0x7e, 0x00, 0x00 };
   grub_size_t offset;
-  const unsigned char gpt_partmap[] = { 0x00 };
+  const char gpt_partmap[] = { 0x00 };
   /* partmap */
-  offset = replace_hex (default_partmap, 8, gpt_partmap, 1, 0);
-  print_hex (offset, "replace", 8, 1);
+  offset = replace_hex (bcd, bcd_len, default_partmap, 8, gpt_partmap, 1, 0);
+  print_hex (bcd, offset, "replace", 8, 1);
   /* disk guid */
-  offset = replace_hex (default_disk, 4, diskguid, 16, 0);
-  print_hex (offset, "replace", 16, 1);
+  offset = replace_hex (bcd, bcd_len, default_disk, 4, (char *)diskguid, 16, 0);
+  print_hex (bcd, offset, "replace", 16, 1);
   /* part guid */
-  offset = replace_hex (default_part, 4, partguid, 16, 0);
-  print_hex (offset, "replace", 16, 1);
+  offset = replace_hex (bcd, bcd_len, default_part, 4, (char *)partguid, 16, 0);
+  print_hex (bcd, offset, "replace", 16, 1);
 }
 
 static void

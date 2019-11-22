@@ -49,6 +49,9 @@ print_vfat_help (void)
   grub_printf ("    Boot bootmgfw.efi from virtual disk\n");
   grub_printf ("vfat --ls\n");
   grub_printf ("    List all files in virtual disk\n");
+  grub_printf ("vfat --patch=FILE --offset=n STRING\n");
+  grub_printf ("vfat --patch=FILE --search=STRING [--count=n] STRING\n");
+  grub_printf ("    Patch files in vdisk\n");
 }
 
 static int
@@ -135,4 +138,187 @@ ls_vfat (void)
     else
       grub_printf ("%s,%ld\n", f->file->name, (unsigned long)f->file->size);
   }
+}
+
+void
+print_hex (char *addr, grub_size_t offset,
+           const char *prefix, grub_size_t len, int hex)
+{
+  grub_size_t i, j;
+  char *p;
+  p = addr + offset;
+  grub_printf ("0x%04lx %s:\n", (unsigned long)offset, prefix);
+  for (i = 0, j = 0; i < len; i++, j++, p++)
+  {
+    if (j == 64)
+    {
+      grub_printf ("\n");
+      j = 0;
+    }
+    if (hex)
+      grub_printf (" %02x", *p);
+    else
+    {
+      if (*p > 0x19 && *p < 0x7f)
+        grub_printf ("%c", *p);
+      else
+        grub_printf (".");
+    }
+  }
+  grub_printf ("\n");
+}
+
+grub_size_t
+replace_hex (char *addr, grub_size_t addr_len,
+             const char *search, grub_size_t search_len,
+             const char *replace, grub_size_t replace_len, int count)
+{
+  grub_size_t offset, last = 0;
+  int cnt = 0;
+  for (offset = 0; offset + search_len < addr_len; offset++)
+  {
+    if (grub_memcmp (addr + offset, search, search_len) == 0)
+    {
+      last = offset;
+      grub_printf (" 0x%04x", (unsigned) offset);
+      cnt++;
+      grub_memcpy (addr + offset, replace, replace_len);
+      if (count && cnt == count)
+        break;
+    }
+  }
+  if (cnt)
+    grub_printf ("\n");
+  return last;
+}
+
+static unsigned int
+to_digit (char c)
+{
+  if ('0' <= c && c <= '9')
+    return c - '0';
+  if ('a' <= c && c <= 'f')
+    return c + 10 - 'a';
+  if ('A' <= c && c <= 'F')
+    return c + 10 - 'A';
+  return 0;
+}
+
+static char *
+hex_to_str (const char *hex) 
+{
+  unsigned int d1, d2;
+  grub_size_t i;
+  grub_size_t len = grub_strlen (hex) >> 1;
+  char *str = NULL;
+  if (!len)
+    return NULL;
+  str = grub_zalloc (len);
+  if (!str)
+    return NULL;
+  for (i = 0; i < len; i++)
+  {
+    d1 = to_digit (hex[i << 1]) << 4;
+    d2 = to_digit (hex[(i << 1) + 1]);
+    str[i] = d1 + d2;
+  }
+  return str;
+}
+
+static char *
+str_to_wcs (const char *str)
+{
+  grub_size_t i;
+  grub_size_t len = grub_strlen (str) + 1;
+  wchar_t *wcs = NULL;
+  if (!len)
+    return NULL;
+  wcs = grub_zalloc (len << 1);
+  if (!wcs)
+    return NULL;
+  for (i = 0; i < len; i++)
+    wcs[i] = str[i];
+  return (char *)wcs;
+}
+
+static void *
+get_vfat_file (const char *file, grub_size_t *size)
+{
+  void *addr = NULL;
+  struct grub_vfatdisk_file *f = NULL;
+  for (f = vfat_file_list; f; f = f->next)
+  {
+    if (f->addr && grub_strcmp (f->name, file) == 0)
+    {
+      addr = f->addr;
+      if (size)
+        *size = f->file->size;
+      break;
+    }
+    else
+      continue;
+  }
+  return addr;
+}
+
+static char *
+process_str (const char *in, grub_size_t *len)
+{
+  char *str = NULL;
+  grub_size_t l = grub_strlen (in);
+  if (l > 1 && in[0] == 's')
+  {
+    str = grub_strdup (&in[1]);
+    l--;
+  }
+  else if (l > 1 && in[0] == 'w')
+  {
+    str = str_to_wcs (&in[1]);
+    l--;
+    l = l << 1;
+  }
+  else
+  {
+    str = hex_to_str (in);
+    l = l >> 1;
+  }
+  *len = l;
+  return str;
+}
+
+void
+patch_vfat_offset (const char *file, grub_size_t offset, const char *replace)
+{
+  grub_size_t len;
+  char *str = NULL;
+  char *addr = get_vfat_file (file, NULL);
+  if (!addr)
+    return;
+  str = process_str (replace, &len);
+  if (!str)
+    return;
+  grub_memcpy (addr + offset, str, len);
+  print_hex (addr, offset, "replace", len, 1);
+  grub_free (str);
+}
+
+void
+patch_vfat_search (const char *file, const char *search,
+                   const char *replace, int count)
+{
+  grub_size_t search_len, replace_len;
+  char *search_str = NULL;
+  char *replace_str = NULL;
+  grub_size_t size = 0;
+  char *addr = get_vfat_file (file, &size);
+  if (!addr)
+    return;
+  search_str = process_str (search, &search_len);
+  replace_str = process_str (replace, &replace_len);
+  replace_hex (addr, size, search_str, search_len,
+               replace_str, replace_len, count);
+  if (search_str)
+    grub_free (search_str);
+  if (replace_str)
+    grub_free (replace_str);
 }

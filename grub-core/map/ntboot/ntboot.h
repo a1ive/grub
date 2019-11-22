@@ -22,7 +22,7 @@
 
 #include <grub/types.h>
 
-extern unsigned char bcd[];
+extern char bcd[];
 extern unsigned int bcd_len;
 
 enum boot_type
