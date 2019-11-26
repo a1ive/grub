@@ -601,17 +601,16 @@ static char *field_append(bool is_var, char *buffer, char *start, char *end)
       return buffer;
   }
 
-  if (!buffer) {
-    buffer = grub_strdup(field);
-    if (!buffer)
-      return NULL;
-  } else {
-    buffer = grub_realloc (buffer, grub_strlen(buffer) + grub_strlen(field));
-    if (!buffer)
-      return NULL;
+  if (!buffer)
+    buffer = grub_zalloc (grub_strlen(field) + 1);
+  else
+    buffer = grub_realloc (buffer, grub_strlen(buffer) + grub_strlen(field) + 1);
 
-    grub_stpcpy (buffer + grub_strlen(buffer), field);
-  }
+  if (!buffer)
+    return NULL;
+
+  grub_stpcpy (buffer + grub_strlen(buffer), field);
+  grub_stpcpy (buffer + grub_strlen(buffer), " ");
 
   return buffer;
 }
