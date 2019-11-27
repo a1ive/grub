@@ -239,7 +239,7 @@ get_iso_info (void)
 }
 
 grub_efi_status_t
-vpart_install (void)
+vpart_install (grub_efi_boolean_t ro)
 {
   grub_efi_status_t status;
   char *text_dp = NULL;
@@ -289,7 +289,7 @@ vpart_install (void)
   vpart.media.removable_media = FALSE;
   vpart.media.media_present = TRUE;
   vpart.media.logical_partition = TRUE;
-  vpart.media.read_only = TRUE;
+  vpart.media.read_only = ro;
   vpart.media.write_caching = FALSE;
   vpart.media.io_align = 16;
   vpart.media.block_size = vdisk.bs;

@@ -50,7 +50,7 @@ check_image (void)
 }
 
 grub_efi_status_t
-vdisk_install (grub_file_t file)
+vdisk_install (grub_file_t file, grub_efi_boolean_t ro)
 {
   grub_efi_status_t status;
   grub_efi_device_path_t *tmp_dp;
@@ -112,7 +112,7 @@ vdisk_install (grub_file_t file)
   vdisk.media.removable_media = FALSE;
   vdisk.media.media_present = TRUE;
   vdisk.media.logical_partition = FALSE;
-  vdisk.media.read_only = TRUE;
+  vdisk.media.read_only = ro;
   vdisk.media.write_caching = FALSE;
   vdisk.media.io_align = 16;
   vdisk.media.block_size = vdisk.bs;
@@ -135,7 +135,7 @@ vdisk_install (grub_file_t file)
   /* install vpart */
   if (vdisk.type != FD)
   {
-    status = vpart_install ();
+    status = vpart_install (ro);
   }
   grub_printf ("Installing block_io protocol for virtual disk ...\n");
   status = efi_call_6 (b->install_multiple_protocol_interfaces,

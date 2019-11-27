@@ -43,6 +43,7 @@ static const struct grub_arg_option options_map[] =
   {"pause", 'p', 0, N_("Show info and wait for keypress."), 0, 0},
   {"type", 't', 0, N_("Specify the disk type."), N_("CD/HD/FD"), ARG_TYPE_STRING},
   {"disk", 'd', 0, N_("Map the entire disk."), 0, 0},
+  {"rw", 'w', 0, N_("Add write support for RAM disk."), 0, 0},
   {0, 0, 0, 0, 0, 0}
 };
 
@@ -52,6 +53,7 @@ enum options_map
   MAP_PAUSE,
   MAP_TYPE,
   MAP_DISK,
+  MAP_RW,
 };
 
 vdisk_t vdisk, vpart;
@@ -88,6 +90,7 @@ static grub_err_t
 grub_cmd_map (grub_extcmd_context_t ctxt, int argc, char **args)
 {
   struct grub_arg_list *state = ctxt->state;
+  grub_efi_boolean_t ro = TRUE;
 
   if (state[MAP_MEM].set)
     map.mem = TRUE;
@@ -136,12 +139,15 @@ grub_cmd_map (grub_extcmd_context_t ctxt, int argc, char **args)
       map.type = FD;
   }
 
+  if (state[MAP_RW].set && state[MAP_MEM].set && map.type != CD)
+    ro = FALSE;
+
   grub_efi_status_t status;
   grub_efi_handle_t boot_image_handle = NULL;
   grub_efi_boot_services_t *b;
   b = grub_efi_system_table->boot_services;
 
-  status = vdisk_install (cmd->file);
+  status = vdisk_install (cmd->file, ro);
   if (status != GRUB_EFI_SUCCESS)
   {
     grub_printf ("Failed to install vdisk.\n");

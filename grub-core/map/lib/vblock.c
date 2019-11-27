@@ -79,12 +79,47 @@ blockio_read (block_io_protocol_t *this, grub_efi_uint32_t media_id,
 }
 
 static grub_efi_status_t EFIAPI
-blockio_write (block_io_protocol_t *this __unused,
-               grub_efi_uint32_t media_id __unused,
-               grub_efi_lba_t lba __unused,
-               grub_efi_uintn_t len __unused, void *buf __unused)
+blockio_write (block_io_protocol_t *this,
+               grub_efi_uint32_t media_id,
+               grub_efi_lba_t lba,
+               grub_efi_uintn_t len, void *buf)
 {
-  return GRUB_EFI_WRITE_PROTECTED;
+  vdisk_t *data;
+  grub_efi_uintn_t block_num;
+
+  if (!buf)
+    return GRUB_EFI_INVALID_PARAMETER;
+
+  if (!len)
+    return GRUB_EFI_SUCCESS;
+
+  data = VDISK_BLOCKIO_TO_PARENT(this);
+
+  /* wimboot */
+  if (data->type == VFAT || data->media.read_only)
+    return GRUB_EFI_WRITE_PROTECTED;
+
+  if (media_id != data->media.media_id)
+    return GRUB_EFI_MEDIA_CHANGED;
+
+  if ((len % data->media.block_size) != 0)
+    return GRUB_EFI_BAD_BUFFER_SIZE;
+
+  if (lba > data->media.last_block)
+    return GRUB_EFI_INVALID_PARAMETER;
+
+  block_num = len / data->media.block_size;
+
+  if ((lba + block_num - 1) > data->media.last_block)
+    return GRUB_EFI_INVALID_PARAMETER;
+
+  if(data->mem)
+    grub_memcpy ((void *)(grub_efi_uintn_t)
+                 (data->addr + lba * data->media.block_size), buf, len);
+  else
+    return GRUB_EFI_WRITE_PROTECTED;
+
+  return GRUB_EFI_SUCCESS;
 }
 
 static grub_efi_status_t EFIAPI

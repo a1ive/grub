@@ -99,8 +99,8 @@ extern block_io_protocol_t blockio_template;
 grub_efi_handle_t vpart_boot (grub_efi_handle_t *part_handle);
 grub_efi_handle_t vdisk_boot (void);
 /* vdisk */
-grub_efi_status_t vdisk_install (grub_file_t file);
+grub_efi_status_t vdisk_install (grub_file_t file, grub_efi_boolean_t ro);
 /* vpart */
-grub_efi_status_t vpart_install (void);
+grub_efi_status_t vpart_install (grub_efi_boolean_t ro);
 
 #endif
