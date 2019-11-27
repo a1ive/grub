@@ -5,7 +5,7 @@
 # Build GRUB on Travis CI - https://www.travis-ci.org/
 #
 
-dist: xenial
+dist: bionic
 
 language: c
 
@@ -65,14 +65,17 @@ script:
 matrix:
   include:
   # Each env setting here is a dedicated build.
-    - name: "x86_64"
+    - name: "x86_64-efi"
       env:
        - GRUB_TARGETS="x86_64-efi"
-  #    - GRUB_TARGETS="x86_64-efi x86_64-xen"
-    - name: "i386"
+  #    - GRUB_TARGETS="x86_64-xen"
+    - name: "i386-efi"
       env:
-       - GRUB_TARGETS="i386-efi i386-pc"
-  #    - GRUB_TARGETS="i386-coreboot i386-efi i386-ieee1275 i386-multiboot i386-pc i386-qemu i386-xen i386-xen_pvh"
+       - GRUB_TARGETS="i386-efi"
+    - name: "i386-pc"
+      env:
+       - GRUB_TARGETS="i386-pc"
+  #    - GRUB_TARGETS="i386-coreboot i386-ieee1275 i386-multiboot i386-qemu i386-xen i386-xen_pvh"
   # - name: "powerpc"
   #   env:
   #     - GRUB_TARGETS="powerpc-ieee1275"
@@ -89,12 +92,12 @@ matrix:
   #   env:
   #     - GRUB_TARGETS="mips-arc mipsel-arc mipsel-qemu_mips mips-qemu_mips"
   #     - CROSS_TARGETS="mips64-linux"
-    - name: "arm"
+    - name: "arm-efi"
       env:
   #     - GRUB_TARGETS="arm-coreboot arm-efi arm-uboot"
         - GRUB_TARGETS="arm-efi"
         - CROSS_TARGETS="arm-linux-gnueabi"
-    - name: "arm64"
+    - name: "arm64-efi"
       env:
         - GRUB_TARGETS="arm64-efi"
         - CROSS_TARGETS="aarch64-linux"
