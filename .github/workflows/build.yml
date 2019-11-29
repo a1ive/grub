@@ -15,6 +15,9 @@ jobs:
       run: |
         sudo -E apt update
         sudo -E apt -y install build-essential python iasl lzop unifont autopoint bison flex gettext
+    - name: tag
+      run: |
+        git tag -d latest
     - name: bootstrap
       run: ./bootstrap
 
