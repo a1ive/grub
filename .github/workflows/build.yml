@@ -1,0 +1,57 @@
+name: release
+
+on: 
+  push:
+    branches: 
+      - master
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: checkout
+      uses: actions/checkout@v1
+    - name: initialize
+      run: |
+        sudo -E apt update
+        sudo -E apt -y install build-essential python iasl lzop unifont autopoint bison flex gettext
+    - name: bootstrap
+      run: ./bootstrap
+
+    - name: x86_64-efi configure
+      run: ./configure --prefix=/ --target=x86_64 --with-platform=efi
+    - name: x86_64-efi make
+      run: |
+        make
+        make install DESTDIR=$PWD/PKG
+    - name: x86_64-efi clean
+      run: make clean
+
+    - name: i386-efi configure
+      run: ./configure --prefix=/ --target=i386 --with-platform=efi
+    - name: i386-efi make
+      run: |
+        make
+        make install DESTDIR=$PWD/PKG
+    - name: i386-efi clean
+      run: make clean
+
+    - name: i386-pc configure
+      run: ./configure --prefix=/ --target=i386 --with-platform=pc
+    - name: i386-pc make
+      run: |
+        make
+        make install DESTDIR=$PWD/PKG
+    - name: i386-pc clean
+      run: make clean
+
+    - name: makepkg
+      run: ./makepkg.sh
+    - name: upload
+      uses: svenstaro/upload-release-action@v1-release
+      with:
+        file: grub.tar.gz
+        asset_name: grub2-latest.tar.gz
+        tag: latest
+        repo_token: ${{ secrets.GITHUB_TOKEN }}
+        overwrite: true
