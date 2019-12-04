@@ -187,4 +187,45 @@ wcschr (const wchar_t *str, wchar_t c)
   return NULL;
 }
 
+
+static inline size_t
+mbstowcs (wchar_t *dst, const char *src, size_t n)
+{
+  if (!dst || !src)
+    return 0;
+  const char *p;
+  wchar_t *q;
+  size_t i;
+  p = src;
+  q = dst;
+  for (i = 1; i <= n; i++)
+  {
+    *q++ = *p++;
+    if (*p == '\0')
+      break;
+  }
+  *q = L'\0';
+  return i;
+}
+
+static inline size_t
+wcstombs (char *dst, const wchar_t *src, size_t n)
+{
+  if (!dst || !src)
+    return 0;
+  const wchar_t *p;
+  char *q;
+  size_t i;
+  p = src;
+  q = dst;
+  for (i = 1; i <= n; i++)
+  {
+    *q++ = *p++;
+    if (*p == L'\0')
+      break;
+  }
+  *q = '\0';
+  return i;
+}
+
 #endif
