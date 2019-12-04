@@ -106,7 +106,7 @@ struct vfat_file * wim_add_file ( struct vfat_file *file, unsigned int index,
   /* Add virtual file */
   wim_file_idx++;
   wfile->file = file;
-  snprintf ( name, sizeof ( name ), "%ls", wname );
+  wcstombs (name, wname, VDISK_NAME_LEN + 1);
   return vfat_add_file ( name, wfile, wfile->resource.len,
         wim_read_file );
 }

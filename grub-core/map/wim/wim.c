@@ -26,6 +26,7 @@
 
 #include <stddef.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <vfat.h>
 #include <lzx.h>
@@ -375,7 +376,8 @@ static int wim_direntry ( struct vfat_file *file, struct wim_header *header,
         struct wim_resource_header *meta,
         const wchar_t *name, size_t *offset,
         struct wim_directory_entry *direntry ) {
-  wchar_t name_buf[ wcslen ( name ) + 1 /* NUL */ ];
+  size_t name_len = wcslen (name) + 1;
+  wchar_t name_buf[name_len];
   int rc;
 
   /* Search directory */
@@ -388,7 +390,10 @@ static int wim_direntry ( struct vfat_file *file, struct wim_header *header,
 
     /* Check for end of this directory */
     if ( ! direntry->len ) {
-      printf ( "Directory entry \"%ls\" not found\n", name );
+      char *str = malloc (name_len);
+      wcstombs (str, name, name_len);
+      printf ("Directory entry \"%s\" not found\n", str);
+      free (str);
       return -1;
     }
 
@@ -398,20 +403,23 @@ static int wim_direntry ( struct vfat_file *file, struct wim_header *header,
       return rc;
 
     /* Check name length */
-    if ( direntry->name_len > sizeof ( name_buf ) )
+    if ( direntry->name_len > name_len * sizeof (wchar_t) )
       continue;
 
     /* Read name */
     if ( ( rc = wim_read ( file, header, meta, &name_buf,
                ( *offset + sizeof ( *direntry ) ),
-               sizeof ( name_buf ) ) ) != 0 )
+               name_len * sizeof (wchar_t) ) ) != 0 )
       return rc;
 
     /* Check name */
     if ( wcscasecmp ( name, name_buf ) != 0 )
       continue;
 
-    printf ( "...found entry \"%ls\"\n", name );
+    char *str = malloc (name_len);
+    wcstombs (str, name, name_len);
+    printf ("...found entry \"%s\"\n", str);
+    free (str);
     return 0;
   }
 }
@@ -478,6 +486,7 @@ int wim_file ( struct vfat_file *file, struct wim_header *header,
   struct wim_lookup_entry entry;
   size_t offset;
   int rc;
+  size_t path_len = wcslen (path) + 1;
 
   /* Find directory entry */
   if ( ( rc = wim_path ( file, header, meta, path, &offset,
@@ -496,14 +505,19 @@ int wim_file ( struct vfat_file *file, struct wim_header *header,
     /* Look for our target entry */
     if ( memcmp ( &entry.hash, &direntry.hash,
             sizeof ( entry.hash ) ) == 0 ) {
-      printf ( "...found file \"%ls\"\n", path );
+      char *str = malloc (path_len);
+      wcstombs (str, path, path_len);
+      printf ("...found file \"%s\"\n", str);
+      free (str);
       memcpy ( resource, &entry.resource,
          sizeof ( *resource ) );
       return 0;
     }
   }
-
-  printf ( "Cannot find file %ls\n", path );
+  char *str = malloc (path_len);
+  wcstombs (str, path, path_len);
+  printf ("Cannot find file %s\n", str);
+  free (str);
   return -1;
 }
 

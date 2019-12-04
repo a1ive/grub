@@ -105,8 +105,8 @@ efi_patch_bcd (struct vfat_file *vfile __unused,
     if (wcscasecmp ((wchar_t *)((char *)data + i), search) == 0)
     {
       memcpy (((char *)data + i), replace, sizeof (replace));
-      printf ("...patched BCD at 0x%lx: \"%ls\" to \"%ls\"\n",
-          (unsigned long)(offset + i), search, replace);
+      printf ("...patched BCD at 0x%lx: \".exe\" to \".efi\"\n",
+              (unsigned long)(offset + i));
     }
   }
 }
@@ -117,7 +117,7 @@ isbootmgfw (const char *name)
   char bootarch[32];
   if (strcasecmp(name, "bootmgfw.efi") == 0)
     return 1;
-  snprintf (bootarch, sizeof ( bootarch ), "%ls", efi_bootarch);
+  wcstombs (bootarch, efi_bootarch, sizeof (bootarch));
   return strcasecmp (name, bootarch) == 0;
 }
 
@@ -148,7 +148,7 @@ int add_file (const char *name, void *data, size_t len,
         (bootmgfw = wim_add_file (vfile, wimboot_cmd.index,
                                   bootmgfw_path, efi_bootarch)))
     {
-      printf ("...extracted %ls\n", bootmgfw_path);
+      printf ("...extracted bootmgfw.efi from WIM\n");
     }
   }
   return 0;
@@ -168,7 +168,7 @@ grub_extract (struct grub_wimboot_context *wimboot_ctx)
   /* Check that we have a boot file */
   if (! bootmgfw)
   {
-    die ("FATAL: no %ls or bootmgfw.efi found\n", efi_bootarch);
+    die ("FATAL: bootmgfw.efi not found\n");
   }
 }
 
