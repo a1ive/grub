@@ -18,6 +18,7 @@
  */
 
 #include <grub/efi/api.h>
+#include <grub/env.h>
 #include <private.h>
 #include <maplib.h>
 #include <vfat.h>
@@ -35,6 +36,8 @@ blockio_read (block_io_protocol_t *this, grub_efi_uint32_t media_id,
 {
   vdisk_t *data;
   grub_efi_uintn_t block_num;
+
+  grub_env_set ("enable_progress_indicator", "0");
 
   if (!buf)
     return GRUB_EFI_INVALID_PARAMETER;
