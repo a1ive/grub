@@ -25,30 +25,30 @@
 #include <grub/i18n.h>
 #include <grub/term.h>
 #include <grub/time.h>
+#include <grub/uuid.h>
 
 GRUB_MOD_LICENSE ("GPLv3+");
-
-#define GUID_LEN 37
 
 #pragma GCC diagnostic ignored "-Wcast-align"
 
 /* rand() and srand() */
 static grub_uint32_t next = 1;
 
-static grub_uint32_t
+grub_uint32_t
 rand (void)
 {
   next = next * 1103515245 + 12345;
   return (next << 16) | ((next >> 16) & 0xFFFF);
 }
 
-static void
+void
 srand (grub_uint32_t seed)
 {
   next = seed;
 }
 
-static const struct grub_arg_option options_rand[] = {
+static const struct grub_arg_option options_rand[] =
+{
   {"from", 'f', 0, N_("from"), N_("XXX"), ARG_TYPE_INT},
   {"to", 't', 0, N_("to"), N_("XXX"), ARG_TYPE_INT},
   {0, 0, 0, 0, 0, 0}
