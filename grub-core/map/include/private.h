@@ -45,10 +45,7 @@
 #define PRIMARY_PART_HEADER_LBA 1
 #define VDISK_MEDIA_ID 0x1
 
-static const grub_packed_guid_t VDISK_GUID =
-{ 0xebe35ad8, 0x6c1e, 0x40f5,
-  { 0xaa, 0xed, 0x0b, 0x91, 0x9a, 0x46, 0xbf, 0x4b }
-};
+extern grub_packed_guid_t VDISK_GUID;
 
 enum disk_type
 {

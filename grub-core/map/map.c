@@ -30,6 +30,8 @@
 #include <grub/mm.h>
 #include <grub/types.h>
 #include <grub/term.h>
+#include <grub/time.h>
+#include <grub/uuid.h>
 
 #include <maplib.h>
 #include <private.h>
@@ -63,6 +65,11 @@ vdisk_t vdisk, vpart;
 static struct map_private_data map;
 struct map_private_data *cmd = &map;
 
+grub_packed_guid_t VDISK_GUID =
+{ 0xebe35ad8, 0x6c1e, 0x40f5,
+  { 0xaa, 0xed, 0x0b, 0x91, 0x9a, 0x46, 0xbf, 0x4b }
+};
+
 void
 file_read (grub_efi_boolean_t disk, void *file, void *buf, grub_efi_uintn_t len, grub_efi_uint64_t offset)
 {
@@ -88,11 +95,26 @@ get_size (grub_efi_boolean_t disk, void *file)
   return size;
 }
 
+static void
+gen_uuid (void)
+{
+  srand (grub_get_time_ms());
+  int i;
+  grub_uint32_t r;
+  for (i = 0; i < 4; i++)
+  {
+    r = rand ();
+    grub_memcpy ((grub_uint32_t *)&VDISK_GUID + i, &r, sizeof (grub_uint32_t));
+  }
+}
+
 static grub_err_t
 grub_cmd_map (grub_extcmd_context_t ctxt, int argc, char **args)
 {
   struct grub_arg_list *state = ctxt->state;
   grub_efi_boolean_t ro = TRUE;
+
+  gen_uuid ();
 
   if (state[MAP_MEM].set)
     map.mem = TRUE;
