@@ -75,7 +75,6 @@ vdisk_install (grub_file_t file, grub_efi_boolean_t ro)
     vdisk.bs = FD_BLOCK_SIZE;
 
   vdisk.size = get_size (cmd->disk, vdisk.file);
-  grub_env_set ("enable_progress_indicator", "1");
   if (cmd->mem)
   {
     status = grub_efi_allocate_pool (GRUB_EFI_BOOT_SERVICES_DATA,
@@ -87,8 +86,14 @@ vdisk_install (grub_file_t file, grub_efi_boolean_t ro)
       return GRUB_EFI_OUT_OF_RESOURCES;
     }
     grub_printf ("Loading, please wait ...\n");
+    const char *progress = grub_env_get ("enable_progress_indicator");
+    grub_env_set ("enable_progress_indicator", "1");
     file_read (cmd->disk, vdisk.file,
           (void *)vdisk.addr, (grub_efi_uintn_t)vdisk.size, 0);
+    if (!progress)
+      grub_env_unset ("enable_progress_indicator");
+    else
+      grub_env_set ("enable_progress_indicator", progress);
   }
   else
     vdisk.addr = 0;

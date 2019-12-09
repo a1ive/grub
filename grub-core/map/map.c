@@ -44,6 +44,7 @@ static const struct grub_arg_option options_map[] =
   {"type", 't', 0, N_("Specify the disk type."), N_("CD/HD/FD"), ARG_TYPE_STRING},
   {"disk", 'd', 0, N_("Map the entire disk."), 0, 0},
   {"rw", 'w', 0, N_("Add write support for RAM disk."), 0, 0},
+  {"nb", 'n', 0, N_("Don't boot virtual disk."), 0, 0},
   {0, 0, 0, 0, 0, 0}
 };
 
@@ -54,6 +55,7 @@ enum options_map
   MAP_TYPE,
   MAP_DISK,
   MAP_RW,
+  MAP_NB,
 };
 
 vdisk_t vdisk, vpart;
@@ -153,6 +155,8 @@ grub_cmd_map (grub_extcmd_context_t ctxt, int argc, char **args)
     grub_printf ("Failed to install vdisk.\n");
     goto fail;
   }
+  if (state[MAP_NB].set)
+    return grub_errno;
   if (vpart.handle)
     boot_image_handle = vpart_boot (vpart.handle);
   if (!boot_image_handle)
