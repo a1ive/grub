@@ -174,6 +174,7 @@ void
 grub_wimboot_init (int argc, char *argv[])
 {
   int i;
+  struct grub_vfatdisk_file *wim = NULL;
 
   for (i = 0; i < argc; i++)
   {
@@ -199,7 +200,28 @@ grub_wimboot_init (int argc, char *argv[])
       die ("bad file.\n");
     if (!file_name)
       file_name = grub_strdup (file->name);
+    /* Skip wim file */
+    if (!wim && strlen(file_name) > 4 &&
+        strcasecmp ((file_name + (strlen (file_name) - 4)), ".wim") == 0)
+    {
+      wim = malloc (sizeof (struct grub_vfatdisk_file));
+      wim->name = grub_strdup (file_name);
+      wim->file = file;
+      wim->addr = NULL;
+      wim->next = NULL;
+      grub_free (file_name);
+      continue;
+    }
     append_vfat_list (file, file_name, NULL, 0);
     grub_free (file_name);
+  }
+  if (wim)
+  {
+    struct grub_vfatdisk_file *f = vfat_file_list;
+    while (f && f->next)
+    {
+      f = f->next;
+    }
+    f->next = wim;
   }
 }
