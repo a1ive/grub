@@ -39,18 +39,6 @@
 #define MBR_TYPE_PCAT 0x01
 #define SIGNATURE_TYPE_MBR 0x01
 
-struct grub_wimboot_component
-{
-  grub_file_t file;
-  char *file_name;
-};
-
-struct grub_wimboot_context
-{
-  int nfiles;
-  struct grub_wimboot_component *components;
-};
-
 struct wimboot_cmdline
 {
   grub_efi_boolean_t gui;
@@ -58,7 +46,7 @@ struct wimboot_cmdline
   grub_efi_boolean_t rawwim;
   unsigned int index;
   grub_efi_boolean_t pause;
-  grub_efi_char16_t inject[256];
+  wchar_t inject[256];
 };
 
 struct grub_vfatdisk_file
@@ -83,11 +71,8 @@ mem_read_file (struct vfat_file *file, void *data, size_t offset, size_t len);
 int
 add_file (const char *name, void *data, size_t len,
     void (* read) (struct vfat_file *file, void *data, size_t offset, size_t len));
-void grub_extract (struct grub_wimboot_context *wimboot_ctx);
-void grub_wimboot_close (struct grub_wimboot_context *wimboot_ctx);
-grub_err_t
-grub_wimboot_init (int argc, char *argv[],
-                   struct grub_wimboot_context *wimboot_ctx);
+void grub_extract (void);
+void grub_wimboot_init (int argc, char *argv[]);
 /* efiinstall */
 grub_efi_status_t wimboot_install (void);
 /* efivfat */
@@ -105,5 +90,7 @@ patch_vfat_offset (const char *file, grub_size_t offset, const char *replace);
 void
 patch_vfat_search (const char *file, const char *search,
                    const char *replace, int count);
+void
+append_vfat_list (grub_file_t file, const char *file_name, void *addr, int mem);
 
 #endif

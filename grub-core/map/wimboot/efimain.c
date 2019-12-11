@@ -36,6 +36,7 @@
 #include <efiapi.h>
 #include <wimboot.h>
 #include <vfat.h>
+#include <string.h>
 
 GRUB_MOD_LICENSE ("GPLv3+");
 
@@ -59,6 +60,8 @@ enum options_wimboot
   WIMBOOT_INJECT
 };
 
+struct grub_vfatdisk_file *vfat_file_list;
+
 struct wimboot_cmdline wimboot_cmd =
 {
   FALSE,
@@ -74,7 +77,6 @@ grub_cmd_wimboot (grub_extcmd_context_t ctxt,
                   int argc, char *argv[])
 {
   struct grub_arg_list *state = ctxt->state;
-  struct grub_wimboot_context wimboot_ctx = {0, 0};
   const char *progress = grub_env_get ("enable_progress_indicator");
 
   if (argc == 0)
@@ -83,8 +85,7 @@ grub_cmd_wimboot (grub_extcmd_context_t ctxt,
     goto fail;
   }
 
-  if (grub_wimboot_init (argc, argv, &wimboot_ctx))
-    goto fail;
+  grub_wimboot_init (argc, argv);
 
   grub_env_set ("enable_progress_indicator", "1");
 
@@ -99,23 +100,9 @@ grub_cmd_wimboot (grub_extcmd_context_t ctxt,
   if (state[WIMBOOT_INDEX].set)
     wimboot_cmd.index = grub_strtoul (state[WIMBOOT_INDEX].arg, NULL, 0);
   if (state[WIMBOOT_INJECT].set)
-  {
-    int i;
-    char *p = state[WIMBOOT_INJECT].arg;
-    for (i=0; i < 255; i++)
-    {
-      if (*p)
-      {
-        wimboot_cmd.inject[i] = *p;
-        p++;
-      }
-      else
-        break;
-    }
-    wimboot_cmd.inject[i] = 0;
-  }
+    mbstowcs (wimboot_cmd.inject, state[WIMBOOT_INJECT].arg, 256);
 
-  grub_extract (&wimboot_ctx);
+  grub_extract ();
   wimboot_install ();
   wimboot_boot (bootmgfw);
   if (!progress)
@@ -123,7 +110,7 @@ grub_cmd_wimboot (grub_extcmd_context_t ctxt,
   else
     grub_env_set ("enable_progress_indicator", progress);
 fail:
-  grub_wimboot_close (&wimboot_ctx);
+  die ("failed to boot.\n");
   return grub_errno;
 }
 
@@ -156,8 +143,6 @@ enum options_vfat
   OPS_COUNT,
 };
 
-struct grub_vfatdisk_file *vfat_file_list;
-
 static grub_err_t
 grub_cmd_vfat (grub_extcmd_context_t ctxt, int argc, char *argv[])
 {
@@ -165,7 +150,6 @@ grub_cmd_vfat (grub_extcmd_context_t ctxt, int argc, char *argv[])
   grub_file_t file = 0;
   void *addr = NULL;
   char *file_name = NULL;
-  struct grub_vfatdisk_file *newfile = NULL;
   wimboot_cmd.gui = TRUE;
   wimboot_cmd.rawbcd = TRUE;
   wimboot_cmd.rawwim = TRUE;
@@ -183,33 +167,14 @@ grub_cmd_vfat (grub_extcmd_context_t ctxt, int argc, char *argv[])
       file_name = file->name;
     if (state[OPS_MEM].set)
     {
-      addr = grub_malloc (file->size);
-      if (!addr)
-        goto fail;
-      grub_printf ("Loading %s ...\n", file->name);
-      grub_file_read (file, addr, file->size);
+      append_vfat_list (file, file_name, addr, 1);
       add_file (file_name, addr, file->size, mem_read_file);
-      grub_printf ("Added: (mem)%p+%ld -> %s\n",
-                   addr, (unsigned long) file->size, file_name);
     }
     else
     {
+      append_vfat_list (file, file_name, NULL, 0);
       add_file (file_name, file, file->size, efi_read_file);
-      grub_printf ("Added: %s -> %s\n", file->name, file_name);
     }
-    newfile = grub_malloc (sizeof (struct grub_vfatdisk_file));
-    if (!newfile)
-      goto fail;
-    newfile->name = grub_strdup (file_name);
-    if (!newfile->name)
-    {
-      grub_free (newfile);
-      goto fail;
-    }
-    newfile->file = file;
-    newfile->addr = addr;
-    newfile->next = vfat_file_list;
-    vfat_file_list = newfile;
   }
   else if (state[OPS_INSTALL].set)
     wimboot_install ();

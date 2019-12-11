@@ -139,7 +139,7 @@ int add_file (const char *name, void *data, size_t len,
     printf ("...found BCD\n");
     vfat_patch_file (vfile, efi_patch_bcd);
   }
-  else if (strlen( name ) > 4 &&
+  else if (strlen(name) > 4 &&
            strcasecmp ((name + (strlen (name) - 4)), ".wim") == 0)
   {
     printf ("...found WIM file %s\n", name);
@@ -155,83 +155,51 @@ int add_file (const char *name, void *data, size_t len,
 }
 
 void
-grub_extract (struct grub_wimboot_context *wimboot_ctx)
+grub_extract (void)
 {
-  int i;
-  for (i = 0; i < wimboot_ctx->nfiles; i++)
+  struct grub_vfatdisk_file *f = NULL;
+  for (f = vfat_file_list; f; f = f->next)
   {
-    add_file (wimboot_ctx->components[i].file_name,
-              wimboot_ctx->components[i].file,
-              wimboot_ctx->components[i].file->size,
-              efi_read_file);
+    if (f->addr)
+      add_file (f->name, f->addr, f->file->size, mem_read_file);
+    else
+      add_file (f->name, f->file, f->file->size, efi_read_file);
   }
   /* Check that we have a boot file */
   if (! bootmgfw)
-  {
     die ("FATAL: bootmgfw.efi not found\n");
-  }
 }
 
 void
-grub_wimboot_close (struct grub_wimboot_context *wimboot_ctx)
+grub_wimboot_init (int argc, char *argv[])
 {
   int i;
-  if (!wimboot_ctx->components)
-    return;
-  for (i = 0; i < wimboot_ctx->nfiles; i++)
-    {
-      grub_free (wimboot_ctx->components[i].file_name);
-      grub_file_close (wimboot_ctx->components[i].file);
-    }
-  grub_free (wimboot_ctx->components);
-  wimboot_ctx->components = 0;
-}
-
-grub_err_t
-grub_wimboot_init (int argc, char *argv[],
-                   struct grub_wimboot_context *wimboot_ctx)
-{
-  int i;
-
-  wimboot_ctx->nfiles = 0;
-  wimboot_ctx->components = 0;
-  wimboot_ctx->components =
-          grub_zalloc (argc * sizeof (wimboot_ctx->components[0]));
-  if (!wimboot_ctx->components)
-    return grub_errno;
 
   for (i = 0; i < argc; i++)
   {
     const char *fname = argv[i];
+    char *file_name = NULL;
+    grub_file_t file = 0;
     if (grub_memcmp (argv[i], "@:", 2) == 0)
     {
       const char *ptr, *eptr;
       ptr = argv[i] + 2;
-      while (*ptr == '/')
-        ptr++;
       eptr = grub_strchr (ptr, ':');
       if (eptr)
       {
-        wimboot_ctx->components[i].file_name = grub_strndup (ptr, eptr - ptr);
-        if (!wimboot_ctx->components[i].file_name)
-        {
-          grub_wimboot_close (wimboot_ctx);
-          return grub_errno;
-        }
+        file_name = grub_strndup (ptr, eptr - ptr);
+        if (!file_name)
+          die ("file name error.\n");
         fname = eptr + 1;
       }
     }
-    wimboot_ctx->components[i].file = grub_file_open (fname,
+    file = grub_file_open (fname,
                 GRUB_FILE_TYPE_LINUX_INITRD | GRUB_FILE_TYPE_NO_DECOMPRESS);
-    if (!wimboot_ctx->components[i].file)
-    {
-      grub_wimboot_close (wimboot_ctx);
-      return grub_errno;
-    }
-    wimboot_ctx->nfiles++;
-    grub_printf ("file %d: %s path: %s\n",
-                 wimboot_ctx->nfiles, wimboot_ctx->components[i].file_name, fname);
+    if (!file)
+      die ("bad file.\n");
+    if (!file_name)
+      file_name = grub_strdup (file->name);
+    append_vfat_list (file, file_name, NULL, 0);
+    grub_free (file_name);
   }
-
-  return GRUB_ERR_NONE;
 }

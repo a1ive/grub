@@ -322,3 +322,38 @@ patch_vfat_search (const char *file, const char *search,
   if (replace_str)
     grub_free (replace_str);
 }
+
+void
+append_vfat_list (grub_file_t file, const char *file_name, void *addr, int mem)
+{
+  struct grub_vfatdisk_file *newfile = NULL;
+  newfile = grub_malloc (sizeof (struct grub_vfatdisk_file));
+  if (!newfile)
+    goto err;
+  if (mem)
+  {
+    addr = grub_malloc (file->size);
+    if (!addr)
+      goto err;
+    grub_printf ("Loading %s ...\n", file->name);
+    grub_file_read (file, addr, file->size);
+    grub_printf ("Add: (mem)%p+%ld -> %s\n",
+                   addr, (unsigned long) file->size, file_name);
+  }
+  else
+    grub_printf ("Add: %s -> %s\n", file->name, file_name);
+
+  newfile->name = grub_strdup (file_name);
+  if (!newfile->name)
+    goto err;
+  newfile->file = file;
+  newfile->addr = addr;
+  newfile->next = vfat_file_list;
+  vfat_file_list = newfile;
+  return;
+err:
+  if (newfile)
+    grub_free (newfile);
+  if (addr)
+    grub_free (addr);
+}
