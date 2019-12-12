@@ -2908,5 +2908,6 @@ module = {
   common = grubfm/list.c;
   common = grubfm/type.c;
   common = grubfm/open.c;
+  common = grubfm/sortlib.c;
   cflags = '-Wno-unused-parameter';
 };
