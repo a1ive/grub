@@ -30,9 +30,9 @@ struct grubfm_file_ext grubfm_file_table[] =
   {".isz", "iso", UNKNOWN},
   {".img", "img", DISK},
   {".ima", "img", DISK},
-  {".vhd", "vhd", VHD},
-  {".vhdx", "vhd", VHD},
-  {".vmdk", "vhd", UNKNOWN}, /* TODO: add support for vmdk */
+  {".vhd", "img", VHD},
+  {".vhdx", "img", VHD},
+  {".vmdk", "img", UNKNOWN}, /* TODO: add support for vmdk */
   {".fba", "img", FBA},
   {".jpg", "png", IMAGE},
   {".png", "png", IMAGE},

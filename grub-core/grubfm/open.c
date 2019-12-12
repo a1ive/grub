@@ -88,6 +88,21 @@ grubfm_open_iso_loopback (grub_file_t file, char *path)
 }
 
 static void
+grubfm_open_iso_map (grub_file_t file UNUSED, char *path)
+{
+#ifdef GRUB_MACHINE_EFI
+  REQUIRE ("map");
+  REQUIRE ("blocklist");
+  char *src = NULL;
+  src = grub_xasprintf ("map \"%s\"", path);
+  if (!src)
+    return;
+  grubfm_add_menu (_("Boot ISO (map)"), "iso", NULL, src, 0);
+  grub_free (src);
+#endif
+}
+
+static void
 grubfm_open_efi (grub_file_t file UNUSED, char *path)
 {
 #ifdef GRUB_MACHINE_EFI
@@ -199,6 +214,7 @@ grubfm_open_file (char *path)
   {
     case ISO:
       grubfm_open_iso_loopback (file, path);
+      grubfm_open_iso_map (file, path);
       break;
     case DISK:
       break;
