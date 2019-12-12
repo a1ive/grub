@@ -21,11 +21,14 @@
  *  Copyright (c) 2009 - 2014, Intel Corporation. All rights reserved.
  *  SPDX-License-Identifier: BSD-2-Clause-Patent
  */
+#include <grub/dl.h>
 #include <grub/types.h>
 #include <grub/misc.h>
 #include <grub/mm.h>
 
-#include "sortlib.h"
+#include <grub/lib/sortlib.h>
+
+GRUB_MOD_LICENSE ("GPLv3+");
 
 #define assert(x) assert_real(__FILE__, __LINE__, x)
 

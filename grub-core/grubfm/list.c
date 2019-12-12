@@ -27,9 +27,9 @@
 #include <grub/file.h>
 #include <grub/fs.h>
 #include <grub/normal.h>
+#include <grub/lib/sortlib.h>
 
 #include "fm.h"
-#include "sortlib.h"
 
 static void
 grubfm_add_menu_parent (const char *dirname)
