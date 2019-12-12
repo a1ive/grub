@@ -60,6 +60,33 @@ enum options_partnew
   PARTNEW_LENGTH,
 };
 
+/* Convert a LBA address to a CHS address in the INT 13 format.  */
+/* Taken from grub1. */
+/* XXX: use hardcoded geometry of C = 1024, H = 255, S = 63.
+   Is it a problem?
+*/
+static void
+lba_to_chs (grub_uint32_t lba, grub_uint8_t *cl, grub_uint8_t *ch,
+            grub_uint8_t *dh)
+{
+  grub_uint32_t cylinder, head, sector;
+  grub_uint32_t sectors = 63, heads = 255, cylinders = 1024;
+
+  sector = lba % sectors + 1;
+  head = (lba / sectors) % heads;
+  cylinder = lba / (sectors * heads);
+
+  if (cylinder >= cylinders)
+  {
+    *cl = *ch = *dh = 0xff;
+    return;
+  }
+
+  *cl = sector | ((cylinder & 0x300) >> 2);
+  *ch = cylinder & 0xFF;
+  *dh = head;
+}
+
 struct block_ctx
 {
   grub_disk_addr_t start;
@@ -151,6 +178,24 @@ msdos_part (grub_disk_t disk, unsigned long num, grub_uint8_t type, int active)
   mbr->entries[num].length = file_block.length;
   grub_printf ("TYPE=0x%02X START=%10d LENGTH=%10d\n", mbr->entries[num].type,
                mbr->entries[num].start, mbr->entries[num].length);
+  if (mbr->hidden_sectors != mbr->entries[num].start)
+  {
+    grub_printf ("Changing hidden sectors %10d to %10d...",
+                 mbr->hidden_sectors, mbr->entries[num].start);
+    mbr->hidden_sectors = mbr->entries[num].start;
+  }
+  /* lba to chs */
+  grub_uint8_t start_cl, start_ch, start_dh;
+  grub_uint8_t end_cl, end_ch, end_dh;
+  lba_to_chs (mbr->entries[num].start, &start_cl, &start_ch, &start_dh);
+  lba_to_chs (mbr->entries[num].start + mbr->entries[num].length - 1,
+              &end_cl, &end_ch, &end_dh);
+  mbr->entries[num].start_head = start_dh;
+  mbr->entries[num].start_sector = start_cl;
+  mbr->entries[num].start_cylinder = start_ch;
+  mbr->entries[num].end_head = end_dh;
+  mbr->entries[num].end_sector = end_cl;
+  mbr->entries[num].end_cylinder = end_ch;
   /* Write the MBR. */
   grub_disk_write (disk, 0, 0, GRUB_DISK_SECTOR_SIZE, mbr);
 fail:

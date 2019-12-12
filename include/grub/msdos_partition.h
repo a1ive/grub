@@ -95,8 +95,22 @@ struct grub_msdos_partition_entry
 /* The structure of MBR.  */
 struct grub_msdos_partition_mbr
 {
-  /* The code area (actually, including BPB).  */
-  grub_uint8_t code[440];
+  char dummy1[11];/* normally there is a short JMP instuction(opcode is 0xEB) */
+  grub_uint16_t bytes_per_sector;/* seems always to be 512, so we just use 512 */
+  grub_uint8_t sectors_per_cluster;/* non-zero, the power of 2, i.e., 2^n */
+  grub_uint16_t reserved_sectors;/* FAT=non-zero, NTFS=0? */
+  grub_uint8_t number_of_fats;/* NTFS=0; FAT=1 or 2  */
+  grub_uint16_t root_dir_entries;/* FAT32=0, NTFS=0, FAT12/16=non-zero */
+  grub_uint16_t total_sectors_short;/* FAT32=0, NTFS=0, FAT12/16=any */
+  grub_uint8_t media_descriptor;/* range from 0xf0 to 0xff */
+  grub_uint16_t sectors_per_fat;/* FAT32=0, NTFS=0, FAT12/16=non-zero */
+  grub_uint16_t sectors_per_track;/* range from 1 to 63 */
+  grub_uint16_t total_heads;/* range from 1 to 256 */
+  grub_uint32_t hidden_sectors;/* any value */
+  grub_uint32_t total_sectors_long;/* FAT32=non-zero, NTFS=0, FAT12/16=any */
+  grub_uint32_t sectors_per_fat32;/* FAT32=non-zero, NTFS=any, FAT12/16=any */
+  grub_uint64_t total_sectors_long_long;/* NTFS=non-zero, FAT12/16/32=any */
+  char dummy2[392];
   grub_uint8_t unique_signature[4];
   grub_uint8_t unknown[2];
 
