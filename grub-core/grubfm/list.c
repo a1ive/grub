@@ -29,6 +29,7 @@
 #include <grub/normal.h>
 
 #include "fm.h"
+#include "sortlib.h"
 
 static void
 grubfm_add_menu_parent (const char *dirname)
@@ -197,6 +198,15 @@ grubfm_enum_file_count (const char *filename,
   return 0;
 }
 
+static grub_ssize_t
+list_compare (const void *f1,
+              const void *f2)
+{
+  const struct grubfm_enum_file_info *d1 = f1;
+  const struct grubfm_enum_file_info *d2 = f2;
+  return (grub_strcmp(d1->name, d2->name));
+}
+
 static int
 grubfm_enum_file_iter (const char *filename,
                        const struct grub_dirhook_info *info,
@@ -289,6 +299,8 @@ grubfm_enum_file (char *dirname)
     (fs->fs_dir) (dev, path, grubfm_enum_file_iter, &ctx);
     ctx.ndirs = ctx.d;
     ctx.nfiles = ctx.f;
+    perform_quick_sort (ctx.dir_list, ctx.ndirs,
+                        sizeof(struct grubfm_enum_file_info), list_compare);
     for (ctx.d = 0; ctx.d < ctx.ndirs; ctx.d++)
     {
       char *pathname;
@@ -303,6 +315,8 @@ grubfm_enum_file (char *dirname)
       grubfm_add_menu_dir (ctx.dir_list[ctx.d].name, pathname);
       grub_free (pathname);
     }
+    perform_quick_sort (ctx.file_list, ctx.nfiles,
+                        sizeof(struct grubfm_enum_file_info), list_compare);
     for (ctx.f = 0; ctx.f < ctx.nfiles; ctx.f++)
     {
       char *pathname;
