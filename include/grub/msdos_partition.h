@@ -140,4 +140,31 @@ grub_partition_msdos_iterate (grub_disk_t disk,
 			      grub_partition_iterate_hook_t hook,
 			      void *hook_data);
 
+/* Convert a LBA address to a CHS address in the INT 13 format.  */
+/* Taken from grub1. */
+/* XXX: use hardcoded geometry of C = 1024, H = 255, S = 63.
+   Is it a problem?
+*/
+static inline void
+lba_to_chs (grub_uint32_t lba, grub_uint8_t *cl, grub_uint8_t *ch,
+            grub_uint8_t *dh)
+{
+  grub_uint32_t cylinder, head, sector;
+  grub_uint32_t sectors = 63, heads = 255, cylinders = 1024;
+
+  sector = lba % sectors + 1;
+  head = (lba / sectors) % heads;
+  cylinder = lba / (sectors * heads);
+
+  if (cylinder >= cylinders)
+  {
+    *cl = *ch = *dh = 0xff;
+    return;
+  }
+
+  *cl = sector | ((cylinder & 0x300) >> 2);
+  *ch = cylinder & 0xFF;
+  *dh = head;
+}
+
 #endif /* ! GRUB_PC_PARTITION_HEADER */
