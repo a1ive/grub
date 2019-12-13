@@ -14,6 +14,11 @@ jobs:
     - name: initialize
       run: |
         sudo -E apt-get -y install build-essential python iasl lzop unifont autopoint bison flex gettext
+    - name: download toolchains
+      run: |
+        mkdir /tmp/cross
+        cd /tmp/cross
+        wget -t 3 -O - https://mirrors.kernel.org/pub/tools/crosstool/files/bin/x86_64/8.1.0/x86_64-gcc-8.1.0-nolibc-aarch64-linux.tar.xz | tar xJ
     - name: tag
       run: |
         git tag -d latest
@@ -54,6 +59,18 @@ jobs:
         make
         make install DESTDIR=$PWD/PKG
     - name: i386-coreboot clean
+      run: make clean
+
+    - name: arm64-efi configure
+      run: |
+        export PATH=$PATH:/tmp/cross/gcc-8.1.0-nolibc/aarch64-linux/bin
+        ./configure --prefix=/ --target=aarch64-linux --with-platform=efi
+    - name: arm64-efi make
+      run: |
+        export PATH=$PATH:/tmp/cross/gcc-8.1.0-nolibc/aarch64-linux/bin
+        make
+        make install DESTDIR=$PWD/PKG
+    - name: arm64-efi clean
       run: make clean
 
     - name: makepkg
