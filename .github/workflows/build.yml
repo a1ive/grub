@@ -19,6 +19,7 @@ jobs:
         mkdir /tmp/cross
         cd /tmp/cross
         wget -t 3 -O - https://mirrors.kernel.org/pub/tools/crosstool/files/bin/x86_64/8.1.0/x86_64-gcc-8.1.0-nolibc-aarch64-linux.tar.xz | tar xJ
+        wget -t 3 -O - https://mirrors.kernel.org/pub/tools/crosstool/files/bin/x86_64/8.1.0/x86_64-gcc-8.1.0-nolibc-arm-linux-gnueabi.tar.xz | tar xJ
     - name: tag
       run: |
         git tag -d latest
@@ -71,6 +72,18 @@ jobs:
         make
         make install DESTDIR=$PWD/PKG
     - name: arm64-efi clean
+      run: make clean
+
+    - name: arm-efi configure
+      run: |
+        export PATH=$PATH:/tmp/cross/gcc-8.1.0-nolibc/arm-linux-gnueabi/bin
+        ./configure --prefix=/ --target=arm-linux-gnueabi --with-platform=efi
+    - name: arm-efi make
+      run: |
+        export PATH=$PATH:/tmp/cross/gcc-8.1.0-nolibc/arm-linux-gnueabi/bin
+        make
+        make install DESTDIR=$PWD/PKG
+    - name: arm-efi clean
       run: make clean
 
     - name: makepkg
