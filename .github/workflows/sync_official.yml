@@ -2,7 +2,7 @@ name: Sync from official
 
 on:
   schedule:
-  - cron:  "0 * * * *"
+  - cron:  "10 */4 * * *"
 jobs:
   repo-sync:
     runs-on: ubuntu-latest
