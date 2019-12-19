@@ -17,4 +17,4 @@ rm -f grub/*/*.exec
 rm -f grub/*/config.h
 
 tar -zcvf grub.tar.gz grub
-mv grub.tar.gz ../../
+mv grub.tar.gz ../../grub2-latest.tar.gz

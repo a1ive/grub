@@ -89,10 +89,10 @@ jobs:
     - name: makepkg
       run: ./makepkg.sh
     - name: upload
-      uses: svenstaro/upload-release-action@v1-release
+      uses: marvinpinto/action-automatic-releases@latest
       with:
-        file: grub.tar.gz
-        asset_name: grub2-latest.tar.gz
-        tag: latest
-        repo_token: ${{ secrets.GITHUB_TOKEN }}
-        overwrite: true
+        repo_token: "${{ secrets.GITHUB_TOKEN }}"
+        automatic_release_tag: "latest"
+        prerelease: false
+        title: "Development Build"
+        files: grub2-latest.tar.gz
