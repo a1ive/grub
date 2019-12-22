@@ -38,7 +38,7 @@ static const struct grub_arg_option options[] =
      0, 0},
     {"part-label",	'L', 0, N_("Search devices by a partition label."),
      0, 0},
-    {"part-uuid",	'U', 0, N_("Search devices by a partition UUID."),
+    {"part-uuid",	'g', 0, N_("Search devices by a partition UUID."),
      0, 0},
     {"disk-uuid",	'U', 0, N_("Search devices by a disk UUID."),
      0, 0},
