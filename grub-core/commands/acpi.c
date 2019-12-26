@@ -58,6 +58,7 @@ static const struct grub_arg_option options[] = {
   {"no-ebda", 'e', 0, N_("Don't update EBDA. May fix failures or hangs on some "
    "BIOSes but makes it ineffective with OS not receiving RSDP from GRUB."),
    0, ARG_TYPE_NONE},
+  {"slic", 's', 0, N_("Load SLIC table."), 0, ARG_TYPE_NONE},
   {0, 0, 0, 0, 0, 0}
 };
 
@@ -140,7 +141,7 @@ struct grub_acpi_create_ebda_ctx {
 /* Helper for grub_acpi_create_ebda.  */
 static int
 find_hook (grub_uint64_t start, grub_uint64_t size, grub_memory_type_t type,
-	   void *data)
+       void *data)
 {
   struct grub_acpi_create_ebda_ctx *ctx = data;
   grub_uint64_t end = start + size;
@@ -180,13 +181,13 @@ grub_acpi_create_ebda (void)
   grub_mmap_iterate (find_hook, &ctx);
   targetebda = (grub_uint8_t *) (grub_addr_t) ctx.highestlow;
   grub_dprintf ("acpi", "creating ebda @%llx\n",
-		(unsigned long long) ctx.highestlow);
+        (unsigned long long) ctx.highestlow);
   if (! ctx.highestlow)
     return grub_error (GRUB_ERR_OUT_OF_MEMORY,
-		       "couldn't find space for the new EBDA");
+               "couldn't find space for the new EBDA");
 
   mmapregion = grub_mmap_register ((grub_addr_t) targetebda, ctx.ebda_len,
-				   GRUB_MEMORY_RESERVED);
+                   GRUB_MEMORY_RESERVED);
   if (! mmapregion)
     return grub_errno;
 
@@ -208,39 +209,39 @@ grub_acpi_create_ebda (void)
     {
       grub_dprintf ("acpi", "Scanning EBDA for old rsdpv2\n");
       for (; target < targetebda + 0x400 - v2->length; target += 0x10)
-	if (grub_memcmp (target, GRUB_RSDP_SIGNATURE, GRUB_RSDP_SIGNATURE_SIZE) == 0
-	    && grub_byte_checksum (target,
-				   sizeof (struct grub_acpi_rsdp_v10)) == 0
-	    && ((struct grub_acpi_rsdp_v10 *) target)->revision != 0
-	    && ((struct grub_acpi_rsdp_v20 *) target)->length <= v2->length)
-	  {
-	    grub_memcpy (target, v2, v2->length);
-	    grub_dprintf ("acpi", "Copying rsdpv2 to %p\n", target);
-	    v2inebda = target;
-	    target += v2->length;
-	    target = (grub_uint8_t *) ALIGN_UP((grub_addr_t) target, 16);
-	    v2 = 0;
-	    break;
-	  }
+    if (grub_memcmp (target, GRUB_RSDP_SIGNATURE, GRUB_RSDP_SIGNATURE_SIZE) == 0
+        && grub_byte_checksum (target,
+                   sizeof (struct grub_acpi_rsdp_v10)) == 0
+        && ((struct grub_acpi_rsdp_v10 *) target)->revision != 0
+        && ((struct grub_acpi_rsdp_v20 *) target)->length <= v2->length)
+      {
+        grub_memcpy (target, v2, v2->length);
+        grub_dprintf ("acpi", "Copying rsdpv2 to %p\n", target);
+        v2inebda = target;
+        target += v2->length;
+        target = (grub_uint8_t *) ALIGN_UP((grub_addr_t) target, 16);
+        v2 = 0;
+        break;
+      }
     }
 
   if (v1)
     {
       grub_dprintf ("acpi", "Scanning EBDA for old rsdpv1\n");
       for (; target < targetebda + 0x400 - sizeof (struct grub_acpi_rsdp_v10);
-	   target += 0x10)
-	if (grub_memcmp (target, GRUB_RSDP_SIGNATURE, GRUB_RSDP_SIGNATURE_SIZE) == 0
-	    && grub_byte_checksum (target,
-				   sizeof (struct grub_acpi_rsdp_v10)) == 0)
-	  {
-	    grub_memcpy (target, v1, sizeof (struct grub_acpi_rsdp_v10));
-	    grub_dprintf ("acpi", "Copying rsdpv1 to %p\n", target);
-	    v1inebda = target;
-	    target += sizeof (struct grub_acpi_rsdp_v10);
-	    target = (grub_uint8_t *) ALIGN_UP((grub_addr_t) target, 16);
-	    v1 = 0;
-	    break;
-	  }
+       target += 0x10)
+    if (grub_memcmp (target, GRUB_RSDP_SIGNATURE, GRUB_RSDP_SIGNATURE_SIZE) == 0
+        && grub_byte_checksum (target,
+                   sizeof (struct grub_acpi_rsdp_v10)) == 0)
+      {
+        grub_memcpy (target, v1, sizeof (struct grub_acpi_rsdp_v10));
+        grub_dprintf ("acpi", "Copying rsdpv1 to %p\n", target);
+        v1inebda = target;
+        target += sizeof (struct grub_acpi_rsdp_v10);
+        target = (grub_uint8_t *) ALIGN_UP((grub_addr_t) target, 16);
+        v1 = 0;
+        break;
+      }
     }
 
   target = targetebda + 0x100;
@@ -250,40 +251,40 @@ grub_acpi_create_ebda (void)
     {
       grub_dprintf ("acpi", "Scanning EBDA for block of zeros\n");
       for (; target < targetebda + 0x400 - v2->length; target += 0x10)
-	if (iszero (target, v2->length))
-	  {
-	    grub_dprintf ("acpi", "Copying rsdpv2 to %p\n", target);
-	    grub_memcpy (target, v2, v2->length);
-	    v2inebda = target;
-	    target += v2->length;
-	    target = (grub_uint8_t *) ALIGN_UP((grub_addr_t) target, 16);
-	    v2 = 0;
-	    break;
-	  }
+    if (iszero (target, v2->length))
+      {
+        grub_dprintf ("acpi", "Copying rsdpv2 to %p\n", target);
+        grub_memcpy (target, v2, v2->length);
+        v2inebda = target;
+        target += v2->length;
+        target = (grub_uint8_t *) ALIGN_UP((grub_addr_t) target, 16);
+        v2 = 0;
+        break;
+      }
     }
 
   if (v1)
     {
       grub_dprintf ("acpi", "Scanning EBDA for block of zeros\n");
       for (; target < targetebda + 0x400 - sizeof (struct grub_acpi_rsdp_v10);
-	   target += 0x10)
-	if (iszero (target, sizeof (struct grub_acpi_rsdp_v10)))
-	  {
-	    grub_dprintf ("acpi", "Copying rsdpv1 to %p\n", target);
-	    grub_memcpy (target, v1, sizeof (struct grub_acpi_rsdp_v10));
-	    v1inebda = target;
-	    target += sizeof (struct grub_acpi_rsdp_v10);
-	    target = (grub_uint8_t *) ALIGN_UP((grub_addr_t) target, 16);
-	    v1 = 0;
-	    break;
-	  }
+       target += 0x10)
+    if (iszero (target, sizeof (struct grub_acpi_rsdp_v10)))
+      {
+        grub_dprintf ("acpi", "Copying rsdpv1 to %p\n", target);
+        grub_memcpy (target, v1, sizeof (struct grub_acpi_rsdp_v10));
+        v1inebda = target;
+        target += sizeof (struct grub_acpi_rsdp_v10);
+        target = (grub_uint8_t *) ALIGN_UP((grub_addr_t) target, 16);
+        v1 = 0;
+        break;
+      }
     }
 
   if (v1 || v2)
     {
       grub_mmap_unregister (mmapregion);
       return grub_error (GRUB_ERR_OUT_OF_MEMORY,
-			 "couldn't find suitable spot in EBDA");
+             "couldn't find suitable spot in EBDA");
     }
 
   /* Remove any other RSDT. */
@@ -291,9 +292,9 @@ grub_acpi_create_ebda (void)
        target < targetebda + 0x400 - sizeof (struct grub_acpi_rsdp_v10);
        target += 0x10)
     if (grub_memcmp (target, GRUB_RSDP_SIGNATURE, GRUB_RSDP_SIGNATURE_SIZE) == 0
-	&& grub_byte_checksum (target,
-			       sizeof (struct grub_acpi_rsdp_v10)) == 0
-	&& target != v1inebda && target != v2inebda)
+    && grub_byte_checksum (target,
+                   sizeof (struct grub_acpi_rsdp_v10)) == 0
+    && target != v1inebda && target != v2inebda)
       *target = 0;
 
   grub_dprintf ("acpi", "Switching EBDA\n");
@@ -332,22 +333,22 @@ setup_common_tables (void)
       /* If it's FADT correct DSDT and FACS addresses. */
       fadt = (struct grub_acpi_fadt *) cur->addr;
       if (grub_memcmp (fadt->hdr.signature, GRUB_ACPI_FADT_SIGNATURE,
-		       sizeof (fadt->hdr.signature)) == 0)
-	{
-	  fadt->dsdt_addr = (grub_addr_t) table_dsdt;
-	  fadt->facs_addr = facs_addr;
+               sizeof (fadt->hdr.signature)) == 0)
+    {
+      fadt->dsdt_addr = (grub_addr_t) table_dsdt;
+      fadt->facs_addr = facs_addr;
 
-	  /* Does a revision 2 exist at all? */
-	  if (fadt->hdr.revision >= 3)
-	    {
-	      fadt->dsdt_xaddr = (grub_addr_t) table_dsdt;
-	      fadt->facs_xaddr = facs_addr;
-	    }
+      /* Does a revision 2 exist at all? */
+      if (fadt->hdr.revision >= 3)
+        {
+          fadt->dsdt_xaddr = (grub_addr_t) table_dsdt;
+          fadt->facs_xaddr = facs_addr;
+        }
 
-	  /* Recompute checksum. */
-	  fadt->hdr.checksum = 0;
-	  fadt->hdr.checksum = 1 + ~grub_byte_checksum (fadt, fadt->hdr.length);
-	}
+      /* Recompute checksum. */
+      fadt->hdr.checksum = 0;
+      fadt->hdr.checksum = 1 + ~grub_byte_checksum (fadt, fadt->hdr.length);
+    }
     }
 
   /* Fill RSDT entries. */
@@ -386,13 +387,13 @@ setv1table (void)
   rsdpv1_new = (struct grub_acpi_rsdp_v10 *) playground_ptr;
   playground_ptr += sizeof (struct grub_acpi_rsdp_v10);
   grub_memcpy (&(rsdpv1_new->signature), GRUB_RSDP_SIGNATURE,
-	       sizeof (rsdpv1_new->signature));
+           sizeof (rsdpv1_new->signature));
   grub_memcpy (&(rsdpv1_new->oemid), root_oemid, sizeof  (rsdpv1_new->oemid));
   rsdpv1_new->revision = 0;
   rsdpv1_new->rsdt_addr = (grub_addr_t) rsdt_addr;
   rsdpv1_new->checksum = 0;
   rsdpv1_new->checksum = 1 + ~grub_byte_checksum (rsdpv1_new,
-						  sizeof (*rsdpv1_new));
+                          sizeof (*rsdpv1_new));
   grub_dprintf ("acpi", "Generated ACPIv1 tables\n");
 }
 
@@ -430,9 +431,9 @@ setv2table (void)
   rsdpv2_new = (struct grub_acpi_rsdp_v20 *) playground_ptr;
   playground_ptr += sizeof (struct grub_acpi_rsdp_v20);
   grub_memcpy (&(rsdpv2_new->rsdpv1.signature), GRUB_RSDP_SIGNATURE,
-	       sizeof (rsdpv2_new->rsdpv1.signature));
+           sizeof (rsdpv2_new->rsdpv1.signature));
   grub_memcpy (&(rsdpv2_new->rsdpv1.oemid), root_oemid,
-	       sizeof (rsdpv2_new->rsdpv1.oemid));
+           sizeof (rsdpv2_new->rsdpv1.oemid));
   rsdpv2_new->rsdpv1.revision = rev2;
   rsdpv2_new->rsdpv1.rsdt_addr = (grub_addr_t) rsdt_addr;
   rsdpv2_new->rsdpv1.checksum = 0;
@@ -442,7 +443,7 @@ setv2table (void)
   rsdpv2_new->xsdt_addr = (grub_addr_t) xsdt;
   rsdpv2_new->checksum = 0;
   rsdpv2_new->checksum = 1 + ~grub_byte_checksum (rsdpv2_new,
-						  rsdpv2_new->length);
+                          rsdpv2_new->length);
   grub_dprintf ("acpi", "Generated ACPIv2 tables\n");
 }
 
@@ -461,6 +462,17 @@ free_tables (void)
     }
   acpi_tables = 0;
   table_dsdt = 0;
+}
+
+static void
+slic_print (const char *slic_str, grub_size_t n, const char *line)
+{
+  grub_size_t i;
+  if (line)
+    grub_printf ("%s", line);
+  for (i = 0; i < n; i++)
+    grub_printf ("%c", slic_str[i]);
+  grub_printf ("\n");
 }
 
 static grub_err_t
@@ -498,17 +510,17 @@ grub_cmd_acpi (struct grub_extcmd_context *ctxt, int argc, char **args)
 
       exclude = state[0].set ? grub_strdup (state[0].arg) : 0;
       if (exclude)
-	{
-	  for (ptr = exclude; *ptr; ptr++)
-	    *ptr = grub_tolower (*ptr);
-	}
+    {
+      for (ptr = exclude; *ptr; ptr++)
+        *ptr = grub_tolower (*ptr);
+    }
 
       load_only = state[1].set ? grub_strdup (state[1].arg) : 0;
       if (load_only)
-	{
-	  for (ptr = load_only; *ptr; ptr++)
-	    *ptr = grub_tolower (*ptr);
-	}
+    {
+      for (ptr = load_only; *ptr; ptr++)
+        *ptr = grub_tolower (*ptr);
+    }
 
       /* Set revision variables to replicate the same version as host. */
       rev1 = ! rsdp->revision;
@@ -516,92 +528,92 @@ grub_cmd_acpi (struct grub_extcmd_context *ctxt, int argc, char **args)
       rsdt = (struct grub_acpi_table_header *) (grub_addr_t) rsdp->rsdt_addr;
       /* Load host tables. */
       for (entry_ptr = (grub_uint32_t *) (rsdt + 1);
-	   entry_ptr < (grub_uint32_t *) (((grub_uint8_t *) rsdt)
-					  + rsdt->length);
-	   entry_ptr++)
-	{
-	  char signature[5];
-	  struct efiemu_acpi_table *table;
-	  struct grub_acpi_table_header *curtable
-	    = (struct grub_acpi_table_header *) (grub_addr_t) *entry_ptr;
-	  signature[4] = 0;
-	  for (i = 0; i < 4;i++)
-	    signature[i] = grub_tolower (curtable->signature[i]);
+       entry_ptr < (grub_uint32_t *) (((grub_uint8_t *) rsdt)
+                      + rsdt->length);
+       entry_ptr++)
+    {
+      char signature[5];
+      struct efiemu_acpi_table *table;
+      struct grub_acpi_table_header *curtable
+        = (struct grub_acpi_table_header *) (grub_addr_t) *entry_ptr;
+      signature[4] = 0;
+      for (i = 0; i < 4;i++)
+        signature[i] = grub_tolower (curtable->signature[i]);
 
-	  /* If it's FADT it contains addresses of DSDT and FACS. */
-	  if (grub_strcmp (signature, "facp") == 0)
-	    {
-	      struct grub_acpi_table_header *dsdt;
-	      struct grub_acpi_fadt *fadt = (struct grub_acpi_fadt *) curtable;
+      /* If it's FADT it contains addresses of DSDT and FACS. */
+      if (grub_strcmp (signature, "facp") == 0)
+        {
+          struct grub_acpi_table_header *dsdt;
+          struct grub_acpi_fadt *fadt = (struct grub_acpi_fadt *) curtable;
 
-	      /* Set root header variables to the same values
-		 as FADT by default. */
-	      grub_memcpy (&root_oemid, &(fadt->hdr.oemid),
-			   sizeof (root_oemid));
-	      grub_memcpy (&root_oemtable, &(fadt->hdr.oemtable),
-			   sizeof (root_oemtable));
-	      root_oemrev = fadt->hdr.oemrev;
-	      grub_memcpy (&root_creator_id, &(fadt->hdr.creator_id),
-			   sizeof (root_creator_id));
-	      root_creator_rev = fadt->hdr.creator_rev;
+          /* Set root header variables to the same values
+         as FADT by default. */
+          grub_memcpy (&root_oemid, &(fadt->hdr.oemid),
+               sizeof (root_oemid));
+          grub_memcpy (&root_oemtable, &(fadt->hdr.oemtable),
+               sizeof (root_oemtable));
+          root_oemrev = fadt->hdr.oemrev;
+          grub_memcpy (&root_creator_id, &(fadt->hdr.creator_id),
+               sizeof (root_creator_id));
+          root_creator_rev = fadt->hdr.creator_rev;
 
-	      /* Load DSDT if not excluded. */
-	      dsdt = (struct grub_acpi_table_header *)
-		(grub_addr_t) fadt->dsdt_addr;
-	      if (dsdt && (! exclude || ! grub_strword (exclude, "dsdt"))
-		  && (! load_only || grub_strword (load_only, "dsdt"))
-		  && dsdt->length >= sizeof (*dsdt))
-		{
-		  dsdt_size = dsdt->length;
-		  table_dsdt = grub_malloc (dsdt->length);
-		  if (! table_dsdt)
-		    {
-		      free_tables ();
-		      grub_free (exclude);
-		      grub_free (load_only);
-		      return grub_errno;
-		    }
-		  grub_memcpy (table_dsdt, dsdt, dsdt->length);
-		}
+          /* Load DSDT if not excluded. */
+          dsdt = (struct grub_acpi_table_header *)
+        (grub_addr_t) fadt->dsdt_addr;
+          if (dsdt && (! exclude || ! grub_strword (exclude, "dsdt"))
+          && (! load_only || grub_strword (load_only, "dsdt"))
+          && dsdt->length >= sizeof (*dsdt))
+        {
+          dsdt_size = dsdt->length;
+          table_dsdt = grub_malloc (dsdt->length);
+          if (! table_dsdt)
+            {
+              free_tables ();
+              grub_free (exclude);
+              grub_free (load_only);
+              return grub_errno;
+            }
+          grub_memcpy (table_dsdt, dsdt, dsdt->length);
+        }
 
-	      /* Save FACS address. FACS shouldn't be overridden. */
-	      facs_addr = fadt->facs_addr;
-	    }
+          /* Save FACS address. FACS shouldn't be overridden. */
+          facs_addr = fadt->facs_addr;
+        }
 
-	  /* Skip excluded tables. */
-	  if (exclude && grub_strword (exclude, signature))
-	    continue;
-	  if (load_only && ! grub_strword (load_only, signature))
-	    continue;
+      /* Skip excluded tables. */
+      if (exclude && grub_strword (exclude, signature))
+        continue;
+      if (load_only && ! grub_strword (load_only, signature))
+        continue;
 
-	  /* Sanity check. */
-	  if (curtable->length < sizeof (*curtable))
-	    continue;
+      /* Sanity check. */
+      if (curtable->length < sizeof (*curtable))
+        continue;
 
-	  table = (struct efiemu_acpi_table *) grub_malloc
-	    (sizeof (struct efiemu_acpi_table));
-	  if (! table)
-	    {
-	      free_tables ();
-	      grub_free (exclude);
-	      grub_free (load_only);
-	      return grub_errno;
-	    }
-	  table->size = curtable->length;
-	  table->addr = grub_malloc (table->size);
-	  playground_size += table->size;
-	  if (! table->addr)
-	    {
-	      free_tables ();
-	      grub_free (exclude);
-	      grub_free (load_only);
-	      grub_free (table);
-	      return grub_errno;
-	    }
-	  table->next = acpi_tables;
-	  acpi_tables = table;
-	  grub_memcpy (table->addr, curtable, table->size);
-	}
+      table = (struct efiemu_acpi_table *) grub_malloc
+        (sizeof (struct efiemu_acpi_table));
+      if (! table)
+        {
+          free_tables ();
+          grub_free (exclude);
+          grub_free (load_only);
+          return grub_errno;
+        }
+      table->size = curtable->length;
+      table->addr = grub_malloc (table->size);
+      playground_size += table->size;
+      if (! table->addr)
+        {
+          free_tables ();
+          grub_free (exclude);
+          grub_free (load_only);
+          grub_free (table);
+          return grub_errno;
+        }
+      table->next = acpi_tables;
+      acpi_tables = table;
+      grub_memcpy (table->addr, curtable, table->size);
+    }
       grub_free (exclude);
       grub_free (load_only);
     }
@@ -611,9 +623,9 @@ grub_cmd_acpi (struct grub_extcmd_context *ctxt, int argc, char **args)
     {
       rev1 = state[2].set;
       if (state[3].set)
-	rev2 = rev2 ? : 2;
+    rev2 = rev2 ? : 2;
       else
-	rev2 = 0;
+    rev2 = 0;
     }
 
   /* Does user override root header information? */
@@ -637,64 +649,76 @@ grub_cmd_acpi (struct grub_extcmd_context *ctxt, int argc, char **args)
 
       file = grub_file_open (args[i], GRUB_FILE_TYPE_ACPI_TABLE);
       if (! file)
-	{
-	  free_tables ();
-	  return grub_errno;
-	}
+    {
+      free_tables ();
+      return grub_errno;
+    }
 
       size = grub_file_size (file);
       if (size < sizeof (struct grub_acpi_table_header))
-	{
-	  grub_file_close (file);
-	  free_tables ();
-	  return grub_error (GRUB_ERR_BAD_OS, N_("premature end of file %s"),
-			     args[i]);
-	}
+    {
+      grub_file_close (file);
+      free_tables ();
+      return grub_error (GRUB_ERR_BAD_OS, N_("premature end of file %s"),
+                 args[i]);
+    }
 
       buf = (char *) grub_malloc (size);
       if (! buf)
-	{
-	  grub_file_close (file);
-	  free_tables ();
-	  return grub_errno;
-	}
+    {
+      grub_file_close (file);
+      free_tables ();
+      return grub_errno;
+    }
 
       if (grub_file_read (file, buf, size) != (int) size)
-	{
-	  grub_file_close (file);
-	  free_tables ();
-	  if (!grub_errno)
-	    grub_error (GRUB_ERR_BAD_OS, N_("premature end of file %s"),
-			args[i]);
-	  return grub_errno;
-	}
+    {
+      grub_file_close (file);
+      free_tables ();
+      if (!grub_errno)
+        grub_error (GRUB_ERR_BAD_OS, N_("premature end of file %s"),
+            args[i]);
+      return grub_errno;
+    }
       grub_file_close (file);
 
       if (grub_memcmp (((struct grub_acpi_table_header *) buf)->signature,
-		       "DSDT", 4) == 0)
-	{
-	  grub_free (table_dsdt);
-	  table_dsdt = buf;
-	  dsdt_size = size;
-	}
+               "DSDT", 4) == 0)
+    {
+      grub_free (table_dsdt);
+      table_dsdt = buf;
+      dsdt_size = size;
+    }
       else
-	{
-	  struct efiemu_acpi_table *table;
-	  table = (struct efiemu_acpi_table *) grub_malloc
-	    (sizeof (struct efiemu_acpi_table));
-	  if (! table)
-	    {
-	      free_tables ();
-	      return grub_errno;
-	    }
+    {
+      struct efiemu_acpi_table *table;
+      table = (struct efiemu_acpi_table *) grub_malloc
+        (sizeof (struct efiemu_acpi_table));
+      if (! table)
+        {
+          free_tables ();
+          return grub_errno;
+        }
 
-	  table->size = size;
-	  table->addr = buf;
-	  playground_size += table->size;
+      table->size = size;
+      table->addr = buf;
+      playground_size += table->size;
 
-	  table->next = acpi_tables;
-	  acpi_tables = table;
-	}
+      table->next = acpi_tables;
+      acpi_tables = table;
+    }
+
+    if (state[10].set)
+    {
+      grub_memcpy (root_oemid,
+                   ((struct grub_acpi_table_header *) buf)->oemid,
+                   sizeof (root_oemid));
+      slic_print (root_oemid, sizeof (root_oemid), "slic oemid:");
+      grub_memcpy (root_oemtable,
+                   ((struct grub_acpi_table_header *) buf)->oemtable,
+                   sizeof (root_oemtable));
+      slic_print (root_oemtable, sizeof (root_oemtable), "slic oemid:");
+    }
     }
 
   numoftables = 0;
@@ -714,13 +738,13 @@ grub_cmd_acpi (struct grub_extcmd_context *ctxt, int argc, char **args)
 
   playground = playground_ptr
     = grub_mmap_malign_and_register (1, playground_size, &mmapregion,
-				     GRUB_MEMORY_ACPI, 0);
+                     GRUB_MEMORY_ACPI, 0);
 
   if (! playground)
     {
       free_tables ();
       return grub_error (GRUB_ERR_OUT_OF_MEMORY,
-			 "couldn't allocate space for ACPI tables");
+             "couldn't allocate space for ACPI tables");
     }
 
   setup_common_tables ();
@@ -747,12 +771,12 @@ grub_cmd_acpi (struct grub_extcmd_context *ctxt, int argc, char **args)
       grub_err_t err;
       err = grub_acpi_create_ebda ();
       if (err)
-	{
-	  rsdpv1_new = 0;
-	  rsdpv2_new = 0;
-	  grub_mmap_free_and_unregister (mmapregion);
-	  return err;
-	}
+    {
+      rsdpv1_new = 0;
+      rsdpv2_new = 0;
+      grub_mmap_free_and_unregister (mmapregion);
+      return err;
+    }
     }
 #endif
 
@@ -776,12 +800,12 @@ static grub_extcmd_t cmd;
 GRUB_MOD_INIT(acpi)
 {
   cmd = grub_register_extcmd ("acpi", grub_cmd_acpi, 0,
-			      N_("[-1|-2] [--exclude=TABLE1,TABLE2|"
-			      "--load-only=TABLE1,TABLE2] FILE1"
-			      " [FILE2] [...]"),
-			      N_("Load host ACPI tables and tables "
-			      "specified by arguments."),
-			      options);
+                  N_("[-1|-2] [--exclude=TABLE1,TABLE2|"
+                  "--load-only=TABLE1,TABLE2] FILE1"
+                  " [FILE2] [...]"),
+                  N_("Load host ACPI tables and tables "
+                  "specified by arguments."),
+                  options);
 }
 
 GRUB_MOD_FINI(acpi)
