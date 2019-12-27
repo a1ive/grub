@@ -464,6 +464,8 @@ free_tables (void)
   table_dsdt = 0;
 }
 
+#define SLIC_LENGTH 0x176
+
 static void
 slic_print (const char *slic_str, grub_size_t n, const char *line)
 {
@@ -475,6 +477,33 @@ slic_print (const char *slic_str, grub_size_t n, const char *line)
   grub_printf ("\n");
 }
 
+struct acpi_table_rsdt
+{
+  struct grub_acpi_table_header header; /* Common ACPI table header */
+  grub_uint32_t table_offset_entry[1];  /* Array of pointers to ACPI tables */
+};
+
+static struct grub_acpi_table_header *
+acpi_find_slic (struct grub_acpi_rsdp_v10 *rsdp)
+{
+  int i, rsdt_entries;
+  struct acpi_table_rsdt *rsdt;
+  struct grub_acpi_table_header *slic;
+  rsdt = (struct acpi_table_rsdt *)(grub_addr_t)(rsdp->rsdt_addr);
+  rsdt_entries = (rsdt->header.length
+          - sizeof(struct grub_acpi_table_header)) / sizeof(grub_uint32_t);
+  for (i = 0; i < rsdt_entries; ++i)
+  {
+    slic = (struct grub_acpi_table_header *)
+            (grub_addr_t)(rsdt->table_offset_entry[i]);
+    if (slic != NULL && grub_memcmp(slic->signature, "SLIC", 4) == 0)
+    {
+      return slic;
+    }
+  }
+  return NULL;
+}
+
 static grub_err_t
 grub_cmd_acpi (struct grub_extcmd_context *ctxt, int argc, char **args)
 {
@@ -483,6 +512,9 @@ grub_cmd_acpi (struct grub_extcmd_context *ctxt, int argc, char **args)
   struct efiemu_acpi_table *cur, *t;
   int i, mmapregion;
   int numoftables;
+
+  struct grub_acpi_table_header *slic = NULL;
+  grub_size_t slic_size = SLIC_LENGTH;
 
   /* Default values if no RSDP is found. */
   rev1 = 1;
@@ -710,6 +742,8 @@ grub_cmd_acpi (struct grub_extcmd_context *ctxt, int argc, char **args)
 
     if (state[10].set)
     {
+      if (size < slic_size)
+        slic_size = size;
       grub_memcpy (root_oemid,
                    ((struct grub_acpi_table_header *) buf)->oemid,
                    sizeof (root_oemid));
@@ -718,6 +752,12 @@ grub_cmd_acpi (struct grub_extcmd_context *ctxt, int argc, char **args)
                    ((struct grub_acpi_table_header *) buf)->oemtable,
                    sizeof (root_oemtable));
       slic_print (root_oemtable, sizeof (root_oemtable), "slic oemid:");
+      slic = acpi_find_slic (rsdp);
+      if (slic)
+      {
+        grub_printf ("found slic in acpi table: %p\n", slic);
+        grub_memcpy (slic, buf, slic_size);
+      }
     }
     }
 
@@ -736,9 +776,34 @@ grub_cmd_acpi (struct grub_extcmd_context *ctxt, int argc, char **args)
   /* RSDPv2. */
   playground_size += sizeof (struct grub_acpi_rsdp_v20);
 
+  if (state[10].set && slic)
+  {
+    struct grub_acpi_table_header *rsdt;
+    rsdt = (struct grub_acpi_table_header *)(grub_addr_t)(rsdp->rsdt_addr);
+    grub_memcpy (rsdt->oemid, root_oemid, sizeof (root_oemid));
+    grub_memcpy (rsdt->oemtable, root_oemtable, sizeof (root_oemtable));
+    grub_printf ("recalculating rsdt checksum: %d\n", rsdt->length);
+    rsdt->checksum = 0;
+    rsdt->checksum = 1 + ~grub_byte_checksum (rsdt, rsdt->length);
+    if (rev2)
+    {
+      struct grub_acpi_rsdp_v20 *new_rsdp;
+      struct grub_acpi_table_header *xsdt;
+      new_rsdp = (struct grub_acpi_rsdp_v20 *)rsdp;
+      xsdt = (struct grub_acpi_table_header *)(grub_addr_t)(new_rsdp->xsdt_addr);
+      grub_memcpy (xsdt->oemid, root_oemid, sizeof (root_oemid));
+      grub_memcpy (xsdt->oemtable, root_oemtable, sizeof (root_oemtable));
+      grub_printf ("recalculating xsdt checksum: %d\n", xsdt->length);
+      xsdt->checksum = 0;
+      xsdt->checksum = 1 + ~grub_byte_checksum (xsdt, xsdt->length);
+    }
+    free_tables ();
+    return GRUB_ERR_NONE;
+  }
+
   playground = playground_ptr
     = grub_mmap_malign_and_register (1, playground_size, &mmapregion,
-                     GRUB_MEMORY_ACPI, 0);
+                    GRUB_MEMORY_ACPI, 0);
 
   if (! playground)
     {
