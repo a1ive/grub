@@ -59,7 +59,24 @@ static const struct grub_arg_option options[] = {
    "BIOSes but makes it ineffective with OS not receiving RSDP from GRUB."),
    0, ARG_TYPE_NONE},
   {"slic", 's', 0, N_("Load SLIC table."), 0, ARG_TYPE_NONE},
+  {"msdm", 0, 0, N_("Print MSDM."), 0, ARG_TYPE_NONE},
   {0, 0, 0, 0, 0, 0}
+};
+
+enum options
+{
+  ACPI_X,
+  ACPI_N,
+  ACPI_V1,
+  ACPI_V2,
+  ACPI_ID,
+  ACPI_TABLE,
+  ACPI_OREV,
+  ACPI_C,
+  ACPI_CREV,
+  ACPI_EBDA,
+  ACPI_SLIC,
+  ACPI_MSDM,
 };
 
 /* rev1 is 1 if ACPIv1 is to be generated, 0 otherwise.
@@ -133,7 +150,8 @@ iszero (grub_uint8_t *reg, int size)
 }
 
 /* Context for grub_acpi_create_ebda.  */
-struct grub_acpi_create_ebda_ctx {
+struct grub_acpi_create_ebda_ctx
+{
   int ebda_len;
   grub_uint64_t highestlow;
 };
@@ -504,6 +522,85 @@ acpi_find_slic (struct grub_acpi_rsdp_v10 *rsdp)
   return NULL;
 }
 
+struct software_licensing
+{
+  grub_uint32_t version;
+  grub_uint32_t reserved;
+  grub_uint32_t data_type;
+  grub_uint32_t data_reserved;
+  grub_uint32_t data_length;
+  char data[30];
+} GRUB_PACKED;
+
+// Microsoft Data Management table structure
+struct acpi_msdm
+{
+  struct grub_acpi_table_header header;
+  struct software_licensing soft;
+} GRUB_PACKED;
+
+static struct acpi_msdm *
+acpi_get_msdm (struct grub_acpi_rsdp_v20 *rsdp)
+{
+  struct grub_acpi_table_header *xsdt, *entry;
+  int entry_cnt, i;
+  grub_uint64_t *entry_ptr;
+  if (rsdp->rsdpv1.revision >= 0x02)
+    xsdt = (struct grub_acpi_table_header *)(grub_addr_t)(rsdp->xsdt_addr);
+  else
+  {
+    grub_printf ("ACPI rev %d, XSDT not found.\n", rsdp->rsdpv1.revision);
+    return NULL;
+  }
+  if (grub_memcmp(xsdt->signature, "XSDT", 4) != 0)
+  {
+    grub_printf ("invalid XSDT table\n");
+    return NULL;
+  }
+  entry_cnt = (xsdt->length
+               - sizeof (struct grub_acpi_table_header)) / sizeof(grub_uint64_t);
+  entry_ptr = (grub_uint64_t *)(xsdt + 1);
+  for (i = 0; i < entry_cnt; i++, entry_ptr++)
+  {
+    entry = (struct grub_acpi_table_header *)(grub_addr_t)(*entry_ptr);
+    if (grub_memcmp(entry->signature, "MSDM", 4) == 0)
+    {
+      grub_printf ("found MSDM: %p\n", (struct acpi_msdm *)entry);
+      return (struct acpi_msdm *)entry;
+    }
+  }
+  grub_printf ("MSDM not found.\n");
+  return NULL;
+}
+
+static void
+print_msdm (struct acpi_msdm *msdm)
+{
+  if (! msdm)
+    return;
+  grub_printf ("ACPI Standard Header\n");
+  slic_print ((char *)msdm->header.signature, 4, "Signature: ");
+  grub_printf ("Length: 0x%08x\n", msdm->header.length);
+  grub_printf ("Revision: 0x%02x\n", msdm->header.revision);
+  grub_printf ("Checksum: 0x%02x\n", msdm->header.checksum);
+  slic_print ((char *)msdm->header.oemid,
+              sizeof (root_oemid), "OEM ID: ");
+  slic_print ((char *)msdm->header.oemtable,
+              sizeof (root_oemtable), "OEM Table ID: ");
+  grub_printf ("OEM Revision: 0x%08x\n", msdm->header.oemrev);
+  slic_print ((char *)msdm->header.creator_id,
+              sizeof (root_creator_id), "Creator ID: ");
+  grub_printf ("Creator Revision: 0x%08x\n", msdm->header.creator_rev);
+
+  grub_printf ("Software Licensing\n");
+  grub_printf ("Version: 0x%08x\n", msdm->soft.version);
+  grub_printf ("Reserved: 0x%08x\n", msdm->soft.reserved);
+  grub_printf ("Data Type: 0x%08x\n", msdm->soft.data_type);
+  grub_printf ("Data Reserved: 0x%08x\n", msdm->soft.data_reserved);
+  grub_printf ("Data Length: 0x%08x\n", msdm->soft.data_length);
+  slic_print ((char *)msdm->soft.data, 30, "Data: ");
+}
+
 static grub_err_t
 grub_cmd_acpi (struct grub_extcmd_context *ctxt, int argc, char **args)
 {
@@ -540,14 +637,14 @@ grub_cmd_acpi (struct grub_extcmd_context *ctxt, int argc, char **args)
       /* RSDT consists of header and an array of 32-bit pointers. */
       struct grub_acpi_table_header *rsdt;
 
-      exclude = state[0].set ? grub_strdup (state[0].arg) : 0;
+      exclude = state[ACPI_X].set ? grub_strdup (state[ACPI_X].arg) : 0;
       if (exclude)
     {
       for (ptr = exclude; *ptr; ptr++)
         *ptr = grub_tolower (*ptr);
     }
 
-      load_only = state[1].set ? grub_strdup (state[1].arg) : 0;
+      load_only = state[ACPI_N].set ? grub_strdup (state[ACPI_N].arg) : 0;
       if (load_only)
     {
       for (ptr = load_only; *ptr; ptr++)
@@ -650,27 +747,41 @@ grub_cmd_acpi (struct grub_extcmd_context *ctxt, int argc, char **args)
       grub_free (load_only);
     }
 
-  /* Does user specify versions to generate? */
-  if (state[2].set || state[3].set)
+  if (state[ACPI_MSDM].set)
+  {
+    struct acpi_msdm *msdm = NULL;
+    msdm = acpi_get_msdm ((struct grub_acpi_rsdp_v20 *)rsdp);
+    if (! msdm)
     {
-      rev1 = state[2].set;
-      if (state[3].set)
+      free_tables ();
+      return GRUB_ERR_NONE;
+    }
+    print_msdm (msdm);
+    free_tables ();
+    return GRUB_ERR_NONE;
+  }
+
+  /* Does user specify versions to generate? */
+  if (state[ACPI_V1].set || state[ACPI_V2].set)
+    {
+      rev1 = state[ACPI_V1].set;
+      if (state[ACPI_V2].set)
     rev2 = rev2 ? : 2;
       else
     rev2 = 0;
     }
 
   /* Does user override root header information? */
-  if (state[4].set)
-    grub_strncpy (root_oemid, state[4].arg, sizeof (root_oemid));
-  if (state[5].set)
-    grub_strncpy (root_oemtable, state[5].arg, sizeof (root_oemtable));
-  if (state[6].set)
-    root_oemrev = grub_strtoul (state[6].arg, 0, 0);
-  if (state[7].set)
-    grub_strncpy (root_creator_id, state[7].arg, sizeof (root_creator_id));
-  if (state[8].set)
-    root_creator_rev = grub_strtoul (state[8].arg, 0, 0);
+  if (state[ACPI_ID].set)
+    grub_strncpy (root_oemid, state[ACPI_ID].arg, sizeof (root_oemid));
+  if (state[ACPI_TABLE].set)
+    grub_strncpy (root_oemtable, state[ACPI_TABLE].arg, sizeof (root_oemtable));
+  if (state[ACPI_OREV].set)
+    root_oemrev = grub_strtoul (state[ACPI_OREV].arg, 0, 0);
+  if (state[ACPI_C].set)
+    grub_strncpy (root_creator_id, state[ACPI_C].arg, sizeof (root_creator_id));
+  if (state[ACPI_CREV].set)
+    root_creator_rev = grub_strtoul (state[ACPI_CREV].arg, 0, 0);
 
   /* Load user tables */
   for (i = 0; i < argc; i++)
@@ -740,7 +851,7 @@ grub_cmd_acpi (struct grub_extcmd_context *ctxt, int argc, char **args)
       acpi_tables = table;
     }
 
-    if (state[10].set)
+    if (state[ACPI_SLIC].set)
     {
       if (size < slic_size)
         slic_size = size;
@@ -776,7 +887,7 @@ grub_cmd_acpi (struct grub_extcmd_context *ctxt, int argc, char **args)
   /* RSDPv2. */
   playground_size += sizeof (struct grub_acpi_rsdp_v20);
 
-  if (state[10].set && slic)
+  if (state[ACPI_SLIC].set && slic)
   {
     struct grub_acpi_table_header *rsdt;
     rsdt = (struct grub_acpi_table_header *)(grub_addr_t)(rsdp->rsdt_addr);
@@ -831,7 +942,7 @@ grub_cmd_acpi (struct grub_extcmd_context *ctxt, int argc, char **args)
   acpi_tables = 0;
 
 #if defined (__i386__) || defined (__x86_64__)
-  if (! state[9].set)
+  if (! state[ACPI_EBDA].set)
     {
       grub_err_t err;
       err = grub_acpi_create_ebda ();
