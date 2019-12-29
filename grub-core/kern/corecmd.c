@@ -86,7 +86,7 @@ grub_core_cmd_insmod (struct grub_command *cmd __attribute__ ((unused)),
   if (mod)
     grub_dl_ref (mod);
 
-  return 0;
+  return mod ? 0 : GRUB_ERR_TEST_FAILURE;
 }
 
 static int
