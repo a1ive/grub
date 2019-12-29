@@ -47,17 +47,18 @@ enum options_getargs
   GETARGS_VALUE
 };
 
-static void process_cmdline (unsigned char *cmdline, char *arg, char *env, int val)
+static grub_err_t
+process_cmdline (unsigned char *cmdline, char *arg, char *env, int val)
 {
   char *tmp = (char *) cmdline;
   char *key;
   char *value;
   if (!env)
-    return;
+    return GRUB_ERR_TEST_FAILURE;
   grub_env_set (env, "0");
   /* Do nothing if we have no command line */
   if ((cmdline == NULL) || (cmdline[0] == '\0'))
-    return;
+    return GRUB_ERR_TEST_FAILURE;
   /* Parse command line */
   while (*tmp)
   {
@@ -91,7 +92,7 @@ static void process_cmdline (unsigned char *cmdline, char *arg, char *env, int v
       if (!val)
       {
         grub_env_set (env, "1");
-        break;
+        return GRUB_ERR_NONE;
       }
       if ((! value) || (! value[0]))
       {
@@ -101,22 +102,23 @@ static void process_cmdline (unsigned char *cmdline, char *arg, char *env, int v
       }
       grub_env_set (env, value);
       grub_dprintf ("args", "The value of argument %s is %s.\n", key, value);
-      break;
+      return GRUB_ERR_NONE;
     }
   }
+  return GRUB_ERR_TEST_FAILURE;
 }
 
 static grub_err_t
 grub_cmd_getargs (grub_extcmd_context_t ctxt, int argc, char **args)
 {
   struct grub_arg_list *state = ctxt->state;
-  
+
   if (argc != 2)
   {
     grub_error (GRUB_ERR_BAD_ARGUMENT, N_("unexpected arguments"));
     goto out;
   }
-  
+
   grub_efi_loaded_image_t *image = NULL;
   image = grub_efi_get_loaded_image (grub_efi_image_handle);
   if (!image)
@@ -125,20 +127,21 @@ grub_cmd_getargs (grub_extcmd_context_t ctxt, int argc, char **args)
     goto out;
   }
   {
+    grub_err_t errno;
     grub_ssize_t cmdline_len = (image->load_options_size / sizeof (grub_efi_char16_t));
     const grub_efi_char16_t *wcmdline = image->load_options;
     unsigned char cmdline[cmdline_len + 1];
     grub_utf16_to_utf8 (cmdline, wcmdline, sizeof (cmdline));
 
     grub_dprintf ("args", "Command line: %s\n", cmdline);
-    
+
     if (state[GETARGS_VALUE].set)
-      process_cmdline (cmdline, args[0], args[1], 1);
+      errno = process_cmdline (cmdline, args[0], args[1], 1);
     else
-      process_cmdline (cmdline, args[0], args[1], 0);
-    return GRUB_ERR_NONE;
+      errno = process_cmdline (cmdline, args[0], args[1], 0);
+    return errno;
   }
-  
+
 out:
   return grub_errno;
 }
