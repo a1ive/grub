@@ -3,7 +3,9 @@
 #include <grub/efi/efi.h>
 #include <grub/efi/disk.h>
 #include <grub/device.h>
+#include <grub/disk.h>
 #include <grub/charset.h>
+#include <grub/eltorito.h>
 #include <grub/err.h>
 #include <grub/extcmd.h>
 #include <grub/file.h>
@@ -687,6 +689,119 @@ grub_efi_append_device_node (const grub_efi_device_path_protocol_t *device_path,
   return new_dp;
 }
 
+#define CD_BOOT_SECTOR 17
+#define CD_BLOCK_SIZE 2048
+#define CD_SHIFT 11
+#define FD_BLOCK_SIZE 512 /* 0x200 */
+#define FD_SHIFT 9
+#define BLOCK_OF_1_44MB 0xB40
+#define EFI_PARTITION   0xef
+
+void
+grub_efi_get_eltorito (grub_disk_t disk,
+                       grub_efi_uintn_t *part_addr,
+                       grub_efi_uint64_t *part_size)
+{
+  cdrom_volume_descriptor_t *vol = NULL;
+  eltorito_catalog_t *catalog = NULL;
+  grub_efi_uintn_t dbr_img_size = sizeof (grub_efi_uint16_t);
+  grub_efi_uint16_t dbr_img_buf;
+  grub_efi_boolean_t boot_entry = FALSE;
+  grub_efi_uintn_t i;
+
+  grub_efi_uintn_t addr = 0;
+  grub_efi_uint64_t size = 0;
+
+  vol = grub_zalloc (CD_BLOCK_SIZE);
+  if (!vol)
+    goto fail;
+
+  grub_disk_read (disk, 0, CD_BOOT_SECTOR * CD_BLOCK_SIZE, CD_BLOCK_SIZE, vol);
+
+  if (vol->unknown.type != CDVOL_TYPE_STANDARD ||
+      grub_memcmp (vol->boot_record_volume.system_id, CDVOL_ELTORITO_ID,
+                   sizeof (CDVOL_ELTORITO_ID) - 1) != 0)
+    goto fail;
+
+  catalog = (eltorito_catalog_t *) vol;
+  grub_disk_read (disk, 0,
+    *((grub_efi_uint32_t*) vol->boot_record_volume.elt_catalog) * CD_BLOCK_SIZE,
+    CD_BLOCK_SIZE, catalog);
+  if (catalog[0].catalog.indicator != ELTORITO_ID_CATALOG)
+    goto fail;
+
+  for (i = 0; i < 64; i++)
+  {
+    if (catalog[i].section.indicator == ELTORITO_ID_SECTION_HEADER_FINAL &&
+        catalog[i].section.platform_id == EFI_PARTITION &&
+        catalog[i+1].boot.indicator == ELTORITO_ID_SECTION_BOOTABLE)
+    {
+      boot_entry = TRUE;
+      addr = catalog[i+1].boot.lba << CD_SHIFT;
+      size = catalog[i+1].boot.sector_count << FD_SHIFT;
+
+      grub_disk_read (disk, 0, addr + 0x13, dbr_img_size, &dbr_img_buf);
+      dbr_img_size = dbr_img_buf << FD_SHIFT;
+      size = size > dbr_img_size ? size : dbr_img_size;
+
+      if (size < BLOCK_OF_1_44MB * FD_BLOCK_SIZE)
+      {
+        size = BLOCK_OF_1_44MB * FD_BLOCK_SIZE;
+      }
+      break;
+    }
+  }
+  if (!boot_entry)
+    goto fail;
+
+fail:
+  if (vol)
+    grub_free (vol);
+  *part_addr = addr >> CD_SHIFT;
+  *part_size = size >> CD_SHIFT;
+}
+
+grub_efi_device_path_t *
+grub_efi_eltorito_fix (const grub_efi_device_path_t *dp,
+                       grub_efi_uintn_t addr, grub_efi_uint64_t size)
+{
+  grub_efi_device_path_t *new_dp, *p;
+  grub_efi_uint8_t type, subtype;
+  new_dp = grub_efi_duplicate_device_path (dp);
+
+  for (p = new_dp; ; p = GRUB_EFI_NEXT_DEVICE_PATH (p))
+  {
+    if (GRUB_EFI_END_ENTIRE_DEVICE_PATH (p))
+    {
+      grub_efi_device_path_t *tmp;
+      tmp = grub_efi_create_device_node (MEDIA_DEVICE_PATH, MEDIA_CDROM_DP,
+                                        sizeof (grub_efi_cdrom_device_path_t));
+      ((grub_efi_cdrom_device_path_t *)tmp)->boot_entry = 1;
+      ((grub_efi_cdrom_device_path_t *)tmp)->partition_start = addr;
+      ((grub_efi_cdrom_device_path_t *)tmp)->partition_size = size;
+      grub_free (new_dp);
+      new_dp = grub_efi_append_device_node (dp, tmp);
+      grub_free (tmp);
+      break;
+    }
+
+    type = GRUB_EFI_DEVICE_PATH_TYPE (p);
+    subtype = GRUB_EFI_DEVICE_PATH_SUBTYPE (p);
+    if (type == GRUB_EFI_MEDIA_DEVICE_PATH_TYPE &&
+        subtype == GRUB_EFI_CDROM_DEVICE_PATH_SUBTYPE)
+    {
+      ((grub_efi_cdrom_device_path_t *)p)->boot_entry = 1;
+      ((grub_efi_cdrom_device_path_t *)p)->partition_start = addr;
+      ((grub_efi_cdrom_device_path_t *)p)->partition_size = size;
+      break;
+    }
+  }
+  grub_printf ("new dp: ");
+  grub_efi_print_device_path (new_dp);
+  grub_printf ("\n");
+  return new_dp;
+}
+
 static grub_err_t
 grub_cmd_dp (grub_extcmd_context_t ctxt __attribute__ ((unused)),
              int argc, char **args)
@@ -754,15 +869,77 @@ out:
   return 0;
 }
 
-static grub_extcmd_t cmd_dp;
+static grub_err_t
+grub_cmd_elt (grub_extcmd_context_t ctxt __attribute__ ((unused)),
+              int argc, char **args)
+{
+  const char *filename;
+  grub_efi_status_t status;
+  grub_disk_t disk = 0;
+  grub_efi_handle_t dev_handle = 0;
+  grub_efi_handle_t boot_image_handle;
+  grub_efi_device_path_t *dp = 0, *file_path = 0, *elt_dp = 0;
+  grub_efi_boot_services_t *b;
+  b = grub_efi_system_table->boot_services;
+
+  if (argc < 1)
+    return grub_error (GRUB_ERR_BAD_ARGUMENT,
+                       N_("device name expected"));
+  disk = grub_disk_open (args[0]);
+  if (argc > 1)
+    filename = args[1];
+  else
+    filename = EFI_REMOVABLE_MEDIA_FILE_NAME;
+  if (disk)
+    dev_handle = grub_efidisk_get_device_handle (disk);
+  if (dev_handle)
+    dp = grub_efi_get_device_path (dev_handle);
+  if (!dp)
+    goto fail;
+  grub_efi_uintn_t part_addr = 0;
+  grub_efi_uint64_t part_size = 0;
+  grub_efi_get_eltorito (disk, &part_addr, &part_size);
+  elt_dp = grub_efi_eltorito_fix (dp, part_addr, part_size);
+  if (! elt_dp)
+    goto fail;
+  file_path = grub_efi_file_device_path (elt_dp, filename);
+  grub_free (elt_dp);
+  if (! file_path)
+    goto fail;
+  grub_printf ("file path: ");
+  grub_efi_print_device_path (file_path);
+  grub_printf ("\n");
+
+  status = efi_call_6 (b->load_image, TRUE, grub_efi_image_handle,
+                       file_path, NULL, 0, (void **)&boot_image_handle);
+  grub_free (file_path);
+  if (status != GRUB_EFI_SUCCESS || ! boot_image_handle)
+  {
+    grub_printf ("Failed to load image\n");
+    goto fail;
+  }
+  grub_script_execute_sourcecode ("terminal_output console");
+  status = efi_call_3 (b->start_image, boot_image_handle, 0, NULL);
+  grub_printf ("StartImage returned 0x%lx\n", (unsigned long) status);
+  status = efi_call_1 (b->unload_image, boot_image_handle);
+fail:
+  if (disk)
+    grub_disk_close (disk);
+  return GRUB_ERR_NONE;
+}
+
+static grub_extcmd_t cmd_dp, cmd_elt;
 
 GRUB_MOD_INIT(dp)
 {
   cmd_dp = grub_register_extcmd ("dp", grub_cmd_dp, 0, N_("DEVICE"),
                   N_("DevicePath."), 0);
+  cmd_elt = grub_register_extcmd ("cdboot", grub_cmd_elt, 0, N_("DEVICE [FILE]"),
+                  N_("Eltorito BOOT."), 0);
 }
 
 GRUB_MOD_FINI(dp)
 {
   grub_unregister_extcmd (cmd_dp);
+  grub_unregister_extcmd (cmd_elt);
 }
