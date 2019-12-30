@@ -22,6 +22,7 @@
 
 #include <grub/types.h>
 #include <grub/dl.h>
+#include <grub/disk.h>
 #include <grub/efi/api.h>
 
 #define TRUE  ((grub_efi_boolean_t)(1==1))
@@ -38,6 +39,23 @@
 #define MEDIA_DEVICE_PATH         0x04
 #define MESSAGING_DEVICE_PATH     0x03
 #define HARDWARE_DEVICE_PATH      0x01
+
+#define EFI_REMOVABLE_MEDIA_FILE_NAME_IA32    "/EFI/BOOT/BOOTIA32.EFI"
+#define EFI_REMOVABLE_MEDIA_FILE_NAME_X64     "/EFI/BOOT/BOOTX64.EFI"
+#define EFI_REMOVABLE_MEDIA_FILE_NAME_ARM     "/EFI/BOOT/BOOTARM.EFI"
+#define EFI_REMOVABLE_MEDIA_FILE_NAME_AARCH64 "/EFI/BOOT/BOOTAA64.EFI"
+
+#if defined (__i386__)
+  #define EFI_REMOVABLE_MEDIA_FILE_NAME   EFI_REMOVABLE_MEDIA_FILE_NAME_IA32
+#elif defined (__x86_64__)
+  #define EFI_REMOVABLE_MEDIA_FILE_NAME   EFI_REMOVABLE_MEDIA_FILE_NAME_X64
+#elif defined (__arm__)
+  #define EFI_REMOVABLE_MEDIA_FILE_NAME   EFI_REMOVABLE_MEDIA_FILE_NAME_ARM
+#elif defined (__aarch64__)
+  #define EFI_REMOVABLE_MEDIA_FILE_NAME   EFI_REMOVABLE_MEDIA_FILE_NAME_AARCH64
+#else
+  #error Unknown Processor Type
+#endif
 
 /* Functions.  */
 void *EXPORT_FUNC(grub_efi_locate_protocol) (grub_efi_guid_t *protocol,
@@ -180,5 +198,13 @@ grub_efi_append_device_path (const grub_efi_device_path_protocol_t *dp1,
 grub_efi_device_path_protocol_t*
 grub_efi_append_device_node (const grub_efi_device_path_protocol_t *device_path,
                              const grub_efi_device_path_protocol_t *device_node);
+
+void
+grub_efi_get_eltorito (grub_disk_t disk, grub_efi_uintn_t *part_addr,
+                       grub_efi_uint64_t *part_size);
+
+grub_efi_device_path_t *
+grub_efi_eltorito_fix (const grub_efi_device_path_t *dp,
+                       grub_efi_uintn_t addr, grub_efi_uint64_t size);
 
 #endif /* ! GRUB_EFI_EFI_HEADER */
