@@ -199,6 +199,7 @@ grub_efi_device_path_protocol_t*
 grub_efi_append_device_node (const grub_efi_device_path_protocol_t *device_path,
                              const grub_efi_device_path_protocol_t *device_node);
 
+#if defined (__i386__) || defined (__x86_64__)
 void
 grub_efi_get_eltorito (grub_disk_t disk, grub_efi_uintn_t *part_addr,
                        grub_efi_uint64_t *part_size);
@@ -206,5 +207,6 @@ grub_efi_get_eltorito (grub_disk_t disk, grub_efi_uintn_t *part_addr,
 grub_efi_device_path_t *
 grub_efi_eltorito_fix (const grub_efi_device_path_t *dp,
                        grub_efi_uintn_t addr, grub_efi_uint64_t size);
+#endif
 
 #endif /* ! GRUB_EFI_EFI_HEADER */

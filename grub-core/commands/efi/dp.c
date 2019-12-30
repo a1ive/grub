@@ -689,6 +689,8 @@ grub_efi_append_device_node (const grub_efi_device_path_protocol_t *device_path,
   return new_dp;
 }
 
+#if defined (__i386__) || defined (__x86_64__)
+
 #define CD_BOOT_SECTOR 17
 #define CD_BLOCK_SIZE 2048
 #define CD_SHIFT 11
@@ -802,6 +804,8 @@ grub_efi_eltorito_fix (const grub_efi_device_path_t *dp,
   return new_dp;
 }
 
+#endif
+
 static grub_err_t
 grub_cmd_dp (grub_extcmd_context_t ctxt __attribute__ ((unused)),
              int argc, char **args)
@@ -869,6 +873,8 @@ out:
   return 0;
 }
 
+#if defined (__i386__) || defined (__x86_64__)
+
 static grub_err_t
 grub_cmd_elt (grub_extcmd_context_t ctxt __attribute__ ((unused)),
               int argc, char **args)
@@ -928,18 +934,26 @@ fail:
   return GRUB_ERR_NONE;
 }
 
-static grub_extcmd_t cmd_dp, cmd_elt;
+static grub_extcmd_t cmd_elt;
+
+#endif
+
+static grub_extcmd_t cmd_dp;
 
 GRUB_MOD_INIT(dp)
 {
   cmd_dp = grub_register_extcmd ("dp", grub_cmd_dp, 0, N_("DEVICE"),
                   N_("DevicePath."), 0);
+#if defined (__i386__) || defined (__x86_64__)
   cmd_elt = grub_register_extcmd ("cdboot", grub_cmd_elt, 0, N_("DEVICE [FILE]"),
                   N_("Eltorito BOOT."), 0);
+#endif
 }
 
 GRUB_MOD_FINI(dp)
 {
   grub_unregister_extcmd (cmd_dp);
+#if defined (__i386__) || defined (__x86_64__)
   grub_unregister_extcmd (cmd_elt);
+#endif
 }
