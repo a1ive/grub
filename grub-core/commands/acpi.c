@@ -903,7 +903,7 @@ grub_cmd_acpi (struct grub_extcmd_context *ctxt, int argc, char **args)
     {
       if (size != sizeof (struct acpi_msdm))
       {
-        grub_printf ("Bad MSDM table %ld.\n", sizeof (struct acpi_msdm));
+        grub_printf ("Bad MSDM table.\n");
         free_tables ();
         return grub_errno;
       }
