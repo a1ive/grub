@@ -175,13 +175,15 @@ grub_wimboot_init (int argc, char *argv[])
 {
   int i;
   struct grub_vfatdisk_file *wim = NULL;
+  void *addr = NULL;
 
   for (i = 0; i < argc; i++)
   {
     const char *fname = argv[i];
     char *file_name = NULL;
     grub_file_t file = 0;
-    if (grub_memcmp (argv[i], "@:", 2) == 0)
+    if (grub_memcmp (argv[i], "@:", 2) == 0 || 
+        grub_memcmp (argv[i], "m:", 2) == 0)
     {
       const char *ptr, *eptr;
       ptr = argv[i] + 2;
@@ -207,12 +209,28 @@ grub_wimboot_init (int argc, char *argv[])
       wim = malloc (sizeof (struct grub_vfatdisk_file));
       wim->name = grub_strdup (file_name);
       wim->file = file;
-      wim->addr = NULL;
+      if (argv[i][0] == 'm')
+      {
+        addr = NULL;
+        addr = grub_malloc (file->size);
+        if (!addr)
+          die ("out of memory.\n");
+        grub_printf ("Loading %s ...\n", file->name);
+        grub_file_read (file, addr, file->size);
+        grub_printf ("Add: (mem)%p+%ld -> %s\n",
+                   addr, (unsigned long) file->size, file_name);
+        wim->addr = addr;
+      }
+      else
+        wim->addr = NULL;
       wim->next = NULL;
       grub_free (file_name);
       continue;
     }
-    append_vfat_list (file, file_name, NULL, 0);
+    if (argv[i][0] == 'm')
+      append_vfat_list (file, file_name, addr, 1);
+    else
+      append_vfat_list (file, file_name, NULL, 0);
     grub_free (file_name);
   }
   if (wim)
