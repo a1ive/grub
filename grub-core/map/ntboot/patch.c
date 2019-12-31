@@ -226,8 +226,11 @@ bcd_patch (enum boot_type type, /* vhd or wim */
            int partnum,         /* partition number */
            const char *partmap) /* partition table 'msdos' */
 {
-  bcd_patch_guid (type);
-  bcd_patch_path (type, path);
+  if (type != BOOT_WIN)
+  {
+    bcd_patch_guid (type);
+    bcd_patch_path (type, path);
+  }
   if (wimboot_cmd.pause)
     grub_getkey ();
   if (partmap[0] == 'g')

@@ -46,6 +46,7 @@ static const struct grub_arg_option options_ntboot[] = {
   {"pause", 'p', 0, N_("Show info and wait for keypress."), 0, 0},
   {"vhd", 'v', 0, N_("Boot NT6+ VHD/VHDX."), 0, 0},
   {"wim", 'w', 0, N_("Boot NT6+ WIM."), 0, 0},
+  {"win", 'n', 0, N_("Boot NT6+ Windows."), 0, 0},
   {"efi", 'e', 0, N_("Specify the bootmgfw.efi file."), N_("FILE"), ARG_TYPE_FILE},
   {"sdi", 's', 0, N_("Specify the boot.sdi file."), N_("FILE"), ARG_TYPE_FILE},
   {0, 0, 0, 0, 0, 0}
@@ -57,6 +58,7 @@ enum options_ntboot
   NTBOOT_PAUSE,
   NTBOOT_VHD,
   NTBOOT_WIM,
+  NTBOOT_WIN,
   NTBOOT_EFI,
   NTBOOT_SDI,
 };
@@ -71,12 +73,61 @@ grub_cmd_ntboot (grub_extcmd_context_t ctxt,
   grub_file_t file = 0;
   char *filename = NULL;
   enum boot_type type;
+  grub_disk_t disk = 0;
 
   if (argc != 1)
   {
     grub_error (GRUB_ERR_BAD_ARGUMENT, N_("filename expected"));
     goto fail;
   }
+
+  wimboot_cmd.rawbcd = TRUE;
+  if (state[NTBOOT_GUI].set)
+    wimboot_cmd.gui = TRUE;
+  if (state[NTBOOT_PAUSE].set)
+    wimboot_cmd.pause = TRUE;
+  if (state[NTBOOT_EFI].set)
+    bootmgr = grub_file_open (state[NTBOOT_EFI].arg,
+                              GRUB_FILE_TYPE_EFI_CHAINLOADED_IMAGE);
+  else
+    bootmgr = grub_file_open ("/efi/microsoft/boot/bootmgfw.efi",
+                              GRUB_FILE_TYPE_EFI_CHAINLOADED_IMAGE);
+  if (!bootmgr)
+  {
+    grub_error (GRUB_ERR_FILE_READ_ERROR, N_("failed to open bootmgfw.efi"));
+    goto fail;
+  }
+  add_file ("bootmgfw.efi", bootmgr, bootmgr->size, efi_read_file);
+
+  if (state[NTBOOT_WIN].set)
+  {
+    int namelen = grub_strlen (argv[0]);
+    if (argv[0][0] == '(' && argv[0][namelen - 1] == ')')
+    {
+      argv[0][namelen - 1] = 0;
+      disk = grub_disk_open (&argv[0][1]);
+    }
+    else
+      disk = grub_disk_open (argv[0]);
+    if (!disk || disk->name[0] != 'h' || !disk->partition)
+    {
+      grub_error (GRUB_ERR_BAD_DEVICE,
+                "this command is available only for disk devices");
+      goto fail;
+    }
+    type = BOOT_WIN;
+    bcd_patch (type, NULL, disk->name,
+             disk->partition->start,
+             disk->partition->number,
+             disk->partition->partmap->name);
+    add_file ("bcd", bcd, bcd_len, mem_read_file);
+    if (wimboot_cmd.pause)
+      grub_getkey ();
+    wimboot_install ();
+    wimboot_boot (bootmgfw);
+    goto fail;
+  }
+
   file = grub_file_open (argv[0], GRUB_FILE_TYPE_GET_SIZE);
   if (!file)
   {
@@ -113,24 +164,6 @@ grub_cmd_ntboot (grub_extcmd_context_t ctxt,
   if (state[NTBOOT_VHD].set)
     type = BOOT_VHD;
 
-  wimboot_cmd.rawbcd = TRUE;
-  if (state[NTBOOT_GUI].set)
-    wimboot_cmd.gui = TRUE;
-  if (state[NTBOOT_PAUSE].set)
-    wimboot_cmd.pause = TRUE;
-  if (state[NTBOOT_EFI].set)
-    bootmgr = grub_file_open (state[NTBOOT_EFI].arg,
-                              GRUB_FILE_TYPE_EFI_CHAINLOADED_IMAGE);
-  else
-    bootmgr = grub_file_open ("/efi/microsoft/boot/bootmgfw.efi",
-                              GRUB_FILE_TYPE_EFI_CHAINLOADED_IMAGE);
-  if (!bootmgr)
-  {
-    grub_error (GRUB_ERR_FILE_READ_ERROR, N_("failed to open bootmgfw.efi"));
-    goto fail;
-  }
-  add_file ("bootmgfw.efi", bootmgr, bootmgr->size, efi_read_file);
-
   if (type == BOOT_WIM)
   {
     if (state[NTBOOT_SDI].set)
@@ -156,6 +189,8 @@ grub_cmd_ntboot (grub_extcmd_context_t ctxt,
   wimboot_install ();
   wimboot_boot (bootmgfw);
 fail:
+  if (disk)
+    grub_disk_close (disk);
   if (file)
     grub_file_close (file);
   if (bootmgr)
