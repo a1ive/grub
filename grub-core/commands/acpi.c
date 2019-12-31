@@ -59,7 +59,7 @@ static const struct grub_arg_option options[] = {
    "BIOSes but makes it ineffective with OS not receiving RSDP from GRUB."),
    0, ARG_TYPE_NONE},
   {"slic", 's', 0, N_("Load SLIC table."), 0, ARG_TYPE_NONE},
-  {"msdm", 0, 0, N_("Print MSDM."), 0, ARG_TYPE_NONE},
+  {"msdm", 0, 0, N_("Load/Print MSDM table."), 0, ARG_TYPE_NONE},
   {0, 0, 0, 0, 0, 0}
 };
 
@@ -529,7 +529,7 @@ struct software_licensing
   grub_uint32_t data_type;
   grub_uint32_t data_reserved;
   grub_uint32_t data_length;
-  char data[30];
+  char data[29];
 } GRUB_PACKED;
 
 // Microsoft Data Management table structure
@@ -538,6 +538,30 @@ struct acpi_msdm
   struct grub_acpi_table_header header;
   struct software_licensing soft;
 } GRUB_PACKED;
+
+/* Empty MSDM
+unsigned char empty_msdm[] =
+{
+  0x4D,0x53,0x44,0x4D,
+  0x55,
+  0x00,0x00,0x00,0x03,
+  0x00,
+  0x20,0x20,0x20,0x20,0x20,0x20,
+  0x20,0x20,0x20,0x20,0x20,0x20,0x20,0x20,
+  0x01,0x00,0x00,0x00,
+  0x4D,0x53,0x46,0x54,
+  0x13,0x00,0x00,0x01,
+  0x01,0x00,0x00,0x00,
+  0x00,0x00,0x00,0x00,
+  0x01,0x00,0x00,0x00,
+  0x00,0x00,0x00,0x00,
+  0x1D,0x00,0x00,0x00,
+  0x20,0x20,0x20,0x20,0x20,0x20,
+  0x20,0x20,0x20,0x20,0x20,0x20,
+  0x20,0x20,0x20,0x20,0x20,0x20,
+  0x20,0x20,0x20,0x20,0x20,0x20,
+  0x20,0x20,0x20,0x20,0x20
+};*/
 
 static struct acpi_msdm *
 acpi_get_msdm (struct grub_acpi_rsdp_v20 *rsdp)
@@ -598,7 +622,7 @@ print_msdm (struct acpi_msdm *msdm)
   grub_printf ("Data Type: 0x%08x\n", msdm->soft.data_type);
   grub_printf ("Data Reserved: 0x%08x\n", msdm->soft.data_reserved);
   grub_printf ("Data Length: 0x%08x\n", msdm->soft.data_length);
-  slic_print ((char *)msdm->soft.data, 30, "Data: ");
+  slic_print ((char *)msdm->soft.data, 29, "Data: ");
 }
 
 static grub_err_t
@@ -612,6 +636,7 @@ grub_cmd_acpi (struct grub_extcmd_context *ctxt, int argc, char **args)
 
   struct grub_acpi_table_header *slic = NULL;
   grub_size_t slic_size = SLIC_LENGTH;
+  char msdm_key[29];
 
   /* Default values if no RSDP is found. */
   rev1 = 1;
@@ -747,7 +772,7 @@ grub_cmd_acpi (struct grub_extcmd_context *ctxt, int argc, char **args)
       grub_free (load_only);
     }
 
-  if (state[ACPI_MSDM].set)
+  if (state[ACPI_MSDM].set && argc == 0)
   {
     struct acpi_msdm *msdm = NULL;
     msdm = acpi_get_msdm ((struct grub_acpi_rsdp_v20 *)rsdp);
@@ -851,6 +876,11 @@ grub_cmd_acpi (struct grub_extcmd_context *ctxt, int argc, char **args)
       acpi_tables = table;
     }
 
+    if (state[ACPI_SLIC].set || state[ACPI_MSDM].set)
+    {
+      slic = acpi_find_slic (rsdp);
+    }
+
     if (state[ACPI_SLIC].set)
     {
       if (size < slic_size)
@@ -863,12 +893,35 @@ grub_cmd_acpi (struct grub_extcmd_context *ctxt, int argc, char **args)
                    ((struct grub_acpi_table_header *) buf)->oemtable,
                    sizeof (root_oemtable));
       slic_print (root_oemtable, sizeof (root_oemtable), "slic oemid:");
-      slic = acpi_find_slic (rsdp);
       if (slic)
       {
         grub_printf ("found slic in acpi table: %p\n", slic);
         grub_memcpy (slic, buf, slic_size);
       }
+    }
+    if (state[ACPI_MSDM].set)
+    {
+      if (size != sizeof (struct acpi_msdm))
+      {
+        grub_printf ("Bad MSDM table %ld.\n", sizeof (struct acpi_msdm));
+        free_tables ();
+        return grub_errno;
+      }
+      if (slic)
+        grub_printf ("found slic in acpi table: %p\n", slic);
+      else
+      {
+        grub_printf ("SLIC table not found.\n");
+        free_tables ();
+        return grub_errno;
+      }
+      struct acpi_msdm *msdm = ((struct acpi_msdm *) buf);
+      grub_memcpy (root_oemid, slic->oemid, sizeof (root_oemid));
+      slic_print (root_oemid, sizeof (root_oemid), "msdm oemid:");
+      grub_memcpy (root_oemtable, slic->oemtable, sizeof (root_oemtable));
+      slic_print (root_oemtable, sizeof (root_oemtable), "msdm oemid:");
+      grub_memcpy (msdm_key, msdm->soft.data, 29);
+      slic_print (msdm_key, sizeof (msdm_key), "msdm key:");
     }
     }
 
