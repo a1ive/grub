@@ -23,6 +23,7 @@
 #include <grub/types.h>
 #include <grub/term.h>
 #include <grub/msdos_partition.h>
+#include <grub/charset.h>
 
 #include "ntboot.h"
 #include <stdint.h>
@@ -62,29 +63,40 @@ bcd_patch_guid (enum boot_type type)
 static void
 bcd_patch_path_offset (const char *search, const char *path)
 {
-  grub_size_t len = 2 * (grub_strlen (path) + 1);
-  wchar_t *upath = NULL;
+  char *utf8_path = NULL, *p;
+  wchar_t *utf16_path = NULL;
   grub_size_t offset;
-  grub_size_t i;
-  char c;
-  upath = grub_zalloc (len);
-  if (!upath)
+  grub_size_t len = 2 * (grub_strlen (path) + 1);
+  utf8_path = grub_strdup (path);
+  if (!utf8_path)
   {
     grub_printf ("out of memory.");
     return ;
   }
-  for (i = 0; i < grub_strlen (path); i++)
+  utf16_path = grub_zalloc (len);
+  if (!utf16_path)
   {
-    c = path[i];
-    if (c == '/')
-      c = '\\';
-    upath[i] = c;
+    grub_printf ("out of memory.");
+    grub_free (utf8_path);
+    return ;
   }
+  /* replace '/' to '\\' */
+  p = utf8_path;
+  while (*p)
+  {
+    if (*p == '/')
+      *p = '\\';
+    p++;
+  }
+  /* UTF-8 to UTF-16le */
+  grub_utf8_to_utf16 (utf16_path, len, (grub_uint8_t *)utf8_path, -1, NULL);
+
   offset = replace_hex (bcd, bcd_len,
                         search, grub_strlen (search),
-                        (char *)upath, len, 2);
+                        (char *)utf16_path, len, 2);
   print_hex (bcd, offset, "path", len, 0);
-  grub_free (upath);
+  grub_free (utf16_path);
+  grub_free (utf8_path);
 }
 
 static void
