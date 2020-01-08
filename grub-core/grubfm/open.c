@@ -48,16 +48,39 @@ grubfm_add_menu_back (const char *filename)
     grub_free (dir);
 }
 
+static int
+grubfm_ini_menu_check (const char *condition)
+{
+  char *src = NULL;
+  const char *value = NULL;
+  src = grub_xasprintf ("unset grubfm_test\n"
+                        "source (%s)/boot/grub/rules/%s\n",
+                        grubfm_root, condition);
+  if (!src)
+    return 0;
+  grub_script_execute_sourcecode (src);
+  grub_free (src);
+  value = grub_env_get ("grubfm_test");
+  if (!value)
+    return 0;
+  if (grub_strcmp(value, "0") == 0)
+    return 0;
+  return 1;
+}
+
 static void
 grubfm_add_ini_menu (char *path, ini_t *ini)
 {
   int i;
   char num[4] = "0";
+  grub_env_set ("grubfm_file", path);
+  grub_env_export ("grubfm_file");
   for (i = 0; i < 100; i++)
   {
     grub_sprintf (num, "%d", i);
     char *src = NULL;
     const char *script = NULL;
+    const char *condition = NULL;
     const char *icon = NULL;
     const char *title = NULL;
 #ifdef GRUB_MACHINE_EFI
@@ -68,23 +91,31 @@ grubfm_add_ini_menu (char *path, ini_t *ini)
     char platform = 'u';
 #endif
     const char *enable = NULL;
+    /* menu */
     script = ini_get (ini, num, "menu");
     if (! script)
       break;
+    /* hidden menu */
     if (ini_get (ini, num, "hidden"))
       continue;
+    /* enable = all|efi|bios */
     enable = ini_get (ini, num, "enable");
     if (enable && enable[0] != 'a' && enable[0] != platform)
       continue;
+    /* condition (iftitle) */
+    condition = ini_get (ini, num, "condition");
+    if (condition && ! grubfm_ini_menu_check (condition))
+      continue;
+    /* icon default=file */
     icon = ini_get (ini, num, "icon");
     if (! icon)
       icon = "file";
+    /* menu title */
     title = ini_get (ini, num, "title");
     if (! title)
       title = "MENU";
-    src = grub_xasprintf ("export grubfm_file=\"%s\"\n"
-                          "configfile (%s)/boot/grub/rules/%s\n",
-                          path, grubfm_root, script);
+    src = grub_xasprintf ("configfile (%s)/boot/grub/rules/%s\n",
+                          grubfm_root, script);
     grubfm_add_menu (_(title), icon, NULL, src, 0);
     if (src)
       grub_free (src);
