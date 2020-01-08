@@ -2899,3 +2899,15 @@ module = {
   common = commands/efi/dp.c;
   enable = efi;
 };
+
+module = {
+  name = grubfm;
+  common = grubfm/fm.c;
+  common = grubfm/lib.c;
+  common = grubfm/list.c;
+  common = grubfm/type.c;
+  common = grubfm/open.c;
+  cppflags = '-I$(srcdir)/script/ini';
+  enable = efi;
+  enable = i386_pc;
+};
