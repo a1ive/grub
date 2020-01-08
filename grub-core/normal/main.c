@@ -402,6 +402,7 @@ grub_cmd_normal (struct grub_command *cmd __attribute__ ((unused)),
     grub_enter_normal_mode (argv[0]);
 
 quit:
+  grub_enter_normal_mode (0);
   return 0;
 }
 
