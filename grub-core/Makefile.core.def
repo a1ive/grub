@@ -2701,12 +2701,6 @@ module = {
 };
 
 module = {
-  name = android;
-  common = loader/i386/android.c;
-  enable = x86;
-};
-
-module = {
   name = conv;
   common = commands/conv.c;
   cflags = '$(CFLAGS_POSIX) -fsigned-char';
