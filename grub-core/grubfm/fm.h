@@ -22,6 +22,10 @@
 #include <grub/types.h>
 #include <grub/misc.h>
 
+#include <grub/video.h>
+#include <grub/bitmap.h>
+#include <grub/gfxmenu_view.h>
+
 #include <ini.h>
 
 struct grubfm_ini_enum_list
@@ -69,7 +73,28 @@ grubfm_clear_menu (void);
 void
 grubfm_add_menu (const char *title, const char *icon,
                  const char *hotkey, const char *src, int hidden);
-
+grub_video_color_t
+grubfm_get_color (grub_uint8_t red, grub_uint8_t green, grub_uint8_t blue);
+void
+grubfm_get_screen_info (unsigned int *width, unsigned int *height);
+static inline void
+grubfm_draw_rect (grub_video_color_t color, int x, int y,
+                  unsigned int w, unsigned int h)
+{
+  grub_video_fill_rect (color, x, y, w, h);
+}
+static inline void
+grubfm_draw_string (const char *str, grub_video_color_t color, int x, int y)
+{
+  grub_font_draw_string (str, grub_font_get ("unifont"), color, x, y);
+}
+static inline int
+grubfm_string_width (grub_font_t font, const char *str)
+{
+  return grub_font_get_string_width (font, str);
+}
+void
+grubfm_gfx_printf (grub_video_color_t color, int x, int y, const char *fmt, ...);
 /* list.c */
 int
 grubfm_enum_device (void);

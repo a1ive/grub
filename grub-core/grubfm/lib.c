@@ -31,6 +31,9 @@
 #include <grub/fs.h>
 #include <grub/device.h>
 #include <grub/file.h>
+#include <grub/video.h>
+#include <grub/bitmap.h>
+#include <grub/gfxmenu_view.h>
 
 #include <ini.h>
 
@@ -222,4 +225,39 @@ grubfm_run_cmd (const char *cmdline)
   }
 
   return errno;
+}
+
+grub_video_color_t
+grubfm_get_color (grub_uint8_t red, grub_uint8_t green, grub_uint8_t blue)
+{
+  return grub_video_map_rgba (red, green, blue, 255);
+}
+
+void
+grubfm_get_screen_info (unsigned int *width, unsigned int *height)
+{
+  struct grub_video_mode_info info;
+  *width = *height = 0;
+  if (grub_video_get_info (&info) == GRUB_ERR_NONE)
+  {
+    *width = info.width;
+    *height = info.height;
+  }
+}
+
+void
+grubfm_gfx_printf (grub_video_color_t color, int x, int y, const char *fmt, ...)
+{
+  va_list ap;
+  char *str = NULL;
+
+  va_start (ap, fmt);
+  str = grub_xvasprintf (fmt, ap);
+  va_end (ap);
+
+  if (str)
+  {
+    grub_font_draw_string (str, grub_font_get ("unifont"), color, x, y);
+    grub_free (str);
+  }
 }
