@@ -181,6 +181,8 @@ grubfm_enum_device (void)
   return 0;
 }
 
+#define SYS_VOL_INFO_DIR "System Volume Information"
+
 static int
 grubfm_enum_file_count (const char *filename,
                         const struct grub_dirhook_info *info,
@@ -190,7 +192,8 @@ grubfm_enum_file_count (const char *filename,
 
   if (grub_strcmp (filename, ".") == 0 ||
       grub_strcmp (filename, "..") == 0 ||
-      filename[0] == '$')
+      filename[0] == '$' ||
+      grub_strcmp (filename, SYS_VOL_INFO_DIR) == 0)
     return 0;
 
   if (info->dir)
@@ -218,7 +221,8 @@ grubfm_enum_file_iter (const char *filename,
   char *dirname = ctx->dirname;
   if (grub_strcmp (filename, ".") == 0 ||
       grub_strcmp (filename, "..") == 0 ||
-      filename[0] == '$')
+      filename[0] == '$' ||
+      grub_strcmp (filename, SYS_VOL_INFO_DIR) == 0)
     return 0;
   char *pathname;
 
