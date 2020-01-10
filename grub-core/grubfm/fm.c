@@ -24,6 +24,11 @@
 #include <grub/extcmd.h>
 #include <grub/i18n.h>
 
+#include <grub/term.h>
+#include <grub/video.h>
+#include <grub/bitmap.h>
+#include <grub/gfxmenu_view.h>
+
 #include "fm.h"
 
 GRUB_MOD_LICENSE ("GPLv3+");
@@ -51,6 +56,13 @@ grub_cmd_grubfm (grub_extcmd_context_t ctxt __attribute__ ((unused)),
     grubfm_enum_device ();
   else
     grubfm_enum_file (args[0]);
+  char *src = NULL;
+  src = grub_xasprintf ("source (%s)/boot/grub/global.sh\n",
+                        grubfm_root);
+  if (!src)
+    return 0;
+  grub_script_execute_sourcecode (src);
+  grub_free (src);
   return 0;
 }
 
@@ -63,6 +75,13 @@ grub_cmd_grubfm_open (grub_extcmd_context_t ctxt __attribute__ ((unused)),
   if (argc != 1)
     return grub_error (GRUB_ERR_BAD_ARGUMENT, N_("bad argument"));
   grubfm_open_file (args[0]);
+  char *src = NULL;
+  src = grub_xasprintf ("source (%s)/boot/grub/global.sh\n",
+                        grubfm_root);
+  if (!src)
+    return 0;
+  grub_script_execute_sourcecode (src);
+  grub_free (src);
   return 0;
 }
 
@@ -89,9 +108,18 @@ grub_cmd_grubfm_set (grub_extcmd_context_t ctxt,
   return 0;
 }
 
+static grub_err_t
+grub_cmd_grubfm_dbg (grub_extcmd_context_t ctxt __attribute__ ((unused)),
+                     int argc __attribute__ ((unused)),
+                     char **args __attribute__ ((unused)))
+{
+  return 0;
+}
+
 static grub_extcmd_t cmd;
 static grub_extcmd_t cmd_open;
 static grub_extcmd_t cmd_set;
+static grub_extcmd_t cmd_dbg;
 
 GRUB_MOD_INIT(grubfm)
 {
@@ -105,6 +133,8 @@ GRUB_MOD_INIT(grubfm)
                                   N_("--root DEVICE"),
                                   N_("GRUB file manager."),
                                   options_set);
+  cmd_dbg = grub_register_extcmd ("grubfm_dbg", grub_cmd_grubfm_dbg, 0, 0,
+                  N_("GRUB file manager."), 0);
 }
 
 GRUB_MOD_FINI(grubfm)
@@ -112,4 +142,5 @@ GRUB_MOD_FINI(grubfm)
   grub_unregister_extcmd (cmd);
   grub_unregister_extcmd (cmd_open);
   grub_unregister_extcmd (cmd_set);
+  grub_unregister_extcmd (cmd_dbg);
 }
