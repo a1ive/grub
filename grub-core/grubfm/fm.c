@@ -116,10 +116,25 @@ grub_cmd_grubfm_dbg (grub_extcmd_context_t ctxt __attribute__ ((unused)),
   return 0;
 }
 
+static grub_err_t
+grub_cmd_grubfm_hex (grub_extcmd_context_t ctxt __attribute__ ((unused)),
+                     int argc, char **args)
+{
+  if (argc != 1)
+    return grub_error (GRUB_ERR_BAD_ARGUMENT, N_("bad argument"));
+  unsigned int w, h;
+  grubfm_get_screen_info (&w, &h);
+  if (w < 1024 || h < 768)
+    return grub_error (GRUB_ERR_BAD_OS, N_("gfxmode (minimum resolution 1024x768) required"));
+  grubfm_hexdump (args[0]);
+  return 0;
+}
+
 static grub_extcmd_t cmd;
 static grub_extcmd_t cmd_open;
 static grub_extcmd_t cmd_set;
 static grub_extcmd_t cmd_dbg;
+static grub_extcmd_t cmd_hex;
 
 GRUB_MOD_INIT(grubfm)
 {
@@ -135,6 +150,9 @@ GRUB_MOD_INIT(grubfm)
                                   options_set);
   cmd_dbg = grub_register_extcmd ("grubfm_dbg", grub_cmd_grubfm_dbg, 0, 0,
                   N_("GRUB file manager."), 0);
+  cmd_hex = grub_register_extcmd ("grubfm_hex", grub_cmd_grubfm_hex, 0,
+                  N_("PATH"),
+                  N_("GRUB file manager."), 0);
 }
 
 GRUB_MOD_FINI(grubfm)
@@ -143,4 +161,5 @@ GRUB_MOD_FINI(grubfm)
   grub_unregister_extcmd (cmd_open);
   grub_unregister_extcmd (cmd_set);
   grub_unregister_extcmd (cmd_dbg);
+  grub_unregister_extcmd (cmd_hex);
 }

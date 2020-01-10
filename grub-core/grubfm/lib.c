@@ -261,3 +261,14 @@ grubfm_gfx_printf (grub_video_color_t color, int x, int y, const char *fmt, ...)
     grub_free (str);
   }
 }
+
+void
+grubfm_gfx_clear (void)
+{
+  unsigned int w, h;
+  grub_video_color_t black = grubfm_get_color (0, 0, 0);
+  grubfm_get_screen_info (&w, &h);
+  if (!w || !h)
+    return;
+  grubfm_draw_rect (black, 0, 0, w, h);
+}

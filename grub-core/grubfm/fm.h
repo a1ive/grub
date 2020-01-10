@@ -95,6 +95,8 @@ grubfm_string_width (grub_font_t font, const char *str)
 }
 void
 grubfm_gfx_printf (grub_video_color_t color, int x, int y, const char *fmt, ...);
+void
+grubfm_gfx_clear (void);
 /* list.c */
 int
 grubfm_enum_device (void);
@@ -110,5 +112,9 @@ grubfm_get_file_icon (struct grubfm_enum_file_info *info);
 /* open.c */
 void
 grubfm_open_file (char *path);
+
+/* hex.c */
+void
+grubfm_hexdump (const char *filename);
 
 #endif
