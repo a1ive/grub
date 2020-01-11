@@ -115,49 +115,35 @@ grub_cmd_grubfm_about (grub_extcmd_context_t ctxt __attribute__ ((unused)),
                      char **args __attribute__ ((unused)))
 {
   unsigned int w, h;
-  grub_font_t font = 0;
   grub_video_color_t white = grubfm_get_color (255, 255, 255);
   grubfm_get_screen_info (&w, &h);
   if (w < 640 || h < 480)
     return grub_error (GRUB_ERR_BAD_OS,
-                       N_("gfxmode (minimum resolution 1024x768) required"));
-  font = grub_font_get ("More Perfect DOS VGA 16");
-  if (! font)
-    font = grub_font_get ("unifont");
+                       N_("gfxmode (minimum resolution 640x480) required"));
   grubfm_gfx_clear ();
   /* ascii art */
-  grubfm_gfx_printf (white, 0, 1 * FONT_HEIGH, GRUBFM_ASCII_ART1);
-  grubfm_gfx_printf (white, 0, 2 * FONT_HEIGH, GRUBFM_ASCII_ART2);
-  grubfm_gfx_printf (white, 0, 3 * FONT_HEIGH, GRUBFM_ASCII_ART3);
-  grubfm_gfx_printf (white, 0, 4 * FONT_HEIGH, GRUBFM_ASCII_ART4);
-  grubfm_gfx_printf (white, 0, 5 * FONT_HEIGH, GRUBFM_ASCII_ART5);
-  grubfm_gfx_printf (white, 0, 6 * FONT_HEIGH, GRUBFM_ASCII_ART6);
-  grubfm_gfx_printf (white, 0, 7 * FONT_HEIGH, GRUBFM_ASCII_ART7);
-  grubfm_gfx_printf (white, 0, 8 * FONT_HEIGH, GRUBFM_ASCII_ART8);
-  grubfm_gfx_printf (white, 0, 9 * FONT_HEIGH, GRUBFM_ASCII_ART9);
-  /* hotkey */
-  grubfm_gfx_printf (white, FONT_SPACE, 9 * FONT_SPACE, _("Hotkeys"));
-  grubfm_gfx_printf (white, FONT_SPACE, 10 * FONT_SPACE, _("F1 - Help & About"));
-  grubfm_gfx_printf (white, FONT_SPACE, 11 * FONT_SPACE, _("F2 - File Manager"));
-  grubfm_gfx_printf (white, FONT_SPACE, 12 * FONT_SPACE, _("F3 - Os Detect"));
-  grubfm_gfx_printf (white, FONT_SPACE, 13 * FONT_SPACE, _("F4 - Settings"));
-  grubfm_gfx_printf (white, FONT_SPACE, 14 * FONT_SPACE, _("F5 - Power Off"));
-#ifdef GRUB_MACHINE_EFI
-  grubfm_gfx_printf (white, FONT_SPACE, 15 * FONT_SPACE,
-                     _("LCtrl + LAlt + F12 - Take Screenshots (EFI)"));
-#endif
+  grubfm_gfx_printf (white, FONT_SPACE, 2 * FONT_HEIGH, GRUBFM_ASCII_ART1);
+  grubfm_gfx_printf (white, FONT_SPACE, 3 * FONT_HEIGH, GRUBFM_ASCII_ART2);
+  grubfm_gfx_printf (white, FONT_SPACE, 4 * FONT_HEIGH, GRUBFM_ASCII_ART3);
+  grubfm_gfx_printf (white, FONT_SPACE, 5 * FONT_HEIGH, GRUBFM_ASCII_ART4);
+  grubfm_gfx_printf (white, FONT_SPACE, 6 * FONT_HEIGH, GRUBFM_ASCII_ART5);
+  grubfm_gfx_printf (white, FONT_SPACE, 7 * FONT_HEIGH, GRUBFM_ASCII_ART6);
+  grubfm_gfx_printf (white, FONT_SPACE, 9 * FONT_HEIGH, GRUBFM_COPYRIGHT);
   /* info */
-  grubfm_gfx_printf (white, FONT_SPACE, 16 * FONT_SPACE,
+  grubfm_gfx_printf (white, 2 * FONT_SPACE, 10 * FONT_SPACE,
                      "Platform: %s-%s", GRUB_TARGET_CPU, GRUB_PLATFORM);
-  grubfm_gfx_printf (white, FONT_SPACE, 17 * FONT_SPACE,
+  grubfm_gfx_printf (white, 2 * FONT_SPACE, 11 * FONT_SPACE,
                      "Language: %s", grub_env_get ("lang"));
-  grubfm_gfx_printf (white, FONT_SPACE, 18 * FONT_SPACE,
+  grubfm_gfx_printf (white, 2 * FONT_SPACE, 12 * FONT_SPACE,
                      "Resolution: %ux%u", w, h);
-  grubfm_gfx_printf (white, FONT_SPACE, 19 * FONT_SPACE,
+  grubfm_gfx_printf (white, 2 * FONT_SPACE, 13 * FONT_SPACE,
                      "GRUB version: %s", GRUB_VERSION);
-  grubfm_gfx_printf (white, FONT_SPACE, 20 * FONT_SPACE,
+  grubfm_gfx_printf (white, 2 * FONT_SPACE, 14 * FONT_SPACE,
                      "GRUB build date: %s", GRUB_BUILD_DATE);
-
+  grubfm_gfx_printf (white, 2 * FONT_SPACE, 16 * FONT_SPACE,
+                     "License: GNU GPLv3");
+  grubfm_gfx_printf (white, 2 * FONT_SPACE, 18 * FONT_SPACE,
+                     "Press any key to exit ...");
   grub_getkey ();
   return 0;
 }

@@ -21,6 +21,7 @@
 #include <grub/mm.h>
 #include <grub/err.h>
 #include <grub/file.h>
+#include <grub/normal.h>
 #include <grub/term.h>
 #include <grub/video.h>
 #include <grub/bitmap.h>
@@ -100,20 +101,22 @@ grubfm_hexdump (const char *filename)
   while (1)
   {
     grubfm_gfx_clear ();
-    grub_font_draw_string (HEXDUMP_HEADER, font, white, 0, FONT_SPACE);
+    grubfm_gfx_printf (white, 0, FONT_SPACE, "FILE: %s (%s)", filename,
+                       grub_get_human_size (file->size, GRUB_HUMAN_SIZE_SHORT));
+    grub_font_draw_string (HEXDUMP_HEADER, font, white, 0, 2 * FONT_SPACE);
     for (i = 0; i < HEXDUMP_LINE; i++)
     {
       grub_size_t len = offset + i * HEXDUMP_LEN;
-      grubfm_hexdump_print (file, len, FONT_SPACE * (i + 2));
+      grubfm_hexdump_print (file, len, FONT_SPACE * (i + 3));
       if (len > file->size)
       {
         grub_font_draw_string ("--- END ---", font, white, 0, FONT_SPACE * (i + 2));
         break;
       }
     }
-    grubfm_gfx_printf (white, 0, h - FONT_SPACE, "FILE: %s SIZE: %lld",
-                       filename, (unsigned long long) file->size);
-    grubfm_gfx_printf (white, 0, h - 4, "↑ Page Up ↓ Page Down [ESC] Exit");
+
+    grubfm_gfx_printf (white, 0, h - FONT_SPACE,
+                       "↑ Page Up  ↓ Page Down  [ESC] Exit");
     /* wait key */
     int key = 0;
     while (key != GRUB_TERM_ESC &&
