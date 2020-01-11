@@ -1,6 +1,6 @@
 /*
  *  GRUB  --  GRand Unified Bootloader
- *  Copyright (C) 2019  Free Software Foundation, Inc.
+ *  Copyright (C) 2019,2020  Free Software Foundation, Inc.
  *
  *  GRUB is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -20,6 +20,7 @@
 #include <grub/misc.h>
 #include <grub/mm.h>
 #include <grub/err.h>
+#include <grub/env.h>
 #include <grub/dl.h>
 #include <grub/extcmd.h>
 #include <grub/i18n.h>
@@ -109,10 +110,55 @@ grub_cmd_grubfm_set (grub_extcmd_context_t ctxt,
 }
 
 static grub_err_t
-grub_cmd_grubfm_dbg (grub_extcmd_context_t ctxt __attribute__ ((unused)),
+grub_cmd_grubfm_about (grub_extcmd_context_t ctxt __attribute__ ((unused)),
                      int argc __attribute__ ((unused)),
                      char **args __attribute__ ((unused)))
 {
+  unsigned int w, h;
+  grub_font_t font = 0;
+  grub_video_color_t white = grubfm_get_color (255, 255, 255);
+  grubfm_get_screen_info (&w, &h);
+  if (w < 640 || h < 480)
+    return grub_error (GRUB_ERR_BAD_OS,
+                       N_("gfxmode (minimum resolution 1024x768) required"));
+  font = grub_font_get ("More Perfect DOS VGA 16");
+  if (! font)
+    font = grub_font_get ("unifont");
+  grubfm_gfx_clear ();
+  /* ascii art */
+  grubfm_gfx_printf (white, 0, 1 * FONT_HEIGH, GRUBFM_ASCII_ART1);
+  grubfm_gfx_printf (white, 0, 2 * FONT_HEIGH, GRUBFM_ASCII_ART2);
+  grubfm_gfx_printf (white, 0, 3 * FONT_HEIGH, GRUBFM_ASCII_ART3);
+  grubfm_gfx_printf (white, 0, 4 * FONT_HEIGH, GRUBFM_ASCII_ART4);
+  grubfm_gfx_printf (white, 0, 5 * FONT_HEIGH, GRUBFM_ASCII_ART5);
+  grubfm_gfx_printf (white, 0, 6 * FONT_HEIGH, GRUBFM_ASCII_ART6);
+  grubfm_gfx_printf (white, 0, 7 * FONT_HEIGH, GRUBFM_ASCII_ART7);
+  grubfm_gfx_printf (white, 0, 8 * FONT_HEIGH, GRUBFM_ASCII_ART8);
+  grubfm_gfx_printf (white, 0, 9 * FONT_HEIGH, GRUBFM_ASCII_ART9);
+  /* hotkey */
+  grubfm_gfx_printf (white, FONT_SPACE, 9 * FONT_SPACE, _("Hotkeys"));
+  grubfm_gfx_printf (white, FONT_SPACE, 10 * FONT_SPACE, _("F1 - Help & About"));
+  grubfm_gfx_printf (white, FONT_SPACE, 11 * FONT_SPACE, _("F2 - File Manager"));
+  grubfm_gfx_printf (white, FONT_SPACE, 12 * FONT_SPACE, _("F3 - Os Detect"));
+  grubfm_gfx_printf (white, FONT_SPACE, 13 * FONT_SPACE, _("F4 - Settings"));
+  grubfm_gfx_printf (white, FONT_SPACE, 14 * FONT_SPACE, _("F5 - Power Off"));
+#ifdef GRUB_MACHINE_EFI
+  grubfm_gfx_printf (white, FONT_SPACE, 15 * FONT_SPACE,
+                     _("LCtrl + LAlt + F12 - Take Screenshots (EFI)"));
+#endif
+  /* info */
+  grubfm_gfx_printf (white, FONT_SPACE, 16 * FONT_SPACE,
+                     "Platform: %s-%s", GRUB_TARGET_CPU, GRUB_PLATFORM);
+  grubfm_gfx_printf (white, FONT_SPACE, 17 * FONT_SPACE,
+                     "Language: %s", grub_env_get ("lang"));
+  grubfm_gfx_printf (white, FONT_SPACE, 18 * FONT_SPACE,
+                     "Resolution: %ux%u", w, h);
+  grubfm_gfx_printf (white, FONT_SPACE, 19 * FONT_SPACE,
+                     "GRUB version: %s", GRUB_VERSION);
+  grubfm_gfx_printf (white, FONT_SPACE, 20 * FONT_SPACE,
+                     "GRUB build date: %s", GRUB_BUILD_DATE);
+
+  grub_getkey ();
   return 0;
 }
 
@@ -125,7 +171,8 @@ grub_cmd_grubfm_hex (grub_extcmd_context_t ctxt __attribute__ ((unused)),
   unsigned int w, h;
   grubfm_get_screen_info (&w, &h);
   if (w < 1024 || h < 768)
-    return grub_error (GRUB_ERR_BAD_OS, N_("gfxmode (minimum resolution 1024x768) required"));
+    return grub_error (GRUB_ERR_BAD_OS,
+                       N_("gfxmode (minimum resolution 1024x768) required"));
   grubfm_hexdump (args[0]);
   return 0;
 }
@@ -133,7 +180,7 @@ grub_cmd_grubfm_hex (grub_extcmd_context_t ctxt __attribute__ ((unused)),
 static grub_extcmd_t cmd;
 static grub_extcmd_t cmd_open;
 static grub_extcmd_t cmd_set;
-static grub_extcmd_t cmd_dbg;
+static grub_extcmd_t cmd_about;
 static grub_extcmd_t cmd_hex;
 
 GRUB_MOD_INIT(grubfm)
@@ -148,7 +195,7 @@ GRUB_MOD_INIT(grubfm)
                                   N_("--root DEVICE"),
                                   N_("GRUB file manager."),
                                   options_set);
-  cmd_dbg = grub_register_extcmd ("grubfm_dbg", grub_cmd_grubfm_dbg, 0, 0,
+  cmd_about = grub_register_extcmd ("grubfm_about", grub_cmd_grubfm_about, 0, 0,
                   N_("GRUB file manager."), 0);
   cmd_hex = grub_register_extcmd ("grubfm_hex", grub_cmd_grubfm_hex, 0,
                   N_("PATH"),
@@ -160,6 +207,6 @@ GRUB_MOD_FINI(grubfm)
   grub_unregister_extcmd (cmd);
   grub_unregister_extcmd (cmd_open);
   grub_unregister_extcmd (cmd_set);
-  grub_unregister_extcmd (cmd_dbg);
+  grub_unregister_extcmd (cmd_about);
   grub_unregister_extcmd (cmd_hex);
 }

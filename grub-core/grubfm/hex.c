@@ -79,8 +79,6 @@ grubfm_hexdump_print (grub_file_t file, grub_size_t skip, unsigned int y)
 #define HEXDUMP_LINE 0x20
 #define HEXDUMP_PAGE_OFFSET (HEXDUMP_LINE*HEXDUMP_LEN)
 
-#define FONT_SPACE 20
-
 void
 grubfm_hexdump (const char *filename)
 {

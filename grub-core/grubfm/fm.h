@@ -117,4 +117,21 @@ grubfm_open_file (char *path);
 void
 grubfm_hexdump (const char *filename);
 
+/* grubfm ascii art */
+#define GRUBFM_ASCII_ART1 "  _____               _      ______  __  __ "
+#define GRUBFM_ASCII_ART2 " / ____|             | |    |  ____||  \\/  |"
+#define GRUBFM_ASCII_ART3 "| |  __  _ __  _   _ | |__  | |__   | \\  / |"
+#define GRUBFM_ASCII_ART4 "| | |_ || '__|| | | || '_ \\ |  __|  | |\\/| |"
+#define GRUBFM_ASCII_ART5 "| |__| || |   | |_| || |_) || |     | |  | |"
+#define GRUBFM_ASCII_ART6 " \\_____||_|    \\__,_||_.__/ |_|     |_|  |_|"
+#define GRUBFM_ASCII_ART7 "┌──────────────────────────────────────────┐"
+#define GRUBFM_ASCII_ART8 "│       Copyright © 2016-2019 a1ive        │"
+#define GRUBFM_ASCII_ART9 "└──────────────────────────────────────────┘"
+
+#define GRUBFM_ASCII_WIDTH  45
+#define GRUBFM_ASCII_HEIGHT 9
+
+#define FONT_SPACE 20
+#define FONT_HEIGH 16
+
 #endif
