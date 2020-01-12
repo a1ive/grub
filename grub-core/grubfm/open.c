@@ -69,20 +69,20 @@ grubfm_ini_menu_check (const char *condition)
 }
 
 static void
-grubfm_add_ini_menu (char *path, ini_t *ini)
+grubfm_add_ini_menu (ini_t *ini)
 {
   int i;
   char num[4] = "0";
-  grub_env_set ("grubfm_file", path);
-  grub_env_export ("grubfm_file");
   for (i = 0; i < 100; i++)
   {
     grub_sprintf (num, "%d", i);
+    int hidden = 0;
     char *src = NULL;
     const char *script = NULL;
     const char *condition = NULL;
     const char *icon = NULL;
     const char *title = NULL;
+    const char *hotkey = NULL;
 #ifdef GRUB_MACHINE_EFI
     char platform = 'e';
 #elif defined (GRUB_MACHINE_PCBIOS)
@@ -95,9 +95,6 @@ grubfm_add_ini_menu (char *path, ini_t *ini)
     script = ini_get (ini, num, "menu");
     if (! script)
       break;
-    /* hidden menu */
-    if (ini_get (ini, num, "hidden"))
-      continue;
     /* enable = all|efi|bios */
     enable = ini_get (ini, num, "enable");
     if (enable && enable[0] != 'a' && enable[0] != platform)
@@ -114,9 +111,14 @@ grubfm_add_ini_menu (char *path, ini_t *ini)
     title = ini_get (ini, num, "title");
     if (! title)
       title = "MENU";
+    /* hotkey */
+    hotkey = ini_get (ini, num, "hotkey");
     src = grub_xasprintf ("configfile (%s)/boot/grub/rules/%s\n",
                           grubfm_root, script);
-    grubfm_add_menu (_(title), icon, NULL, src, 0);
+    /* hidden menu */
+    if (ini_get (ini, num, "hidden"))
+      hidden = 1;
+    grubfm_add_menu (_(title), icon, hotkey, src, hidden);
     if (src)
       grub_free (src);
   }
@@ -139,9 +141,9 @@ grubfm_open_file (char *path)
   grubfm_get_file_icon (&info);
 
   if (info.ext >= 0)
-    grubfm_add_ini_menu (path, ctx->config[info.ext]);
+    grubfm_add_ini_menu (ctx->config[info.ext]);
 
-  grubfm_add_ini_menu (path, grubfm_ini_config);
+  grubfm_add_ini_menu (grubfm_ini_config);
 
   grub_file_close (file);
 }

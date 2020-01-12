@@ -53,6 +53,8 @@ grub_cmd_grubfm (grub_extcmd_context_t ctxt __attribute__ ((unused)),
 {
   grubfm_init ();
   grubfm_clear_menu ();
+  grub_env_set ("grubfm_current_path", argc ? args[0] : "");
+  grub_env_export ("grubfm_current_path");
   if (argc == 0)
     grubfm_enum_device ();
   else
@@ -75,14 +77,9 @@ grub_cmd_grubfm_open (grub_extcmd_context_t ctxt __attribute__ ((unused)),
   grubfm_clear_menu ();
   if (argc != 1)
     return grub_error (GRUB_ERR_BAD_ARGUMENT, N_("bad argument"));
+  grub_env_set ("grubfm_file", args[0]);
+  grub_env_export ("grubfm_file");
   grubfm_open_file (args[0]);
-  char *src = NULL;
-  src = grub_xasprintf ("source (%s)/boot/grub/global.sh\n",
-                        grubfm_root);
-  if (!src)
-    return 0;
-  grub_script_execute_sourcecode (src);
-  grub_free (src);
   return 0;
 }
 
