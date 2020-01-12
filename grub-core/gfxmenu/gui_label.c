@@ -98,7 +98,7 @@ label_paint (void *vself, const grub_video_rect_t *region)
     left_x = 0;
   else if (self->align == align_center)
     left_x = (self->bounds.width
-	      - grub_font_get_string_width (self->font, self->text)) / 2;
+          - grub_font_get_string_width (self->font, self->text)) / 2;
   else if (self->align == align_right)
     left_x = (self->bounds.width
               - grub_font_get_string_width (self->font, self->text));
@@ -159,7 +159,7 @@ label_get_minimal_size (void *vself, unsigned *width, unsigned *height)
 
 static void
 label_set_state (void *vself, int visible, int start __attribute__ ((unused)),
-		 int current, int end __attribute__ ((unused)))
+         int current, int end __attribute__ ((unused)))
 {
   grub_gui_label_t self = vself;  
   self->value = -current;
@@ -177,42 +177,47 @@ label_set_property (void *vself, const char *name, const char *value)
       grub_free (self->text);
       grub_free (self->template);
       if (! value)
-	{
-	  self->template = NULL;
-	  self->text = grub_strdup ("");
-	}
+    {
+      self->template = NULL;
+      self->text = grub_strdup ("");
+    }
       else
-	{
-	   if (grub_strcmp (value, "@KEYMAP_LONG@") == 0)
-	    value = _("Press enter to boot the selected OS, "
-	       "`e' to edit the commands before booting "
-	       "or `c' for a command-line. ESC to return previous menu.");
-	   else if (grub_strcmp (value, "@KEYMAP_MIDDLE@") == 0)
-	    value = _("Press enter to boot the selected OS, "
-	       "`e' to edit the commands before booting "
-	       "or `c' for a command-line.");
-	   else if (grub_strcmp (value, "@KEYMAP_SHORT@") == 0)
-	    value = _("enter: boot, `e': options, `c': cmd-line");
-	   else if (grub_strcmp (value, "@KEYMAP_SCROLL_ENTRY@") == 0)
-	    value = _("ctrl+l: scroll entry left, ctrl+r: scroll entry right");
-	   /* FIXME: Add more templates here if needed.  */
-	  self->template = grub_strdup (value);
-	  self->text = grub_xasprintf (value, self->value);
-	}
+    {
+       if (grub_strcmp (value, "@KEYMAP_LONG@") == 0)
+        value = _("Press enter to boot the selected OS, "
+           "`e' to edit the commands before booting "
+           "or `c' for a command-line. ESC to return previous menu.");
+       else if (grub_strcmp (value, "@KEYMAP_MIDDLE@") == 0)
+        value = _("Press enter to boot the selected OS, "
+           "`e' to edit the commands before booting "
+           "or `c' for a command-line.");
+       else if (grub_strcmp (value, "@KEYMAP_SHORT@") == 0)
+        value = _("enter: boot, `e': options, `c': cmd-line");
+       else if (grub_strcmp (value, "@KEYMAP_SCROLL_ENTRY@") == 0)
+        value = _("ctrl+l: scroll entry left, ctrl+r: scroll entry right");
+       else if (value[0] == '@' && value[1] == '@' && value[2] != '\0')
+       {
+         value = grub_env_get (&value[2]);
+         if (!value)
+           value = "";
+       }
+       /* FIXME: Add more templates here if needed.  */
+      self->template = grub_strdup (value);
+      self->text = grub_xasprintf (value, self->value);
+    }
     }
   else if (grub_strcmp (name, "var") == 0)
     {
       grub_free (self->text);
       grub_free (self->template);
       self->template = NULL;
-      self->text = grub_strdup ("");
+      const char *str = NULL;
       if (value)
-        value = grub_env_get (value);
-      if (value)
-        {
-          self->template = grub_strdup (value);
-          self->text = grub_xasprintf (value, self->value);
-        }
+        str = grub_env_get (value);
+      if (!str)
+        str = "";
+      self->template = grub_strdup (str);
+      self->text = grub_xasprintf (str, self->value);
     }
   else if (grub_strcmp (name, "font") == 0)
     {
@@ -247,9 +252,9 @@ label_set_property (void *vself, const char *name, const char *value)
       else
         self->id = 0;
       if (self->id && grub_strcmp (self->id, GRUB_GFXMENU_TIMEOUT_COMPONENT_ID)
-	  == 0)
-	grub_gfxmenu_timeout_register ((grub_gui_component_t) self,
-				       label_set_state);
+      == 0)
+    grub_gfxmenu_timeout_register ((grub_gui_component_t) self,
+                       label_set_state);
     }
   return GRUB_ERR_NONE;
 }
