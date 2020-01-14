@@ -126,7 +126,7 @@ grubfm_hexdump (const char *filename)
       key = grub_getkey ();
     }
     if (key == GRUB_TERM_ESC)
-      return;
+      break;
     if (key == GRUB_TERM_KEY_UP)
     {
       if (offset > HEXDUMP_PAGE_OFFSET)
@@ -142,4 +142,6 @@ grubfm_hexdump (const char *filename)
       continue;
     }
   }
+  if (file)
+    grub_file_close (file);
 }

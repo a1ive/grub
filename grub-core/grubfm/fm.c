@@ -160,6 +160,21 @@ grub_cmd_grubfm_hex (grub_extcmd_context_t ctxt __attribute__ ((unused)),
   return 0;
 }
 
+static grub_err_t
+grub_cmd_grubfm_cat (grub_extcmd_context_t ctxt __attribute__ ((unused)),
+                     int argc, char **args)
+{
+  if (argc != 1)
+    return grub_error (GRUB_ERR_BAD_ARGUMENT, N_("bad argument"));
+  unsigned int w, h;
+  grubfm_get_screen_info (&w, &h);
+  if (w < 1024 || h < 768)
+    return grub_error (GRUB_ERR_BAD_OS,
+                       N_("gfxmode (minimum resolution 1024x768) required"));
+  grubfm_textcat (args[0]);
+  return 0;
+}
+
 static grub_uint8_t NT_VERSION_SRC[] =
 { 0x50, 0x00, 0x72, 0x00, 0x6F, 0x00, 0x64, 0x00,
   0x75, 0x00, 0x63, 0x00, 0x74, 0x00, 0x56, 0x00,
@@ -258,6 +273,7 @@ static grub_extcmd_t cmd_open;
 static grub_extcmd_t cmd_set;
 static grub_extcmd_t cmd_about;
 static grub_extcmd_t cmd_hex;
+static grub_extcmd_t cmd_cat;
 static grub_extcmd_t cmd_nt;
 
 GRUB_MOD_INIT(grubfm)
@@ -272,9 +288,13 @@ GRUB_MOD_INIT(grubfm)
                                   N_("--root DEVICE"),
                                   N_("GRUB file manager."),
                                   options_set);
-  cmd_about = grub_register_extcmd ("grubfm_about", grub_cmd_grubfm_about, 0, 0,
+  cmd_about = grub_register_extcmd ("grubfm_about",
+                  grub_cmd_grubfm_about, 0, 0,
                   N_("GRUB file manager."), 0);
   cmd_hex = grub_register_extcmd ("grubfm_hex", grub_cmd_grubfm_hex, 0,
+                  N_("PATH"),
+                  N_("GRUB file manager."), 0);
+  cmd_cat = grub_register_extcmd ("grubfm_cat", grub_cmd_grubfm_cat, 0,
                   N_("PATH"),
                   N_("GRUB file manager."), 0);
   cmd_nt = grub_register_extcmd ("ntversion", grub_cmd_ntversion, 0,
@@ -289,5 +309,6 @@ GRUB_MOD_FINI(grubfm)
   grub_unregister_extcmd (cmd_set);
   grub_unregister_extcmd (cmd_about);
   grub_unregister_extcmd (cmd_hex);
+  grub_unregister_extcmd (cmd_cat);
   grub_unregister_extcmd (cmd_nt);
 }

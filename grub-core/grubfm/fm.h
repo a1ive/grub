@@ -117,6 +117,10 @@ grubfm_open_file (char *path);
 void
 grubfm_hexdump (const char *filename);
 
+/* text.c */
+void
+grubfm_textcat (const char *filename);
+
 /* grubfm ascii art */
 #define GRUBFM_ASCII_ART1 "  _____               _      ______  __  __ "
 #define GRUBFM_ASCII_ART2 " / ____|             | |    |  ____||  \\/  |"

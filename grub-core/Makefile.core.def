@@ -2925,6 +2925,7 @@ module = {
   common = grubfm/type.c;
   common = grubfm/open.c;
   common = grubfm/hex.c;
+  common = grubfm/text.c;
   cppflags = '-I$(srcdir)/script/ini';
   enable = efi;
   enable = i386_pc;
