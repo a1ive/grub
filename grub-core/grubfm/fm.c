@@ -36,6 +36,7 @@ GRUB_MOD_LICENSE ("GPLv3+");
 
 static int init = 0;
 char grubfm_root[20] = "memdisk";
+int grubfm_boot = 0;
 
 static void
 grubfm_init (void)
@@ -86,12 +87,14 @@ grub_cmd_grubfm_open (grub_extcmd_context_t ctxt __attribute__ ((unused)),
 static const struct grub_arg_option options_set[] =
 {
   {"root", 'r', 0, N_("root"), 0, 0},
+  {"boot", 'b', 0, N_("boot"), 0, 0},
   {0, 0, 0, 0, 0, 0}
 };
 
 enum options_set
 {
   FM_SET_ROOT,
+  FM_SET_BOOT,
 };
 
 static grub_err_t
@@ -102,6 +105,14 @@ grub_cmd_grubfm_set (grub_extcmd_context_t ctxt,
   if (state[FM_SET_ROOT].set && argc == 1)
   {
     grub_strncpy(grubfm_root, args[0], 19);
+  }
+  if (state[FM_SET_BOOT].set && argc == 1)
+  {
+    if (args[0][0] == '0')
+      grubfm_boot = 0;
+    else
+      grubfm_boot = 1;
+    grub_printf ("grubfm_boot: %d\n", grubfm_boot);
   }
   return 0;
 }

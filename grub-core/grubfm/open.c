@@ -140,6 +140,21 @@ grubfm_open_file (char *path)
                                             GRUB_HUMAN_SIZE_SHORT);
   grubfm_get_file_icon (&info);
 
+  if (grubfm_boot && info.ext >= 0)
+  {
+    char *src = NULL;
+    const char *boot_script = NULL;
+    boot_script = ini_get (ctx->config[info.ext], "type", "boot");
+    if (boot_script)
+      src = grub_xasprintf ("source (%s)/boot/grub/rules/%s\n",
+                            grubfm_root, boot_script);
+    if (src)
+    {
+      grub_script_execute_sourcecode (src);
+      grub_free (src);
+    }
+  }
+
   if (info.ext >= 0)
     grubfm_add_ini_menu (ctx->config[info.ext]);
 

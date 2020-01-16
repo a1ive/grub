@@ -56,6 +56,7 @@ struct grubfm_enum_file_list
 };
 
 extern char grubfm_root[];
+extern int grubfm_boot;
 
 extern struct grubfm_ini_enum_list grubfm_ext_table;
 extern ini_t *grubfm_ini_config;
