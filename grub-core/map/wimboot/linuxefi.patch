@@ -1,0 +1,370 @@
+diff --git a/src/cmdline.c b/src/cmdline.c
+index 2a50251..204f8f9 100644
+--- a/src/cmdline.c
++++ b/src/cmdline.c
+@@ -105,7 +105,7 @@ void process_cmdline ( char *cmdline ) {
+ 			cmdline_index = strtoul ( value, &endp, 0 );
+ 			if ( *endp )
+ 				die ( "Invalid index \"%s\"\n", value );
+-		} else if ( strcmp ( key, "initrdfile" ) == 0 ) {
++		} else if ( strcmp ( key, "initrdfile" ) == 0 || strcmp ( key, "initrd" ) == 0) {
+ 			/* Ignore this keyword to allow for use with syslinux */
+ 		} else if ( key == cmdline ) {
+ 			/* Ignore unknown initial arguments, which may
+diff --git a/src/efifile.c b/src/efifile.c
+index 93bfd64..2fe4311 100644
+--- a/src/efifile.c
++++ b/src/efifile.c
+@@ -117,6 +117,57 @@ static void efi_patch_bcd ( struct vdisk_file *vfile __unused, void *data,
+ 	}
+ }
+ 
++static int isbootmgfw( const char *name)
++{
++	char bootarch[32];
++
++	if (strcasecmp(name, "bootmgfw.efi") == 0)
++		return 1;
++	snprintf ( bootarch, sizeof ( bootarch ), "%ls", efi_bootarch() );
++	return strcasecmp(name, bootarch) == 0;
++}
++
++static int addfile( const char *name, void *data, size_t len,  void ( * read ) ( struct vdisk_file *file,
++                                                       void *data,
++                                                       size_t offset,
++                                                       size_t len ) ) {
++	struct vdisk_file *vfile;
++
++	vfile = vdisk_add_file ( name, data, len, read );
++
++        /* Check for special-case files */
++	if ( isbootmgfw( name ) ) {
++		DBG ( "...found bootmgfw.efi file %s\n", name );
++		bootmgfw = vfile;
++	} else if ( strcasecmp ( name, "BCD" ) == 0 ) {
++		DBG ( "...found BCD\n" );
++		vdisk_patch_file ( vfile, efi_patch_bcd );
++	} else if ( strlen( name ) > 4 && strcasecmp ( ( name + ( strlen ( name ) - 4 ) ), ".wim" ) == 0 ) {
++		DBG ( "...found WIM file %s\n", name );
++		vdisk_patch_file ( vfile, patch_wim );
++		if ( ( ! bootmgfw ) &&
++		     ( bootmgfw = wim_add_file ( vfile, cmdline_index,
++                                                         bootmgfw_path,
++                                                         efi_bootarch() ) ) ) {
++			DBG ( "...extracted %ls\n", bootmgfw_path );
++		}
++	}
++	return 0;
++}
++
++/**
++ * File handler
++ *
++ * @v name              File name
++ * @v data              File data
++ * @v len               Length
++ * @ret rc              Return status code
++ */
++int efi_add_file ( const char *name, void *data, size_t len)
++{
++	return addfile(name, data, len, read_mem_file);
++}
++
+ /**
+  * Extract files from EFI file system
+  *
+@@ -133,7 +184,6 @@ void efi_extract ( EFI_HANDLE handle ) {
+ 		CHAR16 name[ VDISK_NAME_LEN + 1 /* WNUL */ ];
+ 	} __attribute__ (( packed )) info;
+ 	char name[ VDISK_NAME_LEN + 1 /* NUL */ ];
+-	struct vdisk_file *vfile;
+ 	EFI_FILE_PROTOCOL *root;
+ 	EFI_FILE_PROTOCOL *file;
+ 	UINTN size;
+@@ -186,28 +236,7 @@ void efi_extract ( EFI_HANDLE handle ) {
+ 
+ 		/* Add file */
+ 		snprintf ( name, sizeof ( name ), "%ls", wname );
+-		vfile = vdisk_add_file ( name, file, info.file.FileSize,
+-					 efi_read_file );
+-
+-		/* Check for special-case files */
+-		if ( ( wcscasecmp ( wname, efi_bootarch() ) == 0 ) ||
+-		     ( wcscasecmp ( wname, L"bootmgfw.efi" ) == 0 ) ) {
+-			DBG ( "...found bootmgfw.efi file %ls\n", wname );
+-			bootmgfw = vfile;
+-		} else if ( wcscasecmp ( wname, L"BCD" ) == 0 ) {
+-			DBG ( "...found BCD\n" );
+-			vdisk_patch_file ( vfile, efi_patch_bcd );
+-		} else if ( wcscasecmp ( ( wname + ( wcslen ( wname ) - 4 ) ),
+-					 L".wim" ) == 0 ) {
+-			DBG ( "...found WIM file %ls\n", wname );
+-			vdisk_patch_file ( vfile, patch_wim );
+-			if ( ( ! bootmgfw ) &&
+-			     ( bootmgfw = wim_add_file ( vfile, cmdline_index,
+-							 bootmgfw_path,
+-							 efi_bootarch() ) ) ) {
+-				DBG ( "...extracted %ls\n", bootmgfw_path );
+-			}
+-		}
++		addfile(name, file, info.file.FileSize, efi_read_file);
+ 	}
+ 
+ 	/* Check that we have a boot file */
+diff --git a/src/efifile.h b/src/efifile.h
+index 885ea5c..464c43b 100644
+--- a/src/efifile.h
++++ b/src/efifile.h
+@@ -36,4 +36,6 @@ struct vdisk_file;
+ extern struct vdisk_file *bootmgfw;
+ extern void efi_extract ( EFI_HANDLE handle );
+ 
++extern int efi_add_file(const char *name, void *data, size_t len);
++
+ #endif /* _EFIFILE_H */
+diff --git a/src/efimain.c b/src/efimain.c
+index 3207dec..9f9fa57 100644
+--- a/src/efimain.c
++++ b/src/efimain.c
+@@ -31,6 +31,14 @@
+ #include "efifile.h"
+ #include "efiblock.h"
+ #include "efiboot.h"
++#include "string.h"
++#include "cpio.h"
++
++/** initrd */
++void *initrd;
++
++/** Length of initrd */
++size_t initrd_len;
+ 
+ /**
+  * Process command line
+@@ -88,8 +96,13 @@ EFI_STATUS EFIAPI efi_main ( EFI_HANDLE image_handle,
+ 	/* Process command line */
+ 	efi_cmdline ( loaded.image );
+ 
+-	/* Extract files from file system */
+-	efi_extract ( loaded.image->DeviceHandle );
++	if(initrd_len){
++		/* Extract files from initrd (syslinux) */
++		cpio_extract ( initrd, initrd_len, efi_add_file );
++	} else {
++		/* Extract files from file system */
++		efi_extract ( loaded.image->DeviceHandle );
++	}
+ 
+ 	/* Install virtual disk */
+ 	efi_install ( &vdisk, &vpartition );
+@@ -99,3 +112,22 @@ EFI_STATUS EFIAPI efi_main ( EFI_HANDLE image_handle,
+ 
+ 	return 0;
+ }
++
++void efi_linuxentry(EFI_HANDLE image_handle, EFI_SYSTEM_TABLE *systab, uint32_t *bp)
++{
++	efi_image_handle = image_handle;
++	efi_systab = systab;
++
++#if __x86_64__
++	extern char _bss[];
++	extern char _ebss[];
++	memset(_bss, 0, _ebss-_bss);
++#endif
++
++	if(bp){
++		initrd = (void*)(intptr_t)bp[0x218/4];
++		initrd_len = (size_t)bp[0x21c/4];
++	}
++
++	efi_main(image_handle, systab);
++}
+diff --git a/src/main.c b/src/main.c
+index 0069998..bc5021f 100644
+--- a/src/main.c
++++ b/src/main.c
+@@ -196,20 +196,6 @@ static int is_empty_pgh ( const void *pgh ) {
+ 	return ( ( dwords[0] | dwords[1] | dwords[2] | dwords[3] ) == 0 );
+ }
+ 
+-/**
+- * Read from file
+- *
+- * @v file		Virtual file
+- * @v data		Data buffer
+- * @v offset		Offset
+- * @v len		Length
+- */
+-static void read_file ( struct vdisk_file *file, void *data, size_t offset,
+-			size_t len ) {
+-
+-	memcpy ( data, ( file->opaque + offset ), len );
+-}
+-
+ /**
+  * Add embedded bootmgr.exe extracted from bootmgr
+  *
+@@ -305,8 +291,7 @@ static struct vdisk_file * add_bootmgr ( const void *data, size_t len ) {
+ 		decompress ( compressed, compressed_len, initrd );
+ 
+ 		/* Add decompressed image */
+-		return vdisk_add_file ( "bootmgr.exe", initrd,
+-					decompressed_len, read_file );
++		return vdisk_add_file ( "bootmgr.exe", initrd, decompressed_len, read_mem_file );
+ 	}
+ 
+ 	DBG ( "...no embedded bootmgr.exe found\n" );
+@@ -325,7 +310,7 @@ static int add_file ( const char *name, void *data, size_t len ) {
+ 	struct vdisk_file *file;
+ 
+ 	/* Store file */
+-	file = vdisk_add_file ( name, data, len, read_file );
++	file = vdisk_add_file ( name, data, len, read_mem_file );
+ 
+ 	/* Check for special-case files */
+ 	if ( strcasecmp ( name, "bootmgr.exe" ) == 0 ) {
+@@ -378,7 +363,7 @@ int main ( void ) {
+ 	/* Read bootmgr.exe into memory */
+ 	if ( ! bootmgr )
+ 		die ( "FATAL: no bootmgr.exe\n" );
+-	if ( bootmgr->read == read_file ) {
++	if ( bootmgr->read == read_mem_file ) {
+ 		raw_pe = bootmgr->opaque;
+ 	} else {
+ 		padded_len = ( ( bootmgr->len + PAGE_SIZE - 1 ) &
+diff --git a/src/prefix.S b/src/prefix.S
+index d19cc29..309bb64 100644
+--- a/src/prefix.S
++++ b/src/prefix.S
+@@ -33,8 +33,12 @@
+ #define i386(symbol) symbol
+ #endif
+ 
+-/** Standard number of setup sectors */
+-#define SETUP_SECTS 4
++/*
++* Standard number of setup sectors was 5,
++* but we need to round it to 4k to page
++* align _payload.
++*/
++#define SETUP_SECTS ((0x1000/SECTOR_SIZE)-1)
+ 
+ /** Sector size */
+ #define SECTOR_SIZE 512
+@@ -219,7 +223,7 @@ header:
+ 
+ 	.org	0x206
+ version:
+-	.word	0x203	/* Version 2.03 */
++	.word	0x20b	/* Version 2.11 */
+ 
+ 	.org	0x20e
+ kernel_version:
+@@ -228,6 +232,10 @@ kernel_version:
+ 	.org	0x211
+ loadflags:
+ 	.byte	LOADED_HIGH
++
++	.org	0x214
++code32_start:
++	.long	0
+ 
+ 	.org	0x218
+ ramdisk_image:
+@@ -244,6 +252,38 @@ cmd_line_ptr:
+ 	.org	0x22c
+ ramdisk_max:
+ 	.long	0x7fffffff
++
++	.org	0x236
++xloadflags:
++	.word	(1<<3)
++
++	.org	0x238
++cmdline_size:
++	.long	256
++
++	.org	0x23c
++hardware_subarch:
++	.long	0
++
++	.org	0x258
++prefaddr:
++	.long	_payload
++	.long	0
++
++	.org	0x260
++init_size:
++	.long	0x10000
++
++	.org	0x264
++handover_offset:
++	/*
++	 * really would like to write efihandover-_payload here,
++	 * but we cant as efihandover its part of the payload
++	 * section.  0x4000 is the page rounded size of this
++	 * prefix setion (4k) + text16/bss16 section (12k).
++	 */
++	.long ( efihandover-BASE_ADDRESS-0x4000 )
++
+ 
+ version_string:
+ 	.asciz	VERSION
+diff --git a/src/startup.S b/src/startup.S
+index d86909b..3115d6a 100644
+--- a/src/startup.S
++++ b/src/startup.S
+@@ -56,6 +56,15 @@ startup:
+ 	/* Should never return */
+ 	jmp	reboot
+ 	.size	startup, . - startup
++
++	.section ".text", "ax", @progbits
++	.globl	efihandover
++	.globl	efihandover64
++efihandover:
++        .org    .+512, 0x90
++efihandover64:
++	jmp	efi_linuxentry
++	.size	startup, . - startup
+ 
+ 	/* Reboot system */
+ 	.section ".text", "ax", @progbits
+diff --git a/src/vdisk.c b/src/vdisk.c
+index 7885a5b..bdd2d43 100644
+--- a/src/vdisk.c
++++ b/src/vdisk.c
+@@ -613,6 +613,18 @@ void vdisk_read ( uint64_t lba, unsigned int count, void *data ) {
+ 	DBG2 ( "\n" );
+ }
+ 
++/**
++ * Read from file
++ *
++ * @v file              Virtual file
++ * @v data              Data buffer
++ * @v offset            Offset
++ * @v len               Length
++ */
++void read_mem_file ( struct vdisk_file *file, void *data, size_t offset, size_t len ) {
++        memcpy ( data, ( file->opaque + offset ), len );
++}
++
+ /**
+  * Add file to virtual disk
+  *
+diff --git a/src/vdisk.h b/src/vdisk.h
+index 7cae51c..aa0cf9d 100644
+--- a/src/vdisk.h
++++ b/src/vdisk.h
+@@ -615,6 +615,9 @@ extern struct vdisk_file *
+ vdisk_add_file ( const char *name, void *opaque, size_t len,
+ 		 void ( * read ) ( struct vdisk_file *file, void *data,
+ 				   size_t offset, size_t len ) );
++
++extern void read_mem_file ( struct vdisk_file *file, void *data, size_t offset, size_t len );
++
+ extern void
+ vdisk_patch_file ( struct vdisk_file *file,
+ 		   void ( * patch ) ( struct vdisk_file *file, void *data,
