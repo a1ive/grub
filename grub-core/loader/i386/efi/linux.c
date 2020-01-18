@@ -24,6 +24,7 @@
 #include <grub/cpu/linux.h>
 #include <grub/command.h>
 #include <grub/i18n.h>
+#include <grub/linux.h>
 #include <grub/lib/cmdline.h>
 #include <grub/efi/efi.h>
 #include <grub/efi/linux.h>
@@ -81,10 +82,8 @@ static grub_err_t
 grub_cmd_initrd (grub_command_t cmd __attribute__ ((unused)),
                  int argc, char *argv[])
 {
-  grub_file_t *files = 0;
-  int i, nfiles = 0;
-  grub_size_t size = 0;
-  grub_uint8_t *ptr;
+  grub_size_t size = 0, unaligned_size = 0;
+  struct grub_linux_initrd_context initrd_ctx = { 0, 0, 0 };
 
   if (argc == 0)
     {
@@ -98,18 +97,11 @@ grub_cmd_initrd (grub_command_t cmd __attribute__ ((unused)),
       goto fail;
     }
 
-  files = grub_zalloc (argc * sizeof (files[0]));
-  if (!files)
+  if (grub_initrd_init (argc, argv, &initrd_ctx))
     goto fail;
 
-  for (i = 0; i < argc; i++)
-    {
-      files[i] = grub_file_open (argv[i], GRUB_FILE_TYPE_LINUX_INITRD | GRUB_FILE_TYPE_NO_DECOMPRESS);
-      if (! files[i])
-        goto fail;
-      nfiles++;
-      size += ALIGN_UP (grub_file_size (files[i]), 4);
-    }
+  unaligned_size = grub_get_initrd_size (&initrd_ctx);
+  size = ALIGN_UP (unaligned_size, 4096);
 
   initrd_mem = grub_efi_allocate_pages_max (0x3fffffff, BYTES_TO_PAGES(size));
 
@@ -119,32 +111,14 @@ grub_cmd_initrd (grub_command_t cmd __attribute__ ((unused)),
       goto fail;
     }
 
+  if (grub_initrd_load (&initrd_ctx, argv, initrd_mem))
+    goto fail;
+
   params->ramdisk_size = size;
   params->ramdisk_image = (grub_uint32_t)(grub_addr_t) initrd_mem;
 
-  ptr = initrd_mem;
-
-  for (i = 0; i < nfiles; i++)
-    {
-      grub_ssize_t cursize = grub_file_size (files[i]);
-      if (grub_file_read (files[i], ptr, cursize) != cursize)
-        {
-          if (!grub_errno)
-            grub_error (GRUB_ERR_FILE_READ_ERROR, N_("premature end of file %s"),
-                        argv[i]);
-          goto fail;
-        }
-      ptr += cursize;
-      grub_memset (ptr, 0, ALIGN_UP_OVERHEAD (cursize, 4));
-      ptr += ALIGN_UP_OVERHEAD (cursize, 4);
-    }
-
-  params->ramdisk_size = size;
-
- fail:
-  for (i = 0; i < nfiles; i++)
-    grub_file_close (files[i]);
-  grub_free (files);
+fail:
+  grub_initrd_close (&initrd_ctx);
 
   if (initrd_mem && grub_errno)
     grub_efi_free_pages ((grub_efi_physical_address_t)(grub_addr_t)initrd_mem,
