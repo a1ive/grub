@@ -230,6 +230,7 @@ grub_cmd_ntversion (grub_extcmd_context_t ctxt __attribute__ ((unused)),
   char dll_ver[] = "Version.dll";
   char ntver[8];
   grub_file_t file = 0;
+  grub_size_t size;
   grub_uint8_t *data = NULL;
   grub_size_t i;
   grub_size_t len = grub_strlen (args[0]);
@@ -246,20 +247,21 @@ grub_cmd_ntversion (grub_extcmd_context_t ctxt __attribute__ ((unused)),
   if (!file)
     return grub_error (GRUB_ERR_FILE_NOT_FOUND,
                        N_("failed to open %s"), dll_path);
-  if (file->size < sizeof(NT_VERSION_SRC) + 12)
+  size = file->size;
+  if (size < sizeof(NT_VERSION_SRC) + 12)
   {
     grub_file_close (file);
     return grub_error (GRUB_ERR_FILE_READ_ERROR, N_("bad file size"));
   }
-  data = grub_malloc (file->size);
+  data = grub_malloc (size);
   if (!data)
   {
     grub_file_close (file);
     return grub_error (GRUB_ERR_OUT_OF_MEMORY, N_("out of memory"));
   }
-  grub_file_read (file, data, file->size);
+  grub_file_read (file, data, size);
   grub_file_close (file);
-  for (i = 0; i < file->size - sizeof(NT_VERSION_SRC) - 12; i++)
+  for (i = 0; i < size - sizeof(NT_VERSION_SRC) - 12; i++)
   {
     if (grub_memcmp (data + i, NT_VERSION_SRC, sizeof(NT_VERSION_SRC)) == 0)
     {
