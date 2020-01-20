@@ -349,3 +349,55 @@ grubfm_enum_file (char *dirname)
 
   return 0;
 }
+
+void
+grubfm_html_menu (char *buf, const char *prefix)
+{
+  char *p;
+  p = buf;
+  do
+  {
+    if (grub_memcmp (p, "<a href=\"", 9) != 0)
+      continue;
+    /* get file name */
+    p += 9;
+    if (*p == '/')
+      p++;
+    char *name = p;
+    do
+    {
+      if (*p == '\"')
+      {
+        *p = '\0';
+        break;
+      }
+    }
+    while (*p++);
+    p++;
+    /* skip ./ */
+    if (grub_strcmp (name, "./") == 0)
+      continue;
+    grub_size_t namelen = grub_strlen (name);
+    /* dir */
+    if (name[namelen - 1] == '/')
+    {
+      char *src = NULL;
+      src = grub_xasprintf ("clear_menu\n"
+                            "html_list \"%s%s\"", prefix, name);
+      grubfm_add_menu (name, "dir", NULL, src, 0);
+      grub_free (src);
+    }
+    else
+    {
+      char *src = NULL;
+      src = grub_xasprintf ("grubfm_open \"%s%s\"", prefix, name);
+      const char *icon = NULL;
+      struct grubfm_enum_file_info file = { NULL, NULL, -1 };
+      file.name = name;
+      icon = grubfm_get_file_icon (&file);
+      grubfm_add_menu (name, icon, NULL, src, 0);
+      grub_free (src);
+    }
+  }
+  while (*p++);
+}

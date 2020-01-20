@@ -103,6 +103,8 @@ int
 grubfm_enum_device (void);
 int
 grubfm_enum_file (char *dirname);
+void
+grubfm_html_menu (char *buf, const char *prefix);
 
 /* type.c */
 void

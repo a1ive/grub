@@ -281,6 +281,43 @@ grub_cmd_ntversion (grub_extcmd_context_t ctxt __attribute__ ((unused)),
   return 1;
 }
 
+static grub_err_t
+grub_cmd_html_list (grub_extcmd_context_t ctxt __attribute__ ((unused)),
+                    int argc, char **args)
+{
+  grubfm_init ();
+  grub_file_t file = 0;
+  grub_size_t size = 0;
+  char *buf = NULL;
+  if (argc != 1)
+    return grub_error (GRUB_ERR_BAD_ARGUMENT, N_("bad argument"));
+  file = grub_file_open (args[0], GRUB_FILE_TYPE_CAT);
+  if (!file)
+    return grub_error (GRUB_ERR_FILE_NOT_FOUND,
+                       N_("failed to open %s"), file->name);
+  size = file->size;
+  buf = grub_zalloc (size + 1);
+  if (!buf)
+  {
+    grub_file_close (file);
+    return grub_error (GRUB_ERR_OUT_OF_MEMORY, N_("out of memory"));
+  }
+  grub_file_read (file, buf, size);
+  grub_file_close (file);
+
+  grubfm_html_menu (buf, args[0]);
+
+  char *src = NULL;
+  src = grub_xasprintf ("source (%s)/boot/grub/global.sh\n",
+                        grubfm_root);
+  if (!src)
+    return 0;
+  grub_script_execute_sourcecode (src);
+  grub_free (src);
+
+  return 0;
+}
+
 static grub_extcmd_t cmd;
 static grub_extcmd_t cmd_open;
 static grub_extcmd_t cmd_set;
@@ -288,6 +325,7 @@ static grub_extcmd_t cmd_about;
 static grub_extcmd_t cmd_hex;
 static grub_extcmd_t cmd_cat;
 static grub_extcmd_t cmd_nt;
+static grub_extcmd_t cmd_html;
 
 GRUB_MOD_INIT(grubfm)
 {
@@ -313,6 +351,9 @@ GRUB_MOD_INIT(grubfm)
   cmd_nt = grub_register_extcmd ("ntversion", grub_cmd_ntversion, 0,
                   N_("(hdx,y) VARIABLE"),
                   N_("Get NT version."), 0);
+  cmd_html = grub_register_extcmd ("html_list", grub_cmd_html_list, 0,
+                  N_("PATH"),
+                  N_("GRUB file manager."), 0);
 }
 
 GRUB_MOD_FINI(grubfm)
@@ -324,4 +365,5 @@ GRUB_MOD_FINI(grubfm)
   grub_unregister_extcmd (cmd_hex);
   grub_unregister_extcmd (cmd_cat);
   grub_unregister_extcmd (cmd_nt);
+  grub_unregister_extcmd (cmd_html);
 }
