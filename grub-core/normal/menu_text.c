@@ -410,8 +410,14 @@ grub_menu_init_page (int nested, int edit,
 
   grub_term_normal_color = grub_color_menu_normal;
   grub_term_highlight_color = grub_color_menu_highlight;
-  if (geo->border)
-    draw_border (term, geo);
+  /* disable draw_border */
+  const char *env_draw = NULL;
+  env_draw = grub_env_get ("grub_draw_border");
+  if (env_draw && env_draw[0] == '1')
+  {
+    if (geo->border)
+      draw_border (term, geo);
+  }
   grub_term_normal_color = old_color_normal;
   grub_term_highlight_color = old_color_highlight;
   geo->timeout_y = geo->first_entry_y + geo->num_entries
