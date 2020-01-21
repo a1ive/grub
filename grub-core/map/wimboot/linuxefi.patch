@@ -12,10 +12,22 @@ index 2a50251..204f8f9 100644
  		} else if ( key == cmdline ) {
  			/* Ignore unknown initial arguments, which may
 diff --git a/src/efifile.c b/src/efifile.c
-index 93bfd64..2fe4311 100644
+index 93bfd64..e95b1b7 100644
 --- a/src/efifile.c
 +++ b/src/efifile.c
-@@ -117,6 +117,57 @@ static void efi_patch_bcd ( struct vdisk_file *vfile __unused, void *data,
+@@ -42,6 +42,11 @@ static const wchar_t bootmgfw_path[] = L"\\Windows\\Boot\\EFI\\bootmgfw.efi";
+ /** bootmgfw.efi file */
+ struct vdisk_file *bootmgfw;
+ 
++#if __GNUC__ >= 9
++#pragma GCC diagnostic push
++#pragma GCC diagnostic ignored "-Waddress-of-packed-member"
++#endif
++
+ /**
+  * Get architecture-specific boot filename
+  *
+@@ -117,6 +122,57 @@ static void efi_patch_bcd ( struct vdisk_file *vfile __unused, void *data,
  	}
  }
  
@@ -73,7 +85,7 @@ index 93bfd64..2fe4311 100644
  /**
   * Extract files from EFI file system
   *
-@@ -133,7 +184,6 @@ void efi_extract ( EFI_HANDLE handle ) {
+@@ -133,7 +189,6 @@ void efi_extract ( EFI_HANDLE handle ) {
  		CHAR16 name[ VDISK_NAME_LEN + 1 /* WNUL */ ];
  	} __attribute__ (( packed )) info;
  	char name[ VDISK_NAME_LEN + 1 /* NUL */ ];
@@ -81,7 +93,7 @@ index 93bfd64..2fe4311 100644
  	EFI_FILE_PROTOCOL *root;
  	EFI_FILE_PROTOCOL *file;
  	UINTN size;
-@@ -186,28 +236,7 @@ void efi_extract ( EFI_HANDLE handle ) {
+@@ -186,28 +241,7 @@ void efi_extract ( EFI_HANDLE handle ) {
  
  		/* Add file */
  		snprintf ( name, sizeof ( name ), "%ls", wname );
@@ -111,6 +123,14 @@ index 93bfd64..2fe4311 100644
  	}
  
  	/* Check that we have a boot file */
+@@ -216,3 +250,7 @@ void efi_extract ( EFI_HANDLE handle ) {
+ 		      efi_bootarch() );
+ 	}
+ }
++
++#if __GNUC__ >= 9
++#pragma GCC diagnostic pop
++#endif
 diff --git a/src/efifile.h b/src/efifile.h
 index 885ea5c..464c43b 100644
 --- a/src/efifile.h
@@ -123,7 +143,7 @@ index 885ea5c..464c43b 100644
 +
  #endif /* _EFIFILE_H */
 diff --git a/src/efimain.c b/src/efimain.c
-index 3207dec..9f9fa57 100644
+index 3207dec..26b1feb 100644
 --- a/src/efimain.c
 +++ b/src/efimain.c
 @@ -31,6 +31,14 @@
@@ -141,9 +161,12 @@ index 3207dec..9f9fa57 100644
  
  /**
   * Process command line
-@@ -88,8 +96,13 @@ EFI_STATUS EFIAPI efi_main ( EFI_HANDLE image_handle,
- 	/* Process command line */
- 	efi_cmdline ( loaded.image );
+@@ -85,11 +93,16 @@ EFI_STATUS EFIAPI efi_main ( EFI_HANDLE image_handle,
+ 		      ( ( unsigned long ) efirc ) );
+ 	}
+ 
+-	/* Process command line */
+-	efi_cmdline ( loaded.image );
  
 -	/* Extract files from file system */
 -	efi_extract ( loaded.image->DeviceHandle );
@@ -151,13 +174,15 @@ index 3207dec..9f9fa57 100644
 +		/* Extract files from initrd (syslinux) */
 +		cpio_extract ( initrd, initrd_len, efi_add_file );
 +	} else {
++		/* Process command line */
++		efi_cmdline ( loaded.image );
 +		/* Extract files from file system */
 +		efi_extract ( loaded.image->DeviceHandle );
 +	}
  
  	/* Install virtual disk */
  	efi_install ( &vdisk, &vpartition );
-@@ -99,3 +112,22 @@ EFI_STATUS EFIAPI efi_main ( EFI_HANDLE image_handle,
+@@ -99,3 +112,26 @@ EFI_STATUS EFIAPI efi_main ( EFI_HANDLE image_handle,
  
  	return 0;
  }
@@ -174,8 +199,12 @@ index 3207dec..9f9fa57 100644
 +#endif
 +
 +	if(bp){
++		size_t cmdline_len = (size_t)bp[0x238/4];
++		char cmdline[ cmdline_len + 1 ];
++		memcpy (cmdline, (char *)(intptr_t)bp[0x228/4], cmdline_len);
 +		initrd = (void*)(intptr_t)bp[0x218/4];
 +		initrd_len = (size_t)bp[0x21c/4];
++		process_cmdline ( cmdline );
 +	}
 +
 +	efi_main(image_handle, systab);
@@ -234,7 +263,7 @@ index 0069998..bc5021f 100644
  	} else {
  		padded_len = ( ( bootmgr->len + PAGE_SIZE - 1 ) &
 diff --git a/src/prefix.S b/src/prefix.S
-index d19cc29..309bb64 100644
+index d19cc29..cd19cb6 100644
 --- a/src/prefix.S
 +++ b/src/prefix.S
 @@ -33,8 +33,12 @@
@@ -261,22 +290,21 @@ index d19cc29..309bb64 100644
  
  	.org	0x20e
  kernel_version:
-@@ -228,6 +232,10 @@ kernel_version:
- 	.org	0x211
+@@ -229,6 +233,10 @@ kernel_version:
  loadflags:
  	.byte	LOADED_HIGH
-+
+ 
 +	.org	0x214
 +code32_start:
 +	.long	0
- 
++
  	.org	0x218
  ramdisk_image:
-@@ -244,6 +252,38 @@ cmd_line_ptr:
- 	.org	0x22c
+ 	.long	0	/* Filled in by boot loader */
+@@ -245,6 +253,38 @@ cmd_line_ptr:
  ramdisk_max:
  	.long	0x7fffffff
-+
+ 
 +	.org	0x236
 +xloadflags:
 +	.word	(1<<3)
@@ -308,18 +336,42 @@ index d19cc29..309bb64 100644
 +	 */
 +	.long ( efihandover-BASE_ADDRESS-0x4000 )
 +
- 
++
  version_string:
  	.asciz	VERSION
+ 
+diff --git a/src/sha1.c b/src/sha1.c
+index fc5c061..2e7411e 100644
+--- a/src/sha1.c
++++ b/src/sha1.c
+@@ -49,6 +49,11 @@ struct sha1_variables {
+ 	uint32_t w[80];
+ } __attribute__ (( packed ));
+ 
++#if __GNUC__ >= 9
++#pragma GCC diagnostic push
++#pragma GCC diagnostic ignored "-Waddress-of-packed-member"
++#endif
++
+ /**
+  * f(a,b,c,d) for steps 0 to 19
+  *
+@@ -230,3 +235,7 @@ void sha1_final ( void *ctx, void *out ) {
+ 	memcpy ( out, &context->ddd.dd.digest,
+ 		 sizeof ( context->ddd.dd.digest ) );
+ }
++
++#if __GNUC__ >= 9
++#pragma GCC diagnostic pop
++#endif
 diff --git a/src/startup.S b/src/startup.S
-index d86909b..3115d6a 100644
+index d86909b..b07e234 100644
 --- a/src/startup.S
 +++ b/src/startup.S
-@@ -56,6 +56,15 @@ startup:
- 	/* Should never return */
+@@ -57,6 +57,15 @@ startup:
  	jmp	reboot
  	.size	startup, . - startup
-+
+ 
 +	.section ".text", "ax", @progbits
 +	.globl	efihandover
 +	.globl	efihandover64
@@ -328,14 +380,27 @@ index d86909b..3115d6a 100644
 +efihandover64:
 +	jmp	efi_linuxentry
 +	.size	startup, . - startup
- 
++
  	/* Reboot system */
  	.section ".text", "ax", @progbits
+ 	.globl	reboot
 diff --git a/src/vdisk.c b/src/vdisk.c
-index 7885a5b..bdd2d43 100644
+index 7885a5b..0cf16ed 100644
 --- a/src/vdisk.c
 +++ b/src/vdisk.c
-@@ -613,6 +613,18 @@ void vdisk_read ( uint64_t lba, unsigned int count, void *data ) {
+@@ -35,6 +35,11 @@
+ /** Virtual files */
+ struct vdisk_file vdisk_files[VDISK_MAX_FILES];
+ 
++#if __GNUC__ >= 9
++#pragma GCC diagnostic push
++#pragma GCC diagnostic ignored "-Waddress-of-packed-member"
++#endif
++
+ /**
+  * Read from virtual Master Boot Record
+  *
+@@ -613,6 +618,18 @@ void vdisk_read ( uint64_t lba, unsigned int count, void *data ) {
  	DBG2 ( "\n" );
  }
  
@@ -354,8 +419,16 @@ index 7885a5b..bdd2d43 100644
  /**
   * Add file to virtual disk
   *
+@@ -663,3 +680,7 @@ void vdisk_patch_file ( struct vdisk_file *file,
+ 	/* Allow patch method to update file length */
+ 	patch ( file, NULL, 0, 0 );
+ }
++
++#if __GNUC__ >= 9
++#pragma GCC diagnostic pop
++#endif
 diff --git a/src/vdisk.h b/src/vdisk.h
-index 7cae51c..aa0cf9d 100644
+index 7cae51c..c59d3e2 100644
 --- a/src/vdisk.h
 +++ b/src/vdisk.h
 @@ -615,6 +615,9 @@ extern struct vdisk_file *
@@ -368,3 +441,27 @@ index 7cae51c..aa0cf9d 100644
  extern void
  vdisk_patch_file ( struct vdisk_file *file,
  		   void ( * patch ) ( struct vdisk_file *file, void *data,
+diff --git a/src/wimpatch.c b/src/wimpatch.c
+index c57b6e7..37e3ca4 100644
+--- a/src/wimpatch.c
++++ b/src/wimpatch.c
+@@ -144,6 +144,11 @@ struct wim_patch {
+ 	union wim_patch_regions regions;
+ };
+ 
++#if __GNUC__ >= 9
++#pragma GCC diagnostic push
++#pragma GCC diagnostic ignored "-Waddress-of-packed-member"
++#endif
++
+ /**
+  * Align WIM offset to nearest qword
+  *
+@@ -791,3 +796,7 @@ void patch_wim ( struct vdisk_file *file, void *data, size_t offset,
+ 		}
+ 	}
+ }
++
++#if __GNUC__ >= 9
++#pragma GCC diagnostic pop
++#endif
