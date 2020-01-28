@@ -904,11 +904,6 @@ module = {
 };
 
 module = {
-  name = imgwrite;
-  common = commands/imgwrite.c;
-};
-
-module = {
   name = dd;
   common = commands/dd.c;
 };
