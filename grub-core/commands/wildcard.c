@@ -472,10 +472,8 @@ unescape (char *out, const char *in, const char *end)
     {
       if (*iptr == '\\' && iptr + 3 < end && iptr[1] == 'x' && grub_ishex(iptr[2]) && grub_ishex(iptr[3]))
 	{
-	  *optr++ = *iptr++;
-	  *optr++ = *iptr++;
-	  *optr++ = *iptr++;
-	  *optr++ = *iptr++;
+	  *optr++ = grub_tohex (iptr[2]) * 16 + grub_tohex (iptr[3]);
+	  iptr += 4;
 	  continue;
 	}
       else if (*iptr == '\\' && iptr + 1 < end)

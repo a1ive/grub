@@ -74,10 +74,8 @@ wildcard_escape (const char *s)
     {
       if (ch == '\\' && s[0] == 'x' && grub_ishex(s[1]) && grub_ishex(s[2]))
 	{
-	  p[i++] = ch;
-	  p[i++] = *s++;
-	  p[i++] = *s++;
-	  p[i++] = *s++;
+	  p[i++] = grub_tohex (s[1]) * 16 + grub_tohex (s[2]);
+	  s += 3;
 	  continue;
 	}
       else if (ch == '*' || ch == '\\' || ch == '?')
@@ -106,10 +104,8 @@ wildcard_unescape (const char *s)
     {
       if (ch == '\\' && s[0] == 'x' && grub_ishex(s[1]) && grub_ishex(s[2]))
 	{
-	  p[i++] = '\\';
-	  p[i++] = *s++;
-	  p[i++] = *s++;
-	  p[i++] = *s++;
+	  p[i++] = grub_tohex (s[1]) * 16 + grub_tohex (s[2]);
+	  s += 3;
 	}
       else if (ch == '\\')
 	p[i++] = *s++;
@@ -415,10 +411,8 @@ parse_string (const char *str,
       case '\\':
 	if (!escaped && put && *(ptr+1) == 'x' && grub_ishex(*(ptr+2)) && grub_ishex(*(ptr+3)))
 	  {
-	    *(put++) = *ptr++;
-	    *(put++) = *ptr++;
-	    *(put++) = *ptr++;
-	    *(put++) = *ptr++;
+	    *put++ = grub_tohex (ptr[2]) * 16 + grub_tohex (ptr[3]);
+	    ptr += 4;
 	  }
 	else
 	  {

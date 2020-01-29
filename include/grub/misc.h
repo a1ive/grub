@@ -160,11 +160,24 @@ grub_isprint (int c)
 }
 
 static inline int
-grub_ishex (int c)
+grub_ishex (char c)
 {
   return ((c >= '0' && c <= '9') ||
           (c >= 'a' && c <= 'f') ||
           (c >= 'A' && c <= 'F'));
+}
+
+static inline unsigned char
+grub_tohex (char c)
+{
+  unsigned char out = 0;
+  if (c >= '0' && c <= '9')
+    out = c - 0x30;
+  if (c >= 'a' && c <= 'z')
+    out = c - 0x57;
+  if (c >= 'A' && c <= 'Z')
+    out = c - 0x37;
+  return out;
 }
 
 static inline int
