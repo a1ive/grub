@@ -20,12 +20,6 @@
 #include <grub/lib/cmdline.h>
 #include <grub/misc.h>
 
-static int
-is_hex(char c)
-{
-  return ((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F'));
-}
-
 static unsigned int check_arg (char *c, int *has_space)
 {
   int space = 0;
@@ -33,7 +27,7 @@ static unsigned int check_arg (char *c, int *has_space)
 
   while (*c)
     {
-      if (*c == '\\' && *(c+1) == 'x' && is_hex(*(c+2)) && is_hex(*(c+3)))
+      if (*c == '\\' && *(c+1) == 'x' && grub_ishex(*(c+2)) && grub_ishex(*(c+3)))
 	{
 	  size += 4;
 	  c += 4;
@@ -108,7 +102,7 @@ grub_create_loader_cmdline (int argc, char *argv[], char *buf,
 	      continue;
 	    }
 	  else if (*c == '\\' && *(c+1) == 'x' &&
-		   is_hex(*(c+2)) && is_hex(*(c+3)))
+		   grub_ishex(*(c+2)) && grub_ishex(*(c+3)))
 	    {
 	      *buf++ = *c++;
 	      *buf++ = *c++;

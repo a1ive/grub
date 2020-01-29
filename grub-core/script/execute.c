@@ -56,12 +56,6 @@ static struct grub_script_scope *scope = 0;
 /* Wildcard translator for GRUB script.  */
 struct grub_script_wildcard_translator *grub_wildcard_translator;
 
-static int
-is_hex(char c)
-{
-  return ((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F'));
-}
-
 static char*
 wildcard_escape (const char *s)
 {
@@ -78,7 +72,7 @@ wildcard_escape (const char *s)
   i = 0;
   while ((ch = *s++))
     {
-      if (ch == '\\' && s[0] == 'x' && is_hex(s[1]) && is_hex(s[2]))
+      if (ch == '\\' && s[0] == 'x' && grub_ishex(s[1]) && grub_ishex(s[2]))
 	{
 	  p[i++] = ch;
 	  p[i++] = *s++;
@@ -110,7 +104,7 @@ wildcard_unescape (const char *s)
   i = 0;
   while ((ch = *s++))
     {
-      if (ch == '\\' && s[0] == 'x' && is_hex(s[1]) && is_hex(s[2]))
+      if (ch == '\\' && s[0] == 'x' && grub_ishex(s[1]) && grub_ishex(s[2]))
 	{
 	  p[i++] = '\\';
 	  p[i++] = *s++;
@@ -419,7 +413,7 @@ parse_string (const char *str,
     switch (*ptr)
       {
       case '\\':
-	if (!escaped && put && *(ptr+1) == 'x' && is_hex(*(ptr+2)) && is_hex(*(ptr+3)))
+	if (!escaped && put && *(ptr+1) == 'x' && grub_ishex(*(ptr+2)) && grub_ishex(*(ptr+3)))
 	  {
 	    *(put++) = *ptr++;
 	    *(put++) = *ptr++;

@@ -160,6 +160,14 @@ grub_isprint (int c)
 }
 
 static inline int
+grub_ishex (int c)
+{
+  return ((c >= '0' && c <= '9') ||
+          (c >= 'a' && c <= 'f') ||
+          (c >= 'A' && c <= 'F'));
+}
+
+static inline int
 grub_iscntrl (int c)
 {
   return (c >= 0x00 && c <= 0x1F) || c == 0x7F;
