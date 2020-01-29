@@ -97,6 +97,12 @@ grub_cmd_hexdump (grub_extcmd_context_t ctxt, int argc, char **args)
           if (! state[2].set)
             hexdump (skip, buf, len);
 
+          if (var_name)
+          {
+            grub_memcpy (p, buf, len);
+            p += len;
+          }
+
           ofs = 0;
           skip += len;
           length -= len;
@@ -143,13 +149,17 @@ grub_cmd_hexdump (grub_extcmd_context_t ctxt, int argc, char **args)
     
   if (var_name)
     {
+      char *str = grub_zalloc (4 * var_len);
       grub_size_t i;
 
-      *p = 0;
       for (i = 0; i < var_len - 1; i++)
-        var_buf[i] = ((var_buf[i] >= 32) && (var_buf[i] < 127)) ? var_buf[i] : '.';
+        grub_snprintf (str + 4 * i, 5, "\\x%02x", (unsigned char)var_buf[i]);
 
-      grub_env_set(var_name, var_buf);
+      grub_env_set(var_name, str);
+      if (var_buf)
+        grub_free (var_buf);
+      if (str)
+        grub_free (str);
     }
 
   return 0;
