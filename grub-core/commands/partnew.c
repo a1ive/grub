@@ -98,7 +98,8 @@ file_to_block (const char *name)
 
   grub_file_read (file, buf, sizeof (buf));
 
-  file_block.length = grub_file_size (file) >> GRUB_DISK_SECTOR_BITS;
+  file_block.length = (grub_file_size (file) + GRUB_DISK_SECTOR_SIZE - 1)
+                      >> GRUB_DISK_SECTOR_BITS;
 
   grub_file_close (file);
 
