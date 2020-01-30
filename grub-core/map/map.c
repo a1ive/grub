@@ -20,6 +20,7 @@
 #include <grub/dl.h>
 #include <grub/efi/api.h>
 #include <grub/efi/efi.h>
+#include <grub/efi/disk.h>
 #include <grub/device.h>
 #include <grub/err.h>
 #include <grub/env.h>
@@ -47,6 +48,7 @@ static const struct grub_arg_option options_map[] =
   {"disk", 'd', 0, N_("Map the entire disk."), 0, 0},
   {"rw", 'w', 0, N_("Add write support for RAM disk."), 0, 0},
   {"nb", 'n', 0, N_("Don't boot virtual disk."), 0, 0},
+  {"update", 'u', 0, N_("Update efidisk device mapping."), 0, 0},
   {0, 0, 0, 0, 0, 0}
 };
 
@@ -58,6 +60,7 @@ enum options_map
   MAP_DISK,
   MAP_RW,
   MAP_NB,
+  MAP_UPDATE,
 };
 
 vdisk_t vdisk, vpart;
@@ -113,6 +116,15 @@ grub_cmd_map (grub_extcmd_context_t ctxt, int argc, char **args)
 {
   struct grub_arg_list *state = ctxt->state;
   grub_efi_boolean_t ro = TRUE;
+
+  if (state[MAP_UPDATE].set)
+  {
+    grub_printf ("free efidisk devices\n");
+    grub_efidisk_fini ();
+    grub_printf ("enumerate efidisk devices\n");
+    grub_efidisk_init ();
+    return GRUB_ERR_NONE;
+  }
 
   gen_uuid ();
 
