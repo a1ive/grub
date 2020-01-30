@@ -158,7 +158,8 @@ lba_to_chs (grub_uint32_t lba, grub_uint8_t *cl, grub_uint8_t *ch,
 
   if (cylinder >= cylinders)
   {
-    *cl = *ch = *dh = 0xff;
+    *cl = *ch = 0xff;
+    *dh = 0xfe;
     return;
   }
 
