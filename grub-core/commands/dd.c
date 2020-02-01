@@ -66,7 +66,7 @@ grub_cmd_dd (grub_extcmd_context_t ctxt, int argc __attribute__ ((unused)),
              char **args __attribute__ ((unused)))
 {
   struct grub_arg_list *state = ctxt->state;
-  grub_uint8_t data[GRUB_DISK_SECTOR_BITS];
+  grub_uint8_t data[GRUB_DISK_SECTOR_SIZE];
   /* input */
   char *str = NULL;
   char *hexstr = NULL;
@@ -178,7 +178,7 @@ grub_cmd_dd (grub_extcmd_context_t ctxt, int argc __attribute__ ((unused)),
   if (state[DD_BS].set)
   {
     bs = grub_strtoul (state[DD_BS].arg, 0, 0);
-    if (! bs || bs > GRUB_DISK_SECTOR_BITS)
+    if (! bs || bs > GRUB_DISK_SECTOR_SIZE)
       return grub_error (GRUB_ERR_BAD_ARGUMENT, "invalid block size");
   }
 
@@ -196,8 +196,6 @@ grub_cmd_dd (grub_extcmd_context_t ctxt, int argc __attribute__ ((unused)),
     seek = grub_strtoull (state[DD_SEEK].arg, 0, 0);
 
   count *= bs;
-  skip *= bs;
-  seek *= bs;
 
   if ((skip >= in_size) || (seek >= out_size))
   {
@@ -210,7 +208,7 @@ grub_cmd_dd (grub_extcmd_context_t ctxt, int argc __attribute__ ((unused)),
 
   if (skip + count > in_size)
   {
-    grub_printf ("WARNING: skip + count > input_size");
+    grub_printf ("WARNING: skip + count > input_size\n");
     count = in_size - skip;
   }
 
@@ -222,8 +220,10 @@ grub_cmd_dd (grub_extcmd_context_t ctxt, int argc __attribute__ ((unused)),
 
   while (count > 0)
   {
-    grub_off_t copy_bs;
+    int copy_bs;
     copy_bs = (bs > count) ? count : bs;
+    grub_dprintf ("dd", "skip=%ld, seek=%ld, bs=%d, count=%d, copy_bs=%d\n",
+                 (unsigned long)skip, (unsigned long)seek, bs, count, copy_bs);
     /* read */
     if (in_file)
     {
