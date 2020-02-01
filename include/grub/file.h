@@ -239,4 +239,8 @@ grub_file_offset_open (grub_file_t parent, enum grub_file_type type,
 void
 grub_file_offset_close (grub_file_t file);
 
+grub_ssize_t EXPORT_FUNC(grub_blocklist_write)
+  (grub_file_t file, const char *buf, grub_size_t len);
+void EXPORT_FUNC(grub_blocklist_convert) (grub_file_t file);
+
 #endif /* ! GRUB_FILE_HEADER */
