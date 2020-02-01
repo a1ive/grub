@@ -35,14 +35,14 @@ GRUB_MOD_LICENSE ("GPLv3+");
 static grub_uint32_t next = 1;
 
 grub_uint32_t
-rand (void)
+grub_rand (void)
 {
   next = next * 1103515245 + 12345;
   return (next << 16) | ((next >> 16) & 0xFFFF);
 }
 
 void
-srand (grub_uint32_t seed)
+grub_srand (grub_uint32_t seed)
 {
   next = seed;
 }
@@ -65,8 +65,8 @@ grub_cmd_rand (grub_extcmd_context_t ctxt, int argc, char **args)
 {
   struct grub_arg_list *state = ctxt->state;
   grub_uint32_t r, f = 0, t = GRUB_UINT_MAX;
-  srand (grub_get_time_ms());
-  r = rand ();
+  grub_srand (grub_get_time_ms());
+  r = grub_rand ();
   if (state[RAND_FROM].set)
     f = grub_strtoul (state[RAND_FROM].arg, NULL, 0);
   if (state[RAND_TO].set)
@@ -101,11 +101,11 @@ xorshift128plus (grub_uint64_t *s)
 static void
 uuid_init (void)
 {
-  srand (grub_get_time_ms());
+  grub_srand (grub_get_time_ms());
   int i;
   for (i = 0; i < 4; i++)
   {
-    guid[i] = rand ();
+    guid[i] = grub_rand ();
   }
 }
 

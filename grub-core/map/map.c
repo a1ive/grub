@@ -101,12 +101,12 @@ get_size (grub_efi_boolean_t disk, void *file)
 static void
 gen_uuid (void)
 {
-  srand (grub_get_time_ms());
+  grub_srand (grub_get_time_ms());
   int i;
   grub_uint32_t r;
   for (i = 0; i < 4; i++)
   {
-    r = rand ();
+    r = grub_rand ();
     grub_memcpy ((grub_uint32_t *)&VDISK_GUID + i, &r, sizeof (grub_uint32_t));
   }
 }

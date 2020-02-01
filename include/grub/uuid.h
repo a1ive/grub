@@ -21,7 +21,7 @@
 
 #define GUID_LEN 37
 
-grub_uint32_t rand (void);
-void srand (grub_uint32_t seed);
+grub_uint32_t grub_rand (void);
+void grub_srand (grub_uint32_t seed);
 
 #endif
