@@ -168,7 +168,13 @@ grub_cmd_dd (grub_extcmd_context_t ctxt, int argc __attribute__ ((unused)),
     /* file */
     else
     {
-      return grub_error (GRUB_ERR_NOT_IMPLEMENTED_YET, N_("not implemented yet."));
+      out_type = 1;
+      out_file = grub_file_open (state[DD_OF].arg, GRUB_FILE_TYPE_HEXCAT);
+      if (! out_file)
+        return grub_error (GRUB_ERR_BAD_FILENAME, N_("failed to open %s"),
+                           state[DD_OF].arg);
+      out_size = grub_file_size (out_file);
+      grub_blocklist_convert (out_file);
     }
   }
 
@@ -246,7 +252,8 @@ grub_cmd_dd (grub_extcmd_context_t ctxt, int argc __attribute__ ((unused)),
     /* write */
     if (out_type)
     {
-      grub_error (GRUB_ERR_NOT_IMPLEMENTED_YET, N_("not implemented yet."));
+      grub_file_seek (out_file, seek);
+      grub_blocklist_write (out_file, (char *)data, copy_bs);
     }
     else
     {
