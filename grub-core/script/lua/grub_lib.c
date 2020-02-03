@@ -34,7 +34,6 @@
 #include <grub/device.h>
 #include <grub/i18n.h>
 #include <grub/lib/crc.h>
-#include <grub/lib/hexdump.h>
 #include <grub/video.h>
 #include <grub/bitmap.h>
 #include <grub/time.h>
@@ -738,57 +737,41 @@ static int
 grub_lua_hexdump (lua_State *state)
 {
   grub_file_t file;
-  char buf[GRUB_DISK_SECTOR_SIZE * 4];
-  grub_ssize_t size, length;
+  grub_size_t len, i;
   grub_disk_addr_t skip;
-  grub_size_t var_len;
   char *var_buf = NULL;
   char *var_hex = NULL;
-  char *p = NULL;
-  char *s = NULL;
 
   luaL_checktype (state, 1, LUA_TLIGHTUSERDATA);
   file = lua_touserdata (state, 1);
-  skip = luaL_checkinteger (state, 2);
-  length = luaL_checkinteger (state, 3);
+  if (!file)
+    return 0;
 
-  var_len = length + 1;
-  var_buf = (char *) grub_malloc (var_len);
-  var_hex = (char *) grub_malloc (3 * var_len);
-  if (var_buf)
-    p = var_buf;
-  if (var_hex)
-    s = var_hex;
-  if (file)
-    {
-      file->offset = skip;
-      while ((size = grub_file_read (file, buf, sizeof (buf))) > 0)
-	{
-	  unsigned long len;
-	  len = ((length) && (size > length)) ? length : size;
-          grub_memcpy (p, buf, len);
-          p += len;
-	  skip += len;
-	  if (length)
-	    {
-	      length -= len;
-	      if (!length)
-		break;
-	    }
-	}
-      grub_size_t i;
-      *p = 0;
-      *s = 0;
-      for (i = 0; i < var_len - 1; i++)
-             {
-	     var_hex = grub_xasprintf ("%s %02x", var_hex, (unsigned char) var_buf[i]);
-	     var_buf[i] = ((var_buf[i] >= 32) && (var_buf[i] < 127)) ? var_buf[i] : '.';
-             }
-      lua_pushstring (state, var_buf);
-      lua_pushstring (state, var_hex);
-      return 2;
-    }
-  return 0;
+  skip = luaL_checkinteger (state, 2);
+  len = luaL_checkinteger (state, 3);
+  if (skip > file->size)
+    return 0;
+  if (skip + len > file->size)
+    len = file->size - skip;
+
+  var_buf = (char *) grub_zalloc (len + 1);
+  var_hex = (char *) grub_zalloc (2 * len + 1);
+  if (!var_buf || !var_hex)
+    return 0;
+
+  file->offset = skip;
+  grub_file_read (file, var_buf, len);
+
+  for (i = 0; i < len; i++)
+  {
+    grub_snprintf (var_hex + 2 * i, 3, "%02x", (unsigned char)var_buf[i]);
+    var_buf[i] = ((var_buf[i] >= 32) && (var_buf[i] < 127)) ? var_buf[i] : '.';
+  }
+  lua_pushstring (state, var_buf);
+  lua_pushstring (state, var_hex);
+  grub_free (var_buf);
+  grub_free (var_hex);
+  return 2;
 }
 
 static int
