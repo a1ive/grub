@@ -558,13 +558,18 @@ grub_lua_file_open (lua_State *state)
 {
   grub_file_t file;
   const char *name;
+  const char *flag;
 
   name = luaL_checkstring (state, 1);
+  flag = (lua_gettop (state) > 1) ? luaL_checkstring (state, 2) : 0;
   file = grub_file_open (name, GRUB_FILE_TYPE_SKIP_SIGNATURE);
   save_errno (state);
 
   if (! file)
     return 0;
+
+  if (grub_strchr (flag, 'w'))
+    grub_blocklist_convert (file);
 
   lua_pushlightuserdata (state, file);
   return 1;
@@ -629,6 +634,26 @@ grub_lua_file_read (lua_State *state)
 
   save_errno (state);
   luaL_pushresult (&b);
+  return 1;
+}
+
+static int
+grub_lua_file_write (lua_State *state)
+{
+  grub_file_t file;
+  grub_ssize_t ret;
+  grub_size_t len;
+  const char *buf;
+
+  luaL_checktype (state, 1, LUA_TLIGHTUSERDATA);
+  file = lua_touserdata (state, 1);
+  buf = lua_tolstring (state, 2, &len);
+  ret = grub_blocklist_write (file, buf, len);
+  if (ret > 0)
+    file->offset += ret;
+
+  save_errno (state);
+  lua_pushinteger (state, ret);
   return 1;
 }
 
@@ -1069,6 +1094,7 @@ luaL_Reg grub_lua_lib[] =
     {"file_close", grub_lua_file_close},
     {"file_seek", grub_lua_file_seek},
     {"file_read", grub_lua_file_read},
+    {"file_write", grub_lua_file_write},
     {"file_getline", grub_lua_file_getline},
     {"file_getsize", grub_lua_file_getsize},
     {"file_getpos", grub_lua_file_getpos},
