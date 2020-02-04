@@ -49,7 +49,7 @@ grubfm_ini_enum_iter (const char *filename,
 {
   struct grubfm_ini_enum_list *ctx = data;
   char *pathname;
-  pathname = grub_xasprintf ("/boot/grub/types/%s", filename);
+  pathname = grub_xasprintf ("%stypes/%s", grubfm_root_path, filename);
   if (!pathname)
     return 1;
   if (! info->dir)
@@ -65,8 +65,12 @@ void
 grubfm_ini_enum (const char *devname)
 {
   grub_fs_t fs;
-  const char *path = "/boot/grub/types/";
-  grub_device_t dev;
+  char *path = NULL;
+  grub_device_t dev = 0;
+
+  path = grub_xasprintf ("%stypes/", grubfm_root_path);
+  if (!path)
+    goto fail;
 
   dev = grub_device_open (devname);
   if (!dev)
@@ -85,8 +89,8 @@ grubfm_ini_enum (const char *devname)
     for (ctx->i = 0; ctx->i < ctx->n; ctx->i++)
     {
       char *ini_name = NULL;
-      ini_name = grub_xasprintf ("(%s)/boot/grub/types/%s",
-                                 devname, ctx->ext[ctx->i]);
+      ini_name = grub_xasprintf ("(%s)%stypes/%s",
+                                 devname, grubfm_root_path, ctx->ext[ctx->i]);
       if (!ini_name)
         break;
       ini_t *config = ini_load (ini_name);
@@ -100,13 +104,15 @@ grubfm_ini_enum (const char *devname)
 
   /* generic menu */
   char *ini_name = NULL;
-  ini_name = grub_xasprintf ("(%s)/boot/grub/rules/generic.ini", devname);
+  ini_name = grub_xasprintf ("(%s)%srules/generic.ini", devname, grubfm_root_path);
   if (!ini_name)
     goto fail;
   grubfm_ini_config = ini_load (ini_name);
   grub_free (ini_name);
 
- fail:
+fail:
+  if (path)
+    grub_free (path);
   if (dev)
     grub_device_close (dev);
 }

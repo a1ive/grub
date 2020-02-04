@@ -54,8 +54,8 @@ grubfm_ini_menu_check (const char *condition)
   char *src = NULL;
   const char *value = NULL;
   src = grub_xasprintf ("unset grubfm_test\n"
-                        "source (%s)/boot/grub/rules/%s\n",
-                        grubfm_root, condition);
+                        "source (%s)%srules/%s\n",
+                        grubfm_root, grubfm_root_path, condition);
   if (!src)
     return 0;
   grub_script_execute_sourcecode (src);
@@ -113,8 +113,8 @@ grubfm_add_ini_menu (ini_t *ini)
       title = "MENU";
     /* hotkey */
     hotkey = ini_get (ini, num, "hotkey");
-    src = grub_xasprintf ("configfile (%s)/boot/grub/rules/%s\n",
-                          grubfm_root, script);
+    src = grub_xasprintf ("configfile (%s)%srules/%s\n",
+                          grubfm_root, grubfm_root_path, script);
     /* hidden menu */
     if (ini_get (ini, num, "hidden"))
       hidden = 1;
@@ -146,8 +146,8 @@ grubfm_open_file (char *path)
     const char *boot_script = NULL;
     boot_script = ini_get (ctx->config[info.ext], "type", "boot");
     if (boot_script)
-      src = grub_xasprintf ("source (%s)/boot/grub/rules/%s\n",
-                            grubfm_root, boot_script);
+      src = grub_xasprintf ("source (%s)%srules/%s\n",
+                            grubfm_root, grubfm_root_path, boot_script);
     if (src)
     {
       grub_script_execute_sourcecode (src);
