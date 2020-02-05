@@ -49,7 +49,7 @@ grubfm_ini_enum_iter (const char *filename,
 {
   struct grubfm_ini_enum_list *ctx = data;
   char *pathname;
-  pathname = grub_xasprintf ("%stypes/%s", grubfm_root_path, filename);
+  pathname = grub_xasprintf ("%stypes/%s", grubfm_data_path, filename);
   if (!pathname)
     return 1;
   if (! info->dir)
@@ -62,13 +62,13 @@ grubfm_ini_enum_iter (const char *filename,
 }
 
 void
-grubfm_ini_enum (const char *devname)
+grubfm_ini_enum (const char *devname, struct grubfm_ini_enum_list *ctx)
 {
   grub_fs_t fs;
   char *path = NULL;
   grub_device_t dev = 0;
 
-  path = grub_xasprintf ("%stypes/", grubfm_root_path);
+  path = grub_xasprintf ("%stypes/", grubfm_data_path);
   if (!path)
     goto fail;
 
@@ -80,7 +80,6 @@ grubfm_ini_enum (const char *devname)
 
   if (fs)
   {
-    struct grubfm_ini_enum_list *ctx = &grubfm_ext_table;
     (fs->fs_dir) (dev, path, grubfm_ini_enum_count, ctx);
     ctx->ext = grub_zalloc (ctx->n * sizeof (ctx->ext[0]));
     ctx->icon = grub_zalloc (ctx->n * sizeof (ctx->icon[0]));
@@ -90,7 +89,7 @@ grubfm_ini_enum (const char *devname)
     {
       char *ini_name = NULL;
       ini_name = grub_xasprintf ("(%s)%stypes/%s",
-                                 devname, grubfm_root_path, ctx->ext[ctx->i]);
+                                 devname, grubfm_data_path, ctx->ext[ctx->i]);
       if (!ini_name)
         break;
       ini_t *config = ini_load (ini_name);
@@ -104,7 +103,7 @@ grubfm_ini_enum (const char *devname)
 
   /* generic menu */
   char *ini_name = NULL;
-  ini_name = grub_xasprintf ("(%s)%srules/generic.ini", devname, grubfm_root_path);
+  ini_name = grub_xasprintf ("(%s)%srules/generic.ini", devname, grubfm_data_path);
   if (!ini_name)
     goto fail;
   grubfm_ini_config = ini_load (ini_name);
@@ -118,7 +117,8 @@ fail:
 }
 
 const char *
-grubfm_get_file_icon (struct grubfm_enum_file_info *info)
+grubfm_get_file_icon (struct grubfm_enum_file_info *info,
+                      struct grubfm_ini_enum_list *ctx)
 {
   const char *icon = "file";
   if (!info || !info->name)
@@ -127,7 +127,7 @@ grubfm_get_file_icon (struct grubfm_enum_file_info *info)
   char *ext = grub_strrchr (info->name, '.');
   if (!ext || *ext == '\0' || *(ext++) == '\0')
     goto ret;
-  struct grubfm_ini_enum_list *ctx = &grubfm_ext_table;
+
   for (ctx->i = 0; ctx->i < ctx->n; ctx->i++)
   {
     if (grub_strcasecmp (ext, ctx->ext[ctx->i]) == 0)

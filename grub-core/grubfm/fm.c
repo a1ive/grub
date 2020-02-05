@@ -36,7 +36,7 @@ GRUB_MOD_LICENSE ("GPLv3+");
 
 static int init = 0;
 char grubfm_root[20] = "memdisk";
-char grubfm_root_path[256] = "/boot/grubfm/";
+char grubfm_data_path[256] = "/boot/grubfm/";
 int grubfm_boot = 0;
 
 static void
@@ -44,7 +44,7 @@ grubfm_init (void)
 {
   if (!init)
   {
-    grubfm_ini_enum (grubfm_root);
+    grubfm_ini_enum (grubfm_root, &grubfm_ext_table);
     init = 1;
   }
 }
@@ -63,7 +63,7 @@ grub_cmd_grubfm (grub_extcmd_context_t ctxt __attribute__ ((unused)),
     grubfm_enum_file (args[0]);
   char *src = NULL;
   src = grub_xasprintf ("source (%s)%sglobal.sh\n",
-                        grubfm_root, grubfm_root_path);
+                        grubfm_root, grubfm_data_path);
   if (!src)
     return 0;
   grub_script_execute_sourcecode (src);
@@ -310,7 +310,7 @@ grub_cmd_html_list (grub_extcmd_context_t ctxt __attribute__ ((unused)),
 
   char *src = NULL;
   src = grub_xasprintf ("source (%s)%sglobal.sh\n",
-                        grubfm_root, grubfm_root_path);
+                        grubfm_root, grubfm_data_path);
   if (!src)
     return 0;
   grub_script_execute_sourcecode (src);

@@ -49,13 +49,13 @@ grubfm_add_menu_back (const char *filename)
 }
 
 static int
-grubfm_ini_menu_check (const char *condition)
+grubfm_ini_menu_check (const char *condition, const char *dev)
 {
   char *src = NULL;
   const char *value = NULL;
   src = grub_xasprintf ("unset grubfm_test\n"
                         "source (%s)%srules/%s\n",
-                        grubfm_root, grubfm_root_path, condition);
+                        dev, grubfm_data_path, condition);
   if (!src)
     return 0;
   grub_script_execute_sourcecode (src);
@@ -69,7 +69,7 @@ grubfm_ini_menu_check (const char *condition)
 }
 
 static void
-grubfm_add_ini_menu (ini_t *ini)
+grubfm_add_ini_menu (ini_t *ini, const char *dev)
 {
   int i;
   char num[4] = "0";
@@ -101,7 +101,7 @@ grubfm_add_ini_menu (ini_t *ini)
       continue;
     /* condition (iftitle) */
     condition = ini_get (ini, num, "condition");
-    if (condition && ! grubfm_ini_menu_check (condition))
+    if (condition && ! grubfm_ini_menu_check (condition, dev))
       continue;
     /* icon default=file */
     icon = ini_get (ini, num, "icon");
@@ -114,7 +114,7 @@ grubfm_add_ini_menu (ini_t *ini)
     /* hotkey */
     hotkey = ini_get (ini, num, "hotkey");
     src = grub_xasprintf ("configfile (%s)%srules/%s\n",
-                          grubfm_root, grubfm_root_path, script);
+                          dev, grubfm_data_path, script);
     /* hidden menu */
     if (ini_get (ini, num, "hidden"))
       hidden = 1;
@@ -138,7 +138,7 @@ grubfm_open_file (char *path)
   info.name = file->name;
   info.size = (char *) grub_get_human_size (file->size,
                                             GRUB_HUMAN_SIZE_SHORT);
-  grubfm_get_file_icon (&info);
+  grubfm_get_file_icon (&info, ctx);
 
   if (grubfm_boot && info.ext >= 0)
   {
@@ -147,7 +147,7 @@ grubfm_open_file (char *path)
     boot_script = ini_get (ctx->config[info.ext], "type", "boot");
     if (boot_script)
       src = grub_xasprintf ("source (%s)%srules/%s\n",
-                            grubfm_root, grubfm_root_path, boot_script);
+                            grubfm_root, grubfm_data_path, boot_script);
     if (src)
     {
       grub_script_execute_sourcecode (src);
@@ -156,9 +156,9 @@ grubfm_open_file (char *path)
   }
 
   if (info.ext >= 0)
-    grubfm_add_ini_menu (ctx->config[info.ext]);
+    grubfm_add_ini_menu (ctx->config[info.ext], grubfm_root);
 
-  grubfm_add_ini_menu (grubfm_ini_config);
+  grubfm_add_ini_menu (grubfm_ini_config, grubfm_root);
 
   grub_file_close (file);
 }
