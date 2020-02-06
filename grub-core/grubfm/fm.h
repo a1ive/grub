@@ -56,11 +56,15 @@ struct grubfm_enum_file_list
 };
 
 extern char grubfm_root[];
+extern char grubfm_user[];
 extern char grubfm_data_path[];
 extern int grubfm_boot;
 
 extern struct grubfm_ini_enum_list grubfm_ext_table;
 extern ini_t *grubfm_ini_config;
+
+extern struct grubfm_ini_enum_list grubfm_usr_table;
+extern ini_t *grubfm_usr_config;
 /* lib.c */
 int
 grubfm_dir_exist (const char *path);
@@ -108,7 +112,7 @@ void
 grubfm_html_menu (char *buf, const char *prefix);
 
 /* type.c */
-void
+ini_t *
 grubfm_ini_enum (const char *devname, struct grubfm_ini_enum_list *ctx);
 const char *
 grubfm_get_file_icon (struct grubfm_enum_file_info *info,

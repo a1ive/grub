@@ -31,6 +31,7 @@
 #include "fm.h"
 
 ini_t *grubfm_ini_config = NULL;
+ini_t *grubfm_usr_config = NULL;
 
 static void
 grubfm_add_menu_back (const char *filename)
@@ -124,12 +125,33 @@ grubfm_add_ini_menu (ini_t *ini, const char *dev)
   }
 }
 
+static void
+grubfm_check_boot (struct grubfm_enum_file_info *info,
+                   struct grubfm_ini_enum_list *ctx, const char *dev)
+{
+  if (grubfm_boot && info->ext >= 0)
+  {
+    char *src = NULL;
+    const char *boot_script = NULL;
+    boot_script = ini_get (ctx->config[info->ext], "type", "boot");
+    if (boot_script)
+      src = grub_xasprintf ("source (%s)%srules/%s\n",
+                            dev, grubfm_data_path, boot_script);
+    if (src)
+    {
+      grub_script_execute_sourcecode (src);
+      grub_free (src);
+    }
+  }
+}
+
 void
 grubfm_open_file (char *path)
 {
   grubfm_add_menu_back (path);
   struct grubfm_enum_file_info info;
   struct grubfm_ini_enum_list *ctx = &grubfm_ext_table;
+  struct grubfm_ini_enum_list *ctx_usr = &grubfm_usr_table;
   grub_file_t file = 0;
   file = grub_file_open (path, GRUB_FILE_TYPE_GET_SIZE |
                            GRUB_FILE_TYPE_NO_DECOMPRESS);
@@ -138,27 +160,25 @@ grubfm_open_file (char *path)
   info.name = file->name;
   info.size = (char *) grub_get_human_size (file->size,
                                             GRUB_HUMAN_SIZE_SHORT);
-  grubfm_get_file_icon (&info, ctx);
 
-  if (grubfm_boot && info.ext >= 0)
+  grubfm_get_file_icon (&info, ctx_usr);
+  grubfm_check_boot (&info, ctx_usr, grubfm_user);
+  if (info.ext >= 0)
   {
-    char *src = NULL;
-    const char *boot_script = NULL;
-    boot_script = ini_get (ctx->config[info.ext], "type", "boot");
-    if (boot_script)
-      src = grub_xasprintf ("source (%s)%srules/%s\n",
-                            grubfm_root, grubfm_data_path, boot_script);
-    if (src)
-    {
-      grub_script_execute_sourcecode (src);
-      grub_free (src);
-    }
+    grubfm_add_ini_menu (ctx_usr->config[info.ext], grubfm_user);
+    goto generic;
   }
 
+  grubfm_get_file_icon (&info, ctx);
+  grubfm_check_boot (&info, ctx, grubfm_root);
   if (info.ext >= 0)
     grubfm_add_ini_menu (ctx->config[info.ext], grubfm_root);
 
-  grubfm_add_ini_menu (grubfm_ini_config, grubfm_root);
+generic:
+  if (grubfm_usr_config)
+    grubfm_add_ini_menu (grubfm_ini_config, grubfm_user);
+  if (grubfm_ini_config)
+    grubfm_add_ini_menu (grubfm_ini_config, grubfm_root);
 
   grub_file_close (file);
 }

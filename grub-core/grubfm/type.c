@@ -29,6 +29,7 @@
 #include "fm.h"
 
 struct grubfm_ini_enum_list grubfm_ext_table = {0, 0, NULL, NULL, NULL};
+struct grubfm_ini_enum_list grubfm_usr_table = {0, 0, NULL, NULL, NULL};
 
 static int
 grubfm_ini_enum_count (const char *filename __attribute__ ((unused)),
@@ -61,12 +62,13 @@ grubfm_ini_enum_iter (const char *filename,
   return 0;
 }
 
-void
+ini_t *
 grubfm_ini_enum (const char *devname, struct grubfm_ini_enum_list *ctx)
 {
   grub_fs_t fs;
   char *path = NULL;
   grub_device_t dev = 0;
+  ini_t *cfg = NULL;
 
   path = grub_xasprintf ("%stypes/", grubfm_data_path);
   if (!path)
@@ -106,7 +108,7 @@ grubfm_ini_enum (const char *devname, struct grubfm_ini_enum_list *ctx)
   ini_name = grub_xasprintf ("(%s)%srules/generic.ini", devname, grubfm_data_path);
   if (!ini_name)
     goto fail;
-  grubfm_ini_config = ini_load (ini_name);
+  cfg = ini_load (ini_name);
   grub_free (ini_name);
 
 fail:
@@ -114,6 +116,7 @@ fail:
     grub_free (path);
   if (dev)
     grub_device_close (dev);
+  return cfg;
 }
 
 const char *

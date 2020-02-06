@@ -36,6 +36,7 @@ GRUB_MOD_LICENSE ("GPLv3+");
 
 static int init = 0;
 char grubfm_root[20] = "memdisk";
+char grubfm_user[20] = "\0";
 char grubfm_data_path[256] = "/boot/grubfm/";
 int grubfm_boot = 0;
 
@@ -44,7 +45,9 @@ grubfm_init (void)
 {
   if (!init)
   {
-    grubfm_ini_enum (grubfm_root, &grubfm_ext_table);
+    grubfm_ini_config = grubfm_ini_enum (grubfm_root, &grubfm_ext_table);
+    if (grubfm_user[0])
+      grubfm_usr_config = grubfm_ini_enum (grubfm_user, &grubfm_usr_table);
     init = 1;
   }
 }
@@ -88,6 +91,7 @@ grub_cmd_grubfm_open (grub_extcmd_context_t ctxt __attribute__ ((unused)),
 static const struct grub_arg_option options_set[] =
 {
   {"root", 'r', 0, N_("root"), 0, 0},
+  {"user", 'u', 0, N_("user"), 0, 0},
   {"boot", 'b', 0, N_("boot"), 0, 0},
   {0, 0, 0, 0, 0, 0}
 };
@@ -95,6 +99,7 @@ static const struct grub_arg_option options_set[] =
 enum options_set
 {
   FM_SET_ROOT,
+  FM_SET_USER,
   FM_SET_BOOT,
 };
 
@@ -106,6 +111,13 @@ grub_cmd_grubfm_set (grub_extcmd_context_t ctxt,
   if (state[FM_SET_ROOT].set && argc == 1)
   {
     grub_strncpy(grubfm_root, args[0], 19);
+  }
+  if (state[FM_SET_USER].set)
+  {
+    if (argc)
+      grub_strncpy(grubfm_user, args[0], 19);
+    else
+      grubfm_user[0] = '\0';
   }
   if (state[FM_SET_BOOT].set && argc == 1)
   {
