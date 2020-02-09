@@ -21,6 +21,7 @@
 #include <grub/misc.h>
 #include <grub/mm.h>
 #include <grub/err.h>
+#include <grub/datetime.h>
 #include <grub/dl.h>
 #include <grub/extcmd.h>
 #include <grub/env.h>
@@ -36,6 +37,7 @@ static const struct grub_arg_option options[] =
   {"set", 's', 0, N_("Set a variable to return value."), N_("VAR"), ARG_TYPE_STRING},
   {"size", 'z', 0, N_("Display file size."), 0, 0},
   {"human", 'm', 0, N_("Display file size in a human readable format."), 0, 0},
+  {"offset", 'o', 0, N_("Display file offset on disk."), 0, 0},
   {"fs", 'f', 0, N_("Display filesystem information."), 0, 0},
   {0, 0, 0, 0, 0, 0}
 };
@@ -45,8 +47,17 @@ enum options
   STAT_SET,
   STAT_SIZE,
   STAT_HUMAN,
+  STAT_OFFSET,
   STAT_FS,
 };
+
+static void
+read_block (grub_disk_addr_t sector, unsigned offset __attribute ((unused)),
+                unsigned length, void *data)
+{
+  grub_disk_addr_t *start = data;
+  *start = sector + 1 - (length >> GRUB_DISK_SECTOR_BITS);
+}
 
 static grub_err_t
 grub_cmd_stat (grub_extcmd_context_t ctxt, int argc, char **args)
@@ -56,6 +67,7 @@ grub_cmd_stat (grub_extcmd_context_t ctxt, int argc, char **args)
   grub_off_t size = 0;
   const char *human_size = NULL;
   char str[256];
+  grub_disk_addr_t start = 0;
 
   if (argc != 1)
     return grub_error (GRUB_ERR_BAD_ARGUMENT, "bad argument");
@@ -65,6 +77,13 @@ grub_cmd_stat (grub_extcmd_context_t ctxt, int argc, char **args)
 
   size = grub_file_size (file);
   human_size = grub_get_human_size (size, GRUB_HUMAN_SIZE_SHORT);
+  if (file->device && file->device->disk)
+  {
+    char buf[GRUB_DISK_SECTOR_SIZE];
+    file->read_hook = read_block;
+    file->read_hook_data = &start;
+    grub_file_read (file, buf, sizeof (buf));
+  }
 
   if (state[STAT_SIZE].set)
   {
@@ -74,6 +93,11 @@ grub_cmd_stat (grub_extcmd_context_t ctxt, int argc, char **args)
   else if (state[STAT_HUMAN].set)
   {
     grub_strncpy (str, human_size, 256);
+    grub_printf ("%s\n", str);
+  }
+  else if (state[STAT_OFFSET].set)
+  {
+    grub_snprintf (str, 256, "%llu", (unsigned long long) start);
     grub_printf ("%s\n", str);
   }
   else if (state[STAT_FS].set)
@@ -114,12 +138,13 @@ grub_cmd_stat (grub_extcmd_context_t ctxt, int argc, char **args)
   }
   else
   {
-    grub_printf ("File: %s\nSize: %s\nCurrent Offset: %llu\nSeekable: %d\n",
-                 file->name, human_size, (unsigned long long) file->offset,
+    grub_printf ("File: %s\nSize: %s\nSeekable: %d\n",
+                 file->name, human_size,
                  !file->not_easily_seekable);
-    grub_snprintf (str, 256, "%s %lld %d",
-                   human_size, (unsigned long long) file->offset,
-                   !file->not_easily_seekable);
+    grub_printf ("Offset on disk: %llu", (unsigned long long) start);
+    grub_snprintf (str, 256, "%s %d %llu",
+                   human_size, !file->not_easily_seekable,
+                   (unsigned long long) start);
   }
 
   if (state[STAT_SET].set)
