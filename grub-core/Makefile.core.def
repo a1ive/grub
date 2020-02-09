@@ -2895,6 +2895,11 @@ module = {
 };
 
 module = {
+  name = stat;
+  common = commands/stat.c;
+};
+
+module = {
   name = partnew;
   common = commands/partnew.c;
 };
