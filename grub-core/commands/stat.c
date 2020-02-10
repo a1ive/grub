@@ -21,7 +21,6 @@
 #include <grub/misc.h>
 #include <grub/mm.h>
 #include <grub/err.h>
-#include <grub/datetime.h>
 #include <grub/dl.h>
 #include <grub/extcmd.h>
 #include <grub/env.h>
@@ -38,6 +37,7 @@ static const struct grub_arg_option options[] =
   {"size", 'z', 0, N_("Display file size."), 0, 0},
   {"human", 'm', 0, N_("Display file size in a human readable format."), 0, 0},
   {"offset", 'o', 0, N_("Display file offset on disk."), 0, 0},
+  {"contig", 'c', 0, N_("Check if the file is contiguous or not."), 0, 0},
   {"fs", 'f', 0, N_("Display filesystem information."), 0, 0},
   {0, 0, 0, 0, 0, 0}
 };
@@ -48,15 +48,44 @@ enum options
   STAT_SIZE,
   STAT_HUMAN,
   STAT_OFFSET,
+  STAT_CONTIG,
   STAT_FS,
 };
 
-static void
-read_block (grub_disk_addr_t sector, unsigned offset __attribute ((unused)),
-                unsigned length, void *data)
+struct block_ctx
 {
-  grub_disk_addr_t *start = data;
-  *start = sector + 1 - (length >> GRUB_DISK_SECTOR_BITS);
+  int num;
+  grub_disk_addr_t start;
+  unsigned long length;
+  grub_off_t total_size;
+  grub_disk_addr_t part_start;
+};
+
+static void
+read_block_contig (grub_disk_addr_t sector, unsigned offset,
+                   unsigned length, void *data)
+{
+  struct block_ctx *ctx = data;
+  sector = ((sector - ctx->part_start) << GRUB_DISK_SECTOR_BITS) + offset;
+  if ((ctx->num) && (ctx->start + ctx->length == sector))
+  {
+    ctx->length += length;
+    goto quit;
+  }
+  ctx->start = sector;
+  ctx->length = length;
+  ctx->num++;
+ quit:
+  ctx->total_size += length;
+}
+
+static void
+read_block_start (grub_disk_addr_t sector,
+                  unsigned offset __attribute ((unused)),
+                  unsigned length, void *data)
+{
+  struct block_ctx *ctx = data;
+  ctx->start = sector + 1 - (length >> GRUB_DISK_SECTOR_BITS);
 }
 
 static grub_err_t
@@ -67,7 +96,7 @@ grub_cmd_stat (grub_extcmd_context_t ctxt, int argc, char **args)
   grub_off_t size = 0;
   const char *human_size = NULL;
   char str[256];
-  grub_disk_addr_t start = 0;
+  struct block_ctx file_block = {0, 0, 0, 0, 0};
 
   if (argc != 1)
     return grub_error (GRUB_ERR_BAD_ARGUMENT, "bad argument");
@@ -77,11 +106,28 @@ grub_cmd_stat (grub_extcmd_context_t ctxt, int argc, char **args)
 
   size = grub_file_size (file);
   human_size = grub_get_human_size (size, GRUB_HUMAN_SIZE_SHORT);
+
+  if (state[STAT_CONTIG].set)
+  {
+    if (file->device && file->device->disk)
+    {
+      file->read_hook = read_block_contig;
+      file->read_hook_data = &file_block;
+      grub_file_read (file, 0, file->size);
+      grub_printf ("File is%scontiguous.\n", (file_block.num > 1)? " NOT ":" ");
+      grub_printf ("Number of fragments: %d", file_block.num);
+    }
+    grub_snprintf (str, 256, "%d", file_block.num);
+    if (state[STAT_SET].set)
+      grub_env_set (state[STAT_SET].arg, str);
+    goto fail;
+  }
+
   if (file->device && file->device->disk)
   {
     char buf[GRUB_DISK_SECTOR_SIZE];
-    file->read_hook = read_block;
-    file->read_hook_data = &start;
+    file->read_hook = read_block_start;
+    file->read_hook_data = &file_block;
     grub_file_read (file, buf, sizeof (buf));
   }
 
@@ -97,7 +143,7 @@ grub_cmd_stat (grub_extcmd_context_t ctxt, int argc, char **args)
   }
   else if (state[STAT_OFFSET].set)
   {
-    grub_snprintf (str, 256, "%llu", (unsigned long long) start);
+    grub_snprintf (str, 256, "%llu", (unsigned long long) file_block.start);
     grub_printf ("%s\n", str);
   }
   else if (state[STAT_FS].set)
@@ -141,10 +187,10 @@ grub_cmd_stat (grub_extcmd_context_t ctxt, int argc, char **args)
     grub_printf ("File: %s\nSize: %s\nSeekable: %d\n",
                  file->name, human_size,
                  !file->not_easily_seekable);
-    grub_printf ("Offset on disk: %llu", (unsigned long long) start);
+    grub_printf ("Offset on disk: %llu", (unsigned long long) file_block.start);
     grub_snprintf (str, 256, "%s %d %llu",
                    human_size, !file->not_easily_seekable,
-                   (unsigned long long) start);
+                   (unsigned long long) file_block.start);
   }
 
   if (state[STAT_SET].set)
