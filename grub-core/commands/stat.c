@@ -39,6 +39,7 @@ static const struct grub_arg_option options[] =
   {"offset", 'o', 0, N_("Display file offset on disk."), 0, 0},
   {"contig", 'c', 0, N_("Check if the file is contiguous or not."), 0, 0},
   {"fs", 'f', 0, N_("Display filesystem information."), 0, 0},
+  {"quiet", 'q', 0, N_("Don't print strings."), 0, 0},
   {0, 0, 0, 0, 0, 0}
 };
 
@@ -50,6 +51,7 @@ enum options
   STAT_OFFSET,
   STAT_CONTIG,
   STAT_FS,
+  STAT_QUIET,
 };
 
 struct block_ctx
@@ -114,8 +116,9 @@ grub_cmd_stat (grub_extcmd_context_t ctxt, int argc, char **args)
       file->read_hook = read_block_contig;
       file->read_hook_data = &file_block;
       grub_file_read (file, 0, file->size);
-      grub_printf ("File is%scontiguous.\n", (file_block.num > 1)? " NOT ":" ");
-      grub_printf ("Number of fragments: %d", file_block.num);
+      if (!state[STAT_QUIET].set)
+        grub_printf ("File is%scontiguous.\nNumber of fragments: %d\n",
+                     (file_block.num > 1)? " NOT ":" ", file_block.num);
     }
     grub_snprintf (str, 256, "%d", file_block.num);
     if (state[STAT_SET].set)
@@ -134,17 +137,20 @@ grub_cmd_stat (grub_extcmd_context_t ctxt, int argc, char **args)
   if (state[STAT_SIZE].set)
   {
     grub_snprintf (str, 256, "%llu", (unsigned long long) size);
-    grub_printf ("%s\n", str);
+    if (!state[STAT_QUIET].set)
+      grub_printf ("%s\n", str);
   }
   else if (state[STAT_HUMAN].set)
   {
     grub_strncpy (str, human_size, 256);
-    grub_printf ("%s\n", str);
+    if (!state[STAT_QUIET].set)
+      grub_printf ("%s\n", str);
   }
   else if (state[STAT_OFFSET].set)
   {
     grub_snprintf (str, 256, "%llu", (unsigned long long) file_block.start);
-    grub_printf ("%s\n", str);
+    if (!state[STAT_QUIET].set)
+      grub_printf ("%s\n", str);
   }
   else if (state[STAT_FS].set)
   {
@@ -152,15 +158,18 @@ grub_cmd_stat (grub_extcmd_context_t ctxt, int argc, char **args)
       goto fail;
     char *label = NULL;
     char partinfo[64];
-
-    grub_printf ("Filesystem: %s\n", file->fs->name);
     if (file->fs->fs_label)
       file->fs->fs_label (file->device, &label);
-    if (label)
-      grub_printf ("Label: [%s]\n", label);
-    grub_printf ("Disk: %s\n", file->device->disk->name);
-    grub_printf ("Total sectors: %llu\n",
-                 (unsigned long long)file->device->disk->total_sectors);
+
+    if (!state[STAT_QUIET].set)
+    {
+      grub_printf ("Filesystem: %s\n", file->fs->name);
+      if (label)
+        grub_printf ("Label: [%s]\n", label);
+      grub_printf ("Disk: %s\n", file->device->disk->name);
+      grub_printf ("Total sectors: %llu\n",
+                  (unsigned long long)file->device->disk->total_sectors);
+    }
     if (file->device->disk->partition)
     {
       grub_snprintf (partinfo, 64, "%s %d %llu %llu %d %u",
@@ -170,7 +179,8 @@ grub_cmd_stat (grub_extcmd_context_t ctxt, int argc, char **args)
                      (unsigned long long)file->device->disk->partition->len,
                      file->device->disk->partition->index,
                      file->device->disk->partition->flag);
-      grub_printf ("Partition information: \n%s\n", partinfo);
+      if (!state[STAT_QUIET].set)
+        grub_printf ("Partition information: \n%s\n", partinfo);
     }
     else
       grub_strncpy (partinfo, "no_part", 64);
@@ -184,10 +194,11 @@ grub_cmd_stat (grub_extcmd_context_t ctxt, int argc, char **args)
   }
   else
   {
-    grub_printf ("File: %s\nSize: %s\nSeekable: %d\n",
-                 file->name, human_size,
-                 !file->not_easily_seekable);
-    grub_printf ("Offset on disk: %llu", (unsigned long long) file_block.start);
+    if (!state[STAT_QUIET].set)
+      grub_printf ("File: %s\nSize: %s\nSeekable: %d\nOffset on disk: %llu\n",
+                   file->name, human_size,
+                   !file->not_easily_seekable,
+                   (unsigned long long) file_block.start);
     grub_snprintf (str, 256, "%s %d %llu",
                    human_size, !file->not_easily_seekable,
                    (unsigned long long) file_block.start);
