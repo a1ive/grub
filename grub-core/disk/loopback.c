@@ -63,7 +63,7 @@ delete_loopback (const char *name)
       break;
 
   if (! dev)
-    return grub_error (GRUB_ERR_BAD_DEVICE, "device not found");
+    return 0;
 
   /* Remove the device from the list.  */
   *prev = dev->next;
