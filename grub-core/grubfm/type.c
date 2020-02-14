@@ -108,7 +108,8 @@ grubfm_ini_enum (const char *devname, struct grubfm_ini_enum_list *ctx)
   ini_name = grub_xasprintf ("(%s)%srules/generic.ini", devname, grubfm_data_path);
   if (!ini_name)
     goto fail;
-  cfg = ini_load (ini_name);
+  if (grubfm_file_exist (ini_name))
+    cfg = ini_load (ini_name);
   grub_free (ini_name);
 
 fail:

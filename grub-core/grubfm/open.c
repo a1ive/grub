@@ -176,7 +176,7 @@ grubfm_open_file (char *path)
 
 generic:
   if (grubfm_usr_config)
-    grubfm_add_ini_menu (grubfm_ini_config, grubfm_user);
+    grubfm_add_ini_menu (grubfm_usr_config, grubfm_user);
   if (grubfm_ini_config)
     grubfm_add_ini_menu (grubfm_ini_config, grubfm_root);
 
