@@ -738,8 +738,8 @@ acpi_get_bgrt (struct grub_acpi_table_header *xsdt)
     {
       grub_printf ("found BGRT: %p\n", (struct acpi_bgrt *)entry);
       /* blow up the old table */
-      grub_memcpy ((char *)*entry_ptr, "FUCK", 4);
-      *entry_ptr = (grub_uint64_t) bgrt;
+      grub_memcpy ((char *)(grub_addr_t)*entry_ptr, "FUCK", 4);
+      *entry_ptr = (grub_uint64_t)(grub_addr_t) bgrt;
       bgrt_patched = 1;
       return;
     }
@@ -824,7 +824,7 @@ create_bgrt (grub_file_t file, struct grub_acpi_rsdp_v20 *rsdp)
   bgrt->version = 1;
   bgrt->status = 0x01;
   bgrt->type = 0;
-  bgrt->addr = (grub_uint64_t) bgrt_bmp;
+  bgrt->addr = (grub_uint64_t)(grub_addr_t) bgrt_bmp;
   bgrt->header.checksum = 1 + ~grub_byte_checksum (bgrt, bgrt->header.length);
 
   acpi_get_bgrt (xsdt);
@@ -843,7 +843,7 @@ create_bgrt (grub_file_t file, struct grub_acpi_rsdp_v20 *rsdp)
   grub_uint32_t entry_count =
       (new_xsdt->length - sizeof (struct grub_acpi_table_header))
         / sizeof(grub_uint64_t);
-  new_xsdt_entry[entry_count - 1] = (grub_uint64_t) bgrt;
+  new_xsdt_entry[entry_count - 1] = (grub_uint64_t)(grub_addr_t) bgrt;
 
   new_xsdt->checksum = 1 + ~grub_byte_checksum (xsdt, xsdt->length);
 
@@ -851,7 +851,7 @@ create_bgrt (grub_file_t file, struct grub_acpi_rsdp_v20 *rsdp)
   grub_memcpy (xsdt, "FUCK", 4);
 
   // replace old XSDT
-  rsdp->xsdt_addr = (grub_uint64_t) new_xsdt;
+  rsdp->xsdt_addr = (grub_uint64_t)(grub_addr_t) new_xsdt;
 
   // re-calculate RSDP extended checksum
   rsdp->checksum = 1 + ~grub_byte_checksum (rsdp, rsdp->length);
