@@ -31,6 +31,8 @@
 #ifdef GRUB_MACHINE_EFI
 #include <grub/efi/efi.h>
 #include <grub/efi/api.h>
+#include <grub/efi/graphics_output.h>
+#include <grub/video.h>
 #endif
 
 #pragma GCC diagnostic ignored "-Wcast-align"
@@ -60,6 +62,9 @@ static const struct grub_arg_option options[] = {
    0, ARG_TYPE_NONE},
   {"slic", 's', 0, N_("Load SLIC table."), 0, ARG_TYPE_NONE},
   {"msdm", 0, 0, N_("Load/Print MSDM table."), 0, ARG_TYPE_NONE},
+#ifdef GRUB_MACHINE_EFI
+  {"bgrt", 0, 0, N_("Load BMP file as BGRT image."), 0, ARG_TYPE_NONE},
+#endif
   {0, 0, 0, 0, 0, 0}
 };
 
@@ -77,6 +82,9 @@ enum options
   ACPI_EBDA,
   ACPI_SLIC,
   ACPI_MSDM,
+#ifdef GRUB_MACHINE_EFI
+  ACPI_BGRT,
+#endif
 };
 
 /* rev1 is 1 if ACPIv1 is to be generated, 0 otherwise.
@@ -625,6 +633,234 @@ print_msdm (struct acpi_msdm *msdm)
   slic_print ((char *)msdm->soft.data, 29, "Data: ");
 }
 
+#ifdef GRUB_MACHINE_EFI
+
+/* https://github.com/Jamesits/BGRTInjector */
+
+struct bmp_header
+{
+  // bmfh
+  grub_uint8_t bftype[2];
+  grub_uint32_t bfsize;
+  grub_uint16_t bfreserved1;
+  grub_uint16_t bfreserved2;
+  grub_uint32_t bfoffbits;
+  // bmih
+  grub_uint32_t bisize;
+  grub_int32_t biwidth;
+  grub_int32_t biheight;
+  grub_uint16_t biplanes;
+  grub_uint16_t bibitcount;
+  grub_uint32_t bicompression;
+  grub_uint32_t bisizeimage;
+  grub_int32_t bixpelspermeter;
+  grub_int32_t biypelspermeter;
+  grub_uint32_t biclrused;
+  grub_uint32_t biclrimportant;
+} GRUB_PACKED;
+
+static grub_efi_boolean_t
+bmp_sanity_check(char *buf, grub_size_t size)
+{
+  // check BMP magic
+  if (grub_strncmp ("BM", buf, 2))
+  {
+    grub_printf ("Unsupported image file.\n");
+    return FALSE;
+  }
+  // check BMP header size
+  struct bmp_header *bmp = (struct bmp_header *) buf;
+  if (size < bmp->bfsize)
+  {
+    grub_printf ("Bad BMP file.\n");
+    return FALSE;
+  }
+
+  return TRUE;
+}
+
+static void *
+malloc_acpi (grub_efi_uintn_t size)
+{
+  void *ret;
+  grub_efi_status_t status;
+
+  status = grub_efi_allocate_pool (GRUB_EFI_ACPI_RECLAIM_MEMORY,
+                        size, &ret);
+
+  if (status != GRUB_EFI_SUCCESS)
+  {
+    grub_fatal ("malloc failed\n");
+    return 0;
+  }
+
+  return ret;
+}
+
+struct acpi_bgrt
+{
+  struct grub_acpi_table_header header;
+  // 2-bytes (16 bit) version ID. This value must be 1.
+  grub_uint16_t version;
+  // 1-byte status field indicating current status about the table.
+  // Bits[7:1] = Reserved (must be zero)
+  // Bit [0] = Valid. A one indicates the boot image graphic is valid.
+  grub_uint8_t status;
+  // 0 = Bitmap
+  // 1 - 255  Reserved (for future use)
+  grub_uint8_t type;
+  // physical address pointing to the firmware's in-memory copy of the image.
+  grub_uint64_t addr;
+  // (X, Y) display offset of the top left corner of the boot image.
+  // The top left corner of the display is at offset (0, 0).
+  grub_uint32_t x;
+  grub_uint32_t y;
+} GRUB_PACKED;
+
+static struct acpi_bgrt *bgrt = NULL;
+static char *bgrt_bmp = NULL;
+static int bgrt_patched = 0;
+
+static void
+acpi_get_bgrt (struct grub_acpi_table_header *xsdt)
+{
+  struct grub_acpi_table_header *entry;
+  int entry_cnt, i;
+  grub_uint64_t *entry_ptr;
+  bgrt_patched = 0;
+  entry_cnt = (xsdt->length
+               - sizeof (struct grub_acpi_table_header)) / sizeof(grub_uint64_t);
+  entry_ptr = (grub_uint64_t *)(xsdt + 1);
+  for (i = 0; i < entry_cnt; i++, entry_ptr++)
+  {
+    entry = (struct grub_acpi_table_header *)(grub_addr_t)(*entry_ptr);
+    if (grub_memcmp(entry->signature, "BGRT", 4) == 0)
+    {
+      grub_printf ("found BGRT: %p\n", (struct acpi_bgrt *)entry);
+      /* blow up the old table */
+      grub_memcpy ((char *)*entry_ptr, "FUCK", 4);
+      *entry_ptr = (grub_uint64_t) bgrt;
+      bgrt_patched = 1;
+      return;
+    }
+  }
+  grub_printf ("BGRT not found.\n");
+  return;
+}
+
+static void
+get_bgrt_xy (struct bmp_header *bmp, grub_uint32_t *x, grub_uint32_t *y)
+{
+  *x = *y = 0;
+  grub_uint32_t screen_width = 0;
+  grub_uint32_t screen_height = 0;
+  grub_uint32_t bmp_width = (grub_uint32_t) bmp->biwidth;
+  grub_uint32_t bmp_height = (grub_uint32_t) bmp->biheight;
+  struct grub_video_mode_info info;
+  struct grub_efi_gop *gop = NULL;
+  grub_efi_guid_t gop_guid = GRUB_EFI_GOP_GUID;
+  grub_efi_status_t status;
+  grub_efi_boot_services_t *b;
+  b = grub_efi_system_table->boot_services;
+  status = efi_call_3 (b->locate_protocol, &gop_guid, NULL, (void **)&gop);
+  if (status == GRUB_EFI_SUCCESS)
+  {
+    screen_width = gop->mode->info->width;
+    screen_height = gop->mode->info->height;
+  }
+  if (grub_video_get_info (&info) == GRUB_ERR_NONE)
+  {
+    screen_width = (screen_width < info.width) ? info.width : screen_width;
+    screen_height = (screen_height < info.height) ? info.height : screen_height;
+  }
+  grub_printf ("screen: %ux%u\n", screen_width, screen_height);
+  grub_printf ("image : %ux%u\n", bmp_width, bmp_height);
+  if (screen_width > bmp_width)
+    *x = (screen_width - bmp_width) / 2;
+  if (screen_height > bmp_height)
+    *y = (screen_height - bmp_height) / 2;
+  grub_printf ("offset_x=%u, offset_y=%u\n", *x, *y);
+}
+
+static void
+create_bgrt (grub_file_t file, struct grub_acpi_rsdp_v20 *rsdp)
+{
+  struct grub_acpi_table_header *xsdt;
+  if (rsdp->rsdpv1.revision >= 0x02)
+    xsdt = (struct grub_acpi_table_header *)(grub_addr_t)(rsdp->xsdt_addr);
+  else
+  {
+    grub_printf ("ACPI rev %d, XSDT not found.\n", rsdp->rsdpv1.revision);
+    return;
+  }
+  if (grub_memcmp(xsdt->signature, "XSDT", 4) != 0)
+  {
+    grub_printf ("invalid XSDT table\n");
+    return;
+  }
+
+  bgrt = malloc_acpi (sizeof (struct acpi_bgrt));
+  bgrt_bmp = malloc_acpi (file->size);
+
+  grub_file_read (file, bgrt_bmp, file->size);
+  struct bmp_header *bmp = (struct bmp_header *) bgrt_bmp;
+  if (!bmp_sanity_check(bgrt_bmp, file->size))
+  {
+    grub_efi_free_pool (bgrt_bmp);
+    grub_efi_free_pool (bgrt);
+    return;
+  }
+  grub_uint32_t x,y;
+  get_bgrt_xy (bmp, &x, &y);
+  bgrt->x = x;
+  bgrt->y = y;
+  grub_memcpy (bgrt->header.signature, "BGRT", 4);
+  grub_memcpy (bgrt->header.oemid, "A1ive ", 6);
+  grub_memcpy (bgrt->header.oemtable, "GRUBACPI", 8);
+  grub_memcpy (bgrt->header.creator_id, "GRUB", 4);
+  bgrt->header.creator_rev = 205;
+  bgrt->header.length = sizeof (struct acpi_bgrt);
+  bgrt->header.revision = 1;
+  bgrt->version = 1;
+  bgrt->status = 0x01;
+  bgrt->type = 0;
+  bgrt->addr = (grub_uint64_t) bgrt_bmp;
+  bgrt->header.checksum = 1 + ~grub_byte_checksum (bgrt, bgrt->header.length);
+
+  acpi_get_bgrt (xsdt);
+  if (bgrt_patched)
+    return;
+  struct grub_acpi_table_header *new_xsdt =
+      malloc_acpi (xsdt->length + sizeof(grub_uint64_t));
+  grub_uint64_t *new_xsdt_entry;
+  new_xsdt_entry = (grub_uint64_t *)(new_xsdt + 1);
+
+  // copy over old entries
+  grub_memcpy (new_xsdt, xsdt, xsdt->length);
+
+  // insert entry
+  new_xsdt->length += sizeof(grub_uint64_t);
+  grub_uint32_t entry_count =
+      (new_xsdt->length - sizeof (struct grub_acpi_table_header))
+        / sizeof(grub_uint64_t);
+  new_xsdt_entry[entry_count - 1] = (grub_uint64_t) bgrt;
+
+  new_xsdt->checksum = 1 + ~grub_byte_checksum (xsdt, xsdt->length);
+
+  // invalidate old XSDT table signature and checksum
+  grub_memcpy (xsdt, "FUCK", 4);
+
+  // replace old XSDT
+  rsdp->xsdt_addr = (grub_uint64_t) new_xsdt;
+
+  // re-calculate RSDP extended checksum
+  rsdp->checksum = 1 + ~grub_byte_checksum (rsdp, rsdp->length);
+
+  grub_printf ("New BGRT table inserted\n");
+}
+
+#endif
+
 static grub_err_t
 grub_cmd_acpi (struct grub_extcmd_context *ctxt, int argc, char **args)
 {
@@ -785,6 +1021,22 @@ grub_cmd_acpi (struct grub_extcmd_context *ctxt, int argc, char **args)
     free_tables ();
     return GRUB_ERR_NONE;
   }
+
+#ifdef GRUB_MACHINE_EFI
+  if (state[ACPI_BGRT].set && argc == 1)
+  {
+    grub_file_t file = 0;
+    file = grub_file_open (args[0], GRUB_FILE_TYPE_ACPI_TABLE);
+    if (! file)
+    {
+      free_tables ();
+      return grub_errno;
+    }
+    create_bgrt (file, (struct grub_acpi_rsdp_v20 *) rsdp);
+    free_tables ();
+    return GRUB_ERR_NONE;
+  }
+#endif
 
   /* Does user specify versions to generate? */
   if (state[ACPI_V1].set || state[ACPI_V2].set)
