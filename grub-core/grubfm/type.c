@@ -28,8 +28,8 @@
 
 #include "fm.h"
 
-struct grubfm_ini_enum_list grubfm_ext_table = {0, 0, NULL, NULL, NULL};
-struct grubfm_ini_enum_list grubfm_usr_table = {0, 0, NULL, NULL, NULL};
+struct grubfm_ini_enum_list grubfm_ext_table = {0, 0, NULL, NULL, NULL, NULL};
+struct grubfm_ini_enum_list grubfm_usr_table = {0, 0, NULL, NULL, NULL, NULL};
 
 static int
 grubfm_ini_enum_count (const char *filename __attribute__ ((unused)),
@@ -84,6 +84,7 @@ grubfm_ini_enum (const char *devname, struct grubfm_ini_enum_list *ctx)
   {
     (fs->fs_dir) (dev, path, grubfm_ini_enum_count, ctx);
     ctx->ext = grub_zalloc (ctx->n * sizeof (ctx->ext[0]));
+    ctx->display = grub_zalloc (ctx->n * sizeof (ctx->display[0]));
     ctx->icon = grub_zalloc (ctx->n * sizeof (ctx->icon[0]));
     ctx->config = grub_zalloc (ctx->n * sizeof (ctx->config[0]));
     (fs->fs_dir) (dev, path, grubfm_ini_enum_iter, ctx);
@@ -98,6 +99,7 @@ grubfm_ini_enum (const char *devname, struct grubfm_ini_enum_list *ctx)
       grub_free (ini_name);
       if (!config)
         continue;
+      ctx->display[ctx->i] = ini_get(config, "type", "display")? 1: 0;
       ctx->icon[ctx->i] = grub_strdup (ini_get(config, "type", "icon"));
       ctx->config[ctx->i] = config;
     }
@@ -138,6 +140,7 @@ grubfm_get_file_icon (struct grubfm_enum_file_info *info,
     {
       icon = ctx->icon[ctx->i];
       info->ext = ctx->i;
+      info->display = ctx->display[ctx->i];
       break;
     }
   }

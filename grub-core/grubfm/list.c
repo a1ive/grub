@@ -74,9 +74,10 @@ grubfm_add_menu_file (struct grubfm_enum_file_info *file, char *pathname)
   src = grub_xasprintf ("grubfm_open \"%s\"", pathname);
   const char *icon = NULL;
   icon = grubfm_get_file_icon (file, &grubfm_usr_table);
-  if (grub_strcmp (icon, "file") == 0)
+  if (file->ext < 0)
     icon = grubfm_get_file_icon (file, &grubfm_ext_table);
-  grubfm_add_menu (title, icon, NULL, src, 0);
+  if (!grubfm_hide || file->display)
+    grubfm_add_menu (title, icon, NULL, src, 0);
   grub_free (title);
   grub_free (src);
 }
@@ -394,7 +395,7 @@ grubfm_html_menu (char *buf, const char *prefix)
       char *src = NULL;
       src = grub_xasprintf ("grubfm_open \"%s%s\"", prefix, name);
       const char *icon = NULL;
-      struct grubfm_enum_file_info file = { NULL, NULL, -1 };
+      struct grubfm_enum_file_info file = { NULL, NULL, 0, -1 };
       file.name = name;
       icon = grubfm_get_file_icon (&file, &grubfm_usr_table);
       if (grub_strcmp (icon, "file") == 0)

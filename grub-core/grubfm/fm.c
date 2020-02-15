@@ -39,6 +39,7 @@ char grubfm_root[20] = "memdisk";
 char grubfm_user[20] = "\0";
 char grubfm_data_path[256] = "/boot/grubfm/";
 int grubfm_boot = 0;
+int grubfm_hide = 0;
 
 static void
 grubfm_init (void)
@@ -93,6 +94,7 @@ static const struct grub_arg_option options_set[] =
   {"root", 'r', 0, N_("root"), 0, 0},
   {"user", 'u', 0, N_("user"), 0, 0},
   {"boot", 'b', 0, N_("boot"), 0, 0},
+  {"hide", 'i', 0, N_("hide"), 0, 0},
   {0, 0, 0, 0, 0, 0}
 };
 
@@ -101,6 +103,7 @@ enum options_set
   FM_SET_ROOT,
   FM_SET_USER,
   FM_SET_BOOT,
+  FM_SET_HIDE,
 };
 
 static grub_err_t
@@ -126,6 +129,14 @@ grub_cmd_grubfm_set (grub_extcmd_context_t ctxt,
     else
       grubfm_boot = 1;
     grub_printf ("grubfm_boot: %d\n", grubfm_boot);
+  }
+  if (state[FM_SET_HIDE].set && argc == 1)
+  {
+    if (args[0][0] == '0')
+      grubfm_hide = 0;
+    else
+      grubfm_hide = 1;
+    grub_printf ("grubfm_hide: %d\n", grubfm_hide);
   }
   return 0;
 }

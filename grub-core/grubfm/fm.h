@@ -34,6 +34,7 @@ struct grubfm_ini_enum_list
   int i;
   char **ext;
   char **icon;
+  int *display;
   ini_t **config;
 };
 
@@ -41,6 +42,7 @@ struct grubfm_enum_file_info
 {
   char *name;
   char *size;
+  int display;
   int ext; /* index */
 };
 
@@ -59,6 +61,7 @@ extern char grubfm_root[];
 extern char grubfm_user[];
 extern char grubfm_data_path[];
 extern int grubfm_boot;
+extern int grubfm_hide;
 
 extern struct grubfm_ini_enum_list grubfm_ext_table;
 extern ini_t *grubfm_ini_config;
