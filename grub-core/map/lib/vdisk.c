@@ -19,7 +19,6 @@
 #include <grub/efi/efi.h>
 #include <grub/efi/api.h>
 #include <grub/msdos_partition.h>
-#include <grub/env.h>
 
 #include <private.h>
 #include <maplib.h>
@@ -85,15 +84,8 @@ vdisk_install (grub_file_t file, grub_efi_boolean_t ro)
       grub_printf ("out of memory\n");
       return GRUB_EFI_OUT_OF_RESOURCES;
     }
-    grub_printf ("Loading, please wait ...\n");
-    const char *progress = grub_env_get ("enable_progress_indicator");
-    grub_env_set ("enable_progress_indicator", "1");
     file_read (cmd->disk, vdisk.file,
           (void *)vdisk.addr, (grub_efi_uintn_t)vdisk.size, 0);
-    if (!progress)
-      grub_env_unset ("enable_progress_indicator");
-    else
-      grub_env_set ("enable_progress_indicator", progress);
   }
   else
     vdisk.addr = 0;

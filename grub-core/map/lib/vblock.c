@@ -18,7 +18,6 @@
  */
 
 #include <grub/efi/api.h>
-#include <grub/env.h>
 #include <private.h>
 #include <maplib.h>
 #include <vfat.h>
@@ -73,14 +72,8 @@ blockio_read (block_io_protocol_t *this, grub_efi_uint32_t media_id,
   }
   else
   {
-    const char *progress = grub_env_get ("enable_progress_indicator");
-    grub_env_set ("enable_progress_indicator", "0");
     file_read (data->disk, data->file, buf, len,
                data->addr + lba * data->media.block_size);
-    if (!progress)
-      grub_env_unset ("enable_progress_indicator");
-    else
-      grub_env_set ("enable_progress_indicator", progress);
   }
   return GRUB_EFI_SUCCESS;
 }

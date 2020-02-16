@@ -22,7 +22,6 @@
 #include <grub/efi/efi.h>
 #include <grub/device.h>
 #include <grub/err.h>
-#include <grub/env.h>
 #include <grub/extcmd.h>
 #include <grub/file.h>
 #include <grub/i18n.h>
@@ -77,7 +76,6 @@ grub_cmd_wimboot (grub_extcmd_context_t ctxt,
                   int argc, char *argv[])
 {
   struct grub_arg_list *state = ctxt->state;
-  const char *progress = grub_env_get ("enable_progress_indicator");
 
   if (argc == 0)
   {
@@ -86,8 +84,6 @@ grub_cmd_wimboot (grub_extcmd_context_t ctxt,
   }
 
   grub_wimboot_init (argc, argv);
-
-  grub_env_set ("enable_progress_indicator", "1");
 
   if (state[WIMBOOT_GUI].set)
     wimboot_cmd.gui = TRUE;
@@ -105,10 +101,6 @@ grub_cmd_wimboot (grub_extcmd_context_t ctxt,
   grub_extract ();
   wimboot_install ();
   wimboot_boot (bootmgfw);
-  if (!progress)
-    grub_env_unset ("enable_progress_indicator");
-  else
-    grub_env_set ("enable_progress_indicator", progress);
 fail:
   die ("failed to boot.\n");
   return grub_errno;
