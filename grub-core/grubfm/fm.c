@@ -142,6 +142,36 @@ grub_cmd_grubfm_set (grub_extcmd_context_t ctxt,
 }
 
 static grub_err_t
+grub_cmd_grubfm_get (grub_extcmd_context_t ctxt,
+                     int argc, char **args)
+{
+  struct grub_arg_list *state = ctxt->state;
+  if (state[FM_SET_ROOT].set && argc == 1)
+  {
+    grub_env_set (args[0], grubfm_root);
+  }
+  if (state[FM_SET_USER].set)
+  {
+    grub_env_set (args[0], grubfm_user);
+  }
+  if (state[FM_SET_BOOT].set)
+  {
+    if (grubfm_boot)
+      return GRUB_ERR_NONE;
+    else
+      return GRUB_ERR_TEST_FAILURE;
+  }
+  if (state[FM_SET_HIDE].set)
+  {
+    if (grubfm_hide)
+      return GRUB_ERR_NONE;
+    else
+      return GRUB_ERR_TEST_FAILURE;
+  }
+  return 0;
+}
+
+static grub_err_t
 grub_cmd_grubfm_about (grub_extcmd_context_t ctxt __attribute__ ((unused)),
                      int argc __attribute__ ((unused)),
                      char **args __attribute__ ((unused)))
@@ -345,6 +375,7 @@ grub_cmd_html_list (grub_extcmd_context_t ctxt __attribute__ ((unused)),
 static grub_extcmd_t cmd;
 static grub_extcmd_t cmd_open;
 static grub_extcmd_t cmd_set;
+static grub_extcmd_t cmd_get;
 static grub_extcmd_t cmd_about;
 static grub_extcmd_t cmd_hex;
 static grub_extcmd_t cmd_cat;
@@ -360,7 +391,11 @@ GRUB_MOD_INIT(grubfm)
                   N_("PATH"),
                   N_("GRUB file manager."), 0);
   cmd_set = grub_register_extcmd ("grubfm_set", grub_cmd_grubfm_set, 0,
-                                  N_("--root DEVICE"),
+                                  N_("OPTIONS"),
+                                  N_("GRUB file manager."),
+                                  options_set);
+  cmd_get = grub_register_extcmd ("grubfm_get", grub_cmd_grubfm_get, 0,
+                                  N_("OPTIONS"),
                                   N_("GRUB file manager."),
                                   options_set);
   cmd_about = grub_register_extcmd ("grubfm_about",
@@ -385,6 +420,7 @@ GRUB_MOD_FINI(grubfm)
   grub_unregister_extcmd (cmd);
   grub_unregister_extcmd (cmd_open);
   grub_unregister_extcmd (cmd_set);
+  grub_unregister_extcmd (cmd_get);
   grub_unregister_extcmd (cmd_about);
   grub_unregister_extcmd (cmd_hex);
   grub_unregister_extcmd (cmd_cat);
