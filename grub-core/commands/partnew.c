@@ -126,16 +126,15 @@ msdos_part (grub_disk_t disk, unsigned long num, grub_uint8_t type, int active)
   int i;
   for (i=0; i < MAX_MBR_PARTITIONS; i++)
   {
-    grub_printf ("PART %d TYPE=0x%02X START=%10d LENGTH=%10d ", i + 1,
-                 mbr->entries[i].type, mbr->entries[i].start,
-                 mbr->entries[i].length);
+    grub_dprintf ("partnew",
+                  "PART %d TYPE=0x%02X START=%10d LENGTH=%10d FLAG=%u\n",
+                  i + 1, mbr->entries[i].type, mbr->entries[i].start,
+                  mbr->entries[i].length, mbr->entries[i].flag);
     if (mbr->entries[i].flag == 0x80)
     {
-      grub_printf ("ACTIVE");
       if (active)
         mbr->entries[i].flag = 0;
     }
-    grub_printf ("\n");
   }
 
   if (num > 4 || num == 0)
@@ -143,19 +142,20 @@ msdos_part (grub_disk_t disk, unsigned long num, grub_uint8_t type, int active)
     grub_printf ("Unsupported partition number: %ld\n", num);
     goto fail;
   }
-  grub_printf ("Partition %ld:\n", num);
+  grub_dprintf ("partnew", "Partition %ld:\n", num);
   num--;
   mbr->entries[num].type = type;
   if (active)
     mbr->entries[num].flag = 0x80;
   mbr->entries[num].start = file_block.start;
   mbr->entries[num].length = file_block.length;
-  grub_printf ("TYPE=0x%02X START=%10d LENGTH=%10d\n", mbr->entries[num].type,
-               mbr->entries[num].start, mbr->entries[num].length);
+  grub_dprintf ("partnew",
+                "TYPE=0x%02X START=%10d LENGTH=%10d\n", mbr->entries[num].type,
+                mbr->entries[num].start, mbr->entries[num].length);
   if (mbr->hidden_sectors != mbr->entries[num].start)
   {
-    grub_printf ("Changing hidden sectors %d to %d\n",
-                 mbr->hidden_sectors, mbr->entries[num].start);
+    grub_dprintf ("partnew", "Changing hidden sectors %d to %d\n",
+                  mbr->hidden_sectors, mbr->entries[num].start);
     mbr->hidden_sectors = mbr->entries[num].start;
   }
   /* lba to chs */
@@ -239,8 +239,8 @@ grub_cmd_partnew (grub_extcmd_context_t ctxt, int argc, char *argv[])
     file_to_block (state[PARTNEW_FILE].arg);
     if (grub_errno)
       goto fail;
-    grub_printf ("FILE START %10ld LENGTH %10ld\n",
-                 (unsigned long) file_block.start, file_block.length);
+    grub_dprintf ("partnew", "FILE START %10ld LENGTH %10ld\n",
+                  (unsigned long) file_block.start, file_block.length);
   }
   else if (state[PARTNEW_START].set && state[PARTNEW_LENGTH].set)
   {
@@ -256,13 +256,14 @@ grub_cmd_partnew (grub_extcmd_context_t ctxt, int argc, char *argv[])
     active = 1;
   if (mbr->entries[0].type != GRUB_PC_PARTITION_TYPE_GPT_DISK)
   {
-    grub_printf ("Partition table: msdos\n");
+    grub_dprintf ("partnew", "Partition table: msdos\n");
     grub_free (mbr);
     msdos_part (disk, num, type, active);
   }
   else
   {
-    grub_printf ("Partition table: gpt\n");
+    grub_printf ("Unsupported partition table.\n");
+    grub_dprintf ("partnew", "Partition table: gpt\n");
     grub_free (mbr);
     //gpt_part (disk, num, type);
   }
