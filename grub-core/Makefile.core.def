@@ -2923,3 +2923,11 @@ module = {
   enable = efi;
   enable = i386_pc;
 };
+
+module = {
+  name = fatfs;
+  common = lib/fatfs/diskio.c;
+  common = lib/fatfs/ff.c;
+  common = lib/fatfs/ffsystem.c;
+  common = lib/fatfs/ffunicode.c;
+};
