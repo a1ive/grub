@@ -9,6 +9,9 @@
 extern "C" {
 #endif
 
+#include <grub/types.h>
+#include <grub/disk.h>
+
 /* Status of Disk Functions */
 typedef BYTE	DSTATUS;
 
@@ -21,6 +24,17 @@ typedef enum {
 	RES_PARERR		/* 4: Invalid Parameter */
 } DRESULT;
 
+#define MAX_DRIVES 10
+
+typedef struct
+{
+  int present;
+  char name[2];
+  grub_disk_t disk;
+  grub_uint64_t total_sectors;
+} STAT;
+
+extern STAT fat_stat[];
 
 /*---------------------------------------*/
 /* Prototypes for disk control functions */

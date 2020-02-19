@@ -13,22 +13,8 @@
 #include <grub/disk.h>
 #include <grub/err.h>
 #include <grub/datetime.h>
-#include <grub/dl.h>
-#include <grub/misc.h>
 
-GRUB_MOD_LICENSE ("GPLv3+");
-
-#define MAX_DRIVES 10
-
-typedef struct
-{
-  int present;
-  const char *name;
-  grub_disk_t disk;
-  grub_uint64_t total_sectors;
-} STAT;
-
-static volatile STAT stat[MAX_DRIVES];
+STAT fat_stat[MAX_DRIVES];
 
 /*-----------------------------------------------------------------------*/
 /* Inidialize a Drive                                                    */
@@ -39,9 +25,9 @@ DSTATUS disk_initialize (BYTE pdrv)
   if (pdrv >= MAX_DRIVES)
     return STA_NOINIT;
 
-  if (!stat[pdrv].present)
+  if (!fat_stat[pdrv].present)
     return STA_NOINIT;
-  if (!stat[pdrv].disk)
+  if (!fat_stat[pdrv].disk)
     return STA_NOINIT;
 
   return 0;
@@ -56,9 +42,9 @@ DSTATUS disk_status (BYTE pdrv)
   if (pdrv >= MAX_DRIVES)
     return STA_NOINIT;
 
-  if (!stat[pdrv].present)
+  if (!fat_stat[pdrv].present)
     return STA_NOINIT;
-  if (!stat[pdrv].disk)
+  if (!fat_stat[pdrv].disk)
     return STA_NOINIT;
 
   return 0;
@@ -77,14 +63,14 @@ DRESULT disk_read (BYTE pdrv, BYTE *buff, LBA_t sector, UINT count)
 
   if (pdrv >= MAX_DRIVES)
     return RES_PARERR;
-  if (!stat[pdrv].present)
+  if (!fat_stat[pdrv].present)
     return RES_NOTRDY;
-  if (!stat[pdrv].disk)
+  if (!fat_stat[pdrv].disk)
     return RES_NOTRDY;
-  if (sector > stat[pdrv].total_sectors)
+  if (sector > fat_stat[pdrv].total_sectors)
     return RES_ERROR;
 
-  errno = grub_disk_read (stat[pdrv].disk, sector, 0, size, buff);
+  errno = grub_disk_read (fat_stat[pdrv].disk, sector, 0, size, buff);
 
   if (errno == GRUB_ERR_NONE)
     return RES_OK;
@@ -104,14 +90,14 @@ DRESULT disk_write (BYTE pdrv, const BYTE *buff, LBA_t sector, UINT count)
 
   if (pdrv >= MAX_DRIVES)
     return RES_PARERR;
-  if (!stat[pdrv].present)
+  if (!fat_stat[pdrv].present)
     return RES_ERROR;
-  if (!stat[pdrv].disk)
+  if (!fat_stat[pdrv].disk)
     return RES_ERROR;
-  if (sector > stat[pdrv].total_sectors)
+  if (sector > fat_stat[pdrv].total_sectors)
     return RES_ERROR;
 
-  errno = grub_disk_write (stat[pdrv].disk, sector, 0, size, buff);
+  errno = grub_disk_write (fat_stat[pdrv].disk, sector, 0, size, buff);
 
   if (errno == GRUB_ERR_NONE)
     return RES_OK;
@@ -128,9 +114,9 @@ DRESULT disk_ioctl (BYTE pdrv, BYTE cmd, void *buff)
   DRESULT res;
   if (pdrv >= MAX_DRIVES)
     return RES_PARERR;
-  if (!stat[pdrv].present)
+  if (!fat_stat[pdrv].present)
     return RES_ERROR;
-  if (!stat[pdrv].disk)
+  if (!fat_stat[pdrv].disk)
     return RES_ERROR;
 
   switch (cmd)
@@ -139,7 +125,7 @@ DRESULT disk_ioctl (BYTE pdrv, BYTE cmd, void *buff)
       res = RES_OK;
       break;
     case GET_SECTOR_COUNT:
-      *(LBA_t*)buff = stat[pdrv].total_sectors;
+      *(LBA_t*)buff = fat_stat[pdrv].total_sectors;
       res = RES_OK;
       break;
     case GET_SECTOR_SIZE:

@@ -2926,6 +2926,7 @@ module = {
 
 module = {
   name = fatfs;
+  common = lib/fatfs/fat.c;
   common = lib/fatfs/diskio.c;
   common = lib/fatfs/ff.c;
   common = lib/fatfs/ffsystem.c;
