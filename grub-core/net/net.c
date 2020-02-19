@@ -1896,7 +1896,7 @@ grub_net_restore_hw (void)
 }
 
 grub_err_t
-grub_net_search_configfile (char *config)
+grub_net_search_config_file (char *config)
 {
   grub_size_t config_len;
   char *suffix;
@@ -1906,15 +1906,15 @@ grub_net_search_configfile (char *config)
     {
       while (num_tries-- > 0)
         {
-	  grub_dprintf ("net", "probe %s\n", config);
-
           grub_file_t file;
+
+          grub_dprintf ("net", "attempt to fetch config %s\n", config);
+
           file = grub_file_open (config, GRUB_FILE_TYPE_CONFIG);
 
           if (file)
             {
               grub_file_close (file);
-              grub_dprintf ("net", "found!\n");
               return 0;
             }
           else
@@ -1940,30 +1940,29 @@ grub_net_search_configfile (char *config)
   FOR_NET_NETWORK_LEVEL_INTERFACES (inf)
     {
       /* By the Client UUID. */
-
+      char *ptr;
+      int client_uuid_len;
       char *client_uuid_var;
-      grub_size_t client_uuid_var_size;
-
-      client_uuid_var_size = grub_snprintf (NULL, 0,
-                     "net_%s_clientuuid", inf->name);
-      if (client_uuid_var_size <= 0)
-	continue;
-      client_uuid_var_size += 1;
-      client_uuid_var = grub_malloc(client_uuid_var_size);
-      if (!client_uuid_var)
-	continue;
-      grub_snprintf (client_uuid_var, client_uuid_var_size,
-                     "net_%s_clientuuid", inf->name);
-
       const char *client_uuid;
-      client_uuid = grub_env_get (client_uuid_var);
 
-      grub_free(client_uuid_var);
+      client_uuid_len = sizeof ("net_") + grub_strlen (inf->name) +
+                        sizeof ("_clientuuid") + 1;
+
+      client_uuid_var = grub_zalloc (client_uuid_len);
+      if (!client_uuid_var)
+        return grub_errno;
+
+      grub_snprintf (client_uuid_var, client_uuid_len,
+                     "net_%s_clientuuid", inf->name);
+
+      client_uuid = grub_env_get (client_uuid_var);
+      grub_free (client_uuid_var);
 
       if (client_uuid)
         {
           grub_strcpy (suffix, client_uuid);
-          if (search_through (1, 0) == 0) return GRUB_ERR_NONE;
+          if (search_through (1, 0) == 0)
+            return GRUB_ERR_NONE;
         }
 
       /* By the MAC address. */
@@ -1973,43 +1972,46 @@ grub_net_search_configfile (char *config)
 
       grub_net_hwaddr_to_str (&inf->hwaddress, suffix + 3);
 
-      char *ptr;
       for (ptr = suffix; *ptr; ptr++)
         if (*ptr == ':')
           *ptr = '-';
 
-      if (search_through (1, 0) == 0) return GRUB_ERR_NONE;
+      if (search_through (1, 0) == 0)
+        return GRUB_ERR_NONE;
 
       /* By IP address */
 
       switch ((&inf->address)->type)
         {
         case GRUB_NET_NETWORK_LEVEL_PROTOCOL_IPV4:
-            {
-              grub_uint32_t n = grub_be_to_cpu32 ((&inf->address)->ipv4);
-              grub_snprintf (suffix, GRUB_NET_MAX_STR_ADDR_LEN, "%02X%02X%02X%02X", \
-                             ((n >> 24) & 0xff), ((n >> 16) & 0xff), \
-                             ((n >> 8) & 0xff), ((n >> 0) & 0xff));
+          {
+            grub_uint32_t n = grub_be_to_cpu32 ((&inf->address)->ipv4);
 
-              if (search_through (8, 1) == 0) return GRUB_ERR_NONE;
-              break;
-            }
+            grub_snprintf (suffix, GRUB_NET_MAX_STR_ADDR_LEN, "%02X%02X%02X%02X", \
+                           ((n >> 24) & 0xff), ((n >> 16) & 0xff),      \
+                           ((n >> 8) & 0xff), ((n >> 0) & 0xff));
+
+            if (search_through (8, 1) == 0)
+              return GRUB_ERR_NONE;
+            break;
+          }
         case GRUB_NET_NETWORK_LEVEL_PROTOCOL_IPV6:
-            {
-              char buf[GRUB_NET_MAX_STR_ADDR_LEN];
-              struct grub_net_network_level_address base;
-              base.type = GRUB_NET_NETWORK_LEVEL_PROTOCOL_IPV6;
-              grub_memcpy (&base.ipv6, ((&inf->address)->ipv6), 16);
-              grub_net_addr_to_str (&base, buf);
+          {
+            char buf[GRUB_NET_MAX_STR_ADDR_LEN];
+            struct grub_net_network_level_address base;
+            base.type = GRUB_NET_NETWORK_LEVEL_PROTOCOL_IPV6;
+            grub_memcpy (&base.ipv6, ((&inf->address)->ipv6), 16);
+            grub_net_addr_to_str (&base, buf);
 
-              for (ptr = buf; *ptr; ptr++)
-                if (*ptr == ':')
-                  *ptr = '-';
+            for (ptr = buf; *ptr; ptr++)
+              if (*ptr == ':')
+                *ptr = '-';
 
-              grub_snprintf (suffix, GRUB_NET_MAX_STR_ADDR_LEN, "%s", buf);
-              if (search_through (1, 0) == 0) return GRUB_ERR_NONE;
-              break;
-            }
+            grub_snprintf (suffix, GRUB_NET_MAX_STR_ADDR_LEN, "%s", buf);
+            if (search_through (1, 0) == 0)
+              return GRUB_ERR_NONE;
+            break;
+          }
         case GRUB_NET_NETWORK_LEVEL_PROTOCOL_DHCP_RECV:
           return grub_error (GRUB_ERR_BUG, "shouldn't reach here");
         default:
