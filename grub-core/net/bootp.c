@@ -289,6 +289,9 @@ again:
       if (i + taglength >= size)
 	return NULL;
 
+      grub_dprintf("net", "DHCP option %u (0x%02x) found with length %u.\n",
+                   tagtype, tagtype, taglength);
+
       /* FIXME RFC 3396 options concatentation */
       if (tagtype == opt_code)
 	{
@@ -571,6 +574,39 @@ grub_net_process_dhcp_ack (struct grub_net_network_level_interface *inter,
   opt = find_dhcp_option (bp, size, GRUB_NET_BOOTP_EXTENSIONS_PATH, &opt_len);
   if (opt && opt_len)
     grub_env_set_net_property (inter->name, "extensionspath", (const char *) opt, opt_len);
+
+  opt = find_dhcp_option (bp, size, GRUB_NET_BOOTP_CLIENT_ID, &opt_len);
+  if (opt && opt_len)
+    grub_env_set_net_property (inter->name, "clientid", (const char *) opt, opt_len);
+
+  opt = find_dhcp_option (bp, size, GRUB_NET_BOOTP_CLIENT_UUID, &opt_len);
+  if (opt && opt_len == 17)
+    {
+      /* The format is 9cfe245e-d0c8-bd45-a79f-54ea5fbd3d97 */
+      char *val;
+      int i, j = 0;
+
+      opt += 1;
+      opt_len -= 1;
+
+      val = grub_malloc (2 * opt_len + 4 + 1);
+      if (!val)
+          return;
+
+      for (i = 0; i < opt_len; i++)
+        {
+          val[2 * i + j] = hexdigit (opt[i] >> 4);
+          val[2 * i + 1 + j] = hexdigit (opt[i] & 0xf);
+
+          if ((i == 3) || (i == 5) || (i == 7) || (i == 9))
+            {
+              j++;
+              val[2 * i + 1+ j] = '-';
+            }
+        }
+      grub_env_set_net_property (inter->name, "clientuuid", (char *) val, 2 * opt_len + 4);
+      grub_free (val);
+    }
 }
 
 struct grub_net_network_level_interface *
