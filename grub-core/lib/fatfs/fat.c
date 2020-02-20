@@ -126,34 +126,25 @@ grub_cmd_mkdir (grub_command_t cmd __attribute__ ((unused)),
   return GRUB_ERR_NONE;
 }
 
-static grub_err_t
-grub_cmd_cp (grub_command_t cmd __attribute__ ((unused)),
-             int argc, char **args)
-
+static FRESULT
+copy_file (char *in_name, char *out_name)
 {
-  char in_dev[3] = "0:";
-  char out_dev[3] = "0:";
-  FIL in, out;
-  FATFS in_fs, out_fs;
   FRESULT res;
   BYTE buffer[4096];
   UINT br, bw;
-  if (argc != 2)
-    return grub_error (GRUB_ERR_BAD_ARGUMENT, "bad argument");
-
-  if (grub_isdigit (args[0][0]))
-    in_dev[0] = args[0][0];
-  if (grub_isdigit (args[1][0]))
-    out_dev[0] = args[1][0];
-
-  f_mount (&in_fs, in_dev, 0);
-  f_mount (&out_fs, out_dev, 0);
-  res = f_open (&in, args[0], FA_READ);
+  FIL in, out;
+  res = f_open (&in, in_name, FA_READ);
   if (res)
-    return grub_error (GRUB_ERR_BAD_FILENAME, "src open failed %d", res);
-  res = f_open (&out, args[1], FA_WRITE | FA_CREATE_ALWAYS);
+  {
+    grub_error (GRUB_ERR_BAD_FILENAME, "src open failed %d", res);
+    goto fail;
+  }
+  res = f_open (&out, out_name, FA_WRITE | FA_CREATE_ALWAYS);
   if (res)
-    return grub_error (GRUB_ERR_BAD_FILENAME, "dst open failed %d", res);
+  {
+    grub_error (GRUB_ERR_BAD_FILENAME, "dst open failed %d", res);
+    goto fail;
+  }
 
   for (;;)
   {
@@ -166,9 +157,36 @@ grub_cmd_cp (grub_command_t cmd __attribute__ ((unused)),
   }
   f_close(&in);
   f_close(&out);
-  /* Unregister work area prior to discard it */
+fail:
+  return res;
+}
+
+static grub_err_t
+grub_cmd_cp (grub_command_t cmd __attribute__ ((unused)),
+             int argc, char **args)
+
+{
+  char in_dev[3] = "0:";
+  char out_dev[3] = "0:";
+  FATFS in_fs, out_fs;
+  FRESULT res;
+
+  if (argc != 2)
+    return grub_error (GRUB_ERR_BAD_ARGUMENT, "bad argument");
+
+  if (grub_isdigit (args[0][0]))
+    in_dev[0] = args[0][0];
+  if (grub_isdigit (args[1][0]))
+    out_dev[0] = args[1][0];
+
+  f_mount (&in_fs, in_dev, 0);
+  f_mount (&out_fs, out_dev, 0);
+  res = copy_file (args[0], args[1]);
+
   f_mount(0, in_dev, 0);
   f_mount(0, out_dev, 0);
+  if (res)
+    return grub_error (GRUB_ERR_WRITE_ERROR, "copy failed %d", res);
   return GRUB_ERR_NONE;
 }
 
@@ -195,7 +213,72 @@ grub_cmd_rename (grub_command_t cmd __attribute__ ((unused)),
   return GRUB_ERR_NONE;
 }
 
-static grub_command_t cmd_mount, cmd_umount, cmd_mkdir, cmd_cp, cmd_rename;
+static grub_err_t
+grub_cmd_rm (grub_command_t cmd __attribute__ ((unused)),
+             int argc, char **args)
+
+{
+  char dev[3] = "0:";
+  FATFS fs;
+  FRESULT res;
+  if (argc != 1)
+    return grub_error (GRUB_ERR_BAD_ARGUMENT, "bad argument");
+  if (grub_isdigit (args[0][0]))
+    dev[0] = args[0][0];
+
+  f_mount (&fs, dev, 0);
+  res = f_unlink (args[0]);
+  if (res)
+    return grub_error (GRUB_ERR_WRITE_ERROR, "unlink failed %d", res);
+  f_mount(0, dev, 0);
+  return GRUB_ERR_NONE;
+}
+
+static grub_err_t
+grub_cmd_mv (grub_command_t cmd __attribute__ ((unused)),
+             int argc, char **args)
+
+{
+  char in_dev[3] = "0:";
+  char out_dev[3] = "0:";
+  FATFS in_fs, out_fs;
+  FRESULT res;
+
+  if (argc != 2)
+    return grub_error (GRUB_ERR_BAD_ARGUMENT, "bad argument");
+
+  if (grub_isdigit (args[0][0]))
+    in_dev[0] = args[0][0];
+  if (grub_isdigit (args[1][0]))
+    out_dev[0] = args[1][0];
+
+  f_mount (&in_fs, in_dev, 0);
+  if (in_dev[0] == out_dev[0])
+  {
+    /* rename */
+    res = f_rename (args[0], args[1]);
+    if (res)
+      return grub_error (GRUB_ERR_WRITE_ERROR, "mv failed %d", res);
+    f_mount(0, in_dev, 0);
+    return GRUB_ERR_NONE;
+  }
+
+  f_mount (&out_fs, out_dev, 0);
+  res = copy_file (args[0], args[1]);
+  if (res)
+    grub_error (GRUB_ERR_WRITE_ERROR, "copy failed %d", res);
+  else
+    res = f_unlink (args[0]);
+
+  f_mount(0, in_dev, 0);
+  f_mount(0, out_dev, 0);
+  if (res)
+    return grub_error (GRUB_ERR_WRITE_ERROR, "rm failed %d", res);
+  return GRUB_ERR_NONE;
+}
+
+static grub_command_t cmd_mount, cmd_umount, cmd_mkdir;
+static grub_command_t cmd_cp, cmd_rename, cmd_rm, cmd_mv;
 
 GRUB_MOD_INIT(fatfs)
 {
@@ -212,8 +295,14 @@ GRUB_MOD_INIT(fatfs)
                                       N_("FILE1 FILE2"),
                                       N_("Copy file."));
   cmd_rename = grub_register_command ("rename", grub_cmd_rename,
-                                      N_("FILE FILE_NAME"),
-                                      N_("Renames a file or sub-directory and can also move it to other directory in the same volume."));
+                        N_("FILE FILE_NAME"),
+                        N_("Rename file/directory or move to other directory"));
+  cmd_rm = grub_register_command ("rm", grub_cmd_rm,
+                        N_("FILE | DIR"),
+                        N_("Remove a file or empty directory."));
+  cmd_mv = grub_register_command ("mv", grub_cmd_mv,
+                        N_("FILE1 FILE2"),
+                        N_("Move or rename file."));
 }
 
 GRUB_MOD_FINI(fatfs)
@@ -223,4 +312,6 @@ GRUB_MOD_FINI(fatfs)
   grub_unregister_command (cmd_mkdir);
   grub_unregister_command (cmd_cp);
   grub_unregister_command (cmd_rename);
+  grub_unregister_command (cmd_rm);
+  grub_unregister_command (cmd_mv);
 }
