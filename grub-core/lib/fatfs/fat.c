@@ -23,6 +23,7 @@
 #include <grub/command.h>
 #include <grub/i18n.h>
 #include <grub/disk.h>
+#include <grub/file.h>
 #include <grub/partition.h>
 #include <grub/datetime.h>
 
@@ -30,6 +31,12 @@
 #include "diskio.h"
 
 GRUB_MOD_LICENSE ("GPLv3+");
+
+static inline int
+label_isdigit (int c)
+{
+  return (c >= '1' && c <= '9');
+}
 
 static grub_err_t
 grub_cmd_mount (grub_command_t cmd __attribute__ ((unused)),
@@ -42,7 +49,7 @@ grub_cmd_mount (grub_command_t cmd __attribute__ ((unused)),
   if (argc == 1 && grub_strcmp (args[0], "status") == 0)
   {
     int i;
-    for (i = 0; i < 10; i++)
+    for (i = 1; i < 10; i++)
     {
       if (!fat_stat[i].disk)
         continue;
@@ -58,7 +65,7 @@ grub_cmd_mount (grub_command_t cmd __attribute__ ((unused)),
   if (argc != 2)
     return grub_error (GRUB_ERR_BAD_ARGUMENT, "bad argument");
   num = grub_strtoul (args[1], NULL, 10);
-  if (num > 9)
+  if (num > 9 || num == 0)
     return grub_error (GRUB_ERR_BAD_ARGUMENT, "invalid number");
   namelen = grub_strlen (args[0]);
   if ((args[0][0] == '(') && (args[0][namelen - 1] == ')'))
@@ -94,7 +101,7 @@ grub_cmd_umount (grub_command_t cmd __attribute__ ((unused)),
   if (argc != 1)
     return grub_error (GRUB_ERR_BAD_ARGUMENT, "bad argument");
   num = grub_strtoul (args[0], NULL, 10);
-  if (num > 9)
+  if (num > 9 || num == 0)
     return grub_error (GRUB_ERR_BAD_ARGUMENT, "invalid number");
 
   if (fat_stat[num].disk)
@@ -111,12 +118,12 @@ grub_cmd_mkdir (grub_command_t cmd __attribute__ ((unused)),
                 int argc, char **args)
 
 {
-  char dev[3] = "0:";
+  char dev[3] = "1:";
   FATFS fs;
   FRESULT res;
   if (argc != 1)
     return grub_error (GRUB_ERR_BAD_ARGUMENT, "bad argument");
-  if (grub_isdigit (args[0][0]))
+  if (label_isdigit (args[0][0]))
     dev[0] = args[0][0];
 
   f_mount (&fs, dev, 0);
@@ -162,29 +169,74 @@ fail:
   return res;
 }
 
+static FRESULT
+copy_grub_file (char *in_name, char *out_name)
+{
+  FRESULT res;
+  BYTE buffer[4096];
+  UINT br, bw;
+  FIL out;
+  grub_file_t file = 0;
+  file = grub_file_open (in_name, GRUB_FILE_TYPE_HEXCAT
+                         | GRUB_FILE_TYPE_NO_DECOMPRESS);
+  if (!file)
+  {
+    grub_error (GRUB_ERR_BAD_FILENAME, "src open failed");
+    return FR_NO_FILE;
+  }
+  res = f_open (&out, out_name, FA_WRITE | FA_CREATE_ALWAYS);
+  if (res)
+  {
+    grub_error (GRUB_ERR_BAD_FILENAME, "dst open failed %d", res);
+    return res;
+  }
+  br = sizeof (buffer);
+  for (;;)
+  {
+    if (file->offset >= file->size)
+      break; /* eof */
+    if (file->offset + br > file->size)
+      br = file->size - file->offset;
+    grub_file_read (file, buffer, br);
+    res = f_write (&out, buffer, br, &bw);
+    if (res || bw < br)
+      break; /* error or disk full */
+  }
+  grub_file_close (file);
+  f_close(&out);
+
+  return res;
+}
+
 static grub_err_t
 grub_cmd_cp (grub_command_t cmd __attribute__ ((unused)),
              int argc, char **args)
 
 {
-  char in_dev[3] = "0:";
-  char out_dev[3] = "0:";
+  char in_dev[3] = "1:";
+  char out_dev[3] = "1:";
   FATFS in_fs, out_fs;
   FRESULT res;
 
   if (argc != 2)
     return grub_error (GRUB_ERR_BAD_ARGUMENT, "bad argument");
 
-  if (grub_isdigit (args[0][0]))
+  if (label_isdigit (args[0][0]))
     in_dev[0] = args[0][0];
-  if (grub_isdigit (args[1][0]))
+  if (label_isdigit (args[1][0]))
     out_dev[0] = args[1][0];
 
-  f_mount (&in_fs, in_dev, 0);
+  if (label_isdigit (args[0][0]))
+    f_mount (&in_fs, in_dev, 0);
   f_mount (&out_fs, out_dev, 0);
-  res = copy_file (args[0], args[1]);
 
-  f_mount(0, in_dev, 0);
+  if (label_isdigit (args[0][0]))
+    res = copy_file (args[0], args[1]);
+  else
+    res = copy_grub_file (args[0], args[1]);
+
+  if (label_isdigit (args[0][0]))
+    f_mount(0, in_dev, 0);
   f_mount(0, out_dev, 0);
   if (res)
     return grub_error (GRUB_ERR_WRITE_ERROR, "copy failed %d", res);
@@ -196,14 +248,14 @@ grub_cmd_rename (grub_command_t cmd __attribute__ ((unused)),
                  int argc, char **args)
 
 {
-  char dev[3] = "0:";
+  char dev[3] = "1:";
   FATFS fs;
   FRESULT res;
   if (argc != 2)
     return grub_error (GRUB_ERR_BAD_ARGUMENT, "bad argument");
-  if (grub_isdigit (args[0][0]))
+  if (label_isdigit (args[0][0]))
     dev[0] = args[0][0];
-  if (grub_isdigit (args[1][0]) && args[1][0] != dev[0])
+  if (label_isdigit (args[1][0]) && args[1][0] != dev[0])
     return grub_error (GRUB_ERR_BAD_ARGUMENT, "dst drive error");
 
   f_mount (&fs, dev, 0);
@@ -219,12 +271,12 @@ grub_cmd_rm (grub_command_t cmd __attribute__ ((unused)),
              int argc, char **args)
 
 {
-  char dev[3] = "0:";
+  char dev[3] = "1:";
   FATFS fs;
   FRESULT res;
   if (argc != 1)
     return grub_error (GRUB_ERR_BAD_ARGUMENT, "bad argument");
-  if (grub_isdigit (args[0][0]))
+  if (label_isdigit (args[0][0]))
     dev[0] = args[0][0];
 
   f_mount (&fs, dev, 0);
@@ -240,17 +292,17 @@ grub_cmd_mv (grub_command_t cmd __attribute__ ((unused)),
              int argc, char **args)
 
 {
-  char in_dev[3] = "0:";
-  char out_dev[3] = "0:";
+  char in_dev[3] = "1:";
+  char out_dev[3] = "1:";
   FATFS in_fs, out_fs;
   FRESULT res;
 
   if (argc != 2)
     return grub_error (GRUB_ERR_BAD_ARGUMENT, "bad argument");
 
-  if (grub_isdigit (args[0][0]))
+  if (label_isdigit (args[0][0]))
     in_dev[0] = args[0][0];
-  if (grub_isdigit (args[1][0]))
+  if (label_isdigit (args[1][0]))
     out_dev[0] = args[1][0];
 
   f_mount (&in_fs, in_dev, 0);
@@ -292,7 +344,7 @@ grub_cmd_touch (grub_command_t cmd __attribute__ ((unused)),
                 int argc, char **args)
 
 {
-  char dev[3] = "0:";
+  char dev[3] = "1:";
   struct grub_datetime tm = { 2020, 1, 1, 0, 0, 0};
   FATFS fs;
   FRESULT res;
@@ -315,7 +367,7 @@ grub_cmd_touch (grub_command_t cmd __attribute__ ((unused)),
   if (argc > 6)
     tm.second = grub_strtol (args[6], NULL, 10);
 
-  if (grub_isdigit (args[0][0]))
+  if (label_isdigit (args[0][0]))
     dev[0] = args[0][0];
 
   f_mount (&fs, dev, 0);
@@ -349,7 +401,7 @@ grub_cmd_write_file (grub_command_t cmd __attribute__ ((unused)),
                      int argc, char **args)
 
 {
-  char dev[3] = "0:";
+  char dev[3] = "1:";
   FATFS fs;
   FRESULT res;
   FIL file;
@@ -361,7 +413,7 @@ grub_cmd_write_file (grub_command_t cmd __attribute__ ((unused)),
     offset = grub_strtoul (args[2], NULL, 0);
   bw = grub_strlen (args[1]);
 
-  if (grub_isdigit (args[0][0]))
+  if (label_isdigit (args[0][0]))
     dev[0] = args[0][0];
 
   f_mount (&fs, dev, 0);
@@ -387,10 +439,10 @@ static grub_command_t cmd_mv, cmd_touch, cmd_write;
 GRUB_MOD_INIT(fatfs)
 {
   cmd_mount = grub_register_command ("mount", grub_cmd_mount,
-                                      N_("status | DISK NUM"),
+                                      N_("status | DISK NUM[1-9]"),
                                       N_("Mount FAT partition."));
   cmd_umount = grub_register_command ("umount", grub_cmd_umount,
-                                      N_("NUM"),
+                                      N_("NUM[1-9]"),
                                       N_("Unmount FAT partition."));
   cmd_mkdir = grub_register_command ("mkdir", grub_cmd_mkdir,
                                       N_("PATH"),
