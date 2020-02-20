@@ -344,9 +344,45 @@ grub_cmd_touch (grub_command_t cmd __attribute__ ((unused)),
   return GRUB_ERR_NONE;
 }
 
+static grub_err_t
+grub_cmd_write_file (grub_command_t cmd __attribute__ ((unused)),
+                     int argc, char **args)
+
+{
+  char dev[3] = "0:";
+  FATFS fs;
+  FRESULT res;
+  FIL file;
+  FSIZE_t offset = 0;
+  UINT bw;
+  if (argc < 2)
+    return grub_error (GRUB_ERR_BAD_ARGUMENT, "bad argument");
+  if (argc == 3)
+    offset = grub_strtoul (args[2], NULL, 0);
+  bw = grub_strlen (args[1]);
+
+  if (grub_isdigit (args[0][0]))
+    dev[0] = args[0][0];
+
+  f_mount (&fs, dev, 0);
+  res = f_open (&file, args[0], FA_WRITE | FA_OPEN_EXISTING);
+  if (res)
+    return grub_error (GRUB_ERR_WRITE_ERROR, "file open failed %d", res);
+  res = f_lseek (&file, offset);
+  if (!res)
+    res = f_write (&file, args[1], bw, &bw);
+
+  f_close(&file);
+  f_mount(0, dev, 0);
+  if (res)
+    return grub_error (GRUB_ERR_WRITE_ERROR, "write failed %d", res);
+  return GRUB_ERR_NONE;
+}
+
+
 static grub_command_t cmd_mount, cmd_umount, cmd_mkdir;
 static grub_command_t cmd_cp, cmd_rename, cmd_rm;
-static grub_command_t cmd_mv, cmd_touch;
+static grub_command_t cmd_mv, cmd_touch, cmd_write;
 
 GRUB_MOD_INIT(fatfs)
 {
@@ -374,6 +410,9 @@ GRUB_MOD_INIT(fatfs)
   cmd_touch = grub_register_command ("touch", grub_cmd_touch,
                         N_("FILE [YEAR MONTH DAY HOUR MINUTE SECOND]"),
                         N_("Change the timestamp of a file or directory."));
+  cmd_write = grub_register_command ("write_file", grub_cmd_write_file,
+                        N_("FILE STRING [OFFSET]"),
+                        N_("Write strings to file."));
 }
 
 GRUB_MOD_FINI(fatfs)
@@ -386,4 +425,5 @@ GRUB_MOD_FINI(fatfs)
   grub_unregister_command (cmd_rm);
   grub_unregister_command (cmd_mv);
   grub_unregister_command (cmd_touch);
+  grub_unregister_command (cmd_write);
 }
