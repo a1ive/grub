@@ -24,6 +24,7 @@
 #include <grub/i18n.h>
 #include <grub/disk.h>
 #include <grub/partition.h>
+#include <grub/datetime.h>
 
 #include "ff.h"
 #include "diskio.h"
@@ -277,8 +278,75 @@ grub_cmd_mv (grub_command_t cmd __attribute__ ((unused)),
   return GRUB_ERR_NONE;
 }
 
+static FRESULT
+set_timestamp (char *name, struct grub_datetime *tm)
+{
+    FILINFO info;
+    info.fdate = (WORD)(((tm->year - 1980) * 512U) | tm->month * 32U | tm->day);
+    info.ftime = (WORD)(tm->hour * 2048U | tm->minute * 32U | tm->second / 2U);
+    return f_utime(name, &info);
+}
+
+static grub_err_t
+grub_cmd_touch (grub_command_t cmd __attribute__ ((unused)),
+                int argc, char **args)
+
+{
+  char dev[3] = "0:";
+  struct grub_datetime tm = { 2020, 1, 1, 0, 0, 0};
+  FATFS fs;
+  FRESULT res;
+  FILINFO info;
+  FIL file;
+  if (argc < 1)
+    return grub_error (GRUB_ERR_BAD_ARGUMENT, "bad argument");
+
+  grub_get_datetime (&tm);
+  if (argc > 1)
+    tm.year = grub_strtol (args[1], NULL, 10);
+  if (argc > 2)
+    tm.month = grub_strtol (args[2], NULL, 10);
+  if (argc > 3)
+    tm.day = grub_strtol (args[3], NULL, 10);
+  if (argc > 4)
+    tm.hour = grub_strtol (args[4], NULL, 10);
+  if (argc > 5)
+    tm.minute = grub_strtol (args[5], NULL, 10);
+  if (argc > 6)
+    tm.second = grub_strtol (args[6], NULL, 10);
+
+  if (grub_isdigit (args[0][0]))
+    dev[0] = args[0][0];
+
+  f_mount (&fs, dev, 0);
+  res = f_stat (args[0], &info);
+  switch (res)
+  {
+    case FR_OK:
+      res = set_timestamp (args[0], &tm);
+      break;
+    case FR_NO_FILE:
+      res = f_open (&file, args[0], FA_WRITE | FA_CREATE_ALWAYS);
+      if (res)
+        grub_error (GRUB_ERR_WRITE_ERROR, "file create failed %d", res);
+      else
+      {
+        f_close(&file);
+        res = set_timestamp (args[0], &tm);
+      }
+      break;
+    default:
+      grub_error (GRUB_ERR_BAD_FILENAME, "stat failed %d", res);
+  }
+  f_mount(0, dev, 0);
+  if (res)
+    return grub_error (GRUB_ERR_WRITE_ERROR, "utime failed %d", res);
+  return GRUB_ERR_NONE;
+}
+
 static grub_command_t cmd_mount, cmd_umount, cmd_mkdir;
-static grub_command_t cmd_cp, cmd_rename, cmd_rm, cmd_mv;
+static grub_command_t cmd_cp, cmd_rename, cmd_rm;
+static grub_command_t cmd_mv, cmd_touch;
 
 GRUB_MOD_INIT(fatfs)
 {
@@ -303,6 +371,9 @@ GRUB_MOD_INIT(fatfs)
   cmd_mv = grub_register_command ("mv", grub_cmd_mv,
                         N_("FILE1 FILE2"),
                         N_("Move or rename file."));
+  cmd_touch = grub_register_command ("touch", grub_cmd_touch,
+                        N_("FILE [YEAR MONTH DAY HOUR MINUTE SECOND]"),
+                        N_("Change the timestamp of a file or directory."));
 }
 
 GRUB_MOD_FINI(fatfs)
@@ -314,4 +385,5 @@ GRUB_MOD_FINI(fatfs)
   grub_unregister_command (cmd_rename);
   grub_unregister_command (cmd_rm);
   grub_unregister_command (cmd_mv);
+  grub_unregister_command (cmd_touch);
 }
