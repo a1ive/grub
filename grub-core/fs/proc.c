@@ -44,7 +44,8 @@ grub_procdev_open (const char *name, grub_disk_t disk)
   if (grub_strcmp (name, "proc"))
       return grub_error (GRUB_ERR_UNKNOWN_DEVICE, "not a procfs disk");
 
-  disk->total_sectors = 0;
+  disk->total_sectors = GRUB_UINT_MAX;
+  disk->max_agglomerate = GRUB_DISK_MAX_MAX_AGGLOMERATE;
   disk->id = 0;
 
   disk->data = 0;
@@ -59,11 +60,12 @@ grub_procdev_close (grub_disk_t disk __attribute((unused)))
 
 static grub_err_t
 grub_procdev_read (grub_disk_t disk __attribute((unused)),
-		grub_disk_addr_t sector __attribute((unused)),
-		grub_size_t size __attribute((unused)),
-		char *buf __attribute((unused)))
+		grub_disk_addr_t sector __attribute ((unused)),
+		grub_size_t size,
+		char *buf)
 {
-  return GRUB_ERR_OUT_OF_RANGE;
+  grub_memset (buf, 0, size << GRUB_DISK_SECTOR_BITS);
+  return 0;
 }
 
 static grub_err_t
