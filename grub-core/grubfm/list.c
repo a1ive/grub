@@ -36,6 +36,7 @@ grubfm_add_menu_parent (const char *dirname)
 {
   char *parent_dir = NULL;
   char *src = NULL;
+  char *title = NULL;
   parent_dir = grub_strdup (dirname);
   *grub_strrchr (parent_dir, '/') = 0;
   if (grub_strrchr (parent_dir, '/'))
@@ -46,11 +47,13 @@ grubfm_add_menu_parent (const char *dirname)
     src = grub_xasprintf ("grubfm \"%s/\"", parent_dir);
   else
     src = grub_xasprintf ("grubfm");
-
-  grubfm_add_menu (_(".."), "go-previous", NULL, src, 0);
+  title = grub_xasprintf ("%s..", dirname);
+  grubfm_add_menu (title, "go-previous", NULL, src, 0);
   grub_free (src);
   if (parent_dir)
     grub_free (parent_dir);
+  if (title)
+    grub_free (title);
 }
 
 static void
