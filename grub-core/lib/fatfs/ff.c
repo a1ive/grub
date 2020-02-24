@@ -18,7 +18,7 @@
 /
 /----------------------------------------------------------------------------*/
 
-
+#include <grub/misc.h>
 #include "ff.h"			/* Declarations of FatFs API */
 #include "diskio.h"		/* Declarations of device I/O functions */
 
@@ -550,7 +550,13 @@ static WCHAR LfnBuf[FF_MAX_LFN + 1];		/* LFN working buffer */
 #endif	/* FF_USE_LFN == 1 */
 #endif	/* FF_USE_LFN == 0 */
 
-
+static grub_uint64_t
+divmod64_mod (grub_uint64_t n, grub_uint64_t d)
+{
+  grub_uint64_t mod = 0;
+  grub_divmod64 (n, d, &mod);
+  return mod;
+}
 
 /*--------------------------------*/
 /* Code conversion tables         */
@@ -1215,7 +1221,8 @@ static DWORD get_fat (		/* 0xFFFFFFFF:Disk error, 1:Internal error, 2..0x7FFFFFF
 		case FS_EXFAT :
 			if ((obj->objsize != 0 && obj->sclust != 0) || obj->stat == 0) {	/* Object except root dir must have valid data length */
 				DWORD cofs = clst - obj->sclust;	/* Offset from start cluster */
-				DWORD clen = (DWORD)((LBA_t)((obj->objsize - 1) / SS(fs)) / fs->csize);	/* Number of clusters - 1 */
+				DWORD clen = (DWORD)((LBA_t)
+                  grub_divmod64 (grub_divmod64 (obj->objsize - 1, SS(fs), NULL), fs->csize, NULL));	/* Number of clusters - 1 */
 
 				if (obj->stat == 2 && cofs <= clen) {	/* Is it a contiguous chain? */
 					val = (cofs == clen) ? 0x7FFFFFFF : clst + 1;	/* No data on the FAT, generate the value */
@@ -1652,7 +1659,7 @@ static DWORD clmt_clust (	/* <2:Error, >=2:Cluster number */
 
 
 	tbl = fp->cltbl + 1;	/* Top of CLMT */
-	cl = (DWORD)(ofs / SS(fs) / fs->csize);	/* Cluster order from top of the file */
+	cl = (DWORD)(grub_divmod64 (ofs, SS(fs), NULL) / fs->csize);	/* Cluster order from top of the file */
 	for (;;) {
 		ncl = *tbl++;			/* Number of cluters in the fragment */
 		if (ncl == 0) return 0;	/* End of table? (error) */
@@ -3130,7 +3137,7 @@ static FRESULT follow_path (	/* FR_OK(0): successful, !=0: error code */
 			} else
 #endif
 			{
-				dp->obj.sclust = ld_clust(fs, fs->win + dp->dptr % SS(fs));	/* Open next directory */
+				dp->obj.sclust = ld_clust(fs, fs->win + divmod64_mod (dp->dptr,  SS(fs)));	/* Open next directory */
 			}
 		}
 	}
@@ -3851,12 +3858,12 @@ FRESULT f_open (
 					if (clst == 0xFFFFFFFF) res = FR_DISK_ERR;
 				}
 				fp->clust = clst;
-				if (res == FR_OK && ofs % SS(fs)) {	/* Fill sector buffer if not on the sector boundary */
+				if (res == FR_OK && divmod64_mod (ofs, SS(fs))) {	/* Fill sector buffer if not on the sector boundary */
 					sc = clst2sect(fs, clst);
 					if (sc == 0) {
 						res = FR_INT_ERR;
 					} else {
-						fp->sect = sc + (DWORD)(ofs / SS(fs));
+						fp->sect = sc + (DWORD)(grub_divmod64 (ofs, SS(fs), NULL));
 #if !FF_FS_TINY
 						if (disk_read(fs->pdrv, fp->buf, fp->sect, 1) != RES_OK) res = FR_DISK_ERR;
 #endif
@@ -3906,8 +3913,8 @@ FRESULT f_read (
 
 	for ( ;  btr;								/* Repeat until btr bytes read */
 		btr -= rcnt, *br += rcnt, rbuff += rcnt, fp->fptr += rcnt) {
-		if (fp->fptr % SS(fs) == 0) {			/* On the sector boundary? */
-			csect = (UINT)(fp->fptr / SS(fs) & (fs->csize - 1));	/* Sector offset in the cluster */
+		if (divmod64_mod (fp->fptr, SS(fs)) == 0) {			/* On the sector boundary? */
+			csect = (UINT)(grub_divmod64 (fp->fptr, SS(fs), NULL) & (fs->csize - 1));	/* Sector offset in the cluster */
 			if (csect == 0) {					/* On the cluster boundary? */
 				if (fp->fptr == 0) {			/* On the top of the file? */
 					clst = fp->obj.sclust;		/* Follow cluster chain from the origin */
@@ -3961,13 +3968,13 @@ FRESULT f_read (
 #endif
 			fp->sect = sect;
 		}
-		rcnt = SS(fs) - (UINT)fp->fptr % SS(fs);	/* Number of bytes remains in the sector */
+		rcnt = SS(fs) - (UINT)divmod64_mod (fp->fptr, SS(fs));	/* Number of bytes remains in the sector */
 		if (rcnt > btr) rcnt = btr;					/* Clip it by btr if needed */
 #if FF_FS_TINY
 		if (move_window(fs, fp->sect) != FR_OK) ABORT(fs, FR_DISK_ERR);	/* Move sector window */
-		mem_cpy(rbuff, fs->win + fp->fptr % SS(fs), rcnt);	/* Extract partial sector */
+		mem_cpy(rbuff, fs->win + divmod64_mod (fp->fptr, SS(fs)), rcnt);	/* Extract partial sector */
 #else
-		mem_cpy(rbuff, fp->buf + fp->fptr % SS(fs), rcnt);	/* Extract partial sector */
+		mem_cpy(rbuff, fp->buf + divmod64_mod (fp->fptr, SS(fs)), rcnt);	/* Extract partial sector */
 #endif
 	}
 
@@ -4009,8 +4016,8 @@ FRESULT f_write (
 
 	for ( ;  btw;							/* Repeat until all data written */
 		btw -= wcnt, *bw += wcnt, wbuff += wcnt, fp->fptr += wcnt, fp->obj.objsize = (fp->fptr > fp->obj.objsize) ? fp->fptr : fp->obj.objsize) {
-		if (fp->fptr % SS(fs) == 0) {		/* On the sector boundary? */
-			csect = (UINT)(fp->fptr / SS(fs)) & (fs->csize - 1);	/* Sector offset in the cluster */
+		if (divmod64_mod (fp->fptr, SS(fs)) == 0) {		/* On the sector boundary? */
+			csect = (UINT)grub_divmod64(fp->fptr, SS(fs), NULL) & (fs->csize - 1);	/* Sector offset in the cluster */
 			if (csect == 0) {				/* On the cluster boundary? */
 				if (fp->fptr == 0) {		/* On the top of the file? */
 					clst = fp->obj.sclust;	/* Follow from the origin */
@@ -4080,14 +4087,14 @@ FRESULT f_write (
 #endif
 			fp->sect = sect;
 		}
-		wcnt = SS(fs) - (UINT)fp->fptr % SS(fs);	/* Number of bytes remains in the sector */
+		wcnt = SS(fs) - (UINT)divmod64_mod (fp->fptr, SS(fs));	/* Number of bytes remains in the sector */
 		if (wcnt > btw) wcnt = btw;					/* Clip it by btw if needed */
 #if FF_FS_TINY
 		if (move_window(fs, fp->sect) != FR_OK) ABORT(fs, FR_DISK_ERR);	/* Move sector window */
-		mem_cpy(fs->win + fp->fptr % SS(fs), wbuff, wcnt);	/* Fit data to the sector */
+		mem_cpy(fs->win + divmod64_mod (fp->fptr, SS(fs)), wbuff, wcnt);	/* Fit data to the sector */
 		fs->wflag = 1;
 #else
-		mem_cpy(fp->buf + fp->fptr % SS(fs), wbuff, wcnt);	/* Fit data to the sector */
+		mem_cpy(fp->buf + divmod64_mod (fp->fptr, SS(fs)), wbuff, wcnt);	/* Fit data to the sector */
 		fp->flag |= FA_DIRTY;
 #endif
 	}
@@ -4458,8 +4465,8 @@ FRESULT f_lseek (
 				fp->clust = clmt_clust(fp, ofs - 1);
 				dsc = clst2sect(fs, fp->clust);
 				if (dsc == 0) ABORT(fs, FR_INT_ERR);
-				dsc += (DWORD)((ofs - 1) / SS(fs)) & (fs->csize - 1);
-				if (fp->fptr % SS(fs) && dsc != fp->sect) {	/* Refill sector cache if needed */
+				dsc += (DWORD)(grub_divmod64 ((ofs - 1), SS(fs), NULL) & (fs->csize - 1);
+				if (divmod64_mod (fp->fptr, SS(fs)) && dsc != fp->sect) {	/* Refill sector cache if needed */
 #if !FF_FS_TINY
 #if !FF_FS_READONLY
 					if (fp->flag & FA_DIRTY) {		/* Write-back dirty sector cache */
@@ -4489,7 +4496,7 @@ FRESULT f_lseek (
 		if (ofs > 0) {
 			bcs = (DWORD)fs->csize * SS(fs);	/* Cluster size (byte) */
 			if (ifptr > 0 &&
-				(ofs - 1) / bcs >= (ifptr - 1) / bcs) {	/* When seek to same or following cluster, */
+				grub_divmod64 (ofs - 1, bcs, NULL) >= grub_divmod64 (ifptr - 1, bcs, NULL)) {	/* When seek to same or following cluster, */
 				fp->fptr = (ifptr - 1) & ~(FSIZE_t)(bcs - 1);	/* start from the current cluster */
 				ofs -= fp->fptr;
 				clst = fp->clust;
@@ -4528,10 +4535,10 @@ FRESULT f_lseek (
 					fp->clust = clst;
 				}
 				fp->fptr += ofs;
-				if (ofs % SS(fs)) {
+				if (divmod64_mod (ofs, SS(fs))) {
 					nsect = clst2sect(fs, clst);	/* Current sector */
 					if (nsect == 0) ABORT(fs, FR_INT_ERR);
-					nsect += (DWORD)(ofs / SS(fs));
+					nsect += (DWORD)(grub_divmod64 (ofs, SS(fs), NULL));
 				}
 			}
 		}
@@ -4539,7 +4546,7 @@ FRESULT f_lseek (
 			fp->obj.objsize = fp->fptr;
 			fp->flag |= FA_MODIFIED;
 		}
-		if (fp->fptr % SS(fs) && nsect != fp->sect) {	/* Fill sector cache if needed */
+		if (divmod64_mod (fp->fptr, SS(fs)) && nsect != fp->sect) {	/* Fill sector cache if needed */
 #if !FF_FS_TINY
 #if !FF_FS_READONLY
 			if (fp->flag & FA_DIRTY) {			/* Write-back dirty sector cache */
@@ -5537,7 +5544,7 @@ FRESULT f_expand (
 	if (fs->fs_type != FS_EXFAT && fsz >= 0x100000000) LEAVE_FF(fs, FR_DENIED);	/* Check if in size limit */
 #endif
 	n = (DWORD)fs->csize * SS(fs);	/* Cluster size */
-	tcl = (DWORD)(fsz / n) + ((fsz & (n - 1)) ? 1 : 0);	/* Number of clusters required */
+	tcl = (DWORD)grub_divmod64(fsz, n, NULL) + ((fsz & (n - 1)) ? 1 : 0);	/* Number of clusters required */
 	stcl = fs->last_clst; lclst = 0;
 	if (stcl < 2 || stcl >= fs->n_fatent) stcl = 2;
 
@@ -5635,8 +5642,8 @@ FRESULT f_forward (
 
 	for ( ;  btf && (*func)(0, 0);					/* Repeat until all data transferred or stream goes busy */
 		fp->fptr += rcnt, *bf += rcnt, btf -= rcnt) {
-		csect = (UINT)(fp->fptr / SS(fs) & (fs->csize - 1));	/* Sector offset in the cluster */
-		if (fp->fptr % SS(fs) == 0) {				/* On the sector boundary? */
+		csect = (UINT)grub_divmod64 (fp->fptr, SS(fs) & (fs->csize - 1), NULL);	/* Sector offset in the cluster */
+		if (divmod64_mod (fp->fptr, SS(fs)) == 0) {				/* On the sector boundary? */
 			if (csect == 0) {						/* On the cluster boundary? */
 				clst = (fp->fptr == 0) ?			/* On the top of the file? */
 					fp->obj.sclust : get_fat(&fp->obj, fp->clust);
@@ -5731,7 +5738,7 @@ static FRESULT create_partition (
 				s_lba64 = (s_lba64 + align - 1) & ((QWORD)0 - align);	/* Align partition start */
 				n_lba64 = plst[si++];	/* Get a partition size */
 				if (n_lba64 <= 100) {	/* Is the size in percentage? */
-					n_lba64 = sz_pool * n_lba64 / 100;
+					n_lba64 = grub_divmod64 (sz_pool * n_lba64, 100, NULL);
 					n_lba64 = (n_lba64 + align - 1) & ((QWORD)0 - align);	/* Align partition end (only if in percentage) */
 				}
 				if (s_lba64 + n_lba64 > s_bpt) {	/* Clip at end of the pool */
