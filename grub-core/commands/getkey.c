@@ -26,10 +26,10 @@
 GRUB_MOD_LICENSE ("GPLv3+");
 
 static const struct grub_arg_option options[] =
-  {
-    {0, 'n', 0, N_("grub_getkey_noblock"), 0, 0},
-    {0, 0, 0, 0, 0, 0}
-  };
+{
+  {0, 'n', 0, N_("grub_getkey_noblock"), 0, 0},
+  {0, 0, 0, 0, 0, 0}
+};
 
 static grub_err_t
 grub_cmd_getkey (grub_extcmd_context_t ctxt, int argc, char **args)
@@ -43,12 +43,15 @@ grub_cmd_getkey (grub_extcmd_context_t ctxt, int argc, char **args)
   else
     key = grub_getkey ();
 
-  grub_printf ("0x%08x\n", key);
   if (argc == 1)
-    {
-      grub_snprintf (keyenv, 20, "%d", key);
-      grub_env_set (args[0], keyenv);
-    }
+  {
+    grub_snprintf (keyenv, 20, "%d", key);
+    grub_env_set (args[0], keyenv);
+  }
+  else
+  {
+    grub_printf ("0x%08x\n", key);
+  }
   return GRUB_ERR_NONE;
 }
 
@@ -56,12 +59,10 @@ static grub_extcmd_t cmd;
 
 GRUB_MOD_INIT(getkey)
 {
-  cmd = grub_register_extcmd ("getkey", grub_cmd_getkey,
-			      GRUB_COMMAND_ACCEPT_DASH
-			      | GRUB_COMMAND_OPTIONS_AT_START,
-			       N_("[-n] [VARNAME]"),
-			       N_("Return the value of the pressed key. "),
-			       options);
+  cmd = grub_register_extcmd ("getkey", grub_cmd_getkey, 0,
+                              N_("[-n] [VARNAME]"),
+                              N_("Return the value of the pressed key. "),
+                              options);
 }
 
 GRUB_MOD_FINI(getkey)
