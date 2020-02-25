@@ -42,10 +42,10 @@ static const struct grub_arg_option options[] =
   {"str", 's', 0, N_("Specify input string."), "STRING", ARG_TYPE_STRING},
   {"hex", 'x', 0, N_("Specify input hex string."), "HEX", ARG_TYPE_STRING},
   {"of", 'o', 0, N_("Specify output file."), "FILE", ARG_TYPE_STRING},
-  {"bs", 'b', 0, N_("Specify block size."), "BYTES", ARG_TYPE_INT},
+  {"bs", 'b', 0, N_("Specify block size (1~4096)."), "BYTES", ARG_TYPE_INT},
   {"count", 'c', 0, N_("Number of blocks to copy."), "BLOCKS", ARG_TYPE_INT},
-  {"skip", 'k', 0, N_("Skip N blocks at input."), "BLOCKS", ARG_TYPE_INT},
-  {"seek", 'e', 0, N_("Skip N blocks at output."), "BLOCKS", ARG_TYPE_INT},
+  {"skip", 'k', 0, N_("Skip N bytes at input."), "BYTES", ARG_TYPE_INT},
+  {"seek", 'e', 0, N_("Skip N bytes at output."), "BYTES", ARG_TYPE_INT},
   {0, 0, 0, 0, 0, 0}
 };
 
@@ -66,7 +66,7 @@ grub_cmd_dd (grub_extcmd_context_t ctxt, int argc __attribute__ ((unused)),
              char **args __attribute__ ((unused)))
 {
   struct grub_arg_list *state = ctxt->state;
-  grub_uint8_t data[GRUB_DISK_SECTOR_SIZE];
+  grub_uint8_t data[4096];
   /* input */
   char *str = NULL;
   char *hexstr = NULL;
@@ -184,7 +184,7 @@ grub_cmd_dd (grub_extcmd_context_t ctxt, int argc __attribute__ ((unused)),
   if (state[DD_BS].set)
   {
     bs = grub_strtoul (state[DD_BS].arg, 0, 0);
-    if (! bs || bs > GRUB_DISK_SECTOR_SIZE)
+    if (! bs || bs > 4096)
       return grub_error (GRUB_ERR_BAD_ARGUMENT, "invalid block size");
   }
 
