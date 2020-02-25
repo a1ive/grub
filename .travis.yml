@@ -27,15 +27,15 @@ branches:
 env:
   global:
     # Include all cross toolchain paths, so we can just call them later down.
-    - PATH=/usr/bin:/bin:/tmp/cross/gcc-8.1.0-nolibc/aarch64-linux/bin:/tmp/cross/gcc-8.1.0-nolibc/arm-linux-gnueabi/bin:/tmp/cross/gcc-8.1.0-nolibc/ia64-linux/bin:/tmp/cross/gcc-8.1.0-nolibc/mips64-linux/bin:/tmp/cross/gcc-8.1.0-nolibc/powerpc64-linux/bin:/tmp/cross/gcc-8.1.0-nolibc/riscv32-linux/bin:/tmp/cross/gcc-8.1.0-nolibc/riscv64-linux/bin:/tmp/cross/gcc-8.1.0-nolibc/sparc64-linux/bin
+    - PATH=/usr/bin:/bin:/tmp/cross/gcc-9.2.0-nolibc/aarch64-linux/bin:/tmp/cross/gcc-9.2.0-nolibc/arm-linux-gnueabi/bin:/tmp/cross/gcc-9.2.0-nolibc/ia64-linux/bin:/tmp/cross/gcc-9.2.0-nolibc/mips64-linux/bin:/tmp/cross/gcc-9.2.0-nolibc/powerpc64-linux/bin:/tmp/cross/gcc-9.2.0-nolibc/riscv32-linux/bin:/tmp/cross/gcc-9.2.0-nolibc/riscv64-linux/bin:/tmp/cross/gcc-9.2.0-nolibc/sparc64-linux/bin
 
 
 before_script:
   # Install necessary toolchains based on $CROSS_TARGETS variable.
   - mkdir /tmp/cross
-  # These give us binaries like /tmp/cross/gcc-8.1.0-nolibc/ia64-linux/bin/ia64-linux-gcc
+  # These give us binaries like /tmp/cross/gcc-9.2.0-nolibc/ia64-linux/bin/ia64-linux-gcc
   - for i in $CROSS_TARGETS; do
-        ( cd /tmp/cross; wget -t 3 -O - https://mirrors.kernel.org/pub/tools/crosstool/files/bin/x86_64/8.1.0/x86_64-gcc-8.1.0-nolibc-$i.tar.xz | tar xJ );
+        ( cd /tmp/cross; wget -t 3 -O - https://mirrors.kernel.org/pub/tools/crosstool/files/bin/x86_64/9.2.0/x86_64-gcc-9.2.0-nolibc-$i.tar.xz | tar xJ );
     done
 
 script:

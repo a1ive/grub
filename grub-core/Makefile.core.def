@@ -1111,7 +1111,6 @@ module = {
   cflags = '$(CFLAGS_POSIX)';
   cppflags = '$(CPPFLAGS_POSIX)';
   pci_cppflags = '$(CPPFLAGS_POSIX) -DENABLE_LUA_PCI';
-  enable = x86;
 };
 
 module = {

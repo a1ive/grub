@@ -18,8 +18,8 @@ jobs:
       run: |
         mkdir /tmp/cross
         cd /tmp/cross
-        wget -t 3 -O - https://mirrors.kernel.org/pub/tools/crosstool/files/bin/x86_64/8.1.0/x86_64-gcc-8.1.0-nolibc-aarch64-linux.tar.xz | tar xJ
-        wget -t 3 -O - https://mirrors.kernel.org/pub/tools/crosstool/files/bin/x86_64/8.1.0/x86_64-gcc-8.1.0-nolibc-arm-linux-gnueabi.tar.xz | tar xJ
+        wget -t 3 -O - https://mirrors.kernel.org/pub/tools/crosstool/files/bin/x86_64/9.2.0/x86_64-gcc-9.2.0-nolibc-aarch64-linux.tar.xz | tar xJ
+        wget -t 3 -O - https://mirrors.kernel.org/pub/tools/crosstool/files/bin/x86_64/9.2.0/x86_64-gcc-9.2.0-nolibc-arm-linux-gnueabi.tar.xz | tar xJ
     - name: bootstrap
       run: ./bootstrap
 
@@ -61,11 +61,11 @@ jobs:
 
     - name: arm64-efi configure
       run: |
-        export PATH=$PATH:/tmp/cross/gcc-8.1.0-nolibc/aarch64-linux/bin
+        export PATH=$PATH:/tmp/cross/gcc-9.2.0-nolibc/aarch64-linux/bin
         ./configure --prefix=/ --target=aarch64-linux --with-platform=efi
     - name: arm64-efi make
       run: |
-        export PATH=$PATH:/tmp/cross/gcc-8.1.0-nolibc/aarch64-linux/bin
+        export PATH=$PATH:/tmp/cross/gcc-9.2.0-nolibc/aarch64-linux/bin
         make
         make install DESTDIR=$PWD/PKG
     - name: arm64-efi clean
@@ -73,11 +73,11 @@ jobs:
 
     - name: arm-efi configure
       run: |
-        export PATH=$PATH:/tmp/cross/gcc-8.1.0-nolibc/arm-linux-gnueabi/bin
+        export PATH=$PATH:/tmp/cross/gcc-9.2.0-nolibc/arm-linux-gnueabi/bin
         ./configure --prefix=/ --target=arm-linux-gnueabi --with-platform=efi
     - name: arm-efi make
       run: |
-        export PATH=$PATH:/tmp/cross/gcc-8.1.0-nolibc/arm-linux-gnueabi/bin
+        export PATH=$PATH:/tmp/cross/gcc-9.2.0-nolibc/arm-linux-gnueabi/bin
         make
         make install DESTDIR=$PWD/PKG
     - name: arm-efi clean
