@@ -81,7 +81,7 @@ EXPORT_FUNC(grub_fshelp_find_file_lookup) (const char *path,
 grub_ssize_t
 EXPORT_FUNC(grub_fshelp_read_file) (grub_disk_t disk, grub_fshelp_node_t node,
 				    grub_disk_read_hook_t read_hook,
-				    void *read_hook_data,
+				    void *read_hook_data, int blocklist,
 				    grub_off_t pos, grub_size_t len, char *buf,
 				    grub_disk_addr_t (*get_block) (grub_fshelp_node_t node,
                                                                    grub_disk_addr_t block),

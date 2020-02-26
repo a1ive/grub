@@ -622,7 +622,7 @@ grub_xfs_read_file (grub_fshelp_node_t node,
 		    grub_off_t pos, grub_size_t len, char *buf, grub_uint32_t header_size)
 {
   return grub_fshelp_read_file (node->data->disk, node,
-				read_hook, read_hook_data,
+				read_hook, read_hook_data, 0,
 				pos, len, buf, grub_xfs_read_block,
 				grub_be_to_cpu64 (node->inode.size) + header_size,
 				node->data->sblock.log2_bsize

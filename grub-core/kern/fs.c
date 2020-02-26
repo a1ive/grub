@@ -335,8 +335,17 @@ grub_blocklist_convert (grub_file_t file)
   c.part_start = grub_partition_get_start (file->device->disk->partition);
   file->read_hook = read_blocklist;
   file->read_hook_data = &c;
-  while (grub_file_read (file, buf, sizeof (buf)) > 0)
-    ;
+  if (file->fs && file->fs->fast_blocklist)
+  {
+    file->blocklist = 1;
+    grub_file_read (file, 0, file->size);
+    file->blocklist = 0;
+  }
+  else
+  {
+    while (grub_file_read (file, buf, sizeof (buf)) > 0)
+      ;
+  }
   file->read_hook = 0;
   if ((grub_errno) || (c.total_size != file->size))
     {

@@ -170,6 +170,8 @@ struct grub_file
 
   /* Caller-specific data passed to the read hook.  */
   void *read_hook_data;
+
+  int blocklist;
 };
 typedef struct grub_file *grub_file_t;
 

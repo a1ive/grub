@@ -399,7 +399,7 @@ grub_qnx6_read_file(grub_fshelp_node_t node,
                     grub_off_t pos, grub_size_t len, char *buf)
 {
    return grub_fshelp_read_file(node->data->disk, node,
-                                read_hook, read_hook_data,
+                                read_hook, read_hook_data, 0,
                                 pos, len, buf,
                                 grub_qnx6_get_block,
                                 grub_le_to_cpu32(node->inode.raw.di_size),

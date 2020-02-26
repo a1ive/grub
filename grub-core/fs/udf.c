@@ -619,7 +619,7 @@ grub_udf_read_file (grub_fshelp_node_t node,
     }
 
   return grub_fshelp_read_file (node->data->disk, node,
-				read_hook, read_hook_data,
+				read_hook, read_hook_data, 0,
 				pos, len, buf, grub_udf_read_block,
 				U64 (node->block.fe.file_size),
 				node->data->lbshift, 0);

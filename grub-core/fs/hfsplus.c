@@ -216,7 +216,7 @@ grub_hfsplus_read_file (grub_fshelp_node_t node,
 			grub_off_t pos, grub_size_t len, char *buf)
 {
   return grub_fshelp_read_file (node->data->disk, node,
-				read_hook, read_hook_data,
+				read_hook, read_hook_data, 0,
 				pos, len, buf, grub_hfsplus_read_block,
 				node->size,
 				node->data->log2blksize - GRUB_DISK_SECTOR_BITS,

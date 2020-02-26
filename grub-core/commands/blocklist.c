@@ -135,8 +135,16 @@ grub_cmd_blocklist (grub_command_t cmd __attribute__ ((unused)),
   file->read_hook = read_blocklist;
   file->read_hook_data = &ctx;
 
-  while (grub_file_read (file, buf, sizeof (buf)) > 0)
-    ;
+  if (file->fs && file->fs->fast_blocklist)
+  {
+    file->blocklist = 1;
+    grub_file_read (file, 0, file->size);
+  }
+  else
+  {
+    while (grub_file_read (file, buf, sizeof (buf)) > 0)
+      ;
+  }
 
   if (ctx.num_sectors > 0)
     print_blocklist (ctx.start_sector, ctx.num_sectors, 0, 0, &ctx);

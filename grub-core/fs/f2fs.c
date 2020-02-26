@@ -915,7 +915,7 @@ grub_f2fs_read_file (grub_fshelp_node_t node,
     }
 
   return grub_fshelp_read_file (node->data->disk, node,
-                                read_hook, read_hook_data,
+                                read_hook, read_hook_data, 0,
                                 pos, len, buf, grub_f2fs_get_block,
                                 filesize,
                                 F2FS_BLK_SEC_BITS, 0);

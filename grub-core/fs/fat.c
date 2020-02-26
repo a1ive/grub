@@ -450,7 +450,7 @@ grub_fat_mount (grub_disk_t disk)
 
 static grub_ssize_t
 grub_fat_read_data (grub_disk_t disk, grub_fshelp_node_t node,
-		    grub_disk_read_hook_t read_hook, void *read_hook_data,
+		    grub_disk_read_hook_t read_hook, void *read_hook_data, int blocklist,
 		    grub_off_t offset, grub_size_t len, char *buf)
 {
   grub_size_t size;
@@ -468,7 +468,8 @@ grub_fat_read_data (grub_disk_t disk, grub_fshelp_node_t node,
       if (size > len)
 	size = len;
 
-      if (grub_disk_read (disk, node->data->root_sector, offset, size, buf))
+      if (grub_disk_read_ex (disk,
+            node->data->root_sector, offset, size, buf, blocklist))
 	return -1;
 
       return size;
@@ -485,8 +486,8 @@ grub_fat_read_data (grub_disk_t disk, grub_fshelp_node_t node,
 
       disk->read_hook = read_hook;
       disk->read_hook_data = read_hook_data;
-      grub_disk_read (disk, sector + (offset >> GRUB_DISK_SECTOR_BITS),
-		      offset & (GRUB_DISK_SECTOR_SIZE - 1), len, buf);
+      grub_disk_read_ex (disk, sector + (offset >> GRUB_DISK_SECTOR_BITS),
+		      offset & (GRUB_DISK_SECTOR_SIZE - 1), len, buf, blocklist);
       disk->read_hook = 0;
       if (grub_errno)
 	return -1;
@@ -577,13 +578,14 @@ grub_fat_read_data (grub_disk_t disk, grub_fshelp_node_t node,
 
       disk->read_hook = read_hook;
       disk->read_hook_data = read_hook_data;
-      grub_disk_read (disk, sector, offset, size, buf);
+      grub_disk_read_ex (disk, sector, offset, size, buf, blocklist);
       disk->read_hook = 0;
       if (grub_errno)
 	return -1;
 
       len -= size;
-      buf += size;
+      if (buf)
+        buf += size;
       ret += size;
       logical_cluster++;
       offset = 0;
@@ -646,7 +648,7 @@ grub_fat_iterate_dir_next (grub_fshelp_node_t node,
 
       ctxt->offset += sizeof (dir);
 
-      if (grub_fat_read_data (node->disk, node, 0, 0, ctxt->offset, sizeof (dir),
+      if (grub_fat_read_data (node->disk, node, 0, 0, 0, ctxt->offset, sizeof (dir),
 			      (char *) &dir)
 	   != sizeof (dir))
 	break;
@@ -668,7 +670,7 @@ grub_fat_iterate_dir_next (grub_fshelp_node_t node,
 	    {
 	      struct grub_fat_dir_entry sec;
 	      ctxt->offset += sizeof (sec);
-	      if (grub_fat_read_data (node->disk, node, 0, 0,
+	      if (grub_fat_read_data (node->disk, node, 0, 0, 0,
 				      ctxt->offset, sizeof (sec), (char *) &sec)
 		  != sizeof (sec))
 		break;
@@ -747,7 +749,7 @@ grub_fat_iterate_dir_next (grub_fshelp_node_t node,
       ctxt->offset += sizeof (ctxt->dir);
 
       /* Read a directory entry.  */
-      if (grub_fat_read_data (node->disk, node, 0, 0,
+      if (grub_fat_read_data (node->disk, node, 0, 0, 0,
 			      ctxt->offset, sizeof (ctxt->dir),
 			      (char *) &ctxt->dir)
 	   != sizeof (ctxt->dir) || ctxt->dir.name[0] == 0)
@@ -1040,7 +1042,7 @@ static grub_ssize_t
 grub_fat_read (grub_file_t file, char *buf, grub_size_t len)
 {
   return grub_fat_read_data (file->device->disk, file->data,
-			     file->read_hook, file->read_hook_data,
+			     file->read_hook, file->read_hook_data, file->blocklist,
 			     file->offset, len, buf);
 }
 
@@ -1085,7 +1087,7 @@ grub_fat_label (grub_device_t device, char **label)
     {
       offset += sizeof (dir);
 
-      if (grub_fat_read_data (disk, &root, 0, 0,
+      if (grub_fat_read_data (disk, &root, 0, 0, 0,
 			       offset, sizeof (dir), (char *) &dir)
 	   != sizeof (dir))
 	break;
@@ -1244,6 +1246,7 @@ static struct grub_fs grub_fat_fs =
 #endif
     .blocklist_install = 1,
 #endif
+    .fast_blocklist = 1,
     .next = 0
   };
 

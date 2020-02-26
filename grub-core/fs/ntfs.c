@@ -435,7 +435,7 @@ read_data (struct grub_ntfs_attr *at, grub_uint8_t *pa, grub_uint8_t *dest,
     }
 
   grub_fshelp_read_file (ctx->comp.disk, (grub_fshelp_node_t) ctx,
-			 read_hook, read_hook_data, ofs, len,
+			 read_hook, read_hook_data, 0, ofs, len,
 			 (char *) dest,
 			 grub_ntfs_read_block, ofs + len,
 			 ctx->comp.log_spc, 0);

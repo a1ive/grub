@@ -96,6 +96,7 @@ struct grub_fs
   /* Whether blocklist installs have a chance to work.  */
   int blocklist_install;
 #endif
+  int fast_blocklist;
 };
 typedef struct grub_fs *grub_fs_t;
 

@@ -572,7 +572,7 @@ grub_ext2_read_file (grub_fshelp_node_t node,
 		     grub_off_t pos, grub_size_t len, char *buf)
 {
   return grub_fshelp_read_file (node->data->disk, node,
-				read_hook, read_hook_data,
+				read_hook, read_hook_data, 0,
 				pos, len, buf, grub_ext2_read_block,
 				grub_cpu_to_le32 (node->inode.size)
 				| (((grub_off_t) grub_cpu_to_le32 (node->inode.size_high)) << 32),
