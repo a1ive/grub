@@ -24,6 +24,7 @@
 #include <grub/fshelp.h>
 #include <grub/dl.h>
 #include <grub/i18n.h>
+#include <grub/env.h>
 
 GRUB_MOD_LICENSE ("GPLv3+");
 
@@ -123,6 +124,10 @@ find_file_iter (const char *filename, enum grub_fshelp_filetype filetype,
 		grub_fshelp_node_t node, void *data)
 {
   struct grub_fshelp_find_file_iter_ctx *ctx = data;
+  const char *case_sensitive = NULL;
+  case_sensitive = grub_env_get ("grub_fs_case_sensitive");
+  if (! case_sensitive || case_sensitive[0] != '1')
+    filetype |= GRUB_FSHELP_CASE_INSENSITIVE;
 
   if (filetype == GRUB_FSHELP_UNKNOWN ||
       ((filetype & GRUB_FSHELP_CASE_INSENSITIVE)
