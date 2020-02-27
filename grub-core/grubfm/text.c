@@ -24,7 +24,7 @@
 #include <grub/normal.h>
 #include <grub/term.h>
 #include <grub/video.h>
-#include <grub/bitmap.h>
+#include <grub/conv.h>
 #include <grub/gfxmenu_view.h>
 #include <grub/lib/hexdump.h>
 
@@ -91,8 +91,24 @@ grubfm_textcat_page (grub_file_t file,
                          "%20lld (null)", (unsigned long long)(i + from + 1));
     else
     {
-      grubfm_gfx_printf (white, 0, y + FONT_SPACE * i,
-                         "%20lld %s", (unsigned long long)(i + from + 1), line);
+      if (encoding == ENCODING_GBK)
+      {
+        char *buffer = NULL;
+        grub_uint32_t len = grub_strlen (line);
+        grub_uint32_t buf_len;
+        buf_len = len * 3 + 1;
+        buffer = (char *) grub_zalloc (buf_len);
+        gbk_to_utf8 (line, len, &buffer, &buf_len);
+        grubfm_gfx_printf (white, 0, y + FONT_SPACE * i,
+                         "%20lld %s", (unsigned long long)(i + from + 1), buffer);
+        if (buffer)
+          grub_free (buffer);
+      }
+      else
+      {
+        grubfm_gfx_printf (white, 0, y + FONT_SPACE * i,
+                           "%20lld %s", (unsigned long long)(i + from + 1), line);
+      }
       grub_free (line);
     }
   }
@@ -133,12 +149,13 @@ grubfm_textcat (const char *filename)
     grubfm_textcat_page (file, line_num, CAT_LINE_NUM, 2 * FONT_SPACE);
 
     grubfm_gfx_printf (white, 0, h - 4,
-                       "↑ Page Up  ↓ Page Down  [ESC] Exit");
+                       _("↑ Page Up  ↓ Page Down  [e] Encoding  [ESC] Exit"));
     /* wait key */
     int key = 0;
     while (key != GRUB_TERM_ESC &&
            key != GRUB_TERM_KEY_UP &&
-           key != GRUB_TERM_KEY_DOWN)
+           key != GRUB_TERM_KEY_DOWN &&
+           key != 'e')
     {
       key = grub_getkey ();
     }
@@ -156,6 +173,14 @@ grubfm_textcat (const char *filename)
         line_num = 0;
       else
         line_num -= CAT_LINE_NUM;
+      continue;
+    }
+    if (key == 'e')
+    {
+      if (encoding == ENCODING_UTF8)
+        encoding = ENCODING_GBK;
+      else
+        encoding = ENCODING_UTF8;
       continue;
     }
   }

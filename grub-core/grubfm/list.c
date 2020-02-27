@@ -300,6 +300,8 @@ grubfm_enum_file (char *dirname)
   }
   else if (fs)
   {
+    const char *disable_qsort = NULL;
+    disable_qsort = grub_env_get ("grubfm_disable_qsort");
     struct grubfm_enum_file_list ctx = { 0, NULL, 0, NULL, NULL , 0, 0};
     ctx.dirname = dirname;
     (fs->fs_dir) (dev, path, grubfm_enum_file_count, &ctx);
@@ -312,8 +314,9 @@ grubfm_enum_file (char *dirname)
     (fs->fs_dir) (dev, path, grubfm_enum_file_iter, &ctx);
     ctx.ndirs = ctx.d;
     ctx.nfiles = ctx.f;
-    perform_quick_sort (ctx.dir_list, ctx.ndirs,
-                        sizeof(struct grubfm_enum_file_info), list_compare);
+    if (!disable_qsort || disable_qsort[0] != '1')
+      perform_quick_sort (ctx.dir_list, ctx.ndirs,
+                          sizeof(struct grubfm_enum_file_info), list_compare);
     for (ctx.d = 0; ctx.d < ctx.ndirs; ctx.d++)
     {
       char *pathname;
@@ -328,8 +331,9 @@ grubfm_enum_file (char *dirname)
       grubfm_add_menu_dir (ctx.dir_list[ctx.d].name, pathname);
       grub_free (pathname);
     }
-    perform_quick_sort (ctx.file_list, ctx.nfiles,
-                        sizeof(struct grubfm_enum_file_info), list_compare);
+    if (!disable_qsort || disable_qsort[0] != '1')
+      perform_quick_sort (ctx.file_list, ctx.nfiles,
+                          sizeof(struct grubfm_enum_file_info), list_compare);
     for (ctx.f = 0; ctx.f < ctx.nfiles; ctx.f++)
     {
       char *pathname;

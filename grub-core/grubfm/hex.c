@@ -47,9 +47,7 @@ grubfm_hexdump_print (grub_file_t file, grub_size_t skip, unsigned int y)
   if (!file)
     return;
 
-  font = grub_font_get ("More Perfect DOS VGA 16");
-  if (! font)
-    font = grub_font_get ("unifont");
+  font = grub_font_get ("unifont");
 
   grub_memset (buf, 0, sizeof (buf));
   grub_memset (data_str, 0, sizeof (data_str));
@@ -95,9 +93,7 @@ grubfm_hexdump (const char *filename)
   file = grub_file_open (filename, GRUB_FILE_TYPE_HEXCAT);
   if (!file)
     return;
-  font = grub_font_get ("More Perfect DOS VGA 16");
-  if (! font)
-    font = grub_font_get ("unifont");
+  font = grub_font_get ("unifont");
   while (1)
   {
     grubfm_gfx_clear ();
@@ -110,13 +106,14 @@ grubfm_hexdump (const char *filename)
       grubfm_hexdump_print (file, len, FONT_SPACE * (i + 3));
       if (len > file->size)
       {
-        grub_font_draw_string ("--- END ---", font, white, 0, FONT_SPACE * (i + 2));
+        grub_font_draw_string (_("--- END ---"), font,
+                               white, 0, FONT_SPACE * (i + 2));
         break;
       }
     }
 
     grubfm_gfx_printf (white, 0, h - FONT_SPACE,
-                       "↑ Page Up  ↓ Page Down  [ESC] Exit");
+                       _("↑ Page Up  ↓ Page Down  [ESC] Exit"));
     /* wait key */
     int key = 0;
     while (key != GRUB_TERM_ESC &&
