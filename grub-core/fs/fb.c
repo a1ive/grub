@@ -199,6 +199,7 @@ grub_fbfs_read (grub_file_t file, char *buf, grub_size_t len)
 
   disk = file->device->disk;
   disk->read_hook = file->read_hook;
+  disk->read_hook_data = file->read_hook_data;
 
   data = file->data;
   p = data->ptr;
@@ -206,8 +207,8 @@ grub_fbfs_read (grub_file_t file, char *buf, grub_size_t len)
     {
       grub_err_t err;
 
-      err = grub_disk_read (disk, p->data_start - data->ofs,
-			       file->offset, len, buf);
+      err = grub_disk_read_ex (disk, p->data_start - data->ofs,
+			       file->offset, len, buf, file->blocklist);
       disk->read_hook = 0;
       return (err) ? -1 : (grub_ssize_t) len;
     }
@@ -222,7 +223,7 @@ grub_fbfs_read (grub_file_t file, char *buf, grub_size_t len)
       n = len;
       if (ofs + n > 510)
 	n = 510 - ofs;
-      if (grub_disk_read (disk, sector, ofs, n, buf))
+      if (grub_disk_read_ex (disk, sector, ofs, n, buf, file->blocklist))
 	{
 	  saved_len = -1;
 	  break;
@@ -261,6 +262,7 @@ static struct grub_fs grub_fb_fs =
     .fs_read = grub_fbfs_read,
     .fs_close = grub_fbfs_close,
     .fs_label = grub_fbfs_label,
+    .fast_blocklist = 1,
     .next = 0
   };
 
