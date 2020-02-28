@@ -234,8 +234,8 @@ grub_fs_blocklist_rw (int write, grub_file_t file, char *buf, grub_size_t len)
 	  if ((write) ?
 	       grub_disk_write_weak (file->device->disk, 0, p->offset + offset,
 				size, buf) :
-	       grub_disk_read (file->device->disk, 0, p->offset + offset,
-				  size, buf) != GRUB_ERR_NONE)
+	       grub_disk_read_ex (file->device->disk, 0, p->offset + offset,
+				  size, buf, file->blocklist) != GRUB_ERR_NONE)
 	    return -1;
 
 	  ret += size;
@@ -370,5 +370,6 @@ struct grub_fs grub_fs_blocklist =
     .fs_open = grub_fs_blocklist_open,
     .fs_read = grub_fs_blocklist_read,
     .fs_close = grub_fs_blocklist_close,
+    .fast_blocklist = 1,
     .next = 0
   };
