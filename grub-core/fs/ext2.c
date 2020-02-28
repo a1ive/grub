@@ -568,11 +568,11 @@ indirect:
    POS.  Return the amount of read bytes in READ.  */
 static grub_ssize_t
 grub_ext2_read_file (grub_fshelp_node_t node,
-		     grub_disk_read_hook_t read_hook, void *read_hook_data,
+		     grub_disk_read_hook_t read_hook, void *read_hook_data, int blocklist,
 		     grub_off_t pos, grub_size_t len, char *buf)
 {
   return grub_fshelp_read_file (node->data->disk, node,
-				read_hook, read_hook_data, 0,
+				read_hook, read_hook_data, blocklist,
 				pos, len, buf, grub_ext2_read_block,
 				grub_cpu_to_le32 (node->inode.size)
 				| (((grub_off_t) grub_cpu_to_le32 (node->inode.size_high)) << 32),
@@ -730,7 +730,7 @@ grub_ext2_read_symlink (grub_fshelp_node_t node)
 		 grub_le_to_cpu32 (diro->inode.size));
   else
     {
-      grub_ext2_read_file (diro, 0, 0, 0,
+      grub_ext2_read_file (diro, 0, 0, 0, 0,
 			   grub_le_to_cpu32 (diro->inode.size),
 			   symlink);
       if (grub_errno)
@@ -769,7 +769,7 @@ grub_ext2_iterate_dir (grub_fshelp_node_t dir,
     {
       struct ext2_dirent dirent;
 
-      grub_ext2_read_file (diro, 0, 0, fpos, sizeof (struct ext2_dirent),
+      grub_ext2_read_file (diro, 0, 0, 0, fpos, sizeof (struct ext2_dirent),
 			   (char *) &dirent);
       if (grub_errno)
 	return 0;
@@ -783,7 +783,7 @@ grub_ext2_iterate_dir (grub_fshelp_node_t dir,
 	  struct grub_fshelp_node *fdiro;
 	  enum grub_fshelp_filetype type = GRUB_FSHELP_UNKNOWN;
 
-	  grub_ext2_read_file (diro, 0, 0, fpos + sizeof (struct ext2_dirent),
+	  grub_ext2_read_file (diro, 0, 0, 0, fpos + sizeof (struct ext2_dirent),
 			       dirent.namelen, filename);
 	  if (grub_errno)
 	    return 0;
@@ -917,7 +917,7 @@ grub_ext2_read (grub_file_t file, char *buf, grub_size_t len)
   struct grub_ext2_data *data = (struct grub_ext2_data *) file->data;
 
   return grub_ext2_read_file (&data->diropen,
-			      file->read_hook, file->read_hook_data,
+			      file->read_hook, file->read_hook_data, file->blocklist,
 			      file->offset, len, buf);
 }
 
@@ -1083,6 +1083,7 @@ static struct grub_fs grub_ext2_fs =
     .reserved_first_sector = 1,
     .blocklist_install = 1,
 #endif
+    .fast_blocklist = 1,
     .next = 0
   };
 
