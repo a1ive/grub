@@ -223,7 +223,8 @@ iso9660_to_unixtime2 (const struct grub_iso9660_date2 *i, grub_int32_t *nix)
 }
 
 static grub_err_t
-read_node (grub_fshelp_node_t node, grub_off_t off, grub_size_t len, char *buf)
+read_node (grub_fshelp_node_t node, grub_off_t off, grub_size_t len, char *buf,
+           int blocklist)
 {
   grub_size_t i = 0;
 
@@ -242,14 +243,15 @@ read_node (grub_fshelp_node_t node, grub_off_t off, grub_size_t len, char *buf)
       toread = grub_le_to_cpu32 (node->dirents[i].size);
       if (toread > len)
 	toread = len;
-      err = grub_disk_read (node->data->disk,
+      err = grub_disk_read_ex (node->data->disk,
 			    ((grub_disk_addr_t) grub_le_to_cpu32 (node->dirents[i].first_sector)) << GRUB_ISO9660_LOG2_BLKSZ,
-			    off, toread, buf);
+			    off, toread, buf, blocklist);
       if (err)
 	return err;
       len -= toread;
       off += toread;
-      buf += toread;
+      if (buf)
+    buf += toread;
     }
   return GRUB_ERR_NONE;
 }
@@ -276,7 +278,7 @@ grub_iso9660_susp_iterate (grub_fshelp_node_t node, grub_off_t off,
     return grub_errno;
 
   /* Load a part of the System Usage Area.  */
-  err = read_node (node, off, sua_size, sua);
+  err = read_node (node, off, sua_size, sua, 0);
   if (err)
     return err;
 
@@ -669,7 +671,7 @@ grub_iso9660_iterate_dir (grub_fshelp_node_t dir,
       ctx.symlink = 0;
       ctx.was_continue = 0;
 
-      if (read_node (dir, offset, sizeof (dirent), (char *) &dirent))
+      if (read_node (dir, offset, sizeof (dirent), (char *) &dirent, 0))
 	return 0;
 
       /* The end of the block, skip to the next one.  */
@@ -699,7 +701,7 @@ grub_iso9660_iterate_dir (grub_fshelp_node_t dir,
 	  return 0;
 
 	/* Read the name.  */
-	if (read_node (dir, nameoffset, dirent.namelen, (char *) name))
+	if (read_node (dir, nameoffset, dirent.namelen, (char *) name, 0))
 	  return 0;
 
 	node = grub_malloc (sizeof (struct grub_fshelp_node));
@@ -766,7 +768,7 @@ grub_iso9660_iterate_dir (grub_fshelp_node_t dir,
 	while (dirent.flags & FLAG_MORE_EXTENTS)
 	  {
 	    offset += dirent.len;
-	    if (read_node (dir, offset, sizeof (dirent), (char *) &dirent))
+	    if (read_node (dir, offset, sizeof (dirent), (char *) &dirent, 0))
 	      {
 		if (ctx.filename_alloc)
 		  grub_free (ctx.filename);
@@ -960,7 +962,7 @@ grub_iso9660_read (grub_file_t file, char *buf, grub_size_t len)
   /* XXX: The file is stored in as a single extent.  */
   data->disk->read_hook = file->read_hook;
   data->disk->read_hook_data = file->read_hook_data;
-  err = read_node (data->node, file->offset, len, buf);
+  err = read_node (data->node, file->offset, len, buf, file->blocklist);
   data->disk->read_hook = NULL;
 
   if (err || grub_errno)
@@ -1110,6 +1112,7 @@ static struct grub_fs grub_iso9660_fs =
     .reserved_first_sector = 1,
     .blocklist_install = 1,
 #endif
+    .fast_blocklist = 1,
     .next = 0
   };
 

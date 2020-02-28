@@ -593,7 +593,7 @@ fail:
 
 static grub_ssize_t
 grub_udf_read_file (grub_fshelp_node_t node,
-		    grub_disk_read_hook_t read_hook, void *read_hook_data,
+		    grub_disk_read_hook_t read_hook, void *read_hook_data, int blocklist,
 		    grub_off_t pos, grub_size_t len, char *buf)
 {
   switch (U16 (node->block.fe.icbtag.flags) & GRUB_UDF_ICBTAG_FLAG_AD_MASK)
@@ -608,7 +608,8 @@ grub_udf_read_file (grub_fshelp_node_t node,
 	       ((char *) &node->block.efe.ext_attr[0]
                 + U32 (node->block.efe.ext_attr_length)));
 
-	grub_memcpy (buf, ptr + pos, len);
+    if (buf)
+      grub_memcpy (buf, ptr + pos, len);
 
 	return len;
       }
@@ -619,7 +620,7 @@ grub_udf_read_file (grub_fshelp_node_t node,
     }
 
   return grub_fshelp_read_file (node->data->disk, node,
-				read_hook, read_hook_data, 0,
+				read_hook, read_hook_data, blocklist,
 				pos, len, buf, grub_udf_read_block,
 				U64 (node->block.fe.file_size),
 				node->data->lbshift, 0);
@@ -936,7 +937,7 @@ grub_udf_iterate_dir (grub_fshelp_node_t dir,
 
   while (offset < U64 (dir->block.fe.file_size))
     {
-      if (grub_udf_read_file (dir, 0, 0, offset, sizeof (dirent),
+      if (grub_udf_read_file (dir, 0, 0, 0, offset, sizeof (dirent),
 			      (char *) &dirent) != sizeof (dirent))
 	return 0;
 
@@ -973,7 +974,7 @@ grub_udf_iterate_dir (grub_fshelp_node_t dir,
 	      if (child->block.fe.icbtag.file_type == GRUB_UDF_ICBTAG_TYPE_SYMLINK)
 		type = GRUB_FSHELP_SYMLINK;
 
-	      if ((grub_udf_read_file (dir, 0, 0, offset,
+	      if ((grub_udf_read_file (dir, 0, 0, 0, offset,
 				       dirent.file_ident_length,
 				       (char *) raw))
 		  != dirent.file_ident_length)
@@ -1012,7 +1013,7 @@ grub_udf_read_symlink (grub_fshelp_node_t node)
   raw = grub_malloc (sz);
   if (!raw)
     return NULL;
-  if (grub_udf_read_file (node, NULL, NULL, 0, sz, (char *) raw) < 0)
+  if (grub_udf_read_file (node, NULL, NULL, 0, 0, sz, (char *) raw) < 0)
     {
       grub_free (raw);
       return NULL;
@@ -1226,7 +1227,7 @@ grub_udf_read (grub_file_t file, char *buf, grub_size_t len)
   struct grub_fshelp_node *node = (struct grub_fshelp_node *) file->data;
 
   return grub_udf_read_file (node, file->read_hook, file->read_hook_data,
-			     file->offset, len, buf);
+			     file->blocklist, file->offset, len, buf);
 }
 
 static grub_err_t
@@ -1355,6 +1356,7 @@ static struct grub_fs grub_udf_fs = {
   .reserved_first_sector = 1,
   .blocklist_install = 1,
 #endif
+  .fast_blocklist = 1,
   .next = 0
 };
 

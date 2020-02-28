@@ -896,6 +896,7 @@ grub_f2fs_get_block (grub_fshelp_node_t node, grub_disk_addr_t block_ofs)
 static grub_ssize_t
 grub_f2fs_read_file (grub_fshelp_node_t node,
                      grub_disk_read_hook_t read_hook, void *read_hook_data,
+                     int blocklist,
                      grub_off_t pos, grub_size_t len, char *buf)
 {
   struct grub_f2fs_inode *inode = &node->inode.i;
@@ -910,12 +911,13 @@ grub_f2fs_read_file (grub_fshelp_node_t node,
       if (len > filesize - pos)
         len = filesize - pos;
 
-      grub_memcpy (buf, inline_addr + pos, len);
+      if (buf)
+        grub_memcpy (buf, inline_addr + pos, len);
       return len;
     }
 
   return grub_fshelp_read_file (node->data->disk, node,
-                                read_hook, read_hook_data, 0,
+                                read_hook, read_hook_data, blocklist,
                                 pos, len, buf, grub_f2fs_get_block,
                                 filesize,
                                 F2FS_BLK_SEC_BITS, 0);
@@ -941,7 +943,7 @@ grub_f2fs_read_symlink (grub_fshelp_node_t node)
   if (!symlink)
     return 0;
 
-  grub_f2fs_read_file (diro, 0, 0, 0, filesize, symlink);
+  grub_f2fs_read_file (diro, 0, 0, 0, 0, filesize, symlink);
   if (grub_errno)
     {
       grub_free (symlink);
@@ -1062,7 +1064,7 @@ grub_f2fs_iterate_dir (grub_fshelp_node_t dir,
       if (!buf)
         return 0;
 
-      grub_f2fs_read_file (diro, 0, 0, fpos, F2FS_BLKSIZE, buf);
+      grub_f2fs_read_file (diro, 0, 0, 0, fpos, F2FS_BLKSIZE, buf);
       if (grub_errno)
         {
           grub_free (buf);
@@ -1204,6 +1206,7 @@ grub_f2fs_read (grub_file_t file, char *buf, grub_size_t len)
 
   return grub_f2fs_read_file (&data->diropen,
                               file->read_hook, file->read_hook_data,
+                              file->blocklist,
                               file->offset, len, buf);
 }
 
@@ -1313,6 +1316,7 @@ static struct grub_fs grub_f2fs_fs = {
   .reserved_first_sector = 1,
   .blocklist_install     = 0,
 #endif
+  .fast_blocklist        = 1,
   .next                  = 0
 };
 

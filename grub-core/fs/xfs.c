@@ -618,11 +618,11 @@ grub_xfs_read_block (grub_fshelp_node_t node, grub_disk_addr_t fileblock)
    POS.  Return the amount of read bytes in READ.  */
 static grub_ssize_t
 grub_xfs_read_file (grub_fshelp_node_t node,
-		    grub_disk_read_hook_t read_hook, void *read_hook_data,
+		    grub_disk_read_hook_t read_hook, void *read_hook_data, int blocklist,
 		    grub_off_t pos, grub_size_t len, char *buf, grub_uint32_t header_size)
 {
   return grub_fshelp_read_file (node->data->disk, node,
-				read_hook, read_hook_data, 0,
+				read_hook, read_hook_data, blocklist,
 				pos, len, buf, grub_xfs_read_block,
 				grub_be_to_cpu64 (node->inode.size) + header_size,
 				node->data->sblock.log2_bsize
@@ -660,7 +660,7 @@ grub_xfs_read_symlink (grub_fshelp_node_t node)
 	  return 0;
 
 	node->inode.size = grub_be_to_cpu64 (size + off);
-	numread = grub_xfs_read_file (node, 0, 0, off, size, symlink, off);
+	numread = grub_xfs_read_file (node, 0, 0, 0, off, size, symlink, off);
 	if (numread != size)
 	  {
 	    grub_free (symlink);
@@ -828,7 +828,7 @@ grub_xfs_iterate_dir (grub_fshelp_node_t dir,
 	    struct grub_xfs_dirblock_tail *tail =
 					grub_xfs_dir_tail(dir->data, dirblock);
 
-	    numread = grub_xfs_read_file (dir, 0, 0,
+	    numread = grub_xfs_read_file (dir, 0, 0, 0,
 					  blk << dirblk_log2,
 					  dirblk_size, dirblock, 0);
 	    if (numread != dirblk_size)
@@ -1064,7 +1064,7 @@ grub_xfs_read (grub_file_t file, char *buf, grub_size_t len)
     (struct grub_xfs_data *) file->data;
 
   return grub_xfs_read_file (&data->diropen,
-			     file->read_hook, file->read_hook_data,
+			     file->read_hook, file->read_hook_data, file->blocklist,
 			     file->offset, len, buf, 0);
 }
 
@@ -1132,8 +1132,6 @@ grub_xfs_uuid (grub_device_t device, char **uuid)
   return grub_errno;
 }
 
-
-
 static struct grub_fs grub_xfs_fs =
   {
     .name = "xfs",
@@ -1147,6 +1145,7 @@ static struct grub_fs grub_xfs_fs =
     .reserved_first_sector = 0,
     .blocklist_install = 1,
 #endif
+    .fast_blocklist = 1,
     .next = 0
   };
 

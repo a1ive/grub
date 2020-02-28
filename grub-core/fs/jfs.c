@@ -594,7 +594,7 @@ grub_jfs_getent (struct grub_jfs_diropen *diro)
    POS.  Return the amount of read bytes in READ.  */
 static grub_ssize_t
 grub_jfs_read_file (struct grub_jfs_data *data,
-		    grub_disk_read_hook_t read_hook, void *read_hook_data,
+		    grub_disk_read_hook_t read_hook, void *read_hook_data, int blocklist,
 		    grub_off_t pos, grub_size_t len, char *buf)
 {
   grub_off_t i;
@@ -633,16 +633,17 @@ grub_jfs_read_file (struct grub_jfs_data *data,
 
       data->disk->read_hook = read_hook;
       data->disk->read_hook_data = read_hook_data;
-      grub_disk_read (data->disk,
+      grub_disk_read_ex (data->disk,
 		      blknr << (grub_le_to_cpu16 (data->sblock.log2_blksz)
 				- GRUB_DISK_SECTOR_BITS),
-		      skipfirst, blockend, buf);
+		      skipfirst, blockend, buf, blocklist);
 
       data->disk->read_hook = 0;
       if (grub_errno)
 	return -1;
 
-      buf += grub_le_to_cpu32 (data->sblock.blksz) - skipfirst;
+      if (buf)
+    buf += grub_le_to_cpu32 (data->sblock.blksz) - skipfirst;
     }
 
   return len;
@@ -740,7 +741,7 @@ grub_jfs_lookup_symlink (struct grub_jfs_data *data, grub_uint32_t ino)
     return grub_errno;
   if (size <= sizeof (data->currinode.symlink.path))
     grub_memcpy (symlink, (char *) (data->currinode.symlink.path), size);
-  else if (grub_jfs_read_file (data, 0, 0, 0, size, symlink) < 0)
+  else if (grub_jfs_read_file (data, 0, 0, 0, 0, size, symlink) < 0)
     {
       grub_free (symlink);
       return grub_errno;
@@ -858,7 +859,7 @@ grub_jfs_read (grub_file_t file, char *buf, grub_size_t len)
     (struct grub_jfs_data *) file->data;
 
   return grub_jfs_read_file (data, file->read_hook, file->read_hook_data,
-			     file->offset, len, buf);
+			     file->blocklist, file->offset, len, buf);
 }
 
 
@@ -947,6 +948,7 @@ static struct grub_fs grub_jfs_fs =
     .reserved_first_sector = 1,
     .blocklist_install = 1,
 #endif
+    .fast_blocklist = 1,
     .next = 0
   };
 
