@@ -81,7 +81,8 @@ grub_cmd_date (grub_extcmd_context_t ctxt,
 
   for (; argc; argc--, args++)
     {
-      char *p, c;
+      const char *p;
+      char c;
       int m1, ofs, n, cur_mask;
 
       p = args[0];

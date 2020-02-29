@@ -136,7 +136,7 @@ replace_scope (struct grub_script_scope *new_scope)
 grub_err_t
 grub_script_break (grub_command_t cmd, int argc, char *argv[])
 {
-  char *p = 0;
+  const char *p = NULL;
   unsigned long count;
 
   if (argc == 0)
@@ -168,7 +168,7 @@ grub_err_t
 grub_script_shift (grub_command_t cmd __attribute__((unused)),
 		   int argc, char *argv[])
 {
-  char *p = 0;
+  const char *p = NULL;
   unsigned long n = 0;
 
   if (! scope)
@@ -229,7 +229,7 @@ grub_err_t
 grub_script_return (grub_command_t cmd __attribute__((unused)),
 		    int argc, char *argv[])
 {
-  char *p;
+  const char *p = NULL;
   unsigned long n;
 
   if (! scope || argc > 1)
