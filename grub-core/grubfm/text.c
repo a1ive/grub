@@ -141,7 +141,7 @@ grubfm_textcat (const char *filename)
   while (1)
   {
     grubfm_gfx_clear ();
-    grubfm_gfx_printf (white, 0, FONT_SPACE, "FILE: %s (%s) ENCODING: %s",
+    grubfm_gfx_printf (white, 0, FONT_SPACE, _("FILE: %s (%s) ENCODING: %s"),
                        filename,
                        grub_get_human_size (file->size, GRUB_HUMAN_SIZE_SHORT),
                        text_encoding[encoding]);

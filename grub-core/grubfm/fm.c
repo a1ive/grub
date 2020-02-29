@@ -193,17 +193,17 @@ grub_cmd_grubfm_about (grub_extcmd_context_t ctxt __attribute__ ((unused)),
   grubfm_gfx_printf (white, FONT_SPACE, 9 * FONT_HEIGH, GRUBFM_COPYRIGHT);
   /* info */
   grubfm_gfx_printf (white, 2 * FONT_SPACE, 10 * FONT_SPACE,
-                     "Platform: %s-%s", GRUB_TARGET_CPU, GRUB_PLATFORM);
+                     _("Platform: %s-%s"), GRUB_TARGET_CPU, GRUB_PLATFORM);
   grubfm_gfx_printf (white, 2 * FONT_SPACE, 11 * FONT_SPACE,
-                     "Language: %s", grub_env_get ("lang"));
+                     _("Language: %s"), grub_env_get ("lang"));
   grubfm_gfx_printf (white, 2 * FONT_SPACE, 13 * FONT_SPACE,
-                     "GRUB version: %s", GRUB_VERSION);
+                     _("GRUB version: %s"), GRUB_VERSION);
   grubfm_gfx_printf (white, 2 * FONT_SPACE, 14 * FONT_SPACE,
-                     "GRUB build date: %s", GRUB_BUILD_DATE);
+                     _("GRUB build date: %s"), GRUB_BUILD_DATE);
   grubfm_gfx_printf (white, 2 * FONT_SPACE, 16 * FONT_SPACE,
-                     "License: GNU GPLv3");
+                     _("License: GNU GPLv3"));
   grubfm_gfx_printf (white, 2 * FONT_SPACE, 18 * FONT_SPACE,
-                     _("Press any key to back."));
+                     _("Press any key to exit."));
   grub_getkey ();
   return 0;
 }

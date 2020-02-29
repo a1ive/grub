@@ -97,7 +97,7 @@ grubfm_hexdump (const char *filename)
   while (1)
   {
     grubfm_gfx_clear ();
-    grubfm_gfx_printf (white, 0, FONT_SPACE, "FILE: %s (%s)", filename,
+    grubfm_gfx_printf (white, 0, FONT_SPACE, _("FILE: %s (%s)"), filename,
                        grub_get_human_size (file->size, GRUB_HUMAN_SIZE_SHORT));
     grub_font_draw_string (HEXDUMP_HEADER, font, white, 0, 2 * FONT_SPACE);
     for (i = 0; i < HEXDUMP_LINE; i++)
