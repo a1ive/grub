@@ -270,7 +270,7 @@ grub_cmd_chainloader (grub_command_t cmd __attribute__ ((unused)),
 {
   grub_chainloader_flags_t flags = 0;
   grub_uint16_t addr;
-  char *endptr;
+  const char *endptr;
 
   while (argc > 0)
     {

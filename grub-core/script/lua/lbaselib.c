@@ -61,7 +61,7 @@ static int luaB_tonumber (lua_State *L) {
   }
   else {
     const char *s1 = luaL_checkstring(L, 1);
-    char *s2;
+    const char *s2;
     unsigned long n;
     luaL_argcheck(L, 2 <= base && base <= 36, 2, "base out of range");
     n = strtoul(s1, &s2, base);

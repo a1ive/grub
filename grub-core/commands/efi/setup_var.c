@@ -70,7 +70,7 @@ grub_cmd_setup_var (grub_command_t cmd,
 	grub_efi_uintn_t setup_var_size = INSYDE_SETUP_VAR_SIZE;
 	grub_uint8_t set_value = 0x0;
 	grub_efi_uint32_t setup_var_attr = 0x7;
-	char* endptr;
+	const char* endptr;
 
 	grub_efi_char16_t name[MAX_VARIABLE_SIZE/2];
 	grub_efi_uintn_t name_size;

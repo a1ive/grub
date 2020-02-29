@@ -38,7 +38,7 @@ static grub_uint16_t default_start[] =
 static grub_uint16_t grub_parse_default_sound (int index, char *env)
 {
   grub_uint16_t size = 1;
-  char *endptr, *endptr_new = NULL;
+  const char *endptr, *endptr_new = NULL;
   grub_uint16_t current = 0;
   current = grub_strtoul (env, &endptr, 10);
   int len;

@@ -187,7 +187,7 @@ parse_ip6 (const char *val, grub_uint64_t *ip, const char **rest)
 	  ptr++;
 	  continue;
 	}
-      t = grub_strtoul (ptr, (char **) &ptr, 16);
+      t = grub_strtoul (ptr, &ptr, 16);
       if (grub_errno)
 	{
 	  grub_errno = GRUB_ERR_NONE;
@@ -261,7 +261,7 @@ pxe_open (struct grub_efi_net_device *dev,
   else
     {
       for (i = 0, p = file->device->net->server; i < 4; ++i, ++p)
-	server_ip.v4.addr[i] = grub_strtoul (p, &p, 10);
+	server_ip.v4.addr[i] = grub_strtoul (p, (const char **)&p, 10);
     }
 
   status = efi_call_10 (pxe->mtftp,
@@ -346,7 +346,7 @@ pxe_read (struct grub_efi_net_device *dev,
   else
     {
       for (i = 0, p = file->device->net->server; i < 4; ++i, ++p)
-	server_ip.v4.addr[i] = grub_strtoul (p, &p, 10);
+	server_ip.v4.addr[i] = grub_strtoul (p, (const char **)&p, 10);
     }
 
   status = efi_call_10 (pxe->mtftp,

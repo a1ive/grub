@@ -109,13 +109,13 @@ strcoll (const char *s1, const char *s2)
 }
 
 static inline unsigned long int
-strtoul (const char *str, char **endptr, int base)
+strtoul (const char *str, const char **endptr, int base)
 {
   return grub_strtoul (str, endptr, base);
 }
 
 static inline long
-strtol (const char *str, char **endptr, int base)
+strtol (const char *str, const char **endptr, int base)
 {
   return grub_strtol (str, endptr, base);
 }
