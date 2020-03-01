@@ -19,6 +19,7 @@
 
 #include <grub/normal.h>
 #include <grub/misc.h>
+#include <grub/env.h>
 #include <grub/err.h>
 #include <grub/mm.h>
 #include <grub/partition.h>
@@ -319,6 +320,20 @@ complete_file (void)
   return ret;
 }
 
+static int
+complete_variables (int add_equal)
+{
+  struct grub_env_var *env;
+  char *p = NULL;
+  FOR_SORTED_ENV (env)
+  {
+    p = grub_strstr (env->name, current_word);
+    if (p)
+      add_completion (env->name, add_equal ? "=": "", GRUB_COMPLETION_TYPE_ENV);
+  }
+  return p ? 1 : 0;
+}
+
 /* Complete an argument.  */
 static int
 complete_arguments (char *command)
@@ -392,7 +407,6 @@ get_state (const char *cmdline)
   return state;
 }
 
-
 /* Try to complete the string in BUF. Return the characters that
    should be added to the string.  This command outputs the possible
    completions by calling HOOK, in that case set RESTORE to 1 so the
@@ -432,7 +446,15 @@ grub_normal_do_completion (char *buf, int *restore,
      state, it can be determined how to complete.  */
   cmdline_state = get_state (buf);
 
-  if (argc == 1 || argc == 0)
+  if (argc > 1 && (! grub_strcmp (argv[0], "set") ||
+                   ! grub_strcmp (argv[0], "unset") ||
+                   ! grub_strcmp (argv[0], "export")))
+  {
+    char *equals = grub_strchr (argv[1], '=');
+    if (equals || complete_variables (argv[0][0] == 's'? 1: 0))
+      goto fail;
+  }
+  else if (argc == 1 || argc == 0)
     {
       /* Complete a command.  */
       grub_command_t cmd;

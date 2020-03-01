@@ -179,6 +179,9 @@ print_completion (const char *item, grub_completion_type_t type, int count)
 	case GRUB_COMPLETION_TYPE_FILE:
 	  grub_puts_ (N_("Possible files are:"));
 	  break;
+	case GRUB_COMPLETION_TYPE_ENV:
+	  grub_puts_ (N_("Possible variables are:"));
+	  break;
 	case GRUB_COMPLETION_TYPE_PARTITION:
 	  grub_puts_ (N_("Possible partitions are:"));
 	  break;

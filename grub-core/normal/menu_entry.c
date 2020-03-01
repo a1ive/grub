@@ -1080,6 +1080,10 @@ complete (struct screen *screen, int continuous, int update)
 		    grub_puts_terminal (_("Possible partitions are:"),
 					screen->terms[i].term);
 		    break;
+		  case GRUB_COMPLETION_TYPE_ENV:
+		    grub_puts_terminal (_("Possible variables are:"),
+					screen->terms[i].term);
+		    break;
 		  case GRUB_COMPLETION_TYPE_ARGUMENT:
 		    grub_puts_terminal (_("Possible arguments are:"),
 					screen->terms[i].term);

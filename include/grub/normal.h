@@ -38,6 +38,7 @@ enum grub_completion_type
     GRUB_COMPLETION_TYPE_DEVICE,
     GRUB_COMPLETION_TYPE_PARTITION,
     GRUB_COMPLETION_TYPE_FILE,
+    GRUB_COMPLETION_TYPE_ENV,
     GRUB_COMPLETION_TYPE_ARGUMENT
   };
 typedef enum grub_completion_type grub_completion_type_t;
