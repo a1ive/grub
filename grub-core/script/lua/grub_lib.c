@@ -1070,36 +1070,13 @@ grub_lua_refresh (lua_State *state __attribute__ ((unused)))
 static int
 grub_lua_read (lua_State *state __attribute__ ((unused)))
 {
-  int i;
-  char *line;
-  char *tmp;
-  char c;
-  i = 0;
-  line = grub_malloc (1 + i + sizeof('\0'));
+  char *line = grub_getline (0);
   if (! line)
-    return 0;
+    lua_pushnil(state);
+  else
+    lua_pushstring (state, line);
 
-  while (1)
-    {
-      c = grub_getkey ();
-      if ((c == '\n') || (c == '\r'))
-	break;
-
-      line[i] = c;
-      if (grub_isprint (c))
-	grub_printf ("%c", c);
-      i++;
-      tmp = grub_realloc (line, 1 + i + sizeof('\0'));
-      if (! tmp)
-	{
-	  grub_free (line);
-	  return 0;
-	}
-      line = tmp;
-    }
-  line[i] = '\0';
-
-  lua_pushstring (state, line);
+  grub_free (line);
   return 1;
 }
 
@@ -1200,7 +1177,7 @@ luaL_Reg grub_lua_lib[] =
 static int
 lua_input_read (lua_State *state)
 {
-  char *line = grub_getline ();
+  char *line = grub_getline (0);
   if (! line)
     lua_pushnil(state);
   else

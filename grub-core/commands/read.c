@@ -29,10 +29,78 @@
 
 GRUB_MOD_LICENSE ("GPLv3+");
 
+char *
+grub_getline (int hide)
+{
+  int i;
+  char *line;
+  char *tmp;
+  int c;
+
+  i = 0;
+  line = grub_malloc (1 + i + sizeof('\0'));
+  if (! line)
+    return NULL;
+
+  while (1)
+  {
+    c = grub_getkey ();
+    if ((c == '\n') || (c == '\r'))
+      break;
+    if (c == GRUB_TERM_BACKSPACE)
+    {
+      if (!i)
+        continue;
+      i--;
+      if (hide > 1)
+        continue;
+      struct grub_term_output *term;
+      FOR_ACTIVE_TERM_OUTPUTS(term)
+      {
+        if (!term->getxy || !term->gotoxy)
+          continue;
+        struct grub_term_coordinate pos = term->getxy (term);
+        pos.x--;
+        term->gotoxy (term, pos);
+        grub_xputs (" ");
+        term->gotoxy (term, pos);
+      }
+      continue;
+    }
+    line[i] = c;
+    if (grub_isprint (c))
+    {
+      if (!hide)
+        grub_printf ("%c", c);
+      if (hide == 1)
+        grub_printf ("*");
+    }
+    i++;
+    tmp = grub_realloc (line, 1 + i + sizeof('\0'));
+    if (! tmp)
+    {
+      grub_free (line);
+      return NULL;
+    }
+    line = tmp;
+  }
+  line[i] = '\0';
+
+  return line;
+}
+
 static grub_err_t
 grub_cmd_read (grub_command_t cmd __attribute__ ((unused)), int argc, char **args)
 {
-  char *line = grub_getline ();
+  int hide = 0;
+  if (argc == 2)
+  {
+    if (args[1][0] == 'a')
+      hide = 1;
+    if (args[1][0] == 'h')
+      hide = 2;
+  }
+  char *line = grub_getline (hide);
   if (! line)
     return grub_errno;
   if (argc > 0)
@@ -76,7 +144,7 @@ static grub_command_t cme;
 GRUB_MOD_INIT(read)
 {
   cmd = grub_register_command ("read", grub_cmd_read,
-			       N_("[ENVVAR]"),
+			       N_("[ENVVAR] [hide|asterisk]"),
 			       N_("Set variable with user input."));
   cme = grub_register_command ("read_file", grub_cmd_read_from_file,
 			       N_("FILE ENVVAR [...]"),
