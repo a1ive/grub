@@ -339,7 +339,6 @@ grub_blocklist_convert (grub_file_t file)
   {
     file->blocklist = 1;
     grub_file_read (file, 0, file->size);
-    file->blocklist = 0;
   }
   else
   {

@@ -86,8 +86,8 @@ read_block_start (grub_disk_addr_t sector,
                   unsigned offset __attribute ((unused)),
                   unsigned length, void *data)
 {
-  struct block_ctx *ctx = data;
-  ctx->start = sector + 1 - (length >> GRUB_DISK_SECTOR_BITS);
+  grub_disk_addr_t *start = data;
+  *start = sector + 1 - (length >> GRUB_DISK_SECTOR_BITS);
 }
 
 static grub_err_t
@@ -97,21 +97,24 @@ grub_cmd_stat (grub_extcmd_context_t ctxt, int argc, char **args)
   grub_file_t file = 0;
   grub_off_t size = 0;
   const char *human_size = NULL;
-  char str[256];
-  struct block_ctx file_block = {0, 0, 0, 0, 0};
+  char *str = NULL;
+  grub_disk_addr_t start = 0;
 
   if (argc != 1)
     return grub_error (GRUB_ERR_BAD_ARGUMENT, "bad argument");
   file = grub_file_open (args[0], GRUB_FILE_TYPE_CAT);
   if (!file)
     return grub_error (GRUB_ERR_BAD_FILENAME, N_("failed to open %s"), args[0]);
+  str = grub_malloc (GRUB_DISK_SECTOR_SIZE);
+  if (!str)
+    return grub_error (GRUB_ERR_OUT_OF_MEMORY, N_("out of memory"));
 
   size = grub_file_size (file);
   human_size = grub_get_human_size (size, GRUB_HUMAN_SIZE_SHORT);
 
   if (state[STAT_CONTIG].set)
   {
-    char buf[GRUB_DISK_SECTOR_SIZE];
+    struct block_ctx file_block = {0, 0, 0, 0, 0};
     if (file->device && file->device->disk)
     {
       file->read_hook = read_block_contig;
@@ -123,42 +126,40 @@ grub_cmd_stat (grub_extcmd_context_t ctxt, int argc, char **args)
       }
       else
       {
-        while (grub_file_read (file, buf, sizeof (buf)) > 0)
+        while (grub_file_read (file, str, GRUB_DISK_SECTOR_SIZE) > 0)
           ;
       }
       if (!state[STAT_QUIET].set)
         grub_printf ("File is%scontiguous.\nNumber of fragments: %d\n",
                      (file_block.num > 1)? " NOT ":" ", file_block.num);
     }
-    grub_snprintf (str, 256, "%d", file_block.num);
-    if (state[STAT_SET].set)
-      grub_env_set (state[STAT_SET].arg, str);
+    grub_snprintf (str, GRUB_DISK_SECTOR_SIZE, "%d", file_block.num);
     goto fail;
   }
 
   if (file->device && file->device->disk)
   {
-    char buf[GRUB_DISK_SECTOR_SIZE];
     file->read_hook = read_block_start;
-    file->read_hook_data = &file_block;
-    grub_file_read (file, buf, sizeof (buf));
+    file->read_hook_data = &start;
+    grub_file_read (file, str, GRUB_DISK_SECTOR_SIZE);
+    grub_memset (str, 0, GRUB_DISK_SECTOR_SIZE);
   }
 
   if (state[STAT_SIZE].set)
   {
-    grub_snprintf (str, 256, "%llu", (unsigned long long) size);
+    grub_snprintf (str, GRUB_DISK_SECTOR_SIZE, "%" PRIuGRUB_UINT64_T, size);
     if (!state[STAT_QUIET].set)
       grub_printf ("%s\n", str);
   }
   else if (state[STAT_HUMAN].set)
   {
-    grub_strncpy (str, human_size, 256);
+    grub_strncpy (str, human_size, GRUB_DISK_SECTOR_SIZE);
     if (!state[STAT_QUIET].set)
       grub_printf ("%s\n", str);
   }
   else if (state[STAT_OFFSET].set)
   {
-    grub_snprintf (str, 256, "%llu", (unsigned long long) file_block.start);
+    grub_snprintf (str, GRUB_DISK_SECTOR_SIZE, "%" PRIuGRUB_UINT64_T, start);
     if (!state[STAT_QUIET].set)
       grub_printf ("%s\n", str);
   }
@@ -177,16 +178,17 @@ grub_cmd_stat (grub_extcmd_context_t ctxt, int argc, char **args)
       if (label)
         grub_printf ("Label: [%s]\n", label);
       grub_printf ("Disk: %s\n", file->device->disk->name);
-      grub_printf ("Total sectors: %llu\n",
-                  (unsigned long long)file->device->disk->total_sectors);
+      grub_printf ("Total sectors: %" PRIuGRUB_UINT64_T "\n",
+                    file->device->disk->total_sectors);
     }
     if (file->device->disk->partition)
     {
-      grub_snprintf (partinfo, 64, "%s %d %llu %llu %d %u",
+      grub_snprintf (partinfo, 64,
+                     "%s %d %" PRIuGRUB_UINT64_T " %" PRIuGRUB_UINT64_T " %d %u",
                      file->device->disk->partition->partmap->name,
                      file->device->disk->partition->number,
-                     (unsigned long long)file->device->disk->partition->start,
-                     (unsigned long long)file->device->disk->partition->len,
+                     file->device->disk->partition->start,
+                     file->device->disk->partition->len,
                      file->device->disk->partition->index,
                      file->device->disk->partition->flag);
       if (!state[STAT_QUIET].set)
@@ -194,10 +196,11 @@ grub_cmd_stat (grub_extcmd_context_t ctxt, int argc, char **args)
     }
     else
       grub_strncpy (partinfo, "no_part", 64);
-    grub_snprintf (str, 256, "%s [%s] %s %llu %s",
+    grub_snprintf (str, GRUB_DISK_SECTOR_SIZE,
+                   "%s [%s] %s %" PRIuGRUB_UINT64_T " %s",
                    file->fs->name, label? label : "",
                    file->device->disk->name,
-                   (unsigned long long)file->device->disk->total_sectors,
+                   file->device->disk->total_sectors,
                    partinfo);
     if (label)
       grub_free (label);
@@ -205,19 +208,19 @@ grub_cmd_stat (grub_extcmd_context_t ctxt, int argc, char **args)
   else
   {
     if (!state[STAT_QUIET].set)
-      grub_printf ("File: %s\nSize: %s\nSeekable: %d\nOffset on disk: %llu\n",
+      grub_printf ("File: %s\nSize: %s\nSeekable: %d\nOffset on disk: %"
+                   PRIuGRUB_UINT64_T "\n",
                    file->name, human_size,
-                   !file->not_easily_seekable,
-                   (unsigned long long) file_block.start);
-    grub_snprintf (str, 256, "%s %d %llu",
-                   human_size, !file->not_easily_seekable,
-                   (unsigned long long) file_block.start);
+                   !file->not_easily_seekable, start);
+    grub_snprintf (str, GRUB_DISK_SECTOR_SIZE, "%s %d %" PRIuGRUB_UINT64_T,
+                   human_size, !file->not_easily_seekable, start);
   }
 
+fail:
   if (state[STAT_SET].set)
     grub_env_set (state[STAT_SET].arg, str);
 
-fail:
+  grub_free (str);
   grub_file_close (file);
   return grub_errno;
 }

@@ -325,7 +325,8 @@ grub_disk_read_small_real (grub_disk_t disk, grub_disk_addr_t sector,
   if (data)
     {
       /* Just copy it!  */
-      grub_memcpy (buf, data + offset, size);
+      if (buf)
+        grub_memcpy (buf, data + offset, size);
       grub_disk_cache_unlock (disk->dev->id, disk->id, sector);
       return GRUB_ERR_NONE;
     }
@@ -348,7 +349,8 @@ grub_disk_read_small_real (grub_disk_t disk, grub_disk_addr_t sector,
       if (!err)
 	{
 	  /* Copy it and store it in the disk cache.  */
-	  grub_memcpy (buf, tmp_buf + offset, size);
+      if (buf)
+        grub_memcpy (buf, tmp_buf + offset, size);
 	  grub_disk_cache_store (disk->dev->id, disk->id,
 				 sector, tmp_buf);
 	  grub_free (tmp_buf);
@@ -386,7 +388,8 @@ grub_disk_read_small_real (grub_disk_t disk, grub_disk_addr_t sector,
 	grub_free (tmp_buf);
 	return grub_errno;
       }
-    grub_memcpy (buf, tmp_buf + offset, size);
+    if (buf)
+      grub_memcpy (buf, tmp_buf + offset, size);
     grub_free (tmp_buf);
     return GRUB_ERR_NONE;
   }
@@ -440,8 +443,9 @@ grub_disk_read (grub_disk_t disk, grub_disk_addr_t sector,
       err = grub_disk_read_small (disk, start_sector,
 				  offset + pos, len, buf);
       if (err)
-	return err;
-      buf = (char *) buf + len;
+    return err;
+      if (buf)
+    buf = (char *) buf + len;
       size -= len;
       offset += len;
       sector += (offset >> GRUB_DISK_SECTOR_BITS);
@@ -453,7 +457,7 @@ grub_disk_read (grub_disk_t disk, grub_disk_addr_t sector,
     {
       char *data = NULL;
       grub_disk_addr_t agglomerate;
-      grub_err_t err;
+      grub_err_t err = GRUB_ERR_NONE;
 
       /* agglomerate read until we find a first cached entry.  */
       for (agglomerate = 0; agglomerate
@@ -470,7 +474,8 @@ grub_disk_read (grub_disk_t disk, grub_disk_addr_t sector,
 
       if (data)
 	{
-	  grub_memcpy ((char *) buf
+      if (buf)
+        grub_memcpy ((char *) buf
 		       + (agglomerate << (GRUB_DISK_CACHE_BITS
 					  + GRUB_DISK_SECTOR_BITS)),
 		       data, GRUB_DISK_CACHE_SIZE << GRUB_DISK_SECTOR_BITS);
@@ -482,22 +487,23 @@ grub_disk_read (grub_disk_t disk, grub_disk_addr_t sector,
       if (agglomerate)
 	{
 	  grub_disk_addr_t i;
-
-	  err = (disk->dev->disk_read) (disk, transform_sector (disk, sector),
+      if (buf)
+        err = (disk->dev->disk_read) (disk, transform_sector (disk, sector),
 					agglomerate << (GRUB_DISK_CACHE_BITS
 							+ GRUB_DISK_SECTOR_BITS
 							- disk->log_sector_size),
 					buf);
 	  if (err)
 	    return err;
-	  
+	  if (buf)
+    {
 	  for (i = 0; i < agglomerate; i ++)
 	    grub_disk_cache_store (disk->dev->id, disk->id,
 				   sector + (i << GRUB_DISK_CACHE_BITS),
 				   (char *) buf
 				   + (i << (GRUB_DISK_CACHE_BITS
 					    + GRUB_DISK_SECTOR_BITS)));
-
+    }
 
 	  if (disk->read_hook)
 	    (disk->read_hook) (sector, 0, agglomerate << (GRUB_DISK_CACHE_BITS + GRUB_DISK_SECTOR_BITS),
@@ -505,8 +511,9 @@ grub_disk_read (grub_disk_t disk, grub_disk_addr_t sector,
 
 	  sector += agglomerate << GRUB_DISK_CACHE_BITS;
 	  size -= agglomerate << (GRUB_DISK_CACHE_BITS + GRUB_DISK_SECTOR_BITS);
-	  buf = (char *) buf 
-	    + (agglomerate << (GRUB_DISK_CACHE_BITS + GRUB_DISK_SECTOR_BITS));
+      if (buf)
+        buf = (char *) buf
+            + (agglomerate << (GRUB_DISK_CACHE_BITS + GRUB_DISK_SECTOR_BITS));
 	}
 
       if (data)
@@ -515,7 +522,8 @@ grub_disk_read (grub_disk_t disk, grub_disk_addr_t sector,
 	    (disk->read_hook) (sector, 0, (GRUB_DISK_CACHE_SIZE << GRUB_DISK_SECTOR_BITS),
 			       disk->read_hook_data);
 	  sector += GRUB_DISK_CACHE_SIZE;
-	  buf = (char *) buf + (GRUB_DISK_CACHE_SIZE << GRUB_DISK_SECTOR_BITS);
+      if (buf)
+        buf = (char *) buf + (GRUB_DISK_CACHE_SIZE << GRUB_DISK_SECTOR_BITS);
 	  size -= (GRUB_DISK_CACHE_SIZE << GRUB_DISK_SECTOR_BITS);
 	}
     }

@@ -61,7 +61,7 @@ grub_disk_write (grub_disk_t disk, grub_disk_addr_t sector,
   grub_dprintf ("disk", "Writing `%s'...\n", disk->name);
 
   if (grub_disk_adjust_range (disk, &sector, &offset, size) != GRUB_ERR_NONE)
-    return -1;
+    return grub_errno;
 
   aligned_sector = (sector & ~((1ULL << (disk->log_sector_size
 					 - GRUB_DISK_SECTOR_BITS)) - 1));
