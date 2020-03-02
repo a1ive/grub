@@ -215,7 +215,12 @@ list_compare (const void *f1,
 {
   const struct grubfm_enum_file_info *d1 = f1;
   const struct grubfm_enum_file_info *d2 = f2;
-  return (grub_strcmp(d1->name, d2->name));
+  const char *case_sensitive = NULL;
+  case_sensitive = grub_env_get ("grub_fs_case_sensitive");
+  if (! case_sensitive || case_sensitive[0] != '1')
+    return (grub_strcasecmp(d1->name, d2->name));
+  else
+    return (grub_strcmp(d1->name, d2->name));
 }
 
 static int
