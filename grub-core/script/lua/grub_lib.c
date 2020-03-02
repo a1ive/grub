@@ -1068,15 +1068,18 @@ grub_lua_refresh (lua_State *state __attribute__ ((unused)))
 }
 
 static int
-grub_lua_read (lua_State *state __attribute__ ((unused)))
+grub_lua_read (lua_State *state)
 {
-  char *line = grub_getline (0);
+  int hide;
+  hide = (lua_gettop (state) > 0) ? luaL_checkinteger (state, 1) : 0;
+  char *line = grub_getline (hide);
   if (! line)
     lua_pushnil(state);
   else
     lua_pushstring (state, line);
 
   grub_free (line);
+  grub_printf ("\n");
   return 1;
 }
 
@@ -1177,13 +1180,16 @@ luaL_Reg grub_lua_lib[] =
 static int
 lua_input_read (lua_State *state)
 {
-  char *line = grub_getline (0);
+  int hide;
+  hide = (lua_gettop (state) > 0) ? luaL_checkinteger (state, 1) : 0;
+  char *line = grub_getline (hide);
   if (! line)
     lua_pushnil(state);
   else
     lua_pushstring (state, line);
 
   grub_free (line);
+  grub_printf ("\n");
   return 1;
 }
 
