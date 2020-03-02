@@ -67,14 +67,13 @@ grub_getline (int hide)
       }
       continue;
     }
+    if (!grub_isprint (c))
+      continue;
+    if (!hide)
+      grub_printf ("%c", c);
+    if (hide == 1)
+      grub_printf ("*");
     line[i] = c;
-    if (grub_isprint (c))
-    {
-      if (!hide)
-        grub_printf ("%c", c);
-      if (hide == 1)
-        grub_printf ("*");
-    }
     i++;
     tmp = grub_realloc (line, 1 + i + sizeof('\0'));
     if (! tmp)
