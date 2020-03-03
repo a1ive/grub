@@ -29,6 +29,7 @@
 #include <grub/mm.h>
 #include <grub/term.h>
 #include <grub/types.h>
+#include <grub/charset.h>
 
 GRUB_MOD_LICENSE ("GPLv3+");
 
@@ -301,19 +302,115 @@ grub_cmd_moksbset (grub_extcmd_context_t ctxt __attribute__((unused)),
   return 0;
 }
 
-static grub_extcmd_t cmd, cmd_moksb;
+typedef grub_efi_status_t
+(EFIAPI *get_variable) (grub_efi_char16_t *variable_name,
+                        const grub_efi_guid_t *vendor_guid,
+                        grub_efi_uint32_t *attributes,
+                        grub_efi_uintn_t *data_size,
+                        void *data);
+
+static get_variable orig_get_variable = NULL;
+static grub_uint8_t secureboot_status = 0;
+
+static grub_efi_status_t EFIAPI
+efi_get_variable_wrapper (grub_efi_char16_t *variable_name,
+                          const grub_efi_guid_t *vendor_guid,
+                          grub_efi_uint32_t *attributes,
+                          grub_efi_uintn_t *data_size,
+                          void *data)
+{
+  char sb[] = "SecureBoot ";
+
+  grub_efi_status_t status;
+
+  status = efi_call_5 (orig_get_variable,
+                       variable_name, vendor_guid, attributes, data_size, data);
+  grub_utf16_to_utf8 ((grub_uint8_t *)sb, variable_name, grub_strlen (sb));
+  if (grub_strcmp (sb, "SecureBoot") == 0)
+  {
+    if (*data_size)
+      grub_memcpy (data, &secureboot_status, 1);
+    *data_size = 1;
+  }
+  return status;
+}
+
+int
+grub_efi_fucksb_status (void)
+{
+  return orig_get_variable ? 1:0;
+}
+
+void
+grub_efi_fucksb_install (void)
+{
+  if (grub_efi_fucksb_status ())
+  {
+    grub_printf ("fuck_sb: already installed.\n");
+    return;
+  }
+  grub_efi_runtime_services_t *r;
+  r = grub_efi_system_table->runtime_services;
+  orig_get_variable = (get_variable) r->get_variable;
+  *(get_variable *)&r->get_variable = efi_get_variable_wrapper;
+}
+
+void
+grub_efi_fucksb_disable (void)
+{
+  secureboot_status = 0;
+}
+
+void
+grub_efi_fucksb_enable (void)
+{
+  secureboot_status = 1;
+}
+
+static const struct grub_arg_option options_fuck[] =
+{
+  {"install", 'i', 0, N_("fuck sb"), 0, 0},
+  {"on", 'y', 0, N_("sb on"), 0, 0},
+  {"off", 'n', 0, N_("sb off"), 0, 0},
+  {0, 0, 0, 0, 0, 0}
+};
+
+static grub_err_t
+grub_cmd_fucksb (grub_extcmd_context_t ctxt,
+        int argc __attribute__ ((unused)),
+        char **args __attribute__ ((unused)))
+{
+  struct grub_arg_list *state = ctxt->state;
+  int ret = 0;
+  if (state[0].set)
+    grub_efi_fucksb_install ();
+  else if (state[1].set)
+    grub_efi_fucksb_enable ();
+  else if (state[2].set)
+    grub_efi_fucksb_disable ();
+  else
+    ret = grub_efi_fucksb_status ();
+
+  return ret;
+}
+
+static grub_extcmd_t cmd, cmd_moksb, cmd_fuck;
 
 GRUB_MOD_INIT(sbpolicy)
 {
-  cmd = grub_register_extcmd ("sbpolicy", grub_cmd_sbpolicy, 0, 
+  cmd = grub_register_extcmd ("sbpolicy", grub_cmd_sbpolicy, 0,
                   N_("[-i|-u|-s]"),
                   N_("Install override security policy."), options);
   cmd_moksb = grub_register_extcmd ("moksbset", grub_cmd_moksbset, 0, 0,
                                     N_("Disable shim validation."), 0);
+  cmd_fuck = grub_register_extcmd ("fucksb", grub_cmd_fucksb, 0,
+                  N_("[-i|-y|-n]"),
+                  N_("Fuck secure boot."), options_fuck);
 }
 
 GRUB_MOD_FINI(sbpolicy)
 {
   grub_unregister_extcmd (cmd);
   grub_unregister_extcmd (cmd_moksb);
+  grub_unregister_extcmd (cmd_fuck);
 }

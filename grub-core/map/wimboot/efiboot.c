@@ -101,6 +101,9 @@ wimboot_boot (struct vfat_file *file)
   }
   data = ((void *)(intptr_t) phys);
 
+  /* Fuck SecureBoot */
+  grub_efi_fucksb_install ();
+  grub_efi_fucksb_disable ();
   /* Read image */
   file->read (file, data, 0, file->len);
   printf ("Read %s\n", file->name);
