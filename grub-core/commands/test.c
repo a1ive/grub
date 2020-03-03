@@ -62,8 +62,13 @@ find_file (const char *cur_filename, const struct grub_dirhook_info *info,
 	   void *data)
 {
   struct test_parse_ctx *ctx = data;
+  const char *case_sensitive = NULL;
+  int case_insensitive = info->case_insensitive;
+  case_sensitive = grub_env_get ("grub_fs_case_sensitive");
+  if (! case_sensitive || case_sensitive[0] != '1' )
+    case_insensitive = 1;
 
-  if ((info->case_insensitive ? grub_strcasecmp (cur_filename, ctx->filename)
+  if ((case_insensitive ? grub_strcasecmp (cur_filename, ctx->filename)
        : grub_strcmp (cur_filename, ctx->filename)) == 0)
     {
       ctx->file_info = *info;
