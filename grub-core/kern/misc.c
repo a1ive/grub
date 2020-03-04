@@ -158,17 +158,16 @@ int grub_err_printf (const char *fmt, ...)
 __attribute__ ((alias("grub_printf")));
 #endif
 
-void
-grub_real_dprintf (const char *file, const int line, const char *condition,
-		   const char *fmt, ...)
+int
+grub_debug_enabled (const char * condition)
 {
-  va_list args;
+  const char *debug;
   char *negcond;
   int negated = 0;
-  const char *debug = grub_env_get ("debug");
 
-  if (! debug)
-    return;
+  debug = grub_env_get ("debug");
+  if (!debug)
+    return 0;
 
   negcond = grub_zalloc (grub_strlen (condition) + 2);
   if (negcond)
@@ -178,9 +177,21 @@ grub_real_dprintf (const char *file, const int line, const char *condition,
       negated = grub_strword (debug, negcond);
       grub_free (negcond);
     }
-    
+
   if (!negated &&
       (grub_strword (debug, "all") || grub_strword (debug, condition)))
+    return 1;
+
+  return 0;
+}
+
+void
+grub_real_dprintf (const char *file, const int line, const char *condition,
+		   const char *fmt, ...)
+{
+  va_list args;
+
+  if (grub_debug_enabled (condition))
     {
       grub_printf ("%s:%d: ", file, line);
       va_start (args, fmt);
