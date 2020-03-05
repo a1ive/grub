@@ -1848,7 +1848,6 @@ module = {
   i386_xen_pvh = lib/xen/datetime.c;
 
   mips_arc = lib/arc/datetime.c;
-  enable = noemu;
 };
 
 module = {
