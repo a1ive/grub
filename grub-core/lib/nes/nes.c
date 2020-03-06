@@ -35,7 +35,7 @@
 GRUB_MOD_LICENSE ("GPLv3+");
 GRUB_MOD_DUAL_LICENSE("MIT");
 
-static int pixel_size = 1;
+static int pixel_size = 2;
 static int wait_time = 15;
 static int tick = 0;
 
@@ -151,6 +151,8 @@ grub_cmd_nes (grub_extcmd_context_t ctxt __attribute__ ((unused)),
 
   if (argc >= 2)
   {
+    if (argv[1][0] == '1')
+      pixel_size = 1;
     if (argv[1][0] == '2')
       pixel_size = 2;
     else if (argv[1][0] == '3')
@@ -158,7 +160,7 @@ grub_cmd_nes (grub_extcmd_context_t ctxt __attribute__ ((unused)),
     else if (argv[1][0] == '4')
       pixel_size = 4;
     else
-      pixel_size = 1;
+      pixel_size = 2;
   }
   if (argc >= 3)
     wait_time = strtoul (argv[2], NULL, 0);
@@ -239,6 +241,8 @@ grub_cmd_nes (grub_extcmd_context_t ctxt __attribute__ ((unused)),
 
 exit:
   agnes_destroy(agnes);
+  if (ines_data)
+    grub_free (ines_data);
   return 0;
 }
 
