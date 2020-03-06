@@ -2931,3 +2931,10 @@ module = {
   common = lib/fatfs/ffsystem.c;
   common = lib/fatfs/ffunicode.c;
 };
+
+module = {
+  name = nes;
+  common = lib/nes/nes.c;
+  cflags = '$(CFLAGS_POSIX) -Wno-unused-parameter';
+  cppflags = '$(CPPFLAGS_POSIX)';
+};
