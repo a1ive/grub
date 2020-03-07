@@ -29,7 +29,6 @@
 #include <grub/mm.h>
 #include <grub/term.h>
 #include <grub/types.h>
-#include <grub/charset.h>
 
 GRUB_MOD_LICENSE ("GPLv3+");
 
@@ -263,43 +262,17 @@ done:
   return grub_errno;
 }
 
-
-#define  MOKSBSTATE_GUID  \
-{ 0x605dab50, 0xe046, 0x4300, {0xab, 0xb6, 0x3d, 0xd8, 0x10, 0xdd, 0x8b, 0x23}}
-
-static grub_err_t
-grub_cmd_moksbset (grub_extcmd_context_t ctxt __attribute__((unused)),
-                   int argc __attribute__ ((unused)),
-                   char **args __attribute__ ((unused)))
+static inline int
+efi_strcmp (const unsigned char *s1, const grub_efi_char16_t *s2)
 {
-  grub_efi_runtime_services_t *r;
-  grub_efi_uint32_t var_attr;
-  grub_efi_guid_t moksb_guid = MOKSBSTATE_GUID;
-  grub_efi_uint8_t data = 1;
-  grub_efi_status_t status;
-  r = grub_efi_system_table->runtime_services;
-
-  var_attr = (GRUB_EFI_VARIABLE_NON_VOLATILE |
-                GRUB_EFI_VARIABLE_BOOTSERVICE_ACCESS);
-  status = grub_efi_set_var_attr ("MokSBState", &moksb_guid, &data, 1, var_attr);
-  if (status != GRUB_EFI_SUCCESS)
-    grub_printf ("Writing MokSBState variable error\n");
-  else
-    grub_printf ("Wrote MokSBState variable\n");
-
-  var_attr |= GRUB_EFI_VARIABLE_RUNTIME_ACCESS;
-  status = grub_efi_set_var_attr ("MokSBStateRT", &moksb_guid, &data,
-                                  1, var_attr);
-  if (status != GRUB_EFI_SUCCESS)
-    grub_printf ("Writing MokSBStateRT variable error\n");
-  else
-    grub_printf ("Wrote MokSBStateRT variable\n");
-
-  grub_printf ("Press any key to reboot ...\n");
-  grub_getkey ();
-  //grub_efi_stall (5000000);
-  efi_call_4 (r->reset_system, GRUB_EFI_RESET_WARM, GRUB_EFI_SUCCESS, 0, NULL);
-  return 0;
+  while (*s1 && *s2)
+  {
+    if (*s1 != *s2)
+      break;
+    s1++;
+    s2++;
+  }
+  return (int) (grub_uint8_t) *s1 - (int) (grub_uint16_t) *s2;
 }
 
 typedef grub_efi_status_t
@@ -319,14 +292,13 @@ efi_get_variable_wrapper (grub_efi_char16_t *variable_name,
                           grub_efi_uintn_t *data_size,
                           void *data)
 {
-  char sb[] = "SecureBoot ";
+  unsigned char sb[] = "SecureBoot";
 
   grub_efi_status_t status;
 
   status = efi_call_5 (orig_get_variable,
                        variable_name, vendor_guid, attributes, data_size, data);
-  grub_utf16_to_utf8 ((grub_uint8_t *)sb, variable_name, grub_strlen (sb));
-  if (grub_strcmp (sb, "SecureBoot") == 0)
+  if (efi_strcmp (sb, variable_name) == 0)
   {
     if (*data_size)
       grub_memcpy (data, &secureboot_status, 1);
@@ -394,15 +366,13 @@ grub_cmd_fucksb (grub_extcmd_context_t ctxt,
   return ret;
 }
 
-static grub_extcmd_t cmd, cmd_moksb, cmd_fuck;
+static grub_extcmd_t cmd, cmd_fuck;
 
 GRUB_MOD_INIT(sbpolicy)
 {
   cmd = grub_register_extcmd ("sbpolicy", grub_cmd_sbpolicy, 0,
                   N_("[-i|-u|-s]"),
                   N_("Install override security policy."), options);
-  cmd_moksb = grub_register_extcmd ("moksbset", grub_cmd_moksbset, 0, 0,
-                                    N_("Disable shim validation."), 0);
   cmd_fuck = grub_register_extcmd ("fucksb", grub_cmd_fucksb, 0,
                   N_("[-i|-y|-n]"),
                   N_("Fuck secure boot."), options_fuck);
@@ -411,6 +381,5 @@ GRUB_MOD_INIT(sbpolicy)
 GRUB_MOD_FINI(sbpolicy)
 {
   grub_unregister_extcmd (cmd);
-  grub_unregister_extcmd (cmd_moksb);
   grub_unregister_extcmd (cmd_fuck);
 }
