@@ -282,7 +282,12 @@ typedef grub_efi_status_t
                         grub_efi_uintn_t *data_size,
                         void *data);
 
+typedef grub_efi_status_t
+(EFIAPI *exit_bs) (grub_efi_handle_t image_handle,
+                   grub_efi_uintn_t map_key);
+
 static get_variable orig_get_variable = NULL;
+static exit_bs orig_exit_bs = NULL;
 static grub_uint8_t secureboot_status = 0;
 
 static grub_efi_status_t EFIAPI
@@ -307,6 +312,22 @@ efi_get_variable_wrapper (grub_efi_char16_t *variable_name,
   return status;
 }
 
+static grub_efi_status_t EFIAPI
+efi_exit_bs_wrapper (grub_efi_handle_t image_handle,
+                     grub_efi_uintn_t map_key)
+{
+  if (orig_get_variable)
+  {
+    grub_efi_runtime_services_t *r;
+    r = grub_efi_system_table->runtime_services;
+    *(get_variable *)&r->get_variable = orig_get_variable;
+    orig_get_variable = NULL;
+  }
+  return efi_call_2 (orig_exit_bs,
+                     image_handle, map_key);
+}
+
+
 int
 grub_efi_fucksb_status (void)
 {
@@ -314,7 +335,7 @@ grub_efi_fucksb_status (void)
 }
 
 void
-grub_efi_fucksb_install (void)
+grub_efi_fucksb_install (int hook)
 {
   if (grub_efi_fucksb_status ())
   {
@@ -325,6 +346,12 @@ grub_efi_fucksb_install (void)
   r = grub_efi_system_table->runtime_services;
   orig_get_variable = (get_variable) r->get_variable;
   *(get_variable *)&r->get_variable = efi_get_variable_wrapper;
+  if (!hook)
+    return;
+  grub_efi_boot_services_t *b;
+  b = grub_efi_system_table->boot_services;
+  orig_exit_bs = (exit_bs) b->exit_boot_services;
+  *(exit_bs *)&b->exit_boot_services = efi_exit_bs_wrapper;
 }
 
 void
@@ -344,6 +371,7 @@ static const struct grub_arg_option options_fuck[] =
   {"install", 'i', 0, N_("fuck sb"), 0, 0},
   {"on", 'y', 0, N_("sb on"), 0, 0},
   {"off", 'n', 0, N_("sb off"), 0, 0},
+  {"bs", 'b', 0, N_("hook exit_boot_services"), 0, 0},
   {0, 0, 0, 0, 0, 0}
 };
 
@@ -355,7 +383,7 @@ grub_cmd_fucksb (grub_extcmd_context_t ctxt,
   struct grub_arg_list *state = ctxt->state;
   int ret = 0;
   if (state[0].set)
-    grub_efi_fucksb_install ();
+    grub_efi_fucksb_install (state[3].set? 1: 0);
   else if (state[1].set)
     grub_efi_fucksb_enable ();
   else if (state[2].set)
@@ -374,7 +402,7 @@ GRUB_MOD_INIT(sbpolicy)
                   N_("[-i|-u|-s]"),
                   N_("Install override security policy."), options);
   cmd_fuck = grub_register_extcmd ("fucksb", grub_cmd_fucksb, 0,
-                  N_("[-i|-y|-n]"),
+                  N_("[-i [-b]|-y|-n]"),
                   N_("Fuck secure boot."), options_fuck);
 }
 

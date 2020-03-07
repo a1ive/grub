@@ -210,7 +210,7 @@ grub_efi_eltorito_fix (const grub_efi_device_path_t *dp,
 #endif
 
 int grub_efi_fucksb_status (void);
-void grub_efi_fucksb_install (void);
+void grub_efi_fucksb_install (int hook);
 void grub_efi_fucksb_disable (void);
 void grub_efi_fucksb_enable (void);
 
