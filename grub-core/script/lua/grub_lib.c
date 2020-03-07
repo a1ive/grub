@@ -826,7 +826,6 @@ grub_lua_disk_write (lua_State *state)
   return 0;
 }
 
-
 //file, skip, length
 static int
 grub_lua_hexdump (lua_State *state)
@@ -1252,6 +1251,32 @@ lua_video_fill_rect (lua_State *state)
   return 0;
 }
 
+static int
+lua_video_draw_pixel (lua_State *state)
+{
+  grub_video_color_t color = check_grub_color (state, 1);
+  int x = luaL_checkint (state, 2);
+  int y = luaL_checkint (state, 3);
+  if (grub_video_fill_rect (color, x, y, 1, 1) != GRUB_ERR_NONE)
+    return luaL_error (state, "Error filling rectangle: %s", grub_errmsg);
+  return 0;
+}
+
+static int
+lua_video_get_info (lua_State *state)
+{
+  struct grub_video_mode_info info;
+  unsigned int width = 0, height = 0;
+  if (grub_video_get_info (&info) == GRUB_ERR_NONE)
+  {
+    width = info.width;
+    height = info.height;
+  }
+  lua_pushinteger (state, width);
+  lua_pushinteger (state, height);
+  return 2;
+}
+
 /* Lua function: video.draw_string(text, font, color, x, y). */
 static int
 lua_video_draw_string (lua_State *state)
@@ -1323,6 +1348,70 @@ lua_video_info (lua_State *state __attribute__ ((unused)))
       grub_free(ctx.data);
   }
   return 1;
+}
+
+static int
+lua_video_bitmap_load (lua_State *state)
+{
+  struct grub_video_bitmap *bitmap = NULL;
+  const char *filename;
+
+  filename = luaL_checkstring (state, 1);
+  grub_video_bitmap_load (&bitmap, filename);
+  save_errno (state);
+
+  if (! bitmap)
+    return 0;
+
+  lua_pushlightuserdata (state, bitmap);
+  return 1;
+}
+
+static int
+lua_video_bitmap_close (lua_State *state)
+{
+  struct grub_video_bitmap *bitmap;
+
+  luaL_checktype (state, 1, LUA_TLIGHTUSERDATA);
+  bitmap = lua_touserdata (state, 1);
+  grub_video_bitmap_destroy (bitmap);
+
+  return 0;
+}
+
+static int
+lua_video_bitmap_get_info (lua_State *state)
+{
+  unsigned int width, height;
+  struct grub_video_bitmap *bitmap;
+
+  luaL_checktype (state, 1, LUA_TLIGHTUSERDATA);
+  bitmap = lua_touserdata (state, 1);
+  width = grub_video_bitmap_get_width (bitmap);
+  height = grub_video_bitmap_get_height (bitmap);
+  lua_pushinteger (state, width);
+  lua_pushinteger (state, height);
+  return 2;
+}
+
+static int
+lua_video_bitmap_blit (lua_State *state)
+{
+  struct grub_video_bitmap *bitmap;
+  int x, y, offset_x, offset_y, width, height;
+
+  luaL_checktype (state, 1, LUA_TLIGHTUSERDATA);
+  bitmap = lua_touserdata (state, 1);
+  x = luaL_checkint (state, 2);
+  y = luaL_checkint (state, 3);
+  offset_x = luaL_checkint (state, 4);
+  offset_y = luaL_checkint (state, 5);
+  width = luaL_checkint (state, 6);
+  height = luaL_checkint (state, 7);
+  grub_video_blit_bitmap (bitmap, GRUB_VIDEO_BLIT_BLEND,
+                          x, y, offset_x, offset_y,
+                          width, height);
+  return 0;
 }
 
 static int lua_gbk_len (lua_State *state) {
@@ -1412,8 +1501,14 @@ luaL_Reg inputlib[] = {
 luaL_Reg videolib[] = {
     {"swap_buffers", lua_video_swap_buffers},
     {"fill_rect", lua_video_fill_rect},
+    {"draw_pixel", lua_video_draw_pixel},
+    {"get_info", lua_video_get_info},
     {"draw_string", lua_video_draw_string},
     {"info", lua_video_info},
+    {"bitmap_load", lua_video_bitmap_load},
+    {"bitmap_close", lua_video_bitmap_close},
+    {"bitmap_info", lua_video_bitmap_get_info},
+    {"bitmap_blit", lua_video_bitmap_blit},
     {0, 0}
 };
 
