@@ -1414,6 +1414,26 @@ lua_video_bitmap_blit (lua_State *state)
   return 0;
 }
 
+/* src, w, h */
+static int
+lua_video_bitmap_rescale (lua_State *state)
+{
+  int w, h;
+  struct grub_video_bitmap *bitmap;
+  struct grub_video_bitmap *new_bitmap = NULL;
+
+  luaL_checktype (state, 1, LUA_TLIGHTUSERDATA);
+  bitmap = lua_touserdata (state, 1);
+  w = luaL_checkint (state, 2);
+  h = luaL_checkint (state, 3);
+  grub_video_bitmap_create_scaled (&new_bitmap, w, h, bitmap,
+                                   GRUB_VIDEO_BITMAP_SCALE_METHOD_BEST);
+  if (! new_bitmap)
+    return 0;
+  lua_pushlightuserdata (state, new_bitmap);
+  return 1;
+}
+
 static int lua_gbk_len (lua_State *state) {
     const char *e, *s = check_dbcs(state, 1, &e);
     lua_pushinteger(state, dbcs_length(s, e));
@@ -1509,6 +1529,7 @@ luaL_Reg videolib[] = {
     {"bitmap_close", lua_video_bitmap_close},
     {"bitmap_info", lua_video_bitmap_get_info},
     {"bitmap_blit", lua_video_bitmap_blit},
+    {"bitmap_rescale", lua_video_bitmap_rescale},
     {0, 0}
 };
 
