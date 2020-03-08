@@ -26,9 +26,6 @@
 
 GRUB_MOD_LICENSE ("GPLv3+");
 
-/* Uncomment following define to enable JPEG debug.  */
-//#define JPEG_DEBUG
-
 #define JPEG_ESC_CHAR		0xFF
 
 #define JPEG_SAMPLING_1x1	0x11
@@ -67,10 +64,6 @@ static const grub_uint8_t jpeg_zigzag_order[64] = {
   58, 59, 52, 45, 38, 31, 39, 46,
   53, 60, 61, 54, 47, 55, 62, 63
 };
-
-#ifdef JPEG_DEBUG
-static grub_command_t cmd;
-#endif
 
 typedef int jpeg_data_unit_t[64];
 
@@ -801,26 +794,6 @@ grub_video_reader_jpeg (struct grub_video_bitmap **bitmap,
   return grub_errno;
 }
 
-#if defined(JPEG_DEBUG)
-static grub_err_t
-grub_cmd_jpegtest (grub_command_t cmdd __attribute__ ((unused)),
-		   int argc, char **args)
-{
-  struct grub_video_bitmap *bitmap = 0;
-
-  if (argc != 1)
-    return grub_error (GRUB_ERR_BAD_ARGUMENT, N_("filename expected"));
-
-  grub_video_reader_jpeg (&bitmap, args[0]);
-  if (grub_errno != GRUB_ERR_NONE)
-    return grub_errno;
-
-  grub_video_bitmap_destroy (bitmap);
-
-  return GRUB_ERR_NONE;
-}
-#endif
-
 static struct grub_video_bitmap_reader jpg_reader = {
   .extension = ".jpg",
   .reader = grub_video_reader_jpeg,
@@ -837,17 +810,10 @@ GRUB_MOD_INIT (jpeg)
 {
   grub_video_bitmap_reader_register (&jpg_reader);
   grub_video_bitmap_reader_register (&jpeg_reader);
-#if defined(JPEG_DEBUG)
-  cmd = grub_register_command ("jpegtest", grub_cmd_jpegtest,
-			       "FILE", "Tests loading of JPEG bitmap.");
-#endif
 }
 
 GRUB_MOD_FINI (jpeg)
 {
-#if defined(JPEG_DEBUG)
-  grub_unregister_command (cmd);
-#endif
   grub_video_bitmap_reader_unregister (&jpeg_reader);
   grub_video_bitmap_reader_unregister (&jpg_reader);
 }

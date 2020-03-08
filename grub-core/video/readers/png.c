@@ -26,9 +26,6 @@
 
 GRUB_MOD_LICENSE ("GPLv3+");
 
-/* Uncomment following define to enable PNG debug.  */
-//#define PNG_DEBUG
-
 enum
   {
     PNG_COLOR_TYPE_GRAY = 0,
@@ -77,10 +74,6 @@ enum
 #define DEFLATE_HDIST_MAX	30
 
 #define DEFLATE_HUFF_LEN	16
-
-#ifdef PNG_DEBUG
-static grub_command_t cmd;
-#endif
 
 struct huff_table
 {
@@ -1112,26 +1105,6 @@ grub_video_reader_png (struct grub_video_bitmap **bitmap,
   return grub_errno;
 }
 
-#if defined(PNG_DEBUG)
-static grub_err_t
-grub_cmd_pngtest (grub_command_t cmd_d __attribute__ ((unused)),
-		  int argc, char **args)
-{
-  struct grub_video_bitmap *bitmap = 0;
-
-  if (argc != 1)
-    return grub_error (GRUB_ERR_BAD_ARGUMENT, N_("filename expected"));
-
-  grub_video_reader_png (&bitmap, args[0]);
-  if (grub_errno != GRUB_ERR_NONE)
-    return grub_errno;
-
-  grub_video_bitmap_destroy (bitmap);
-
-  return GRUB_ERR_NONE;
-}
-#endif
-
 static struct grub_video_bitmap_reader png_reader = {
   .extension = ".png",
   .reader = grub_video_reader_png,
@@ -1141,17 +1114,9 @@ static struct grub_video_bitmap_reader png_reader = {
 GRUB_MOD_INIT (png)
 {
   grub_video_bitmap_reader_register (&png_reader);
-#if defined(PNG_DEBUG)
-  cmd = grub_register_command ("pngtest", grub_cmd_pngtest,
-			       "FILE",
-			       "Tests loading of PNG bitmap.");
-#endif
 }
 
 GRUB_MOD_FINI (png)
 {
-#if defined(PNG_DEBUG)
-  grub_unregister_command (cmd);
-#endif
   grub_video_bitmap_reader_unregister (&png_reader);
 }

@@ -26,13 +26,7 @@
 
 GRUB_MOD_LICENSE ("GPLv3+");
 
-/* Uncomment following define to enable TGA debug.  */
-//#define TGA_DEBUG
-
 #define dump_int_field(x) grub_dprintf ("tga", #x " = %d (0x%04x)\n", x, x);
-#if defined(TGA_DEBUG)
-static grub_command_t cmd;
-#endif
 
 enum
 {
@@ -467,26 +461,6 @@ grub_video_reader_tga (struct grub_video_bitmap **bitmap,
   return grub_errno;
 }
 
-#if defined(TGA_DEBUG)
-static grub_err_t
-grub_cmd_tgatest (grub_command_t cmd_d __attribute__ ((unused)),
-                  int argc, char **args)
-{
-  struct grub_video_bitmap *bitmap = 0;
-
-  if (argc != 1)
-    return grub_error (GRUB_ERR_BAD_ARGUMENT, "file name required");
-
-  grub_video_reader_tga (&bitmap, args[0]);
-  if (grub_errno != GRUB_ERR_NONE)
-    return grub_errno;
-
-  grub_video_bitmap_destroy (bitmap);
-
-  return GRUB_ERR_NONE;
-}
-#endif
-
 static struct grub_video_bitmap_reader tga_reader = {
   .extension = ".tga",
   .reader = grub_video_reader_tga,
@@ -496,16 +470,9 @@ static struct grub_video_bitmap_reader tga_reader = {
 GRUB_MOD_INIT(tga)
 {
   grub_video_bitmap_reader_register (&tga_reader);
-#if defined(TGA_DEBUG)
-  cmd = grub_register_command ("tgatest", grub_cmd_tgatest,
-                               "FILE", "Tests loading of TGA bitmap.");
-#endif
 }
 
 GRUB_MOD_FINI(tga)
 {
-#if defined(TGA_DEBUG)
-  grub_unregister_command (cmd);
-#endif
   grub_video_bitmap_reader_unregister (&tga_reader);
 }
