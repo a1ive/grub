@@ -95,6 +95,8 @@ grub_buffile_open (const char *name, enum grub_file_type type, grub_size_t size)
   io = grub_file_open (name, type);
   if (! io)
     return 0;
+  if (grub_strcmp (io->fs->name, "procfs") == 0)
+    return io;
 
   file = grub_bufio_open (io, size);
   if (! file)
