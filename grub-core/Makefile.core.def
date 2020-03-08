@@ -2402,6 +2402,11 @@ module = {
 };
 
 module = {
+  name = bmp;
+  common = video/readers/bmp.c;
+};
+
+module = {
   name = vbe;
   common = video/i386/pc/vbe.c;
   enable = i386_pc;
