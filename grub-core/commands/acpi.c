@@ -32,6 +32,7 @@
 #include <grub/efi/efi.h>
 #include <grub/efi/api.h>
 #include <grub/efi/graphics_output.h>
+#include <grub/procfs.h>
 #include <grub/video.h>
 #endif
 
@@ -859,6 +860,65 @@ create_bgrt (grub_file_t file, struct grub_acpi_rsdp_v20 *rsdp)
   grub_printf ("New BGRT table inserted\n");
 }
 
+static void *
+init_bgrt_bmp (void)
+{
+  struct grub_acpi_rsdp_v20 *rsdp = NULL;
+  struct grub_acpi_table_header *xsdt, *entry;
+  int entry_cnt, i;
+  struct acpi_bgrt *bgrt_table = NULL;
+  grub_uint64_t *entry_ptr;
+  rsdp = grub_machine_acpi_get_rsdpv2 ();
+  if (! rsdp)
+    return NULL;
+  if (rsdp->rsdpv1.revision >= 0x02)
+    xsdt = (struct grub_acpi_table_header *)(grub_addr_t)(rsdp->xsdt_addr);
+  else
+    return NULL;
+
+  if (grub_memcmp(xsdt->signature, "XSDT", 4) != 0)
+    return NULL;
+
+  entry_cnt = (xsdt->length
+               - sizeof (struct grub_acpi_table_header)) / sizeof(grub_uint64_t);
+  entry_ptr = (grub_uint64_t *)(xsdt + 1);
+  for (i = 0; i < entry_cnt; i++, entry_ptr++)
+  {
+    entry = (struct grub_acpi_table_header *)(grub_addr_t)(*entry_ptr);
+    if (grub_memcmp(entry->signature, "BGRT", 4) == 0)
+    {
+      bgrt_table = (struct acpi_bgrt *)entry;
+      return (void *)(grub_addr_t)bgrt_table->addr;
+    }
+  }
+  return NULL;
+}
+
+static char *
+get_bgrt_bmp (grub_size_t *sz)
+{
+  *sz = 0;
+  char *ret = NULL;
+  void *bgrt_bmp_data = NULL;
+  bgrt_bmp_data = init_bgrt_bmp ();
+  if (!bgrt_bmp_data)
+    return ret;
+  *sz = ((struct bmp_header *)bgrt_bmp_data)->bfsize;
+  if (!*sz)
+    return ret;
+  ret = grub_malloc (*sz);
+  if (!ret)
+    return ret;
+  grub_memcpy (ret, bgrt_bmp_data, *sz);
+  return ret;
+}
+
+struct grub_procfs_entry proc_bgrt_bmp =
+{
+  .name = "bgrt.bmp",
+  .get_contents = get_bgrt_bmp,
+};
+
 #endif
 
 static grub_err_t
@@ -1287,9 +1347,15 @@ GRUB_MOD_INIT(acpi)
                   N_("Load host ACPI tables and tables "
                   "specified by arguments."),
                   options);
+#ifdef GRUB_MACHINE_EFI
+  grub_procfs_register ("bgrt.bmp", &proc_bgrt_bmp);
+#endif
 }
 
 GRUB_MOD_FINI(acpi)
 {
   grub_unregister_extcmd (cmd);
+#ifdef GRUB_MACHINE_EFI
+  grub_procfs_unregister (&proc_bgrt_bmp);
+#endif
 }
