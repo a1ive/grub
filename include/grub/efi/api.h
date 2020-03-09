@@ -84,6 +84,11 @@
     { 0x8e, 0x4f, 0x00, 0xa0, 0xc9, 0x69, 0x72, 0x3b } \
   }
 
+#define GRUB_EFI_DISK_IO2_GUID \
+  { 0x151c8eae, 0x7f2c, 0x472c, \
+    { 0x9e, 0x54, 0x98, 0x28, 0x19, 0x4f, 0x6a, 0x88 } \
+  }
+
 #define GRUB_EFI_BLOCK_IO_GUID	\
   { 0x964e5b21, 0x6459, 0x11d2, \
     { 0x8e, 0x39, 0x00, 0xa0, 0xc9, 0x69, 0x72, 0x3b } \
@@ -657,6 +662,13 @@ struct grub_efi_guid
 typedef struct grub_efi_guid grub_efi_guid_t;
 
 typedef grub_packed_guid_t grub_efi_packed_guid_t;
+
+struct grub_efi_list_entry
+{
+  struct grub_efi_list_entry *flink;
+  struct grub_efi_list_entry *blink;
+};
+typedef struct grub_efi_list_entry grub_efi_list_entry_t;
 
 /* XXX although the spec does not specify the padding, this actually
    must have the padding!  */
@@ -1860,6 +1872,32 @@ struct grub_efi_disk_io
 			     void *buffer);
 };
 typedef struct grub_efi_disk_io grub_efi_disk_io_t;
+
+typedef struct {
+  grub_efi_event_t event;
+  grub_efi_status_t transaction_status;
+} grub_efi_disk_io2_token_t;
+
+struct grub_efi_disk_io2
+{
+  grub_efi_uint64_t revision;
+  grub_efi_status_t (*cancel_ex) (struct grub_efi_disk_io2 *this);
+  grub_efi_status_t (*read_ex) (struct grub_efi_disk_io2 *this,
+                                grub_efi_uint32_t media_id,
+                                grub_efi_uint64_t offset,
+                                grub_efi_disk_io2_token_t *token,
+                                grub_efi_uintn_t buffer_size,
+                                void *buffer);
+  grub_efi_status_t (*write_ex) (struct grub_efi_disk_io2 *this,
+                                 grub_efi_uint32_t media_id,
+                                 grub_efi_uint64_t offset,
+                                 grub_efi_disk_io2_token_t *token,
+                                 grub_efi_uintn_t buffer_size,
+                                 void *buffer);
+  grub_efi_status_t (*flush_ex) (struct grub_efi_disk_io2 *this,
+                                 grub_efi_disk_io2_token_t *token);
+};
+typedef struct grub_efi_disk_io2 grub_efi_disk_io2_t;
 
 struct grub_efi_block_io_media
 {

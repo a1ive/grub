@@ -51,13 +51,6 @@
 #define EFI_FILE_ARCHIVE    0x0000000000000020ULL
 #define EFI_FILE_VALID_ATTR 0x0000000000000037ULL
 
-struct grub_efi_list_entry
-{
-  struct grub_efi_list_entry *flink;
-  struct grub_efi_list_entry *blink;
-};
-typedef struct grub_efi_list_entry grub_efi_list_entry_t;
-
 typedef grub_efi_uint32_t shell_device_name_flags_t;
 #define EFI_DEVICE_NAME_USE_COMPONENT_NAME  0x00000001
 #define EFI_DEVICE_NAME_USE_DEVICE_PATH     0x00000002
