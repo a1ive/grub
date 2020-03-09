@@ -24,11 +24,11 @@
 #include <grub/efi/efi.h>
 #include <grub/misc.h>
 
-#define EFI_FILE_PROTOCOL_REVISION        0x00010000
-#define EFI_FILE_PROTOCOL_REVISION2       0x00020000
-#define EFI_FILE_PROTOCOL_LATEST_REVISION EFI_FILE_PROTOCOL_REVISION2
+#define GRUB_EFI_FILE_PROTOCOL_REVISION  0x00010000
+#define GRUB_EFI_FILE_PROTOCOL_REVISION2 0x00020000
+#define GRUB_EFI_FILE_PROTOCOL_LATEST_REVISION GRUB_EFI_FILE_PROTOCOL_REVISION2
 
-#define EFI_FILE_REVISION   EFI_FILE_PROTOCOL_REVISION
+#define GRUB_EFI_FILE_REVISION GRUB_EFI_FILE_PROTOCOL_REVISION
 
 typedef struct
 {
@@ -39,18 +39,18 @@ typedef struct
 } grub_efi_file_io_token_t;
 
 // Open modes
-#define EFI_FILE_MODE_READ    0x0000000000000001ULL
-#define EFI_FILE_MODE_WRITE   0x0000000000000002ULL
-#define EFI_FILE_MODE_CREATE  0x8000000000000000ULL
+#define GRUB_EFI_FILE_MODE_READ   0x0000000000000001ULL
+#define GRUB_EFI_FILE_MODE_WRITE  0x0000000000000002ULL
+#define GRUB_EFI_FILE_MODE_CREATE 0x8000000000000000ULL
 
 // File attributes
-#define EFI_FILE_READ_ONLY  0x0000000000000001ULL
-#define EFI_FILE_HIDDEN     0x0000000000000002ULL
-#define EFI_FILE_SYSTEM     0x0000000000000004ULL
-#define EFI_FILE_RESERVED   0x0000000000000008ULL
-#define EFI_FILE_DIRECTORY  0x0000000000000010ULL
-#define EFI_FILE_ARCHIVE    0x0000000000000020ULL
-#define EFI_FILE_VALID_ATTR 0x0000000000000037ULL
+#define GRUB_EFI_FILE_READ_ONLY  0x0000000000000001ULL
+#define GRUB_EFI_FILE_HIDDEN     0x0000000000000002ULL
+#define GRUB_EFI_FILE_SYSTEM     0x0000000000000004ULL
+#define GRUB_EFI_FILE_RESERVED   0x0000000000000008ULL
+#define GRUB_EFI_FILE_DIRECTORY  0x0000000000000010ULL
+#define GRUB_EFI_FILE_ARCHIVE    0x0000000000000020ULL
+#define GRUB_EFI_FILE_VALID_ATTR 0x0000000000000037ULL
 
 struct grub_efi_file_protocol
 {
@@ -98,8 +98,8 @@ typedef struct grub_efi_file_protocol grub_efi_file_protocol_t;
 typedef grub_efi_file_protocol_t *grub_efi_file_handle_t;
 typedef grub_efi_file_protocol_t  grub_efi_file_t;
 
-#define EFI_SIMPLE_FILE_SYSTEM_PROTOCOL_REVISION  0x00010000
-#define EFI_FILE_IO_INTERFACE_REVISION  EFI_SIMPLE_FILE_SYSTEM_PROTOCOL_REVISION
+#define GRUB_EFI_SIMPLE_FILE_SYSTEM_PROTOCOL_REVISION 0x00010000
+#define GRUB_EFI_FILE_IO_REVISION  GRUB_EFI_SIMPLE_FILE_SYSTEM_PROTOCOL_REVISION
 
 struct grub_efi_simple_fs_protocol
 {
@@ -108,4 +108,48 @@ struct grub_efi_simple_fs_protocol
                                     grub_efi_file_protocol_t **root);
 };
 typedef struct grub_efi_simple_fs_protocol grub_efi_simple_fs_protocol_t;
+
+#define GRUB_EFI_FILE_INFO_GUID \
+  { 0x09576e92, 0x6d3f, 0x11d2, \
+    { 0x8e, 0x39, 0x00, 0xa0, 0xc9, 0x69, 0x72, 0x3b } \
+  }
+
+#define GRUB_EFI_FILE_SYSTEM_INFO_GUID \
+  { 0x09576e93, 0x6d3f, 0x11d2, \
+    { 0x8e, 0x39, 0x00, 0xa0, 0xc9, 0x69, 0x72, 0x3b } \
+  }
+
+#define GRUB_EFI_FILE_SYSTEM_VOLUME_LABEL_GUID \
+  { 0xdb47d7d3, 0xfe81, 0x11d3, \
+    { 0x9a, 0x35, 0x00, 0x90, 0x27, 0x3f, 0xc1, 0x4d } \
+  }
+
+typedef struct grub_efi_file_info
+{
+  /* size of file_info structure */
+  grub_efi_uint64_t size;
+  grub_efi_uint64_t file_size;
+  grub_efi_uint64_t physical_size;
+  grub_efi_time_t create_time;
+  grub_efi_time_t last_access_time;
+  grub_efi_time_t modification_time;
+  grub_efi_uint64_t attribute;
+  grub_efi_char16_t file_name[1];
+} grub_efi_file_info_t;
+
+typedef struct grub_efi_file_system_info
+{
+  grub_efi_uint64_t size;
+  grub_efi_boolean_t read_only;
+  grub_efi_uint64_t volume_size;
+  grub_efi_uint64_t free_space;
+  grub_efi_uint32_t block_size;
+  grub_efi_char16_t volume_label[1];
+} grub_efi_fs_info_t;
+
+typedef struct grub_efi_file_system_volume_label
+{
+  grub_efi_char16_t volume_label[1];
+} grub_efi_fs_label_t;
+
 #endif
