@@ -22,7 +22,7 @@
 #include "grub_lib.h"
 
 #include <grub/dl.h>
-#include <grub/command.h>
+#include <grub/extcmd.h>
 #include <grub/i18n.h>
 #include <grub/misc.h>
 #include <grub/normal.h>
@@ -137,34 +137,72 @@ interactive (void)
   return grub_errno;
 }
 
-static grub_err_t
-grub_cmd_lua (grub_command_t cmd __attribute__ ((unused)),
-	      int argc, char **args)
+static void print_version (void)
 {
+  grub_printf (LUA_RELEASE "  " LUA_COPYRIGHT);
+}
+
+static const struct grub_arg_option options[] =
+{
+  {"execute", 'e', 0, N_("Execute string."), 0, 0},
+  {"load", 'l', 0, N_("Load library."), N_("NAME"), ARG_TYPE_STRING},
+  {"interactive", 'i', 0, N_("Enter interactive mode after executing script."), 0, 0},
+  {"version", 'v', 0, N_("Show version information."), 0, 0},
+  {0, 0, 0, 0, 0, 0}
+};
+
+enum options
+{
+  GRUB_LUA_EXE,
+  GRUB_LUA_LOA,
+  GRUB_LUA_INT,
+  GRUB_LUA_VER,
+};
+
+static grub_err_t
+grub_cmd_lua (grub_extcmd_context_t ctxt, int argc, char **args)
+{
+  struct grub_arg_list *opt = ctxt->state;
+  if (opt[GRUB_LUA_LOA].set)
+  {
+    lua_getglobal(state, "require");
+    lua_pushstring(state, opt[GRUB_LUA_LOA].arg);
+  }
   if (argc == 1)
+  {
+    if (opt[GRUB_LUA_EXE].set)
     {
-      if (luaL_loadfile (state, args[0]))
-	{
-	  handle_lua_error ("Lua");
-	}
-      else if (lua_pcall (state, 0, 0, 0))
-	{
-	  handle_lua_error ("Lua");
-	}
+      if (!luaL_loadbuffer (state, args[0], strlen(args[0]), "stdin"))
+        lua_pcall (state, 0, 0, 0);
+      handle_lua_error ("Lua");
     }
-  else if (argc == 0)
+    else if (luaL_loadfile (state, args[0]))
     {
+      handle_lua_error ("Lua");
+    }
+    else if (lua_pcall (state, 0, 0, 0))
+    {
+      handle_lua_error ("Lua");
+    }
+    if (opt[GRUB_LUA_INT].set)
       return interactive ();
-    }
+  }
+  else if (argc == 0)
+  {
+    if (opt[GRUB_LUA_VER].set)
+      print_version ();
+    else
+      return interactive ();
+  }
   else
-    {
-      return grub_error (GRUB_ERR_BAD_ARGUMENT, "1 or 0 arguments expected");
-    }
+  {
+    return grub_error (GRUB_ERR_BAD_ARGUMENT, "1 or 0 arguments expected");
+  }
 
   return grub_errno;
 }
 
-static grub_command_t cmd;
+static grub_extcmd_t cmd;
 
 GRUB_MOD_INIT (lua)
 {
@@ -172,24 +210,24 @@ GRUB_MOD_INIT (lua)
 
   state = lua_open ();
   if (state)
-    {
-      lua_gc (state, LUA_GCSTOP, 0);
-      luaL_openlibs (state);
-      luaL_register (state, "grub", grub_lua_lib);
-      luaL_register (state, "video", videolib);
-      luaL_register (state, "input", inputlib);
-      luaL_register (state, "gbk", gbklib);
-      lua_gc (state, LUA_GCRESTART, 0);
-      cmd = grub_register_command ("lua", grub_cmd_lua, N_("[FILE]"),
-				   N_ ("Run lua script FILE or start interactive lua shell"));
-    }
+  {
+    lua_gc (state, LUA_GCSTOP, 0);
+    luaL_openlibs (state);
+    luaL_register (state, "grub", grub_lua_lib);
+    luaL_register (state, "video", videolib);
+    luaL_register (state, "input", inputlib);
+    luaL_register (state, "gbk", gbklib);
+    lua_gc (state, LUA_GCRESTART, 0);
+    cmd = grub_register_extcmd ("lua", grub_cmd_lua, 0, N_("[OPTIONS] [FILE]"),
+              N_ ("Run lua script FILE or start interactive lua shell"), options);
+  }
 }
 
 GRUB_MOD_FINI (lua)
 {
   if (state)
-    {
-      lua_close (state);
-      grub_unregister_command (cmd);
-    }
+  {
+    lua_close (state);
+    grub_unregister_extcmd (cmd);
+  }
 }
