@@ -128,19 +128,8 @@ grubfm_enum_device_iter (const char *name,
     fs = grub_fs_probe (dev);
     if (fs)
     {
-      char *uuid = NULL;
       char *label = NULL;
-      if (fs->fs_uuid)
-      {
-        int err;
-        err = fs->fs_uuid (dev, &uuid);
-        if (err)
-        {
-          grub_errno = 0;
-          uuid = NULL;
-        }
-      }
-
+      const char *human_size = NULL;
       if (fs->fs_label)
       {
         int err;
@@ -152,10 +141,13 @@ grubfm_enum_device_iter (const char *name,
         }
       }
 
+      if (dev->disk)
+        human_size = grub_get_human_size (grub_disk_get_size (dev->disk)
+              << GRUB_DISK_SECTOR_BITS, GRUB_HUMAN_SIZE_SHORT);
       char *title = NULL;
       title = grub_xasprintf ("(%s) [%s] %s %s", name,
                 grub_strlen(label)? label : "NO LABEL",
-                fs->name, uuid? uuid : "");
+                fs->name, human_size? human_size : "");
       char *src = NULL;
       src = grub_xasprintf ("grubfm \"(%s)/\"", name);
       if (grub_strcmp (fs->name, "iso9660") == 0 ||
@@ -167,8 +159,6 @@ grubfm_enum_device_iter (const char *name,
       grub_free (src);
       if (label)
         grub_free (label);
-      if (uuid)
-        grub_free (uuid);
     }
     else
       grub_errno = 0;
