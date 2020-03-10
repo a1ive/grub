@@ -110,6 +110,19 @@ grub_cmd_stat (grub_extcmd_context_t ctxt, int argc, char **args)
     return grub_error (GRUB_ERR_OUT_OF_MEMORY, N_("out of memory"));
 
   size = grub_file_size (file);
+
+  int namelen = grub_strlen (args[0]);
+  if (args[0][0] == '(' && args[0][namelen - 1] == ')')
+  {
+    args[0][namelen - 1] = 0;
+    grub_disk_t disk = 0;
+    disk = grub_disk_open (&args[0][1]);
+    if (!disk)
+      goto fail;
+    size = grub_disk_get_size (disk) << GRUB_DISK_SECTOR_BITS;
+    grub_disk_close (disk);
+  }
+
   human_size = grub_get_human_size (size, GRUB_HUMAN_SIZE_SHORT);
 
   if (state[STAT_CONTIG].set)
