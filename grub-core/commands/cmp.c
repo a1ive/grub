@@ -38,6 +38,7 @@ grub_cmd_cmp (grub_command_t cmd __attribute__ ((unused)),
   grub_file_t file2 = 0;
   char *buf1 = 0;
   char *buf2 = 0;
+  grub_err_t err = GRUB_ERR_TEST_FAILURE;
 
   if (argc != 2)
     return grub_error (GRUB_ERR_BAD_ARGUMENT, N_("two arguments expected"));
@@ -91,6 +92,7 @@ grub_cmd_cmp (grub_command_t cmd __attribute__ ((unused)),
 
       /* TRANSLATORS: it's always exactly 2 files.  */
       grub_printf_ (N_("The files are identical.\n"));
+      err = GRUB_ERR_NONE;
     }
 
 cleanup:
@@ -102,7 +104,7 @@ cleanup:
   if (file2)
     grub_file_close (file2);
 
-  return grub_errno;
+  return err;
 }
 
 static grub_command_t cmd;
