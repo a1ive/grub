@@ -129,6 +129,7 @@ grubfm_enum_device_iter (const char *name,
     if (fs)
     {
       char *label = NULL;
+      char *label_real = NULL;
       const char *human_size = NULL;
       if (fs->fs_label)
       {
@@ -140,13 +141,15 @@ grubfm_enum_device_iter (const char *name,
           label = NULL;
         }
       }
+      if (label && grub_strlen(label))
+        label_real = grub_xasprintf ("[%s] ", label);
 
       if (dev->disk)
         human_size = grub_get_human_size (grub_disk_get_size (dev->disk)
               << GRUB_DISK_SECTOR_BITS, GRUB_HUMAN_SIZE_SHORT);
       char *title = NULL;
-      title = grub_xasprintf ("(%s) [%s] %s %s", name,
-                grub_strlen(label)? label : "NO LABEL",
+      title = grub_xasprintf ("(%s) %s%s %s", name,
+                label_real? label_real : "",
                 fs->name, human_size? human_size : "");
       char *src = NULL;
       src = grub_xasprintf ("grubfm \"(%s)/\"", name);
@@ -159,6 +162,8 @@ grubfm_enum_device_iter (const char *name,
       grub_free (src);
       if (label)
         grub_free (label);
+      if (label_real)
+        grub_free (label_real);
     }
     else
       grub_errno = 0;
