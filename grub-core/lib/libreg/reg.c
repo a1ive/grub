@@ -50,6 +50,8 @@
 
 #define _offsetof(TYPE, MEMBER) ((size_t) &((TYPE *)NULL)->MEMBER)
 
+#pragma GCC diagnostic ignored "-Wcast-align"
+
 static size_t
 reg_wcslen (const uint16_t *s)
 {
@@ -777,3 +779,5 @@ grub_open_hive (grub_file_t file, grub_reg_hive_t **hive)
 
   return GRUB_ERR_NONE;
 }
+
+#pragma GCC diagnostic error "-Wcast-align"
