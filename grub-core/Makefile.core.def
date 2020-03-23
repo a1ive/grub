@@ -2942,3 +2942,11 @@ module = {
   cflags = '$(CFLAGS_POSIX) -Wno-unused-parameter';
   cppflags = '$(CPPFLAGS_POSIX)';
 };
+
+module = {
+  name = libreg;
+  common = lib/libreg/reg.c;
+  common = lib/libreg/regtool.c;
+  cflags = '$(CFLAGS_POSIX)';
+  cppflags = '$(CPPFLAGS_POSIX)';
+};
