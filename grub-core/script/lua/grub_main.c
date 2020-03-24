@@ -217,6 +217,7 @@ GRUB_MOD_INIT (lua)
     luaL_register (state, "video", videolib);
     luaL_register (state, "input", inputlib);
     luaL_register (state, "gbk", gbklib);
+    luaL_register (state, "fat", fatlib);
     lua_gc (state, LUA_GCRESTART, 0);
     cmd = grub_register_extcmd ("lua", grub_cmd_lua, 0, N_("[OPTIONS] [FILE]"),
               N_ ("Run lua script FILE or start interactive lua shell"), options);

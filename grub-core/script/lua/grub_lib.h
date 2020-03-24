@@ -26,5 +26,6 @@ extern luaL_Reg grub_lua_lib[];
 extern luaL_Reg inputlib[];
 extern luaL_Reg videolib[];
 extern luaL_Reg gbklib[];
+extern luaL_Reg fatlib[];
 
 #endif
