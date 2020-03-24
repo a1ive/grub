@@ -1,6 +1,6 @@
 /*
  *  GRUB  --  GRand Unified Bootloader
- *  Copyright (C) 2009  Free Software Foundation, Inc.
+ *  Copyright (C) 2009,2019,2020  Free Software Foundation, Inc.
  *
  *  GRUB is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -18,6 +18,9 @@
 
 #ifndef GRUB_LUA_LIB_HEADER
 #define GRUB_LUA_LIB_HEADER 1
+
+int push_result (lua_State *state);
+int save_errno (lua_State *state);
 
 extern luaL_Reg grub_lua_lib[];
 extern luaL_Reg inputlib[];

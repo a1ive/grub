@@ -1107,6 +1107,8 @@ module = {
 
   common = script/lua/grub_main.c;
   common = script/lua/grub_lib.c;
+  common = script/lua/gbk_lib.c;
+  common = script/lua/video_lib.c;
 
   cflags = '$(CFLAGS_POSIX)';
   cppflags = '$(CPPFLAGS_POSIX)';
