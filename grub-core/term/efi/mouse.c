@@ -39,8 +39,6 @@ typedef struct
   grub_efi_boolean_t right;
 } grub_efi_mouse_state;
 
-static grub_efi_mouse_state last;
-
 typedef struct
 {
   grub_efi_uint64_t x;
@@ -53,7 +51,7 @@ typedef struct
 struct grub_efi_simple_pointer_protocol
 {
   grub_efi_status_t (*reset) (struct grub_efi_simple_pointer_protocol *this,
-                              grub_efi_boolean_t *extended_verification);
+                              grub_efi_boolean_t extended_verification);
   grub_efi_status_t (*get_state) (struct grub_efi_simple_pointer_protocol *this,
                                   grub_efi_mouse_state *state);
   grub_efi_event_t *wait_for_input;
@@ -61,27 +59,61 @@ struct grub_efi_simple_pointer_protocol
 };
 typedef struct grub_efi_simple_pointer_protocol grub_efi_simple_pointer_protocol_t;
 
+typedef struct
+{
+  grub_efi_uintn_t count;
+  grub_efi_mouse_state *last;
+  grub_efi_simple_pointer_protocol_t **mouse;
+} grub_efi_mouse_prot_t;
+
 static grub_err_t
 grub_efi_mouse_input_init (struct grub_term_input *term)
 {
   grub_efi_status_t status;
   grub_efi_guid_t mouse_guid = GRUB_EFI_SIMPLE_POINTER_GUID;
-  grub_efi_simple_pointer_protocol_t *mouse_input = term->data;
-  if (mouse_input)
+  grub_efi_mouse_prot_t *mouse_input = NULL;
+  grub_efi_boot_services_t *b = grub_efi_system_table->boot_services;
+  grub_efi_handle_t *buf;
+  grub_efi_uintn_t count;
+  grub_efi_uintn_t i;
+
+  if (term->data)
     return 0;
-  status = efi_call_3 (grub_efi_system_table->boot_services->locate_protocol,
-                       &mouse_guid, NULL, &mouse_input);
-  if (status != GRUB_EFI_SUCCESS || !mouse_input)
+
+  status = efi_call_5 (b->locate_handle_buffer, GRUB_EFI_BY_PROTOCOL,
+                       &mouse_guid, NULL, &count, &buf);
+  if (status != GRUB_EFI_SUCCESS)
   {
     grub_printf ("ERROR: SimplePointerProtocol not found.\n");
     return GRUB_ERR_BAD_OS;
   }
-  status = efi_call_2 (mouse_input->reset, mouse_input, TRUE);
-  if (status != GRUB_EFI_SUCCESS)
+
+  mouse_input = grub_malloc (sizeof (grub_efi_mouse_prot_t));
+  if (!mouse_input)
+    return GRUB_ERR_BAD_OS;
+  mouse_input->last = grub_zalloc (count * sizeof (grub_efi_mouse_state));
+  if (!mouse_input->last)
   {
-    grub_printf ("ERROR: SimplePointerProtocol reset failed.\n");
+    grub_free (mouse_input);
     return GRUB_ERR_BAD_OS;
   }
+  mouse_input->mouse = grub_malloc (count
+            * sizeof (grub_efi_simple_pointer_protocol_t *));
+  if (!mouse_input->mouse)
+  {
+    grub_free (mouse_input->last);
+    grub_free (mouse_input);
+    return GRUB_ERR_BAD_OS;
+  }
+  mouse_input->count = count;
+  for (i = 0; i < count; i++)
+  {
+    efi_call_3 (b->handle_protocol,
+                buf[i], &mouse_guid, (void **)&mouse_input->mouse[i]);
+    grub_printf ("%d %p\n", (int)i, mouse_input->mouse[i]);
+    efi_call_2 (mouse_input->mouse[i]->reset, mouse_input->mouse[i], TRUE);
+  }
+
   term->data = (void *)mouse_input;
 
   return 0;
@@ -91,24 +123,29 @@ static int
 grub_mouse_getkey (struct grub_term_input *term)
 {
   grub_efi_mouse_state cur;
-  grub_efi_simple_pointer_protocol_t *mouse = term->data;
+  grub_efi_mouse_prot_t *mouse = term->data;
   //int x;
   int y;
+  grub_efi_uintn_t i;
   if (!mouse)
     return GRUB_TERM_NO_KEY;
-  efi_call_2 (mouse->get_state, mouse, &cur);
-  if (grub_memcmp (&cur, &last, sizeof (grub_efi_mouse_state)) != 0)
+  for (i = 0; i < mouse->count; i++)
   {
-    //x = (int) grub_divmod64 (cur.x, mouse->mode->x, NULL);
-    y = (int) grub_divmod64 (cur.y, mouse->mode->y, NULL);
-    if (cur.left)
-      return 0x0d;
-    if (cur.right)
-      return GRUB_TERM_ESC;
-    if (y > 5)
-      return GRUB_TERM_KEY_DOWN;
-    if (y < -5)
-      return GRUB_TERM_KEY_UP;
+    efi_call_2 (mouse->mouse[i]->get_state, mouse->mouse[i], &cur);
+    if (grub_memcmp (&cur, &mouse->last[i], sizeof (grub_efi_mouse_state)) != 0)
+    {
+      grub_memcpy (&mouse->last[i], &cur, sizeof (grub_efi_mouse_state));
+      //x = (int) grub_divmod64 (cur.x, mouse->mode->x, NULL);
+      y = (int) grub_divmod64 (cur.y, mouse->mouse[i]->mode->y, NULL);
+      if (cur.left)
+        return 0x0d;
+      if (cur.right)
+        return GRUB_TERM_ESC;
+      if (y > 5)
+        return GRUB_TERM_KEY_DOWN;
+      if (y < -5)
+        return GRUB_TERM_KEY_UP;
+    }
   }
   return GRUB_TERM_NO_KEY;
 }
