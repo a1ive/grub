@@ -2953,3 +2953,9 @@ module = {
   cflags = '$(CFLAGS_POSIX)';
   cppflags = '$(CPPFLAGS_POSIX)';
 };
+
+module = {
+  name = efi_mouse;
+  common = term/efi/mouse.c;
+  enable = efi;
+};
