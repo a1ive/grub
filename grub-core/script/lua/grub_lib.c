@@ -105,9 +105,9 @@ grub_lua_run (lua_State *state)
 
       cmd = grub_command_find (args[0]);
       if (cmd)
-	(cmd->func) (cmd, n-1, &args[1]);
+    (cmd->func) (cmd, n-1, &args[1]);
       else
-	grub_error (GRUB_ERR_FILE_NOT_FOUND, "command not found");
+    grub_error (GRUB_ERR_FILE_NOT_FOUND, "command not found");
 
       grub_free (args[0]);
       grub_free (args);
@@ -143,9 +143,9 @@ grub_lua_getenv (lua_State *state)
       name = luaL_checkstring (state, i);
       value = grub_env_get (name);
       if (value)
-	lua_pushstring (state, value);
+    lua_pushstring (state, value);
       else
-	lua_pushnil (state);
+    lua_pushnil (state);
     }
 
   return n;
@@ -193,70 +193,71 @@ grub_lua_enum_device_iter (const char *name, void *data)
   result = 0;
   dev = grub_device_open (name);
   if (dev)
+  {
+    grub_fs_t fs;
+
+    fs = grub_fs_probe (dev);
+    if (fs)
     {
-      grub_fs_t fs;
-
-      fs = grub_fs_probe (dev);
-      if (fs)
-	{
-	  lua_pushvalue (state, 1);
-	  lua_pushstring (state, name);
-	  lua_pushstring (state, fs->name);
-	  if (! fs->fs_uuid)
-	    lua_pushnil (state);
-	  else
-	    {
-	      int err;
-	      char *uuid;
-
-	      err = fs->fs_uuid (dev, &uuid);
-	      if (err)
-		{
-		  grub_errno = 0;
-		  lua_pushnil (state);
-		}
-	      else
-		{
-		  lua_pushstring (state, uuid);
-		  grub_free (uuid);
-		}
-	    }
-
-	  if (! fs->fs_label)
-	    lua_pushnil (state);
-	  else
-	    {
-	      int err;
-	      char *label = NULL;
-
-	      err = fs->fs_label (dev, &label);
-	      if (err)
-		{
-		  grub_errno = 0;
-		  lua_pushnil (state);
-		}
-	      else
-		{
-		  if (label == NULL)
-		    {
-		      lua_pushnil (state);
-		    }
-		  else
-		    {
-		      lua_pushstring (state, label);
-		    }
-		  grub_free (label);
-		}
-	    }
-
-	  lua_call (state, 4, 1);
-	  result = lua_tointeger (state, -1);
-	  lua_pop (state, 1);
-	}
+      lua_pushvalue (state, 1);
+      lua_pushstring (state, name);
+      lua_pushstring (state, fs->name);
+      if (! fs->fs_uuid)
+        lua_pushnil (state);
       else
-	grub_errno = 0;
-      grub_device_close (dev);
+      {
+        int err;
+        char *uuid = NULL;
+        err = fs->fs_uuid (dev, &uuid);
+        if (err || !uuid)
+        {
+          grub_errno = 0;
+          lua_pushnil (state);
+        }
+        else
+        {
+          lua_pushstring (state, uuid);
+          grub_free (uuid);
+        }
+      }
+      if (! fs->fs_label)
+        lua_pushnil (state);
+      else
+      {
+        int err;
+        char *label = NULL;
+        err = fs->fs_label (dev, &label);
+        if (err || !label)
+        {
+          grub_errno = 0;
+          lua_pushnil (state);
+        }
+        else
+        {
+          lua_pushstring (state, label);
+          grub_free (label);
+        }
+      }
+      if (!dev->disk)
+        lua_pushnil (state);
+      else
+      {
+        const char *human_size = NULL;
+        human_size = grub_get_human_size (grub_disk_get_size (dev->disk)
+              << GRUB_DISK_SECTOR_BITS, GRUB_HUMAN_SIZE_SHORT);
+        if (human_size)
+          lua_pushstring (state, human_size);
+        else
+          lua_pushnil (state);
+      }
+      lua_call (state, 5, 1);
+      result = lua_tointeger (state, -1);
+      lua_pop (state, 1);
     }
+    else
+      grub_errno = 0;
+    grub_device_close (dev);
+  }
   else
     grub_errno = 0;
 
@@ -273,10 +274,13 @@ grub_lua_enum_device (lua_State *state)
 
 static int
 enum_file (const char *name, const struct grub_dirhook_info *info,
-	   void *data)
+       void *data)
 {
   int result;
   lua_State *state = data;
+  if (grub_strcmp (name, ".") == 0 || grub_strcmp (name, "..") == 0 ||
+      grub_strcmp (name, "System Volume Information") == 0)
+    return 0;
 
   lua_pushvalue (state, 1);
   lua_pushstring (state, name);
@@ -300,24 +304,23 @@ grub_lua_enum_file (lua_State *state)
   device_name = grub_file_get_device_name (arg);
   dev = grub_device_open (device_name);
   if (dev)
-    {
-      grub_fs_t fs;
-      const char *path;
+  {
+    grub_fs_t fs;
+    const char *path;
 
-      fs = grub_fs_probe (dev);
-      path = grub_strchr (arg, ')');
-      if (! path)
-	path = arg;
-      else
-	path++;
+    fs = grub_fs_probe (dev);
+    path = grub_strchr (arg, ')');
+    if (! path)
+      path = arg;
+    else
+      path++;
+    if ((!path && !device_name) || !*path)
+      grub_printf ("invalid path\n");
+    if (fs)
+      (fs->fs_dir) (dev, path, enum_file, state);
 
-      if (fs)
-	{
-	  (fs->fs_dir) (dev, path, enum_file, state);
-	}
-
-      grub_device_close (dev);
-    }
+    grub_device_close (dev);
+  }
 
   grub_free (device_name);
 
@@ -433,7 +436,7 @@ grub_lua_file_read (lua_State *state)
 
       nr = grub_file_read (file, p, nr);
       if (nr <= 0)
-	break;
+    break;
 
       luaL_addsize (&b, nr);
       n -= nr;
@@ -691,13 +694,13 @@ grub_lua_add_menu (lua_State *state)
 
       args = grub_malloc (n * sizeof (args[0]));
       if (!args)
-	return push_result (state);
+    return push_result (state);
       for (i = 0; i < n; i++)
-	args[i] = luaL_checkstring (state, 2 + i);
+    args[i] = luaL_checkstring (state, 2 + i);
 
       p = grub_strdup (source);
       if (! p)
-	return push_result (state);
+    return push_result (state);
 
       grub_normal_add_menu_entry (n, args, NULL, NULL, NULL, NULL, NULL, p, 0,
                                   0, NULL, NULL);
@@ -739,13 +742,13 @@ grub_lua_add_icon_menu (lua_State *state)
       class[1] = NULL;
       args = grub_malloc (n * sizeof (args[0]));
       if (!args)
-	return push_result (state);
+    return push_result (state);
       for (i = 0; i < n; i++)
-	args[i] = luaL_checkstring (state, 3 + i);
+    args[i] = luaL_checkstring (state, 3 + i);
 
       p = grub_strdup (source);
       if (! p)
-	return push_result (state);
+    return push_result (state);
       grub_normal_add_menu_entry (n, args, class, NULL, NULL, NULL, NULL, p, 0,
                                   0, NULL, NULL);
     }
@@ -772,14 +775,14 @@ grub_lua_add_hidden_menu (lua_State *state)
       const char *hotkey;
       args = grub_malloc (n * sizeof (args[0]));
       if (!args)
-	return push_result (state);
+    return push_result (state);
       for (i = 0; i < n; i++)
-	args[i] = luaL_checkstring (state, 3 + i);
+    args[i] = luaL_checkstring (state, 3 + i);
 
       p = grub_strdup (source);
       if (! p)
-	return push_result (state);
-	  hotkey = grub_strdup (luaL_checklstring (state, 1, 0));
+    return push_result (state);
+      hotkey = grub_strdup (luaL_checklstring (state, 1, 0));
       grub_normal_add_menu_entry (n, args, NULL, NULL, NULL, hotkey, NULL, p, 0,
                                   1, NULL, NULL);
     }
