@@ -16,9 +16,12 @@
  *  along with GRUB.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <grub/dl.h>
 #include <grub/term.h>
 #include <grub/misc.h>
 #include <grub/types.h>
+#include <grub/command.h>
+#include <grub/i18n.h>
 #include <grub/err.h>
 #include <grub/efi/efi.h>
 #include <grub/efi/api.h>
@@ -38,6 +41,8 @@ typedef struct
   grub_efi_boolean_t left;
   grub_efi_boolean_t right;
 } grub_efi_mouse_state;
+
+grub_efi_mouse_state no_move = {0, 0, 0, 0, 0};
 
 typedef struct
 {
@@ -62,12 +67,28 @@ typedef struct grub_efi_simple_pointer_protocol grub_efi_simple_pointer_protocol
 typedef struct
 {
   grub_efi_uintn_t count;
-  grub_efi_mouse_state *last;
   grub_efi_simple_pointer_protocol_t **mouse;
 } grub_efi_mouse_prot_t;
 
-static grub_err_t
-grub_efi_mouse_input_init (struct grub_term_input *term)
+static grub_int32_t
+mouse_div (grub_int32_t a, grub_uint64_t b)
+{
+  grub_int32_t s = 1, q, ret;
+  grub_uint64_t n = a;
+  if (!b)
+    return 0;
+  if (a < 0)
+  {
+    s = -1;
+    n = -a;
+  }
+  q = grub_divmod64 (n, b, NULL);
+  ret = s * (q > 0 ? q : -q);
+  return ret;
+}
+
+static grub_efi_mouse_prot_t *
+grub_efi_mouse_prot_init (void)
 {
   grub_efi_status_t status;
   grub_efi_guid_t mouse_guid = GRUB_EFI_SIMPLE_POINTER_GUID;
@@ -77,42 +98,48 @@ grub_efi_mouse_input_init (struct grub_term_input *term)
   grub_efi_uintn_t count;
   grub_efi_uintn_t i;
 
-  if (term->data)
-    return 0;
-
   status = efi_call_5 (b->locate_handle_buffer, GRUB_EFI_BY_PROTOCOL,
                        &mouse_guid, NULL, &count, &buf);
   if (status != GRUB_EFI_SUCCESS)
   {
     grub_printf ("ERROR: SimplePointerProtocol not found.\n");
-    return GRUB_ERR_BAD_OS;
+    return NULL;
   }
 
   mouse_input = grub_malloc (sizeof (grub_efi_mouse_prot_t));
   if (!mouse_input)
-    return GRUB_ERR_BAD_OS;
-  mouse_input->last = grub_zalloc (count * sizeof (grub_efi_mouse_state));
-  if (!mouse_input->last)
-  {
-    grub_free (mouse_input);
-    return GRUB_ERR_BAD_OS;
-  }
+    return NULL;
   mouse_input->mouse = grub_malloc (count
             * sizeof (grub_efi_simple_pointer_protocol_t *));
   if (!mouse_input->mouse)
   {
-    grub_free (mouse_input->last);
     grub_free (mouse_input);
-    return GRUB_ERR_BAD_OS;
+    return NULL;
   }
   mouse_input->count = count;
   for (i = 0; i < count; i++)
   {
     efi_call_3 (b->handle_protocol,
                 buf[i], &mouse_guid, (void **)&mouse_input->mouse[i]);
-    grub_printf ("%d %p\n", (int)i, mouse_input->mouse[i]);
+    grub_printf ("%d %p ", (int)i, mouse_input->mouse[i]);
     efi_call_2 (mouse_input->mouse[i]->reset, mouse_input->mouse[i], TRUE);
+    grub_printf
+      ("[%"PRIuGRUB_UINT64_T"] [%"PRIuGRUB_UINT64_T"] [%"PRIuGRUB_UINT64_T"]\n",
+       mouse_input->mouse[i]->mode->x,
+       mouse_input->mouse[i]->mode->y, mouse_input->mouse[i]->mode->z);
   }
+  return mouse_input;
+}
+
+static grub_err_t
+grub_efi_mouse_input_init (struct grub_term_input *term)
+{
+  grub_efi_mouse_prot_t *mouse_input = NULL;
+  if (term->data)
+    return 0;
+  mouse_input = grub_efi_mouse_prot_init ();
+  if (!mouse_input)
+    return GRUB_ERR_BAD_OS;
 
   term->data = (void *)mouse_input;
 
@@ -132,23 +159,61 @@ grub_mouse_getkey (struct grub_term_input *term)
   for (i = 0; i < mouse->count; i++)
   {
     efi_call_2 (mouse->mouse[i]->get_state, mouse->mouse[i], &cur);
-    if (grub_memcmp (&cur, &mouse->last[i], sizeof (grub_efi_mouse_state)) != 0)
+    if (grub_memcmp (&cur, &no_move, sizeof (grub_efi_mouse_state)) != 0)
     {
-      grub_memcpy (&mouse->last[i], &cur, sizeof (grub_efi_mouse_state));
-      //x = (int) grub_divmod64 (cur.x, mouse->mode->x, NULL);
-      y = (int) grub_divmod64 (cur.y, mouse->mouse[i]->mode->y, NULL);
+      y = mouse_div (cur.y, mouse->mouse[i]->mode->y);
       if (cur.left)
         return 0x0d;
       if (cur.right)
         return GRUB_TERM_ESC;
-      if (y > 5)
+      if (y > 0)
         return GRUB_TERM_KEY_DOWN;
-      if (y < -5)
+      if (y < 0)
         return GRUB_TERM_KEY_UP;
     }
   }
   return GRUB_TERM_NO_KEY;
 }
+
+static grub_err_t
+grub_cmd_mouse_test (grub_command_t cmd __attribute__ ((unused)),
+                    int argc __attribute__ ((unused)),
+                    char **args __attribute__ ((unused)))
+
+{
+  grub_efi_mouse_state cur;
+  int x = 0, y = 0, z = 0;
+  grub_efi_uintn_t i;
+  grub_efi_mouse_prot_t *mouse = NULL;
+
+  mouse = grub_efi_mouse_prot_init ();
+  if (!mouse)
+    return grub_error (GRUB_ERR_BAD_OS, "mouse not found.\n");
+  grub_printf ("Press [1] to exit.\n");
+  while (1)
+  {
+    if (grub_getkey_noblock () == '1')
+      break;
+    for (i = 0; i < mouse->count; i++)
+    {
+      efi_call_2 (mouse->mouse[i]->get_state, mouse->mouse[i], &cur);
+      if (grub_memcmp (&cur, &no_move, sizeof (grub_efi_mouse_state)) != 0)
+      {
+        x = mouse_div (cur.x, mouse->mouse[i]->mode->x);
+        y = mouse_div (cur.y, mouse->mouse[i]->mode->y);
+        z = mouse_div (cur.z, mouse->mouse[i]->mode->z);
+        grub_printf ("[ID=%d] X=%d Y=%d Z=%d L=%d R=%d\n",
+                     (int)i, x, y, z, cur.left, cur.right);
+      }
+    }
+    grub_refresh ();
+  }
+  grub_free (mouse->mouse);
+  grub_free (mouse);
+  return GRUB_ERR_NONE;
+}
+
+static grub_command_t cmd;
 
 static struct grub_term_input grub_mouse_term_input =
 {
@@ -160,9 +225,12 @@ static struct grub_term_input grub_mouse_term_input =
 GRUB_MOD_INIT(efi_mouse)
 {
   grub_term_register_input ("mouse", &grub_mouse_term_input);
+  cmd = grub_register_command ("mouse_test", grub_cmd_mouse_test, 0,
+                               N_("UEFI mouse test."));
 }
 
 GRUB_MOD_FINI(efi_mouse)
 {
   grub_term_unregister_input (&grub_mouse_term_input);
+  grub_unregister_command (cmd);
 }
