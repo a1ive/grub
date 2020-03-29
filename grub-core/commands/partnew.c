@@ -152,12 +152,6 @@ msdos_part (grub_disk_t disk, unsigned long num, grub_uint8_t type, int active)
   grub_dprintf ("partnew",
                 "TYPE=0x%02X START=%10d LENGTH=%10d\n", mbr->entries[num].type,
                 mbr->entries[num].start, mbr->entries[num].length);
-  if (mbr->hidden_sectors != mbr->entries[num].start)
-  {
-    grub_dprintf ("partnew", "Changing hidden sectors %d to %d\n",
-                  mbr->hidden_sectors, mbr->entries[num].start);
-    mbr->hidden_sectors = mbr->entries[num].start;
-  }
   /* lba to chs */
   grub_uint8_t start_cl = 0, start_ch = 0, start_dh = 0;
   grub_uint8_t end_cl = 0, end_ch = 0, end_dh = 0;
