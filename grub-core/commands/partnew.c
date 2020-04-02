@@ -32,6 +32,9 @@
 #include <grub/i18n.h>
 #include <grub/gpt_partition.h>
 #include <grub/msdos_partition.h>
+#include <grub/fat.h>
+#include <grub/ntfs.h>
+#include <grub/ext2.h>
 
 #define MAX_MBR_PARTITIONS  4
 
@@ -43,7 +46,7 @@ static const struct grub_arg_option options_partnew[] = {
       N_("File that will be used as the content of the new partition"),
       N_("PATH"), ARG_TYPE_STRING},
   {"type", 't', 0,
-      N_("Partition type"),
+      N_("Partition type (0x00 for auto or 0x10 for hidden-auto)."),
       N_("HEX"), ARG_TYPE_INT},
   {"start", 's', 0, N_("Starting address (in sector units)."),
       N_("n"), ARG_TYPE_INT},
@@ -106,6 +109,62 @@ file_to_block (const char *name)
   return grub_errno;
 }
 
+/* return fstype */
+static grub_uint8_t
+bpb_detect (grub_disk_t disk, grub_disk_addr_t part_start)
+{
+  struct grub_fat_bpb bpb;
+  if (grub_disk_read (disk, part_start, 0, sizeof (bpb), &bpb))
+    return 0;
+  if (grub_memcmp ((const char *) bpb.oem_name, "EXFAT", 5) == 0)
+  {
+    /* FIXME: write part_offset and checksum to exFAT */
+    grub_dprintf ("partnew", "fs: exfat\n");
+    return 0x07;
+  }
+  if (grub_memcmp ((const char *) bpb.oem_name, "NTFS", 4) == 0)
+  {
+    grub_dprintf ("partnew", "fs: ntfs\n");
+    bpb.num_hidden_sectors = part_start;
+    grub_disk_write (disk, part_start, 0, sizeof (bpb), &bpb);
+    return 0x07;
+  }
+  if (grub_memcmp ((const char *) bpb.version_specific.fat12_or_fat16.fstype,
+                   "FAT12", 5) == 0)
+  {
+    grub_dprintf ("partnew", "fs: fat12\n");
+    bpb.num_hidden_sectors = part_start;
+    grub_disk_write (disk, part_start, 0, sizeof (bpb), &bpb);
+    return 0x0E;
+  }
+  if (grub_memcmp ((const char *) bpb.version_specific.fat12_or_fat16.fstype,
+                   "FAT16", 5) == 0)
+  {
+    grub_dprintf ("partnew", "fs: fat16\n");
+    bpb.num_hidden_sectors = part_start;
+    grub_disk_write (disk, part_start, 0, sizeof (bpb), &bpb);
+    return 0x0E;
+  }
+  if (grub_memcmp ((const char *) bpb.version_specific.fat32.fstype,
+                   "FAT32", 5) == 0)
+  {
+    grub_dprintf ("partnew", "fs: fat32\n");
+    bpb.num_hidden_sectors = part_start;
+    grub_disk_write (disk, part_start, 0, sizeof (bpb), &bpb);
+    return 0x0C;
+  }
+  /* ext2 superblock */
+  struct grub_ext2_sblock sb;
+  if (grub_disk_read (disk, part_start, 0, sizeof (sb), &sb))
+    return 0;
+  if (sb.magic == grub_cpu_to_le16_compile_time (EXT2_MAGIC))
+  {
+    grub_dprintf ("partnew", "fs: ext2\n");
+    return 0x83;
+  }
+  return 0;
+}
+
 static void
 msdos_part (grub_disk_t disk, unsigned long num, grub_uint8_t type, int active)
 {
@@ -144,6 +203,11 @@ msdos_part (grub_disk_t disk, unsigned long num, grub_uint8_t type, int active)
   }
   grub_dprintf ("partnew", "Partition %ld:\n", num);
   num--;
+  grub_uint8_t new_type = bpb_detect (disk, file_block.start);
+  if (type == 0x00 || type == 0x10)
+  {
+    type |= new_type;
+  }
   mbr->entries[num].type = type;
   if (active)
     mbr->entries[num].flag = 0x80;
