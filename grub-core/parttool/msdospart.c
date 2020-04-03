@@ -122,13 +122,12 @@ static grub_err_t grub_pcpart_type (const grub_device_t dev,
 	type &= ~GRUB_PC_PARTITION_TYPE_HIDDEN_FLAG;
     }
 
-  if (grub_msdos_partition_is_empty (type)
-      || grub_msdos_partition_is_extended (type))
+  if (grub_msdos_partition_is_extended (type))
     {
       dev->disk->partition = part;
       return grub_error (GRUB_ERR_BAD_ARGUMENT,
 			 N_("the partition type 0x%x isn't "
-			    "valid"));
+			    "valid"), type);
     }
 
   mbr.entries[index].type = type;
