@@ -2044,7 +2044,6 @@ module = {
   efi = loader/efi/chainloader.c;
   i386_pc = loader/i386/pc/chainloader.c;
   i386_coreboot = loader/i386/coreboot/chainloader.c;
-  i386_coreboot = lib/LzmaDec.c;
   enable = i386_pc;
   enable = i386_coreboot;
   enable = efi;
@@ -2558,6 +2557,12 @@ module = {
   common = lib/minilzo/minilzo.c;
   cflags = '$(CFLAGS_POSIX) -Wno-undef -Wno-redundant-decls -Wno-error';
   cppflags = '-I$(srcdir)/lib/posix_wrap -I$(srcdir)/lib/minilzo -DMINILZO_HAVE_CONFIG_H';
+};
+
+module = {
+  name = lzmaio;
+  common = io/lzmaio.c;
+  common = lib/LzmaDec.c;
 };
 
 module = {
