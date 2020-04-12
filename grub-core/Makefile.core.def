@@ -810,6 +810,12 @@ module = {
 };
 
 module = {
+  name = fixmmap;
+  common = commands/efi/fixmmap.c;
+  enable = efi;
+};
+
+module = {
   name = setup_var;
   common = commands/efi/setup_var.c;
   enable = i386_efi;
