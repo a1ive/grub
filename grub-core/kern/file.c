@@ -57,6 +57,37 @@ grub_file_get_device_name (const char *name)
   return 0;
 }
 
+#define GRUB_MEMFILE_MEM     "mem:"
+#define GRUB_MEMFILE_SIZE    "size:"
+/* mem:xxx:size:xxx */
+static int grub_ismemfile (const char *name)
+{
+  if (grub_strncmp (name, GRUB_MEMFILE_MEM, grub_strlen(GRUB_MEMFILE_MEM)) != 0)
+    return 0;
+  if (!grub_strstr(name, GRUB_MEMFILE_SIZE))
+    return 0;
+  return 1;
+}
+
+static grub_file_t grub_memfile_open(const char *name)
+{
+  char *size = NULL;
+  grub_file_t file = 0;
+
+  file = (grub_file_t)grub_zalloc(sizeof(*file));
+  if (!file)
+    return 0;
+
+  file->name = grub_strdup(name);
+  file->data = (void *)grub_strtoul(name + grub_strlen(GRUB_MEMFILE_MEM), NULL, 0);
+
+  size = grub_strstr(name, GRUB_MEMFILE_SIZE);
+  file->size = (grub_off_t) grub_strtoul(size + grub_strlen(GRUB_MEMFILE_SIZE),
+                                         NULL, 0);
+  grub_errno = GRUB_ERR_NONE;
+  return file;
+}
+
 grub_file_t
 grub_file_open (const char *name, enum grub_file_type type)
 {
@@ -65,6 +96,9 @@ grub_file_open (const char *name, enum grub_file_type type)
   char *device_name;
   const char *file_name;
   grub_file_filter_id_t filter;
+
+  if (grub_ismemfile (name))
+    return grub_memfile_open(name);
 
   device_name = grub_file_get_device_name (name);
   if (grub_errno)
@@ -163,12 +197,20 @@ grub_file_read (grub_file_t file, void *buf, grub_size_t len)
   if (len > file->size - file->offset)
     len = file->size - file->offset;
 
-  /* Prevent an overflow.  */
+    /* Prevent an overflow.  */
   if ((grub_ssize_t) len < 0)
     len >>= 1;
 
   if (len == 0)
     return 0;
+
+  if (grub_ismemfile (file->name))
+  {
+    grub_memcpy(buf, (grub_uint8_t *)(file->data) + file->offset, len);
+    file->offset += len;
+    return len;
+  }
+
   read_hook = file->read_hook;
   read_hook_data = file->read_hook_data;
   if (!file->read_hook)
@@ -189,7 +231,7 @@ grub_file_read (grub_file_t file, void *buf, grub_size_t len)
 grub_err_t
 grub_file_close (grub_file_t file)
 {
-  if (file->fs->fs_close)
+  if (file->fs && file->fs->fs_close)
     (file->fs->fs_close) (file);
 
   if (file->device)
