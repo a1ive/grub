@@ -46,7 +46,7 @@ static const struct grub_arg_option options_partnew[] = {
       N_("File that will be used as the content of the new partition"),
       N_("PATH"), ARG_TYPE_STRING},
   {"type", 't', 0,
-      N_("Partition type (0x00 for auto or 0x10 for hidden-auto)."),
+      N_("Partition type (0x00 for auto or 0x10 for hidden-auto). If no start/length/type - only exact type byte is updated."),
       N_("HEX"), ARG_TYPE_INT},
   {"start", 's', 0, N_("Starting address (in sector units)."),
       N_("n"), ARG_TYPE_INT},
@@ -65,6 +65,7 @@ enum options_partnew
 
 struct block_ctx
 {
+  int present;
   grub_disk_addr_t start;
   unsigned long length;
 };
@@ -203,14 +204,19 @@ msdos_part (grub_disk_t disk, unsigned long num, grub_uint8_t type, int active)
   }
   grub_dprintf ("partnew", "Partition %ld:\n", num);
   num--;
+  if (active)
+    mbr->entries[num].flag = 0x80;
+  if (!file_block.present)
+  {
+    mbr->entries[num].type = type;
+    goto write;
+  }
   grub_uint8_t new_type = bpb_detect (disk, file_block.start);
   if (type == 0x00 || type == 0x10)
   {
     type |= new_type;
   }
   mbr->entries[num].type = type;
-  if (active)
-    mbr->entries[num].flag = 0x80;
   mbr->entries[num].start = file_block.start;
   mbr->entries[num].length = file_block.length;
   grub_dprintf ("partnew",
@@ -231,6 +237,7 @@ msdos_part (grub_disk_t disk, unsigned long num, grub_uint8_t type, int active)
   mbr->entries[num].end_head = end_dh;
   mbr->entries[num].end_sector = end_cl;
   mbr->entries[num].end_cylinder = end_ch;
+write:
   /* Write the MBR. */
   grub_disk_write (disk, 0, 0, GRUB_DISK_SECTOR_SIZE, mbr);
 fail:
@@ -299,11 +306,17 @@ grub_cmd_partnew (grub_extcmd_context_t ctxt, int argc, char *argv[])
       goto fail;
     grub_dprintf ("partnew", "FILE START %10ld LENGTH %10ld\n",
                   (unsigned long) file_block.start, file_block.length);
+    file_block.present = 1;
   }
   else if (state[PARTNEW_START].set && state[PARTNEW_LENGTH].set)
   {
     file_block.start = grub_strtoul (state[PARTNEW_START].arg, NULL, 10);
     file_block.length = grub_strtoul (state[PARTNEW_LENGTH].arg, NULL, 10);
+    file_block.present = 1;
+  }
+  else if (state[PARTNEW_TYPE].set)
+  {
+    file_block.present = 0;
   }
   else
     goto fail;
