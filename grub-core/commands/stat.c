@@ -20,6 +20,7 @@
 #include <grub/types.h>
 #include <grub/misc.h>
 #include <grub/mm.h>
+#include <grub/memory.h>
 #include <grub/err.h>
 #include <grub/dl.h>
 #include <grub/extcmd.h>
@@ -39,6 +40,7 @@ static const struct grub_arg_option options[] =
   {"offset", 'o', 0, N_("Display file offset on disk."), 0, 0},
   {"contig", 'c', 0, N_("Check if the file is contiguous or not."), 0, 0},
   {"fs", 'f', 0, N_("Display filesystem information."), 0, 0},
+  {"ram", 'r', 0, N_("Display RAM size in MiB."), 0, 0},
   {"quiet", 'q', 0, N_("Don't print strings."), 0, 0},
   {0, 0, 0, 0, 0, 0}
 };
@@ -51,6 +53,7 @@ enum options
   STAT_OFFSET,
   STAT_CONTIG,
   STAT_FS,
+  STAT_RAM,
   STAT_QUIET,
 };
 
@@ -90,6 +93,20 @@ read_block_start (grub_disk_addr_t sector,
   *start = sector + 1 - (length >> GRUB_DISK_SECTOR_BITS);
 }
 
+static grub_uint64_t total_mem = 0;
+
+#ifndef GRUB_MACHINE_EMU
+static int
+totalmem_hook (grub_uint64_t addr __attribute__ ((unused)),
+               grub_uint64_t size,
+               grub_memory_type_t type __attribute__ ((unused)),
+               void *data __attribute__ ((unused)))
+{
+  total_mem += size;
+  return 0;
+}
+#endif
+
 static grub_err_t
 grub_cmd_stat (grub_extcmd_context_t ctxt, int argc, char **args)
 {
@@ -100,14 +117,36 @@ grub_cmd_stat (grub_extcmd_context_t ctxt, int argc, char **args)
   char *str = NULL;
   grub_disk_addr_t start = 0;
 
-  if (argc != 1)
-    return grub_error (GRUB_ERR_BAD_ARGUMENT, "bad argument");
-  file = grub_file_open (args[0], GRUB_FILE_TYPE_CAT);
-  if (!file)
-    return grub_error (GRUB_ERR_BAD_FILENAME, N_("failed to open %s"), args[0]);
   str = grub_malloc (GRUB_DISK_SECTOR_SIZE);
   if (!str)
-    return grub_error (GRUB_ERR_OUT_OF_MEMORY, N_("out of memory"));
+  {
+    grub_error (GRUB_ERR_OUT_OF_MEMORY, N_("out of memory"));
+    goto fail;
+  }
+
+  if (state[STAT_RAM].set)
+  {
+    total_mem = 0;
+#ifndef GRUB_MACHINE_EMU
+    grub_machine_mmap_iterate (totalmem_hook, NULL);
+#endif
+    grub_snprintf (str, GRUB_DISK_SECTOR_SIZE, "%" PRIuGRUB_UINT64_T, total_mem >> 20);
+    if (!state[STAT_QUIET].set)
+      grub_printf ("%s\n", str);
+    goto fail;
+  }
+
+  if (argc != 1)
+  {
+    grub_error (GRUB_ERR_BAD_ARGUMENT, "bad argument");
+    goto fail;
+  }
+  file = grub_file_open (args[0], GRUB_FILE_TYPE_CAT);
+  if (!file)
+  {
+    grub_error (GRUB_ERR_BAD_FILENAME, N_("failed to open %s"), args[0]);
+    goto fail;
+  }
 
   size = grub_file_size (file);
 
@@ -232,9 +271,10 @@ grub_cmd_stat (grub_extcmd_context_t ctxt, int argc, char **args)
 fail:
   if (state[STAT_SET].set)
     grub_env_set (state[STAT_SET].arg, str);
-
-  grub_free (str);
-  grub_file_close (file);
+  if (str)
+    grub_free (str);
+  if (file)
+    grub_file_close (file);
   return grub_errno;
 }
 
