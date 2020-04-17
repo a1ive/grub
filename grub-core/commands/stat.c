@@ -99,9 +99,10 @@ static grub_uint64_t total_mem = 0;
 static int
 totalmem_hook (grub_uint64_t addr __attribute__ ((unused)),
                grub_uint64_t size,
-               grub_memory_type_t type __attribute__ ((unused)),
+               grub_memory_type_t type,
                void *data __attribute__ ((unused)))
 {
+  if (type != GRUB_MEMORY_RESERVED)
   total_mem += size;
   return 0;
 }
