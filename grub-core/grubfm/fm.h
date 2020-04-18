@@ -35,6 +35,7 @@ struct grubfm_ini_enum_list
   char **ext;
   char **icon;
   int *display;
+  char **condition;
   ini_t **config;
 };
 
@@ -43,6 +44,7 @@ struct grubfm_enum_file_info
   char *name;
   char *size;
   int display;
+  char *condition;
   int ext; /* index */
 };
 

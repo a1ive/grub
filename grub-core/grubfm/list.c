@@ -68,6 +68,22 @@ grubfm_add_menu_dir (const char *filename, char *pathname)
   grub_free (src);
 }
 
+static int
+grubfm_file_condition_check (const char *condition, const char *pathname)
+{
+  const char *value = NULL;
+  if (!condition)
+    return 0;
+  grub_env_set ("grubfm_file", pathname);
+  grub_script_execute_sourcecode (condition);
+  value = grub_env_get ("grubfm_test");
+  if (!value)
+    return 0;
+  if (grub_strcmp(value, "0") == 0)
+    return 0;
+  return 1;
+}
+
 static void
 grubfm_add_menu_file (struct grubfm_enum_file_info *file, char *pathname)
 {
@@ -79,7 +95,8 @@ grubfm_add_menu_file (struct grubfm_enum_file_info *file, char *pathname)
   icon = grubfm_get_file_icon (file, &grubfm_usr_table);
   if (file->ext < 0)
     icon = grubfm_get_file_icon (file, &grubfm_ext_table);
-  if (!grubfm_hide || file->display)
+  if (!grubfm_hide || file->display
+      || grubfm_file_condition_check (file->condition, pathname))
     grubfm_add_menu (title, icon, NULL, src, 0);
   grub_free (title);
   grub_free (src);
@@ -402,7 +419,7 @@ grubfm_html_menu (char *buf, const char *prefix)
       char *src = NULL;
       src = grub_xasprintf ("grubfm_open \"%s%s\"", prefix, name);
       const char *icon = NULL;
-      struct grubfm_enum_file_info file = { NULL, NULL, 0, -1 };
+      struct grubfm_enum_file_info file = { NULL, NULL, 0, NULL, -1 };
       file.name = name;
       icon = grubfm_get_file_icon (&file, &grubfm_usr_table);
       if (grub_strcmp (icon, "file") == 0)
