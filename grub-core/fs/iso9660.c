@@ -28,123 +28,18 @@
 #include <grub/fshelp.h>
 #include <grub/charset.h>
 #include <grub/datetime.h>
+#include <grub/iso9660.h>
 
 GRUB_MOD_LICENSE ("GPLv3+");
 
-#define GRUB_ISO9660_FSTYPE_DIR		0040000
-#define GRUB_ISO9660_FSTYPE_REG		0100000
-#define GRUB_ISO9660_FSTYPE_SYMLINK	0120000
-#define GRUB_ISO9660_FSTYPE_MASK	0170000
-
-#define GRUB_ISO9660_LOG2_BLKSZ		2
-#define GRUB_ISO9660_BLKSZ		2048
-
-#define GRUB_ISO9660_RR_DOT		2
-#define GRUB_ISO9660_RR_DOTDOT		4
-
-#define GRUB_ISO9660_VOLDESC_BOOT	0
-#define GRUB_ISO9660_VOLDESC_PRIMARY	1
-#define GRUB_ISO9660_VOLDESC_SUPP	2
-#define GRUB_ISO9660_VOLDESC_PART	3
-#define GRUB_ISO9660_VOLDESC_END	255
-
-/* The head of a volume descriptor.  */
-struct grub_iso9660_voldesc
-{
-  grub_uint8_t type;
-  grub_uint8_t magic[5];
-  grub_uint8_t version;
-} GRUB_PACKED;
-
-struct grub_iso9660_date2
-{
-  grub_uint8_t year;
-  grub_uint8_t month;
-  grub_uint8_t day;
-  grub_uint8_t hour;
-  grub_uint8_t minute;
-  grub_uint8_t second;
-  grub_uint8_t offset;
-} GRUB_PACKED;
-
-/* A directory entry.  */
-struct grub_iso9660_dir
-{
-  grub_uint8_t len;
-  grub_uint8_t ext_sectors;
-  grub_uint32_t first_sector;
-  grub_uint32_t first_sector_be;
-  grub_uint32_t size;
-  grub_uint32_t size_be;
-  struct grub_iso9660_date2 mtime;
-  grub_uint8_t flags;
-  grub_uint8_t unused2[6];
 #define MAX_NAMELEN 255
-  grub_uint8_t namelen;
-} GRUB_PACKED;
 
-struct grub_iso9660_date
-{
-  grub_uint8_t year[4];
-  grub_uint8_t month[2];
-  grub_uint8_t day[2];
-  grub_uint8_t hour[2];
-  grub_uint8_t minute[2];
-  grub_uint8_t second[2];
-  grub_uint8_t hundredth[2];
-  grub_uint8_t offset;
-} GRUB_PACKED;
-
-/* The primary volume descriptor.  Only little endian is used.  */
-struct grub_iso9660_primary_voldesc
-{
-  struct grub_iso9660_voldesc voldesc;
-  grub_uint8_t unused1[33];
-  grub_uint8_t volname[32];
-  grub_uint8_t unused2[16];
-  grub_uint8_t escape[32];
-  grub_uint8_t unused3[12];
-  grub_uint32_t path_table_size;
-  grub_uint8_t unused4[4];
-  grub_uint32_t path_table;
-  grub_uint8_t unused5[12];
-  struct grub_iso9660_dir rootdir;
-  grub_uint8_t unused6[624];
-  struct grub_iso9660_date created;
-  struct grub_iso9660_date modified;
-} GRUB_PACKED;
-
-/* A single entry in the path table.  */
-struct grub_iso9660_path
-{
-  grub_uint8_t len;
-  grub_uint8_t sectors;
-  grub_uint32_t first_sector;
-  grub_uint16_t parentdir;
-  grub_uint8_t name[0];
-} GRUB_PACKED;
-
-/* An entry in the System Usage area of the directory entry.  */
-struct grub_iso9660_susp_entry
-{
-  grub_uint8_t sig[2];
-  grub_uint8_t len;
-  grub_uint8_t version;
-  grub_uint8_t data[0];
-} GRUB_PACKED;
-
-/* The CE entry.  This is used to describe the next block where data
-   can be found.  */
-struct grub_iso9660_susp_ce
-{
-  struct grub_iso9660_susp_entry entry;
-  grub_uint32_t blk;
-  grub_uint32_t blk_be;
-  grub_uint32_t off;
-  grub_uint32_t off_be;
-  grub_uint32_t len;
-  grub_uint32_t len_be;
-} GRUB_PACKED;
+static grub_uint64_t g_iso_last_read_pos = 0;
+static grub_uint64_t g_iso_last_read_offset = 0;
+static grub_uint64_t g_iso_last_read_dirent_pos = 0;
+static grub_uint64_t g_iso_last_read_dirent_offset = 0;
+static grub_uint64_t g_iso_last_file_dirent_pos = 0;
+static grub_uint64_t g_iso_last_file_dirent_offset = 0;
 
 struct grub_iso9660_data
 {
@@ -166,21 +61,20 @@ struct grub_fshelp_node
 };
 
 enum
-  {
-    FLAG_TYPE_PLAIN = 0,
-    FLAG_TYPE_DIR = 2,
-    FLAG_TYPE = 3,
-    FLAG_MORE_EXTENTS = 0x80
-  };
+{
+  FLAG_TYPE_PLAIN = 0,
+  FLAG_TYPE_DIR = 2,
+  FLAG_TYPE = 3,
+  FLAG_MORE_EXTENTS = 0x80
+};
 
 static grub_dl_t my_mod;
-
 
 static grub_err_t
 iso9660_to_unixtime (const struct grub_iso9660_date *i, grub_int32_t *nix)
 {
   struct grub_datetime datetime;
-  
+
   if (! i->year[0] && ! i->year[1]
       && ! i->year[2] && ! i->year[3]
       && ! i->month[0] && ! i->month[1]
@@ -197,7 +91,7 @@ iso9660_to_unixtime (const struct grub_iso9660_date *i, grub_int32_t *nix)
   datetime.hour = (i->hour[0] - '0') * 10 + (i->hour[1] - '0');
   datetime.minute = (i->minute[0] - '0') * 10 + (i->minute[1] - '0');
   datetime.second = (i->second[0] - '0') * 10 + (i->second[1] - '0');
-  
+
   if (!grub_datetime2unixtime (&datetime, nix))
     return grub_error (GRUB_ERR_BAD_NUMBER, "incorrect date");
   *nix -= i->offset * 60 * 15;
@@ -215,7 +109,7 @@ iso9660_to_unixtime2 (const struct grub_iso9660_date2 *i, grub_int32_t *nix)
   datetime.hour = i->hour;
   datetime.minute = i->minute;
   datetime.second = i->second;
-  
+
   if (!grub_datetime2unixtime (&datetime, nix))
     return 0;
   *nix -= i->offset * 60 * 15;
@@ -229,30 +123,32 @@ read_node (grub_fshelp_node_t node, grub_off_t off, grub_size_t len, char *buf,
   grub_size_t i = 0;
 
   while (len > 0)
+  {
+    grub_size_t toread;
+    grub_err_t err;
+    while (i < node->have_dirents
+           && off >= grub_le_to_cpu32 (node->dirents[i].size))
     {
-      grub_size_t toread;
-      grub_err_t err;
-      while (i < node->have_dirents
-	     && off >= grub_le_to_cpu32 (node->dirents[i].size))
-	{
-	  off -= grub_le_to_cpu32 (node->dirents[i].size);
-	  i++;
-	}
-      if (i == node->have_dirents)
-	return grub_error (GRUB_ERR_OUT_OF_RANGE, "read out of range");
-      toread = grub_le_to_cpu32 (node->dirents[i].size);
-      if (toread > len)
-	toread = len;
-      err = grub_disk_read_ex (node->data->disk,
-			    ((grub_disk_addr_t) grub_le_to_cpu32 (node->dirents[i].first_sector)) << GRUB_ISO9660_LOG2_BLKSZ,
-			    off, toread, buf, blocklist);
-      if (err)
-	return err;
-      len -= toread;
-      off += toread;
-      if (buf)
-    buf += toread;
+      off -= grub_le_to_cpu32 (node->dirents[i].size);
+      i++;
     }
+    if (i == node->have_dirents)
+      return grub_error (GRUB_ERR_OUT_OF_RANGE, "read out of range");
+    toread = grub_le_to_cpu32 (node->dirents[i].size);
+    if (toread > len)
+      toread = len;
+    g_iso_last_read_pos = ((grub_disk_addr_t) grub_le_to_cpu32
+                (node->dirents[i].first_sector)) << GRUB_ISO9660_LOG2_BLKSZ;
+    g_iso_last_read_offset = off;
+    err = grub_disk_read_ex (node->data->disk,
+                             g_iso_last_read_pos, off, toread, buf, blocklist);
+    if (err)
+      return err;
+    len -= toread;
+    off += toread;
+    if (buf)
+      buf += toread;
+  }
   return GRUB_ERR_NONE;
 }
 
@@ -674,6 +570,12 @@ grub_iso9660_iterate_dir (grub_fshelp_node_t dir,
       if (read_node (dir, offset, sizeof (dirent), (char *) &dirent, 0))
 	return 0;
 
+      if ((dirent.flags & FLAG_TYPE) != FLAG_TYPE_DIR)
+    {
+      g_iso_last_read_dirent_pos = g_iso_last_read_pos;
+      g_iso_last_read_dirent_offset = g_iso_last_read_offset;
+    }
+
       /* The end of the block, skip to the next one.  */
       if (!dirent.len)
 	{
@@ -826,6 +728,8 @@ grub_iso9660_iterate_dir (grub_fshelp_node_t dir,
 	  }
 	if (hook (ctx.filename, ctx.type, node, hook_data))
 	  {
+	    g_iso_last_file_dirent_pos = g_iso_last_read_dirent_pos;
+	    g_iso_last_file_dirent_offset = g_iso_last_read_dirent_offset;
 	    if (ctx.filename_alloc)
 	      grub_free (ctx.filename);
 	    return 1;
@@ -1095,8 +999,18 @@ grub_iso9660_mtime (grub_device_t device, grub_int32_t *timebuf)
   return err;
 }
 
+grub_uint64_t
+grub_iso9660_get_last_read_pos (grub_file_t file __attribute__ ((unused)))
+{
+  return (g_iso_last_read_pos << GRUB_DISK_SECTOR_BITS);
+}
 
-
+grub_uint64_t
+grub_iso9660_get_last_file_dirent_pos(grub_file_t file __attribute__ ((unused)))
+{
+  return (g_iso_last_file_dirent_pos << GRUB_DISK_SECTOR_BITS)
+          + g_iso_last_file_dirent_offset;
+}
 
 static struct grub_fs grub_iso9660_fs =
   {

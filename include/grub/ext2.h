@@ -229,7 +229,6 @@ struct ext2_dirent
 {
   grub_uint32_t inode;
   grub_uint16_t direntlen;
-#define MAX_NAMELEN 255
   grub_uint8_t namelen;
   grub_uint8_t filetype;
 };
