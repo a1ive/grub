@@ -2835,19 +2835,20 @@ module = {
   common = map/wim/huffman.c;
   common = map/wim/lzx.c;
   common = map/wim/sha1.c;
-  common = map/wim/wim.c;
-  common = map/wim/wimfile.c;
-  common = map/wim/wimpatch.c;
-  common = map/wimboot/efimain.c;
-  common = map/wimboot/efiboot.c;
-  common = map/wimboot/efifile.c;
-  common = map/wimboot/efiinstall.c;
-  common = map/wimboot/efivfat.c;
+  efi = map/wim/wim.c;
+  efi = map/wim/wimfile.c;
+  efi = map/wim/wimpatch.c;
+  efi = map/wimboot/efimain.c;
+  efi = map/wimboot/efiboot.c;
+  efi = map/wimboot/efifile.c;
+  efi = map/wimboot/efiinstall.c;
+  efi = map/wimboot/efivfat.c;
 
   cflags = '-Wno-strict-aliasing -Wno-vla -fshort-wchar';
   cppflags = '-I$(srcdir)/map/include -I$(srcdir)/map/posix -I$(srcdir)/map/wim';
   enable = x86_64_efi;
   enable = i386_efi;
+  enable = i386_pc;
 };
 
 module = {
