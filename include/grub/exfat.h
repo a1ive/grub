@@ -43,6 +43,27 @@ struct grub_exfat_bpb
   grub_uint8_t reserved[8];
 } GRUB_PACKED;
 
+typedef struct fat_img_chunk
+{
+  grub_uint32_t img_start_sector; // sector size: 2KB
+  grub_uint32_t img_end_sector;   // included
+  grub_uint64_t disk_start_sector; // in disk_sector_size
+  grub_uint64_t disk_end_sector;   // included
+} fat_img_chunk;
+
+#define DEFAULT_CHUNK_NUM   1024
+
+typedef struct fat_img_chunk_list
+{
+  grub_uint32_t max_chunk;
+  grub_uint32_t cur_chunk;
+  fat_img_chunk *chunk;
+} fat_img_chunk_list;
+
+int
+grub_fat_get_file_chunk (grub_uint64_t part_start, grub_file_t file,
+                         fat_img_chunk_list *chunk_list);
+
 #ifdef GRUB_UTIL
 #include <grub/disk.h>
 

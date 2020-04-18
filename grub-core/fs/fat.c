@@ -1330,3 +1330,178 @@ GRUB_MOD_FINI(fat)
   grub_fs_unregister (&grub_fat_fs);
 }
 
+#ifdef MODE_EXFAT
+static int
+grub_fat_add_chunk (fat_img_chunk_list *chunk_list, grub_uint64_t sector,
+                    grub_uint64_t size, grub_uint32_t log_sector_size)
+{
+  fat_img_chunk *last_chunk;
+  fat_img_chunk *new_chunk;
+
+  if (chunk_list->cur_chunk == 0)
+  {
+    chunk_list->chunk[0].img_start_sector = 0;
+    chunk_list->chunk[0].img_end_sector = (size >> 11) - 1;
+    chunk_list->chunk[0].disk_start_sector = sector;
+    chunk_list->chunk[0].disk_end_sector = sector + (size >> log_sector_size) - 1;
+    chunk_list->cur_chunk = 1;
+    return 0;
+  }
+
+  last_chunk = chunk_list->chunk + chunk_list->cur_chunk - 1;
+  if (last_chunk->disk_end_sector + 1 == sector)
+  {
+    last_chunk->img_end_sector  += (size >> 11);
+    last_chunk->disk_end_sector += (size >> log_sector_size);
+    return 0;
+  }
+
+  if (chunk_list->cur_chunk == chunk_list->max_chunk)
+  {
+    new_chunk = grub_realloc (chunk_list->chunk,
+                              chunk_list->max_chunk * 2 * sizeof(fat_img_chunk));
+    if (!new_chunk)
+      return -1;
+
+    chunk_list->chunk = new_chunk;
+    chunk_list->max_chunk *= 2;
+
+    /* issue: update last_chunk */
+    last_chunk = chunk_list->chunk + chunk_list->cur_chunk - 1;
+  }
+
+  new_chunk = chunk_list->chunk + chunk_list->cur_chunk;
+  new_chunk->img_start_sector = last_chunk->img_end_sector + 1;
+  new_chunk->img_end_sector = new_chunk->img_start_sector + (size >> 11) - 1;
+  new_chunk->disk_start_sector = sector;
+  new_chunk->disk_end_sector = sector + (size >> log_sector_size) - 1;
+
+  chunk_list->cur_chunk++;
+
+  return 0;
+}
+
+int
+grub_fat_get_file_chunk (grub_uint64_t part_start, grub_file_t file,
+                         fat_img_chunk_list *chunk_list)
+{
+  grub_size_t size;
+  grub_uint32_t i;
+  grub_uint32_t logical_cluster;
+  unsigned logical_cluster_bits;
+  unsigned long sector;
+  grub_fshelp_node_t node;
+  grub_disk_t disk;
+  grub_uint64_t len;
+
+  disk = file->device->disk;
+  node = file->data;
+  len = file->size;
+
+  if (node->is_contiguous)
+  {
+    /* Read the data here.  */
+    sector = (node->data->cluster_sector
+              + ((node->file_cluster - 2) << node->data->cluster_bits));
+
+    chunk_list->chunk[0].img_start_sector = 0;
+    chunk_list->chunk[0].img_end_sector = (file->size >> 11) - 1;
+    chunk_list->chunk[0].disk_start_sector = sector;
+    chunk_list->chunk[0].disk_end_sector = sector
+                      + (file->size >> disk->log_sector_size) - 1;
+    chunk_list->cur_chunk = 1;
+
+    goto END;
+  }
+  /* Calculate the logical cluster number and offset.  */
+  logical_cluster = 0;
+  logical_cluster_bits = (node->data->cluster_bits + GRUB_DISK_SECTOR_BITS);
+
+  if (logical_cluster < node->cur_cluster_num)
+  {
+    node->cur_cluster_num = 0;
+    node->cur_cluster = node->file_cluster;
+  }
+
+  while (len)
+  {
+    while (logical_cluster > node->cur_cluster_num)
+    {
+      /* Find next cluster.  */
+      grub_uint32_t next_cluster;
+      grub_uint32_t fat_offset;
+
+      switch (node->data->fat_size)
+      {
+        case 32:
+          fat_offset = node->cur_cluster << 2;
+          break;
+        case 16:
+          fat_offset = node->cur_cluster << 1;
+          break;
+        default:
+          /* case 12: */
+          fat_offset = node->cur_cluster + (node->cur_cluster >> 1);
+          break;
+      }
+
+      /* Read the FAT.  */
+      if (grub_disk_read (disk, node->data->fat_sector, fat_offset,
+                          (node->data->fat_size + 7) >> 3,
+                          (char *) &next_cluster))
+        return -1;
+
+      next_cluster = grub_le_to_cpu32 (next_cluster);
+      switch (node->data->fat_size)
+      {
+        case 16:
+          next_cluster &= 0xFFFF;
+          break;
+        case 12:
+          if (node->cur_cluster & 1)
+            next_cluster >>= 4;
+          next_cluster &= 0x0FFF;
+          break;
+      }
+
+      grub_dprintf ("fat", "fat_size=%d, next_cluster=%u\n",
+                    node->data->fat_size, next_cluster);
+
+      /* Check the end.  */
+      if (next_cluster >= node->data->cluster_eof_mark)
+      {
+        return 0;
+      }
+
+      if (next_cluster < 2 || next_cluster >= node->data->num_clusters)
+      {
+        grub_error (GRUB_ERR_BAD_FS, "invalid cluster %u", next_cluster);
+        return -1;
+      }
+
+      node->cur_cluster = next_cluster;
+      node->cur_cluster_num++;
+    }
+
+    /* Read the data here.  */
+    sector = (node->data->cluster_sector + ((node->cur_cluster - 2)
+              << node->data->cluster_bits));
+    size = (1 << logical_cluster_bits);
+    if (size > len)
+      size = len;
+
+    grub_fat_add_chunk(chunk_list, sector, size, disk->log_sector_size);
+
+    len -= size;
+    logical_cluster++;
+  }
+
+END:
+  for (i = 0; i < chunk_list->cur_chunk; i++)
+  {
+    chunk_list->chunk[i].disk_start_sector += part_start;
+    chunk_list->chunk[i].disk_end_sector += part_start;
+  }
+  return 0;
+}
+#endif
