@@ -29,6 +29,8 @@
 
 GRUB_MOD_LICENSE ("GPLv3+");
 
+#define MAX_NAMELEN 255
+
 /* Log2 size of ext2 block in 512 blocks.  */
 #define LOG2_EXT2_BLOCK_SIZE(data)			\
 	(grub_le_to_cpu32 (data->sblock.log2_block_size) + 1)
