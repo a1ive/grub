@@ -30,6 +30,11 @@
 #include <assert.h>
 #include <huffman.h>
 
+#ifndef GRUB_MACHINE_EFI
+#include <grub/dl.h>
+GRUB_MOD_LICENSE ("GPLv3+");
+#endif
+
 /**
  * Construct Huffman alphabet
  *
