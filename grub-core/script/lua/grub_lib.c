@@ -20,6 +20,7 @@
 #include "lauxlib.h"
 #include "lualib.h"
 #include "grub_lib.h"
+#include "../ini/ini.h"
 
 #include <grub/dl.h>
 #include <grub/env.h>
@@ -937,6 +938,49 @@ grub_lua_disk_getsize (lua_State *state)
   return 1;
 }
 
+static int
+grub_lua_ini_load (lua_State *state)
+{
+  ini_t *config = NULL;
+  const char *name;
+  name = luaL_checkstring (state, 1);
+  config = ini_load (name);
+  if (! config)
+    return 0;
+  lua_pushlightuserdata (state, config);
+  return 1;
+}
+
+static int
+grub_lua_ini_free (lua_State *state)
+{
+  ini_t *config = NULL;
+  luaL_checktype (state, 1, LUA_TLIGHTUSERDATA);
+  config = lua_touserdata (state, 1);
+  ini_free (config);
+  return push_result (state);
+}
+
+static int
+grub_lua_ini_get (lua_State *state)
+{
+  ini_t *config = NULL;
+  const char *section = NULL;
+  const char *key = NULL;
+  const char *val = NULL;
+  luaL_checktype (state, 1, LUA_TLIGHTUSERDATA);
+  config = lua_touserdata (state, 1);
+  section = (lua_gettop (state) > 2) ?
+             luaL_checkstring (state, 2) : NULL;
+  key = (lua_gettop (state) > 2) ?
+         luaL_checkstring (state, 3) : luaL_checkstring (state, 2);
+  val = ini_get (config, section, key);
+  if (!val)
+    return 0;
+  lua_pushstring (state, val);
+  return 1;
+}
+
 luaL_Reg grub_lua_lib[] =
   {
     {"run", grub_lua_run},
@@ -983,5 +1027,8 @@ luaL_Reg grub_lua_lib[] =
     {"get_time_ms", grub_lua_get_time_ms},
     {"random", grub_lua_random},
     {"disk_getsize", grub_lua_disk_getsize},
+    {"ini_load", grub_lua_ini_load},
+    {"ini_free", grub_lua_ini_free},
+    {"ini_get", grub_lua_ini_get},
     {0, 0}
   };
