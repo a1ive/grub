@@ -981,6 +981,51 @@ grub_lua_ini_get (lua_State *state)
   return 1;
 }
 
+/* Helper for grub_lua_enum_block.  */
+static int
+grub_lua_enum_block_iter (grub_disk_addr_t offset, unsigned long length, void *data)
+{
+  lua_State *state = data;
+  int result;
+  char str[255];
+
+  lua_pushvalue (state, 1);
+  grub_snprintf (str, 255, "%llu+%lu",
+                 (unsigned long long)(offset >> GRUB_DISK_SECTOR_BITS),
+                 length >> GRUB_DISK_SECTOR_BITS);
+  lua_pushstring (state, str);
+
+  lua_call (state, 1, 1);
+  result = lua_tointeger (state, -1);
+  lua_pop (state, 1);
+
+  return result;
+}
+
+static int
+grub_lua_enum_block (lua_State *state)
+{
+  int num, i;
+  const char *name;
+  grub_file_t file = 0;
+  struct grub_fs_block *p;
+  luaL_checktype (state, 1, LUA_TFUNCTION);
+  name = luaL_checkstring (state, 2);
+  file = grub_file_open (name, GRUB_FILE_TYPE_PRINT_BLOCKLIST
+                              | GRUB_FILE_TYPE_NO_DECOMPRESS);
+  if (!file)
+    return 0;
+  num = grub_blocklist_convert (file);
+  p = file->data;
+  for (i = 0; i < num; i++)
+  {
+    grub_lua_enum_block_iter (p->offset, p->length, state);
+    p++;
+  }
+  grub_file_close (file);
+  return push_result (state);
+}
+
 luaL_Reg grub_lua_lib[] =
   {
     {"run", grub_lua_run},
@@ -1030,5 +1075,6 @@ luaL_Reg grub_lua_lib[] =
     {"ini_load", grub_lua_ini_load},
     {"ini_free", grub_lua_ini_free},
     {"ini_get", grub_lua_ini_get},
+    {"enum_block", grub_lua_enum_block},
     {0, 0}
   };
