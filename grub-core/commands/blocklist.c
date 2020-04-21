@@ -1,7 +1,7 @@
 /* blocklist.c - print the block list of a file */
 /*
  *  GRUB  --  GRand Unified Bootloader
- *  Copyright (C) 2006,2007  Free Software Foundation, Inc.
+ *  Copyright (C) 2006,2007,2020  Free Software Foundation, Inc.
  *
  *  GRUB is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -18,6 +18,7 @@
  */
 
 #include <grub/dl.h>
+#include <grub/env.h>
 #include <grub/misc.h>
 #include <grub/file.h>
 #include <grub/mm.h>
@@ -105,6 +106,28 @@ read_blocklist (grub_disk_addr_t sector, unsigned offset, unsigned length,
     }
 }
 
+static grub_size_t
+blocklist_to_str (grub_file_t file, int num, char *text)
+{
+  char str[255];
+  int i;
+  struct grub_fs_block *p;
+  grub_size_t len = 0;
+  p = file->data;
+  for (i = 0; i < num; i++, p++)
+  {
+    grub_snprintf (str, 255, "%llu+%lu",
+                   (unsigned long long)(p->offset >> GRUB_DISK_SECTOR_BITS),
+                   p->length >> GRUB_DISK_SECTOR_BITS);
+    if (text)
+      grub_sprintf (text + len, "%s,", str);
+    len += grub_strlen (str) + 1;
+  }
+  if (text && len)
+    text[len - 1] = '\0';
+  return len;
+}
+
 static grub_err_t
 grub_cmd_blocklist (grub_command_t cmd __attribute__ ((unused)),
 		    int argc, char **args)
@@ -122,13 +145,31 @@ grub_cmd_blocklist (grub_command_t cmd __attribute__ ((unused)),
     return grub_error (GRUB_ERR_BAD_ARGUMENT, N_("filename expected"));
 
   file = grub_file_open (args[0], GRUB_FILE_TYPE_PRINT_BLOCKLIST
-			 | GRUB_FILE_TYPE_NO_DECOMPRESS);
+                                  | GRUB_FILE_TYPE_NO_DECOMPRESS);
   if (! file)
     return grub_errno;
 
   if (! file->device->disk)
-    return grub_error (GRUB_ERR_BAD_DEVICE,
-		       "this command is available only for disk devices");
+  {
+    grub_error (GRUB_ERR_BAD_DEVICE,
+                "this command is available only for disk devices");
+    goto fail;
+  }
+
+  if (argc > 1)
+  {
+    int num;
+    char *text = NULL;
+    grub_size_t len;
+    num = grub_blocklist_convert (file);
+    len = blocklist_to_str (file, num, NULL);
+    text = grub_malloc (len + 1);
+    if (!text)
+      goto fail;
+    blocklist_to_str (file, num, text);
+    grub_env_set (args[1], text);
+    goto fail;
+  }
 
   ctx.part_start = grub_partition_get_start (file->device->disk->partition);
 
@@ -149,17 +190,18 @@ grub_cmd_blocklist (grub_command_t cmd __attribute__ ((unused)),
   if (ctx.num_sectors > 0)
     print_blocklist (ctx.start_sector, ctx.num_sectors, 0, 0, &ctx);
 
-  grub_file_close (file);
-
+fail:
+  if (file)
+    grub_file_close (file);
   return grub_errno;
 }
 
 static grub_command_t cmd;
-
+
 GRUB_MOD_INIT(blocklist)
 {
   cmd = grub_register_command ("blocklist", grub_cmd_blocklist,
-			       N_("FILE"), N_("Print a block list."));
+                               N_("FILE [VARNAME]"), N_("Print a block list."));
 }
 
 GRUB_MOD_FINI(blocklist)
