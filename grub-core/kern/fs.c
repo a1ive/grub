@@ -122,15 +122,7 @@ grub_fs_probe (grub_device_t device)
   return 0;
 }
 
-
-
 /* Block list support routines.  */
-
-struct grub_fs_block
-{
-  grub_disk_addr_t offset;
-  unsigned long length;
-};
 
 static grub_err_t
 grub_fs_blocklist_open (grub_file_t file, const char *name)
@@ -317,7 +309,7 @@ read_blocklist (grub_disk_addr_t sector, unsigned offset,
   c->total_size += length;
 }
 
-void
+int
 grub_blocklist_convert (grub_file_t file)
 {
   struct read_blocklist_ctx c;
@@ -325,7 +317,7 @@ grub_blocklist_convert (grub_file_t file)
 
   if ((file->fs == &grub_fs_blocklist) || (! file->device->disk) ||
       (! file->size))
-    return;
+    return 0;
 
   file->offset = 0;
 
@@ -349,6 +341,7 @@ grub_blocklist_convert (grub_file_t file)
   if ((grub_errno) || (c.total_size != file->size))
     {
       grub_errno = 0;
+      c.num = 0;
       grub_free (c.blocks);
     }
   else
@@ -360,6 +353,7 @@ grub_blocklist_convert (grub_file_t file)
     }
 
   file->offset = 0;
+  return c.num;
 }
 
 struct grub_fs grub_fs_blocklist =

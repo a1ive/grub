@@ -103,6 +103,12 @@ typedef struct grub_fs *grub_fs_t;
 /* This is special, because block lists are not files in usual sense.  */
 extern struct grub_fs grub_fs_blocklist;
 
+struct grub_fs_block
+{
+  grub_disk_addr_t offset;
+  unsigned long length;
+};
+
 /* This hook is used to automatically load filesystem modules.
    If this hook loads a module, return non-zero. Otherwise return zero.
    The newly loaded filesystem is assumed to be inserted into the head of
