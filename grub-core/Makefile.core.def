@@ -2970,3 +2970,8 @@ module = {
   common = term/efi/mouse.c;
   enable = efi;
 };
+
+module = {
+  name = setkey;
+  common = term/setkey.c;
+};
