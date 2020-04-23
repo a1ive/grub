@@ -223,7 +223,8 @@ grub_console_read_key_stroke (
     return GRUB_ERR_EOF;
 
   key = grub_efi_translate_key (key_data.key);
-  if (key == GRUB_TERM_NO_KEY) {
+  if (key == GRUB_TERM_NO_KEY)
+  {
     status = efi_call_2 (text_input->read_key_stroke, text_input, &key_data);
     if (status != GRUB_EFI_SUCCESS)
       return GRUB_ERR_EOF;
@@ -234,12 +235,13 @@ grub_console_read_key_stroke (
   *key_data_ret = key_data;
   *key_ret = key;
 
-  if (consume) {
+  if (consume)
+  {
     key_data.key.scan_code = 0;
     key_data.key.unicode_char = 0;
   }
 
-  return 0;
+  return GRUB_ERR_NONE;
 }
 
 static int
@@ -247,10 +249,11 @@ grub_console_getkey_ex(struct grub_term_input *term)
 {
   grub_efi_key_data_t key_data;
   grub_efi_uint32_t kss;
+  grub_err_t err;
   int key = -1;
 
-  if (grub_console_read_key_stroke (term->data, &key_data, &key, 1) ||
-      key == GRUB_TERM_NO_KEY)
+  err = grub_console_read_key_stroke (term->data, &key_data, &key, 1);
+  if (err != GRUB_ERR_NONE || key == GRUB_TERM_NO_KEY)
     return GRUB_TERM_NO_KEY;
 
   kss = key_data.key_state.key_shift_state;
