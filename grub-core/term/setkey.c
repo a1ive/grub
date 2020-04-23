@@ -170,8 +170,8 @@ static struct keysym keysym_table[] =
   {"A8",            GRUB_TERM_ALT | 0x38},
   {"A9",            GRUB_TERM_ALT | 0x39},
   {"A0",            GRUB_TERM_ALT | 0x30},
-  {"oem102",        0x5c},
-  {"shiftoem102",   0x7c},
+  //{"oem102",        0x5c},
+  //{"shiftoem102",   0x7c},
   {"Aminus",        GRUB_TERM_ALT | 0x2D},
   {"Aequal",        GRUB_TERM_ALT | 0x3D},
   {"Abracketleft",  GRUB_TERM_ALT | 0x5B},
@@ -326,8 +326,8 @@ grub_cmd_setkey (grub_extcmd_context_t ctxt, int argc, char **args)
        "underscore, equal, plus, backspace, tab, bracketleft, braceleft,"
        "bracketright, braceright, enter, semicolon, colon, quote, doublequote,"
        "backquote, tilde, backslash, bar, comma, less, period, greater,"
-       "slash, question, alt, space, delete, oem102, shiftoem102,"
-       "[ctrl|shift]F1-12. For Alt+ prefix with A, e.g. \'setkey at Aequal\'.");
+       "slash, question, alt, space, delete, [ctrl|shift]F1-12."
+       "For Alt+ prefix with A, e.g. \'setkey at Aequal\'.");
     goto out;
   }
   in = parse_key (args[1]);
