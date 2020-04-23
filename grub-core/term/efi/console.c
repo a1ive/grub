@@ -71,6 +71,53 @@ map_char (grub_uint32_t c)
 }
 
 static void
+grub_console_setcolorstate (struct grub_term_output *term
+			    __attribute__ ((unused)),
+			    grub_term_color_state state)
+{
+  grub_efi_simple_text_output_interface_t *o;
+
+  if (grub_efi_is_finished)
+    return;
+
+  if (text_mode_available != 1) {
+    /* Avoid "color_normal" environment writes causing a switch to textmode */
+    text_colorstate = state;
+    return;
+  }
+
+  o = grub_efi_system_table->con_out;
+
+  switch (state) {
+    case GRUB_TERM_COLOR_STANDARD:
+      efi_call_2 (o->set_attributes, o, GRUB_TERM_DEFAULT_STANDARD_COLOR
+		  & 0x7f);
+      break;
+    case GRUB_TERM_COLOR_NORMAL:
+      efi_call_2 (o->set_attributes, o, grub_term_normal_color & 0x7f);
+      break;
+    case GRUB_TERM_COLOR_HIGHLIGHT:
+      efi_call_2 (o->set_attributes, o, grub_term_highlight_color & 0x7f);
+      break;
+    default:
+      break;
+  }
+}
+
+static void
+grub_console_setcursor (struct grub_term_output *term __attribute__ ((unused)),
+			int on)
+{
+  grub_efi_simple_text_output_interface_t *o;
+
+  if (grub_efi_is_finished || text_mode_available != 1)
+    return;
+
+  o = grub_efi_system_table->con_out;
+  efi_call_2 (o->enable_cursor, o, on);
+}
+
+static void
 grub_console_putchar (struct grub_term_output *term,
 		      const struct grub_unicode_glyph *c)
 {
@@ -347,53 +394,6 @@ grub_console_cls (struct grub_term_output *term __attribute__ ((unused)))
   efi_call_2 (o->set_attributes, o, GRUB_EFI_BACKGROUND_BLACK);
   efi_call_1 (o->clear_screen, o);
   efi_call_2 (o->set_attributes, o, orig_attr);
-}
-
-static void
-grub_console_setcolorstate (struct grub_term_output *term
-			    __attribute__ ((unused)),
-			    grub_term_color_state state)
-{
-  grub_efi_simple_text_output_interface_t *o;
-
-  if (grub_efi_is_finished)
-    return;
-
-  if (text_mode_available != 1) {
-    /* Avoid "color_normal" environment writes causing a switch to textmode */
-    text_colorstate = state;
-    return;
-  }
-
-  o = grub_efi_system_table->con_out;
-
-  switch (state) {
-    case GRUB_TERM_COLOR_STANDARD:
-      efi_call_2 (o->set_attributes, o, GRUB_TERM_DEFAULT_STANDARD_COLOR
-		  & 0x7f);
-      break;
-    case GRUB_TERM_COLOR_NORMAL:
-      efi_call_2 (o->set_attributes, o, grub_term_normal_color & 0x7f);
-      break;
-    case GRUB_TERM_COLOR_HIGHLIGHT:
-      efi_call_2 (o->set_attributes, o, grub_term_highlight_color & 0x7f);
-      break;
-    default:
-      break;
-  }
-}
-
-static void
-grub_console_setcursor (struct grub_term_output *term __attribute__ ((unused)),
-			int on)
-{
-  grub_efi_simple_text_output_interface_t *o;
-
-  if (grub_efi_is_finished || text_mode_available != 1)
-    return;
-
-  o = grub_efi_system_table->con_out;
-  efi_call_2 (o->enable_cursor, o, on);
 }
 
 static grub_err_t
