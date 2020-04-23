@@ -24,10 +24,15 @@
 #include <grub/efi/api.h>
 #include <grub/efi/console.h>
 
-static grub_err_t grub_prepare_for_text_output(struct grub_term_output *term);
+typedef enum {
+    GRUB_TEXT_MODE_UNDEFINED = -1,
+    GRUB_TEXT_MODE_UNAVAILABLE = 0,
+    GRUB_TEXT_MODE_AVAILABLE
+}
+grub_text_mode;
 
-static int text_mode_available = -1;
-static int text_colorstate = -1;
+static grub_text_mode text_mode = GRUB_TEXT_MODE_UNDEFINED;
+static grub_term_color_state text_colorstate = GRUB_TERM_COLOR_UNDEFINED;
 
 static grub_uint32_t
 map_char (grub_uint32_t c)
@@ -80,12 +85,6 @@ grub_console_setcolorstate (struct grub_term_output *term
   if (grub_efi_is_finished)
     return;
 
-  if (text_mode_available != 1) {
-    /* Avoid "color_normal" environment writes causing a switch to textmode */
-    text_colorstate = state;
-    return;
-  }
-
   o = grub_efi_system_table->con_out;
 
   switch (state) {
@@ -110,11 +109,35 @@ grub_console_setcursor (struct grub_term_output *term __attribute__ ((unused)),
 {
   grub_efi_simple_text_output_interface_t *o;
 
-  if (grub_efi_is_finished || text_mode_available != 1)
+  if (grub_efi_is_finished)
     return;
 
   o = grub_efi_system_table->con_out;
   efi_call_2 (o->enable_cursor, o, on);
+}
+
+static grub_err_t
+grub_prepare_for_text_output(struct grub_term_output *term)
+{
+  if (grub_efi_is_finished)
+    return GRUB_ERR_BAD_DEVICE;
+
+  if (text_mode != GRUB_TEXT_MODE_UNDEFINED)
+    return text_mode ? GRUB_ERR_NONE : GRUB_ERR_BAD_DEVICE;
+
+  if (! grub_efi_set_text_mode (1))
+    {
+      /* This really should never happen */
+      grub_error (GRUB_ERR_BAD_DEVICE, "cannot set text mode");
+      text_mode = GRUB_TEXT_MODE_UNAVAILABLE;
+      return GRUB_ERR_BAD_DEVICE;
+    }
+
+  grub_console_setcursor (term, 1);
+  if (text_colorstate != GRUB_TERM_COLOR_UNDEFINED)
+    grub_console_setcolorstate (term, text_colorstate);
+  text_mode = GRUB_TEXT_MODE_AVAILABLE;
+  return GRUB_ERR_NONE;
 }
 
 static void
@@ -125,7 +148,7 @@ grub_console_putchar (struct grub_term_output *term,
   grub_efi_simple_text_output_interface_t *o;
   unsigned i, j;
 
-  if (grub_prepare_for_text_output (term))
+  if (grub_prepare_for_text_output (term) != GRUB_ERR_NONE)
     return;
 
   o = grub_efi_system_table->con_out;
@@ -363,7 +386,7 @@ grub_console_getxy (struct grub_term_output *term __attribute__ ((unused)))
 {
   grub_efi_simple_text_output_interface_t *o;
 
-  if (grub_efi_is_finished || text_mode_available != 1)
+  if (grub_efi_is_finished || text_mode != GRUB_TEXT_MODE_AVAILABLE)
     return (struct grub_term_coordinate) { 0, 0 };
 
   o = grub_efi_system_table->con_out;
@@ -376,7 +399,7 @@ grub_console_gotoxy (struct grub_term_output *term,
 {
   grub_efi_simple_text_output_interface_t *o;
 
-  if (grub_prepare_for_text_output (term))
+  if (grub_prepare_for_text_output (term) != GRUB_ERR_NONE)
     return;
 
   o = grub_efi_system_table->con_out;
@@ -389,7 +412,7 @@ grub_console_cls (struct grub_term_output *term __attribute__ ((unused)))
   grub_efi_simple_text_output_interface_t *o;
   grub_efi_int32_t orig_attr;
 
-  if (grub_efi_is_finished || text_mode_available != 1)
+  if (grub_efi_is_finished || text_mode != GRUB_TEXT_MODE_AVAILABLE)
     return;
 
   o = grub_efi_system_table->con_out;
@@ -400,38 +423,14 @@ grub_console_cls (struct grub_term_output *term __attribute__ ((unused)))
 }
 
 static grub_err_t
-grub_prepare_for_text_output(struct grub_term_output *term)
-{
-  if (grub_efi_is_finished)
-    return GRUB_ERR_BAD_DEVICE;
-
-  if (text_mode_available != -1)
-    return text_mode_available ? 0 : GRUB_ERR_BAD_DEVICE;
-
-  if (! grub_efi_set_text_mode (1))
-    {
-      /* This really should never happen */
-      grub_error (GRUB_ERR_BAD_DEVICE, "cannot set text mode");
-      text_mode_available = 0;
-      return GRUB_ERR_BAD_DEVICE;
-    }
-
-  grub_console_setcursor (term, 1);
-  if (text_colorstate != -1)
-    grub_console_setcolorstate (term, text_colorstate);
-  text_mode_available = 1;
-  return 0;
-}
-
-static grub_err_t
 grub_efi_console_output_fini (struct grub_term_output *term)
 {
-  if (text_mode_available != 1)
+  if (text_mode != GRUB_TEXT_MODE_AVAILABLE)
     return 0;
 
   grub_console_setcursor (term, 0);
   grub_efi_set_text_mode (0);
-  text_mode_available = -1;
+  text_mode = GRUB_TEXT_MODE_AVAILABLE;
   return 0;
 }
 
