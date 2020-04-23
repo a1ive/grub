@@ -183,6 +183,17 @@ static struct keysym keysym_table[] =
   {"Acomma",        GRUB_TERM_ALT | 0x2C},
   {"Aperiod",       GRUB_TERM_ALT | 0x2E},
   {"Aslash",        GRUB_TERM_ALT | 0x2F},
+  {"Acolon",        GRUB_TERM_ALT | 0x3A},
+  {"Aplus",         GRUB_TERM_ALT | 0x2B},
+  {"Aless",         GRUB_TERM_ALT | 0x3C},
+  {"Aunderscore",   GRUB_TERM_ALT | 0x5F},
+  {"Agreater",      GRUB_TERM_ALT | 0x3E},
+  {"Aquestion",     GRUB_TERM_ALT | 0x3F},
+  {"Atilde",        GRUB_TERM_ALT | 0x7E},
+  {"Abraceleft",    GRUB_TERM_ALT | 0x7B},
+  {"Abar",          GRUB_TERM_ALT | 0x7C},
+  {"Abraceright",   GRUB_TERM_ALT | 0x7D},
+  {"Adoublequote",  GRUB_TERM_ALT | 0x22},
 };
 
 int
