@@ -2,7 +2,7 @@
 set -e
 
 # grub-mkconfig helper script.
-# Copyright (C) 2012  Free Software Foundation, Inc.
+# Copyright (C) 2020  Free Software Foundation, Inc.
 #
 # GRUB is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -24,19 +24,17 @@ datarootdir="@datarootdir@"
 export TEXTDOMAIN=@PACKAGE@
 export TEXTDOMAINDIR="@localedir@"
 
-. "@datadir@/@PACKAGE@/grub-mkconfig_lib"
+. "$pkgdatadir/grub-mkconfig_lib"
 
-efi_vars_dir=/sys/firmware/efi/efivars
+EFI_VARS_DIR=/sys/firmware/efi/efivars
 EFI_GLOBAL_VARIABLE=8be4df61-93ca-11d2-aa0d-00e098032b8c
-OsIndications="$efi_vars_dir/OsIndicationsSupported-$EFI_GLOBAL_VARIABLE"
+OS_INDICATIONS="$EFI_VARS_DIR/OsIndicationsSupported-$EFI_GLOBAL_VARIABLE"
 
-if [ -e "$OsIndications" ] && \
-   [ "$(( $(printf 0x%x \'"$(cat $OsIndications | cut -b5)") & 1 ))" = 1 ]; then
-  LABEL="System setup"
+if [ -e "$OS_INDICATIONS" ] && \
+   [ "$(( $(printf 0x%x \'"$(cat $OS_INDICATIONS | cut -b5)"\') & 1 ))" = 1 ]; then
+  LABEL="UEFI Firmware Settings"
 
-  gettext_printf "Adding boot menu entry for EFI firmware configuration\n" >&2
-
-  onstr="$(gettext_printf "(on %s)" "${DEVICE}")"
+  gettext_printf "Adding boot menu entry for UEFI Firmware Settings ...\n" >&2
 
   cat << EOF
 menuentry '$LABEL' \$menuentry_id_option 'uefi-firmware' {
