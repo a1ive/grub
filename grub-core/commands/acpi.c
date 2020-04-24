@@ -1338,6 +1338,50 @@ grub_cmd_acpi (struct grub_extcmd_context *ctxt, int argc, char **args)
 
 static grub_extcmd_t cmd;
 
+#ifdef GRUB_MACHINE_EFI
+static grub_err_t
+grub_cmd_wpbt (grub_extcmd_context_t ctxt __attribute__ ((unused)),
+               int argc __attribute__ ((unused)),
+               char **args __attribute__ ((unused)))
+{
+  struct grub_acpi_rsdp_v20 *rsdp = NULL;
+  struct grub_acpi_table_header *xsdt, *entry;
+  int entry_cnt, i;
+  grub_uint64_t *entry_ptr;
+
+  rsdp = grub_machine_acpi_get_rsdpv2 ();
+  if (! rsdp)
+    return grub_error (GRUB_ERR_BAD_OS, "RSDP V2 not found.");
+  if (rsdp->rsdpv1.revision >= 0x02)
+    xsdt = (struct grub_acpi_table_header *)(grub_addr_t)(rsdp->xsdt_addr);
+  else
+    return grub_error (GRUB_ERR_BAD_OS, "XSDT not found.");
+  if (grub_memcmp(xsdt->signature, "XSDT", 4) != 0)
+    return grub_error (GRUB_ERR_BAD_OS, "Invalid XSDT.");
+  entry_cnt = (xsdt->length
+               - sizeof (struct grub_acpi_table_header)) / sizeof(grub_uint64_t);
+  entry_ptr = (grub_uint64_t *)(xsdt + 1);
+  for (i = 0; i < entry_cnt; i++, entry_ptr++)
+  {
+    entry = (struct grub_acpi_table_header *)(grub_addr_t)(*entry_ptr);
+    if (grub_memcmp(entry->signature, "WPBT", 4) == 0)
+    {
+      grub_printf ("WPBT: %p\n", entry);
+      grub_memcpy (entry->signature, "FUCK", 4);
+      grub_printf ("Patching checksum 0x%x", entry->checksum);
+      entry->checksum = 0;
+      entry->checksum = 1 + ~grub_byte_checksum (entry, entry->length);
+      grub_printf ("->0x%x\n", entry->checksum);
+      break;
+    }
+  }
+  return GRUB_ERR_NONE;
+}
+
+static grub_extcmd_t cmd_wpbt;
+
+#endif
+
 GRUB_MOD_INIT(acpi)
 {
   cmd = grub_register_extcmd ("acpi", grub_cmd_acpi, 0,
@@ -1349,6 +1393,8 @@ GRUB_MOD_INIT(acpi)
                   options);
 #ifdef GRUB_MACHINE_EFI
   grub_procfs_register ("bgrt.bmp", &proc_bgrt_bmp);
+  cmd_wpbt = grub_register_extcmd ("disable_wpbt", grub_cmd_wpbt, 0, 0,
+                  N_("Disable the Windows Platform Binary Table (WPBT)."), 0);
 #endif
 }
 
@@ -1357,5 +1403,6 @@ GRUB_MOD_FINI(acpi)
   grub_unregister_extcmd (cmd);
 #ifdef GRUB_MACHINE_EFI
   grub_procfs_unregister (&proc_bgrt_bmp);
+  grub_unregister_extcmd (cmd_wpbt);
 #endif
 }
