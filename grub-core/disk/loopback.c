@@ -102,9 +102,10 @@ grub_cmd_loopback (grub_extcmd_context_t ctxt, int argc, char **args)
     return grub_errno;
   if (state[1].set)
   {
-    addr = grub_malloc (file->size);
+    addr = grub_malloc (file->size + GRUB_DISK_SECTOR_SIZE - 1);
     if (! addr)
       goto fail;
+    grub_memset ((grub_uint8_t *)addr + file->size, 0, GRUB_DISK_SECTOR_SIZE - 1);
     grub_file_read (file, addr, file->size);
   }
 
@@ -183,7 +184,8 @@ grub_loopback_open (const char *name, grub_disk_t disk)
 
   if (dev->addr)
   {
-    disk->total_sectors = (dev->file->size / GRUB_DISK_SECTOR_SIZE);
+    disk->total_sectors = (dev->file->size + GRUB_DISK_SECTOR_SIZE - 1)
+                          >> GRUB_DISK_SECTOR_BITS;
     disk->max_agglomerate = GRUB_DISK_MAX_MAX_AGGLOMERATE;
     disk->id = dev->id;
     disk->data = dev;
@@ -191,8 +193,8 @@ grub_loopback_open (const char *name, grub_disk_t disk)
   }
   /* Use the filesize for the disk size, round up to a complete sector.  */
   if (dev->file->size != GRUB_FILE_SIZE_UNKNOWN)
-    disk->total_sectors = ((dev->file->size + GRUB_DISK_SECTOR_SIZE - 1)
-                            / GRUB_DISK_SECTOR_SIZE);
+    disk->total_sectors = (dev->file->size + GRUB_DISK_SECTOR_SIZE - 1)
+                          >> GRUB_DISK_SECTOR_BITS;
   else
     disk->total_sectors = GRUB_DISK_SIZE_UNKNOWN;
   /* Avoid reading more than 512M.  */
