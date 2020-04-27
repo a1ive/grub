@@ -1775,7 +1775,8 @@ main (int argc, char *argv[])
 	if (install_bootsector)
 	  grub_util_bios_setup (platdir, "boot.img", "core.img",
 				install_drive, force,
-				fs_probe, allow_floppy, add_rs_codes);
+				fs_probe, allow_floppy, add_rs_codes,
+				!grub_install_is_short_mbrgap_supported ());
 	break;
       }
     case GRUB_INSTALL_PLATFORM_SPARC64_IEEE1275:
@@ -1802,7 +1803,7 @@ main (int argc, char *argv[])
 	  grub_util_sparc_setup (platdir, "boot.img", "core.img",
 				 install_drive, force,
 				 fs_probe, allow_floppy,
-				 0 /* unused */ );
+				 0 /* unused */, 0 /* unused */ );
 	break;
       }
 
