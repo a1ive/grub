@@ -2975,3 +2975,8 @@ module = {
   name = setkey;
   common = term/setkey.c;
 };
+
+module = {
+  name = ventoy;
+  common = ventoy/vt.c;
+};
