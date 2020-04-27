@@ -117,7 +117,7 @@ grub_console_setcursor (struct grub_term_output *term __attribute__ ((unused)),
 }
 
 static grub_err_t
-grub_prepare_for_text_output(struct grub_term_output *term)
+grub_prepare_for_text_output (struct grub_term_output *term)
 {
   if (grub_efi_is_finished)
     return GRUB_ERR_BAD_DEVICE;
@@ -232,7 +232,7 @@ grub_console_getkey_con (struct grub_term_input *term __attribute__ ((unused)))
  * press from the queue, this function buffers the press for the regular
  * getkey() so that it does not get lost.
  */
-static int
+static grub_err_t
 grub_console_read_key_stroke (
                    grub_efi_simple_text_input_ex_interface_t *text_input,
                    grub_efi_key_data_t *key_data_ret, int *key_ret,
@@ -268,7 +268,7 @@ grub_console_read_key_stroke (
 }
 
 static int
-grub_console_getkey_ex(struct grub_term_input *term)
+grub_console_getkey_ex (struct grub_term_input *term)
 {
   grub_efi_key_data_t key_data;
   grub_efi_uint32_t kss;
@@ -297,7 +297,7 @@ grub_console_getkey_ex(struct grub_term_input *term)
 }
 
 static int
-grub_console_getkeystatus(struct grub_term_input *term)
+grub_console_getkeystatus (struct grub_term_input *term)
 {
   grub_efi_key_data_t key_data;
   grub_efi_uint32_t kss;
@@ -430,7 +430,7 @@ grub_efi_console_output_fini (struct grub_term_output *term)
 
   grub_console_setcursor (term, 0);
   grub_efi_set_text_mode (0);
-  text_mode = GRUB_TEXT_MODE_AVAILABLE;
+  text_mode = GRUB_TEXT_MODE_UNDEFINED;
   return 0;
 }
 
