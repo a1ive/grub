@@ -244,57 +244,19 @@ static grub_uint8_t NT_VERSION_SRC[] =
   0x65, 0x00, 0x72, 0x00, 0x73, 0x00, 0x69, 0x00,
   0x6F, 0x00, 0x6E, 0x00 };
 
-static char dll_path[50];
-
-static int
-grubfm_ntdir_try (char *name, int (* exist) (const char *path))
-{
-  int ret = 1;
-  grub_size_t i, len = grub_strlen (dll_path);
-  grub_strcpy (dll_path + len, name);
-  grub_printf ("try %s\n", dll_path);
-  if (!exist (dll_path))
-  {
-    name[0] = grub_tolower (name[0]);
-    grub_strcpy (dll_path + len, name);
-    grub_printf ("try %s\n", dll_path);
-    if (!exist (dll_path))
-    {
-      for (i = 0; i < grub_strlen (name); i++)
-        name[i] = grub_toupper (name[i]);
-      grub_strcpy (dll_path + len, name);
-      grub_printf ("try %s\n", dll_path);
-      if (!exist (dll_path))
-        ret = 0;
-    }
-  }
-  return ret;
-}
-
 static grub_err_t
 grub_cmd_ntversion (grub_extcmd_context_t ctxt __attribute__ ((unused)),
                      int argc, char **args)
 {
   if (argc != 2)
     return grub_error (GRUB_ERR_BAD_ARGUMENT, N_("bad argument"));
-  char dir_win[] = "Windows/";
-  char dir_sys[] = "System32/";
-  char dll_ver[] = "Version.dll";
+  char dll_path[50];
   char ntver[8];
   grub_file_t file = 0;
   grub_size_t size;
   grub_uint8_t *data = NULL;
   grub_size_t i;
-  grub_size_t len = grub_strlen (args[0]);
-  grub_strncpy (dll_path, args[0], len);
-  dll_path[len] = '/';
-  dll_path[len + 1] = '\0';
-  if (!grubfm_ntdir_try (dir_win, grubfm_dir_exist))
-    return 1;
-  if (!grubfm_ntdir_try (dir_sys, grubfm_dir_exist))
-    return 1;
-  if (!grubfm_ntdir_try (dll_ver, grubfm_file_exist))
-    return 1;
+  grub_snprintf (dll_path, 50, "%s/Windows/System32/Version.dll", args[0]);
   file = grub_file_open (dll_path, GRUB_FILE_TYPE_HEXCAT);
   if (!file)
     return grub_error (GRUB_ERR_FILE_NOT_FOUND,
@@ -322,6 +284,8 @@ grub_cmd_ntversion (grub_extcmd_context_t ctxt __attribute__ ((unused)),
       ntver[1] = *(data + i + sizeof(NT_VERSION_SRC) + 4);
       ntver[2] = *(data + i + sizeof(NT_VERSION_SRC) + 6);
       ntver[3] = *(data + i + sizeof(NT_VERSION_SRC) + 8);
+      if (!grub_isdigit(ntver[3]))
+        ntver[3] = '\0';
       ntver[4] = '\0';
       grub_printf ("%s\n", ntver);
       grub_env_set (args[1], ntver);
