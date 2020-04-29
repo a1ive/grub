@@ -24,7 +24,7 @@
 #include <grub/mm.h>
 #include <grub/disk.h>
 #include <grub/partition.h>
-#include <grub/command.h>
+#include <grub/extcmd.h>
 #include <grub/i18n.h>
 
 GRUB_MOD_LICENSE ("GPLv3+");
@@ -107,7 +107,7 @@ read_blocklist (grub_disk_addr_t sector, unsigned offset, unsigned length,
 }
 
 static grub_size_t
-blocklist_to_str (grub_file_t file, int num, char *text)
+blocklist_to_str (grub_file_t file, int num, char *text, grub_disk_addr_t start)
 {
   char str[255];
   int i;
@@ -116,8 +116,8 @@ blocklist_to_str (grub_file_t file, int num, char *text)
   p = file->data;
   for (i = 0; i < num; i++, p++)
   {
-    grub_snprintf (str, 255, "%llu+%lu",
-                   (unsigned long long)(p->offset >> GRUB_DISK_SECTOR_BITS),
+    grub_snprintf (str, 255, "%llu+%lu", (unsigned long long)
+                   ((p->offset >> GRUB_DISK_SECTOR_BITS) + start),
                    p->length >> GRUB_DISK_SECTOR_BITS);
     if (text)
       grub_sprintf (text + len, "%s,", str);
@@ -128,10 +128,23 @@ blocklist_to_str (grub_file_t file, int num, char *text)
   return len;
 }
 
-static grub_err_t
-grub_cmd_blocklist (grub_command_t cmd __attribute__ ((unused)),
-		    int argc, char **args)
+static const struct grub_arg_option options[] =
 {
+  {"set", 's', 0, N_("Set a variable to return value."), N_("VAR"), ARG_TYPE_STRING},
+  {"disk", 'd', 0, N_("Use disk start_sector."), 0, 0},
+  {0, 0, 0, 0, 0, 0}
+};
+
+enum options
+{
+  BLOCKLIST_SET,
+  BLOCKLIST_DISK,
+};
+
+static grub_err_t
+grub_cmd_blocklist (grub_extcmd_context_t ctxt, int argc, char **args)
+{
+  struct grub_arg_list *state = ctxt->state;
   grub_file_t file;
   char buf[GRUB_DISK_SECTOR_SIZE];
   struct blocklist_ctx ctx = {
@@ -156,22 +169,26 @@ grub_cmd_blocklist (grub_command_t cmd __attribute__ ((unused)),
     goto fail;
   }
 
-  if (argc > 1)
+  if (state[BLOCKLIST_SET].set)
   {
     int num;
     char *text = NULL;
     grub_size_t len;
+    grub_disk_addr_t start = 0;
     num = grub_blocklist_convert (file);
-    len = blocklist_to_str (file, num, NULL);
+    if (state[BLOCKLIST_DISK].set)
+      start = grub_partition_get_start (file->device->disk->partition);
+    len = blocklist_to_str (file, num, NULL, start);
     text = grub_malloc (len + 1);
     if (!text)
       goto fail;
-    blocklist_to_str (file, num, text);
-    grub_env_set (args[1], text);
+    blocklist_to_str (file, num, text, start);
+    grub_env_set (state[BLOCKLIST_SET].arg, text);
     goto fail;
   }
 
-  ctx.part_start = grub_partition_get_start (file->device->disk->partition);
+  if (!state[BLOCKLIST_DISK].set)
+    ctx.part_start = grub_partition_get_start (file->device->disk->partition);
 
   file->read_hook = read_blocklist;
   file->read_hook_data = &ctx;
@@ -196,15 +213,16 @@ fail:
   return grub_errno;
 }
 
-static grub_command_t cmd;
+static grub_extcmd_t cmd;
 
 GRUB_MOD_INIT(blocklist)
 {
-  cmd = grub_register_command ("blocklist", grub_cmd_blocklist,
-                               N_("FILE [VARNAME]"), N_("Print a block list."));
+  cmd = grub_register_extcmd ("blocklist", grub_cmd_blocklist, 0,
+                              N_("[OPTIONS] FILE"), N_("Print a block list."),
+                              options);
 }
 
 GRUB_MOD_FINI(blocklist)
 {
-  grub_unregister_command (cmd);
+  grub_unregister_extcmd (cmd);
 }
