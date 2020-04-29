@@ -32,6 +32,7 @@
 #include <grub/menu.h>
 #include <grub/misc.h>
 #include <grub/device.h>
+#include <grub/partition.h>
 #include <grub/i18n.h>
 #include <grub/lib/crc.h>
 #include <grub/time.h>
@@ -983,7 +984,9 @@ grub_lua_ini_get (lua_State *state)
 
 /* Helper for grub_lua_enum_block.  */
 static int
-grub_lua_enum_block_iter (grub_disk_addr_t offset, unsigned long length, void *data)
+grub_lua_enum_block_iter (grub_disk_addr_t offset,
+                          unsigned long length,
+                          grub_disk_addr_t start, void *data)
 {
   lua_State *state = data;
   int result;
@@ -991,7 +994,7 @@ grub_lua_enum_block_iter (grub_disk_addr_t offset, unsigned long length, void *d
 
   lua_pushvalue (state, 1);
   grub_snprintf (str, 255, "%llu+%lu",
-                 (unsigned long long)(offset >> GRUB_DISK_SECTOR_BITS),
+                 (unsigned long long)((offset >> GRUB_DISK_SECTOR_BITS) + start),
                  length >> GRUB_DISK_SECTOR_BITS);
   lua_pushstring (state, str);
 
@@ -1009,17 +1012,23 @@ grub_lua_enum_block (lua_State *state)
   const char *name;
   grub_file_t file = 0;
   struct grub_fs_block *p;
+  grub_disk_addr_t start = 0;
   luaL_checktype (state, 1, LUA_TFUNCTION);
   name = luaL_checkstring (state, 2);
   file = grub_file_open (name, GRUB_FILE_TYPE_PRINT_BLOCKLIST
                               | GRUB_FILE_TYPE_NO_DECOMPRESS);
   if (!file)
     return 0;
+  if (! file->device->disk)
+    return 0;
+
   num = grub_blocklist_convert (file);
+  start = (lua_gettop (state) > 2) ?
+            grub_partition_get_start (file->device->disk->partition) : 0;
   p = file->data;
   for (i = 0; i < num; i++)
   {
-    grub_lua_enum_block_iter (p->offset, p->length, state);
+    grub_lua_enum_block_iter (p->offset, p->length, start, state);
     p++;
   }
   grub_file_close (file);
