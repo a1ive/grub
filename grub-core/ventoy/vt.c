@@ -31,8 +31,6 @@
 #include <grub/efi/efi.h>
 #endif
 
-GRUB_MOD_LICENSE ("GPLv3+");
-
 #ifdef GRUB_MACHINE_PCBIOS
 static int
 get_vt_data (ventoy_os_param_t *data)
@@ -79,7 +77,7 @@ get_vt_data (ventoy_os_param_t *data __attribute__ ((unused)))
 }
 #endif
 
-static grub_err_t
+grub_err_t
 grub_cmd_ventoy (grub_extcmd_context_t ctxt __attribute__ ((unused)),
                  int argc, char **args)
 {
@@ -92,17 +90,4 @@ grub_cmd_ventoy (grub_extcmd_context_t ctxt __attribute__ ((unused)),
   else
     grub_printf ("%s\n", os_param.vtoy_img_path);
   return GRUB_ERR_NONE;
-}
-
-static grub_extcmd_t cmd;
-
-GRUB_MOD_INIT(ventoy)
-{
-  cmd = grub_register_extcmd ("ventoy", grub_cmd_ventoy, 0, N_("[VAR]"),
-                              N_("Get Ventoy information."), 0);
-}
-
-GRUB_MOD_FINI(ventoy)
-{
-  grub_unregister_extcmd (cmd);
 }

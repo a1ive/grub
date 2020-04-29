@@ -2980,4 +2980,13 @@ module = {
 module = {
   name = ventoy;
   common = ventoy/vt.c;
+  common = ventoy/ventoy.c;
+  common = ventoy/ventoy_linux.c;
+  common = ventoy/ventoy_windows.c;
+  common = ventoy/ventoy_plugin.c;
+  common = ventoy/ventoy_json.c;
+  common = ventoy/ventoy_wrap.c;
+  enable = x86_64_efi;
+  enable = i386_efi;
+  enable = i386_pc;
 };

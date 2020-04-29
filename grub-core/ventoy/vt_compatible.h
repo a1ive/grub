@@ -39,6 +39,8 @@
 #define __VENTOY_COMPATIBLE_H__
 
 #include <grub/types.h>
+#include <grub/err.h>
+#include <grub/extcmd.h>
 
 #define VENTOY_COMPATIBLE_STR      "VENTOY COMPATIBLE"
 #define VENTOY_COMPATIBLE_STR_LEN  17
@@ -53,7 +55,7 @@
 
 #pragma pack(1)
 
-typedef struct ventoy_os_param
+typedef struct
 {
   /* Signature for the information
    * the hex value is 20207777772e76656e746f792e6e6574
@@ -92,9 +94,12 @@ typedef struct ventoy_os_param
    */
   grub_uint8_t vtoy_reserved[32];    // Internal use by ventoy
   grub_uint8_t reserved[31];
-} ventoy_os_param_t;
+} ventoy_os_param;
+typedef ventoy_os_param ventoy_os_param_t;
 
 #pragma pack()
+
+grub_err_t grub_cmd_ventoy (grub_extcmd_context_t ctxt, int argc, char **args);
 
 #endif
 
