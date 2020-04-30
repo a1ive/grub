@@ -313,7 +313,6 @@ int
 grub_blocklist_convert (grub_file_t file)
 {
   struct read_blocklist_ctx c;
-  char buf[GRUB_DISK_SECTOR_SIZE];
 
   if ((file->fs == &grub_fs_blocklist) || (! file->device->disk) ||
       (! file->size))
@@ -327,30 +326,21 @@ grub_blocklist_convert (grub_file_t file)
   c.part_start = grub_partition_get_start (file->device->disk->partition);
   file->read_hook = read_blocklist;
   file->read_hook_data = &c;
-  if (file->fs && file->fs->fast_blocklist)
-  {
-    file->blocklist = 1;
-    grub_file_read (file, 0, file->size);
-  }
-  else
-  {
-    while (grub_file_read (file, buf, sizeof (buf)) > 0)
-      ;
-  }
+  grub_file_dummy_read (file);
   file->read_hook = 0;
   if ((grub_errno) || (c.total_size != file->size))
-    {
-      grub_errno = 0;
-      c.num = 0;
-      grub_free (c.blocks);
-    }
+  {
+    grub_errno = 0;
+    c.num = 0;
+    grub_free (c.blocks);
+  }
   else
-    {
-      if (file->fs->fs_close)
-	(file->fs->fs_close) (file);
-      file->fs = &grub_fs_blocklist;
-      file->data = c.blocks;
-    }
+  {
+    if (file->fs->fs_close)
+      (file->fs->fs_close) (file);
+    file->fs = &grub_fs_blocklist;
+    file->data = c.blocks;
+  }
 
   file->offset = 0;
   return c.num;

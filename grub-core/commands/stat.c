@@ -172,16 +172,7 @@ grub_cmd_stat (grub_extcmd_context_t ctxt, int argc, char **args)
     {
       file->read_hook = read_block_contig;
       file->read_hook_data = &file_block;
-      if (file->fs && file->fs->fast_blocklist)
-      {
-        file->blocklist = 1;
-        grub_file_read (file, 0, file->size);
-      }
-      else
-      {
-        while (grub_file_read (file, str, GRUB_DISK_SECTOR_SIZE) > 0)
-          ;
-      }
+      grub_file_dummy_read (file);
       if (!state[STAT_QUIET].set)
         grub_printf ("File is%scontiguous.\nNumber of fragments: %d\n",
                      (file_block.num > 1)? " NOT ":" ", file_block.num);

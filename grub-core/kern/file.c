@@ -206,7 +206,8 @@ grub_file_read (grub_file_t file, void *buf, grub_size_t len)
 
   if (grub_ismemfile (file->name))
   {
-    grub_memcpy(buf, (grub_uint8_t *)(file->data) + file->offset, len);
+    if (buf)
+      grub_memcpy(buf, (grub_uint8_t *)(file->data) + file->offset, len);
     file->offset += len;
     return len;
   }
@@ -257,4 +258,23 @@ grub_file_seek (grub_file_t file, grub_off_t offset)
   file->offset = offset;
     
   return old;
+}
+
+void
+grub_file_dummy_read (grub_file_t file)
+{
+  char buf[4 * GRUB_DISK_SECTOR_SIZE];
+  if (!file)
+    return;
+  if (file->fs && file->fs->fast_blocklist)
+  {
+    file->blocklist = 1;
+    while (grub_file_read (file, 0, GRUB_LONG_MAX) > 0)
+      ;
+  }
+  else
+  {
+    while (grub_file_read (file, buf, sizeof (buf)) > 0)
+      ;
+  }
 }

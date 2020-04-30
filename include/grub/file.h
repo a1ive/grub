@@ -214,6 +214,7 @@ grub_ssize_t EXPORT_FUNC(grub_file_read) (grub_file_t file, void *buf,
 					  grub_size_t len);
 grub_off_t EXPORT_FUNC(grub_file_seek) (grub_file_t file, grub_off_t offset);
 grub_err_t EXPORT_FUNC(grub_file_close) (grub_file_t file);
+void EXPORT_FUNC(grub_file_dummy_read) (grub_file_t file);
 
 /* Return value of grub_file_size() in case file size is unknown. */
 #define GRUB_FILE_SIZE_UNKNOWN	 0xffffffffffffffffULL

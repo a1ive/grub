@@ -146,7 +146,6 @@ grub_cmd_blocklist (grub_extcmd_context_t ctxt, int argc, char **args)
 {
   struct grub_arg_list *state = ctxt->state;
   grub_file_t file;
-  char buf[GRUB_DISK_SECTOR_SIZE];
   struct blocklist_ctx ctx = {
     .start_sector = 0,
     .num_sectors = 0,
@@ -176,6 +175,8 @@ grub_cmd_blocklist (grub_extcmd_context_t ctxt, int argc, char **args)
     grub_size_t len;
     grub_disk_addr_t start = 0;
     num = grub_blocklist_convert (file);
+    if (!num)
+      goto fail;
     if (state[BLOCKLIST_DISK].set)
       start = grub_partition_get_start (file->device->disk->partition);
     len = blocklist_to_str (file, num, NULL, start);
@@ -193,16 +194,7 @@ grub_cmd_blocklist (grub_extcmd_context_t ctxt, int argc, char **args)
   file->read_hook = read_blocklist;
   file->read_hook_data = &ctx;
 
-  if (file->fs && file->fs->fast_blocklist)
-  {
-    file->blocklist = 1;
-    grub_file_read (file, 0, file->size);
-  }
-  else
-  {
-    while (grub_file_read (file, buf, sizeof (buf)) > 0)
-      ;
-  }
+  grub_file_dummy_read (file);
 
   if (ctx.num_sectors > 0)
     print_blocklist (ctx.start_sector, ctx.num_sectors, 0, 0, &ctx);
