@@ -172,26 +172,6 @@ static grub_file_t ventoy_wrapper_open(grub_file_t rawFile, enum grub_file_type 
     return file;
 }
 
-static int ventoy_check_decimal_var(const char *name, long *value)
-{
-    const char *value_str = NULL;
-    
-    value_str = grub_env_get(name);
-    if (NULL == value_str)
-    {
-        return grub_error(GRUB_ERR_BAD_ARGUMENT, "Variable %s not found", name);
-    }
-
-    if (!ventoy_is_decimal(value_str))
-    {
-        return grub_error(GRUB_ERR_BAD_ARGUMENT, "Variable %s value '%s' is not an integer", name, value_str);
-    }
-
-    *value = grub_strtol(value_str, NULL, 10);
-
-    return GRUB_ERR_NONE;
-}
-
 static grub_err_t ventoy_cmd_debug(grub_extcmd_context_t ctxt, int argc, char **args)
 {
     if (argc != 1)
@@ -240,61 +220,6 @@ static grub_err_t ventoy_cmd_break(grub_extcmd_context_t ctxt, int argc, char **
     }
 
     VENTOY_CMD_RETURN(GRUB_ERR_NONE);
-}
-
-static grub_err_t ventoy_cmd_incr(grub_extcmd_context_t ctxt, int argc, char **args)
-{
-    long value_long = 0;
-    char buf[32];
-    
-    if ((argc != 2) || (!ventoy_is_decimal(args[1])))
-    {
-        return grub_error(GRUB_ERR_BAD_ARGUMENT, "Usage: %s {Variable} {Int}", cmd_raw_name);
-    }
-
-    if (GRUB_ERR_NONE != ventoy_check_decimal_var(args[0], &value_long))
-    {
-        return grub_errno;
-    }
-
-    value_long += grub_strtol(args[1], NULL, 10);
-
-    grub_snprintf(buf, sizeof(buf), "%ld", value_long);
-    grub_env_set(args[0], buf);
-
-    VENTOY_CMD_RETURN(GRUB_ERR_NONE);
-}
-
-static grub_err_t ventoy_cmd_file_size(grub_extcmd_context_t ctxt, int argc, char **args)
-{
-    int rc = 1;
-    char buf[32];
-    grub_file_t file;
-    
-    (void)ctxt;
-    (void)argc;
-    (void)args;
-
-    if (argc != 2)
-    {
-        return rc;
-    }
-
-    file = ventoy_grub_file_open(VENTOY_FILE_TYPE, "%s", args[0]);
-    if (file == NULL)
-    {
-        debug("failed to open file <%s> for udf check\n", args[0]);
-        return 1;
-    }
-
-    grub_snprintf(buf, sizeof(buf), "%llu", (unsigned long long)file->size);
-
-    grub_env_set(args[1], buf);
-
-    grub_file_close(file); 
-    rc = 0;
-    
-    return rc;
 }
 
 static grub_err_t ventoy_cmd_load_iso_to_mem(grub_extcmd_context_t ctxt, int argc, char **args)
@@ -398,73 +323,6 @@ static grub_err_t ventoy_cmd_is_udf(grub_extcmd_context_t ctxt, int argc, char *
     debug("ISO UDF: %s\n", rc ? "NO" : "YES");
     
     return rc;
-}
-
-static grub_err_t ventoy_cmd_cmp(grub_extcmd_context_t ctxt, int argc, char **args)
-{
-    long value_long1 = 0;
-    long value_long2 = 0;
-    
-    if ((argc != 3) || (!ventoy_is_decimal(args[0])) || (!ventoy_is_decimal(args[2])))
-    {
-        return grub_error(GRUB_ERR_BAD_ARGUMENT, "Usage: %s {Int1} { eq|ne|gt|lt|ge|le } {Int2}", cmd_raw_name);
-    }
-
-    value_long1 = grub_strtol(args[0], NULL, 10);
-    value_long2 = grub_strtol(args[2], NULL, 10);
-
-    if (0 == grub_strcmp(args[1], "eq"))
-    {
-        grub_errno = (value_long1 == value_long2) ? GRUB_ERR_NONE : GRUB_ERR_TEST_FAILURE;
-    }
-    else if (0 == grub_strcmp(args[1], "ne"))
-    {
-        grub_errno = (value_long1 != value_long2) ? GRUB_ERR_NONE : GRUB_ERR_TEST_FAILURE;
-    }
-    else if (0 == grub_strcmp(args[1], "gt"))
-    {
-        grub_errno = (value_long1 > value_long2) ? GRUB_ERR_NONE : GRUB_ERR_TEST_FAILURE;
-    }
-    else if (0 == grub_strcmp(args[1], "lt"))
-    {
-        grub_errno = (value_long1 < value_long2) ? GRUB_ERR_NONE : GRUB_ERR_TEST_FAILURE;
-    }
-    else if (0 == grub_strcmp(args[1], "ge"))
-    {
-        grub_errno = (value_long1 >= value_long2) ? GRUB_ERR_NONE : GRUB_ERR_TEST_FAILURE;
-    }
-    else if (0 == grub_strcmp(args[1], "le"))
-    {
-        grub_errno = (value_long1 <= value_long2) ? GRUB_ERR_NONE : GRUB_ERR_TEST_FAILURE;
-    }
-    else
-    {
-        return grub_error(GRUB_ERR_BAD_ARGUMENT, "Usage: %s {Int1} { eq ne gt lt ge le } {Int2}", cmd_raw_name);
-    }
-    
-    return grub_errno;
-}
-
-static grub_err_t ventoy_cmd_device(grub_extcmd_context_t ctxt, int argc, char **args)
-{
-    char *pos = NULL;
-    char buf[128] = {0};
-    
-    if (argc != 2)
-    {
-        return grub_error(GRUB_ERR_BAD_ARGUMENT, "Usage: %s path var", cmd_raw_name);
-    }
-
-    grub_strncpy(buf, (args[0][0] == '(') ? args[0] + 1 : args[0], sizeof(buf) - 1);
-    pos = grub_strstr(buf, ",");
-    if (pos)
-    {
-        *pos = 0;
-    }
-
-    grub_env_set(args[1], buf);
-    
-    VENTOY_CMD_RETURN(GRUB_ERR_NONE);
 }
 
 static grub_err_t ventoy_cmd_check_compatible(grub_extcmd_context_t ctxt, int argc, char **args)
@@ -875,38 +733,6 @@ static grub_err_t ventoy_cmd_img_name(grub_extcmd_context_t ctxt, int argc, char
     VENTOY_CMD_RETURN(GRUB_ERR_NONE);
 }
 
-static grub_err_t ventoy_cmd_chosen_img_path(grub_extcmd_context_t ctxt, int argc, char **args)
-{
-    const char *name = NULL;
-    img_info *cur = g_ventoy_img_list;
-
-    (void)ctxt;
-    
-    if (argc != 1)
-    {
-        return grub_error(GRUB_ERR_BAD_ARGUMENT, "Usage: %s {var}", cmd_raw_name);
-    }
-
-    name = grub_env_get("chosen");
-
-    while (cur)
-    {
-        if (0 == grub_strcmp(name, cur->name))
-        {
-            grub_env_set(args[0], cur->path);
-            break;
-        }
-        cur = cur->next;
-    }
-
-    if (!cur)
-    {
-        return grub_error(GRUB_ERR_BAD_ARGUMENT, "No such image");
-    }
-
-    VENTOY_CMD_RETURN(GRUB_ERR_NONE);
-}
-
 static int ventoy_get_disk_guid(const char *filename, grub_uint8_t *guid)
 {
     grub_disk_t disk;
@@ -1185,8 +1011,12 @@ int ventoy_is_file_exist(const char *fmt, ...)
     return 0;
 }
 
-static int ventoy_env_init(void)
+static grub_err_t
+ventoy_cmd_init (grub_extcmd_context_t ctxt, int argc, char **args)
 {
+    (void)ctxt;
+    (void)argc;
+    (void)args;
     char buf[64];
 
     grub_env_set("vtdebug_flag", "");
@@ -1206,23 +1036,18 @@ static int ventoy_env_init(void)
 
 static cmd_para ventoy_cmds[] = 
 {
-    { "vt_incr",  ventoy_cmd_incr,  0, NULL, "{Var} {INT}",   "Increase integer variable",    NULL },
     { "vt_debug", ventoy_cmd_debug, 0, NULL, "{on|off}",   "turn debug on/off",    NULL },
     { "vtdebug", ventoy_cmd_debug, 0, NULL, "{on|off}",   "turn debug on/off",    NULL },
     { "vtbreak", ventoy_cmd_break, 0, NULL, "{level}",   "set debug break",    NULL },
-    { "vt_cmp",   ventoy_cmd_cmp, 0, NULL, "{Int1} { eq|ne|gt|lt|ge|le } {Int2}", "Comare two integers", NULL },
-    { "vt_device", ventoy_cmd_device, 0, NULL, "path var", "", NULL },
     { "vt_check_compatible",   ventoy_cmd_check_compatible, 0, NULL, "", "", NULL },
     { "vt_list_img", ventoy_cmd_list_img, 0, NULL, "{device} {cntvar}", "find all iso file in device", NULL },
     { "vt_clear_img", ventoy_cmd_clear_img, 0, NULL, "", "clear image list", NULL },
     { "vt_img_name", ventoy_cmd_img_name, 0, NULL, "{imageID} {var}", "get image name", NULL },
-    { "vt_chosen_img_path", ventoy_cmd_chosen_img_path, 0, NULL, "{var}", "get chosen img path", NULL },
     { "vt_img_sector", ventoy_cmd_img_sector, 0, NULL, "{imageName}", "", NULL },
     { "vt_dump_img_sector", ventoy_cmd_dump_img_sector, 0, NULL, "", "", NULL },
     { "vt_load_cpio", ventoy_cmd_load_cpio, 0, NULL, "", "", NULL },
 
     { "vt_is_udf", ventoy_cmd_is_udf, 0, NULL, "", "", NULL },
-    { "vt_file_size", ventoy_cmd_file_size, 0, NULL, "", "", NULL },
     { "vt_load_iso_to_mem", ventoy_cmd_load_iso_to_mem, 0, NULL, "", "", NULL },
     
     { "vt_linux_parse_initrd_isolinux", ventoy_cmd_isolinux_initrd_collect, 0, NULL, "{cfgfile}", "", NULL },
@@ -1245,15 +1070,15 @@ static cmd_para ventoy_cmds[] =
     { "vt_load_plugin", ventoy_cmd_load_plugin, 0, NULL, "", "", NULL },
 };
 
-static grub_extcmd_t cmd;
+static grub_extcmd_t cmd, cmd_init;
 
 GRUB_MOD_INIT(ventoy)
 {
     grub_uint32_t i;
     cmd_para *cur = NULL;
 
-    ventoy_env_init();
-    
+    cmd_init = grub_register_extcmd ("vt_init", ventoy_cmd_init, 0, NULL, NULL, 0);
+
     for (i = 0; i < ARRAY_SIZE(ventoy_cmds); i++)
     {
         cur = ventoy_cmds + i;
@@ -1273,5 +1098,6 @@ GRUB_MOD_FINI(ventoy)
         grub_unregister_extcmd(ventoy_cmds[i].cmd);
     }
     grub_unregister_extcmd (cmd);
+    grub_unregister_extcmd (cmd_init);
 }
 
