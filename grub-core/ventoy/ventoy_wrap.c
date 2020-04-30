@@ -61,12 +61,18 @@ vt_get_file_chunk (grub_uint64_t part_start, grub_file_t file,
   if (!file->device->disk)
     return -1;
   max_chunk = grub_blocklist_convert (file);
+  debug ("file: %s max_chunk=%d\n", file->name, max_chunk);
   if (!max_chunk)
     return -1;
-  while (max_chunk > m)
-    m = m << 1;
-  chunk_list->max_chunk = m;
-  chunk_list->chunk = grub_zalloc (m * sizeof (ventoy_img_chunk));
+  if (max_chunk > m)
+  {
+    while (max_chunk > m)
+      m = m << 1;
+    chunk_list->max_chunk = m;
+    chunk_list->chunk = grub_realloc (chunk_list->chunk,
+                                      m * sizeof (ventoy_img_chunk));
+    debug ("realloc %d\n", m);
+  }
   p = file->data;
   for (i = 0; i < max_chunk; i++)
   {
