@@ -140,8 +140,6 @@ typedef struct ventoy_img_chunk_list
 
 #pragma pack()
 
-#define ventoy_filt_register grub_file_filter_register
-
 typedef const char * (*grub_env_get_pf)(const char *name);
 
 #pragma pack(1)
