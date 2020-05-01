@@ -260,7 +260,7 @@ grub_uint32_t ventoy_get_iso_boot_catlog(grub_file_t file)
         return 0;
     }
 
-    return desc.sector;    
+    return desc.sector;
 }
 
 int ventoy_has_efi_eltorito(grub_file_t file, grub_uint32_t sector)
@@ -323,7 +323,7 @@ void ventoy_fill_os_param(grub_file_t file, ventoy_os_param *param)
     }
 
     grub_snprintf(param->vtoy_img_path, sizeof(param->vtoy_img_path), "%s", pos);
-    
+
     ventoy_get_disk_guid(file->name, param->vtoy_disk_guid);
 
     param->vtoy_img_size = file->size;
@@ -344,7 +344,7 @@ void ventoy_fill_os_param(grub_file_t file, ventoy_os_param *param)
 static grub_err_t ventoy_cmd_img_sector(grub_extcmd_context_t ctxt, int argc, char **args)
 {
     grub_file_t file;
-    
+
     (void)ctxt;
     (void)argc;
 
@@ -366,12 +366,13 @@ static grub_err_t ventoy_cmd_img_sector(grub_extcmd_context_t ctxt, int argc, ch
     {
         return grub_error(GRUB_ERR_OUT_OF_MEMORY, "Can't allocate image chunk memoty\n");
     }
-    
+
     g_img_chunk_list.max_chunk = DEFAULT_CHUNK_NUM;
     g_img_chunk_list.cur_chunk = 0;
 
-    debug("get fat file chunk part start:%llu\n", (unsigned long long)file->device->disk->partition->start);
-    vt_get_file_chunk(file->device->disk->partition->start, file, &g_img_chunk_list);
+    debug("get fat file chunk part start:%llu\n",
+          grub_partition_get_start (file->device->disk->partition));
+    vt_get_file_chunk(grub_partition_get_start (file->device->disk->partition), file, &g_img_chunk_list);
 
     grub_file_close(file);
 
@@ -516,7 +517,7 @@ GRUB_MOD_INIT(ventoy)
 GRUB_MOD_FINI(ventoy)
 {
     grub_uint32_t i;
-    
+
     for (i = 0; i < ARRAY_SIZE(ventoy_cmds); i++)
     {
         grub_unregister_extcmd(ventoy_cmds[i].cmd);
