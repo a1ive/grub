@@ -44,7 +44,6 @@
 GRUB_MOD_LICENSE ("GPLv3+");
 
 int g_ventoy_debug = 0;
-static int g_efi_os = 0xFF;
 initrd_info *g_initrd_img_list = NULL;
 initrd_info *g_initrd_img_tail = NULL;
 int g_initrd_img_count = 0;
@@ -76,12 +75,11 @@ void ventoy_debug(const char *fmt, ...)
 
 int ventoy_is_efi_os(void)
 {
-    if (g_efi_os > 1)
-    {
-        g_efi_os = (grub_strstr(GRUB_PLATFORM, "efi")) ? 1 : 0;
-    }
-
-    return g_efi_os;
+#ifdef GRUB_MACHINE_EFI
+    return 1;
+#else
+    return 0;
+#endif
 }
 
 static grub_err_t ventoy_cmd_debug(grub_extcmd_context_t ctxt, int argc, char **args)
@@ -132,109 +130,6 @@ static grub_err_t ventoy_cmd_break(grub_extcmd_context_t ctxt, int argc, char **
     }
 
     VENTOY_CMD_RETURN(GRUB_ERR_NONE);
-}
-
-static grub_err_t ventoy_cmd_load_iso_to_mem(grub_extcmd_context_t ctxt, int argc, char **args)
-{
-    int rc = 1;
-    char name[32];
-    char value[32];
-    char *buf = NULL;
-    grub_file_t file;
-    
-    (void)ctxt;
-    (void)argc;
-    (void)args;
-
-    if (argc != 2)
-    {
-        return rc;
-    }
-
-    file = ventoy_grub_file_open(VENTOY_FILE_TYPE, "%s", args[0]);
-    if (file == NULL)
-    {
-        debug("failed to open file <%s> for udf check\n", args[0]);
-        return 1;
-    }
-
-#ifdef GRUB_MACHINE_EFI
-    buf = (char *)grub_efi_allocate_iso_buf(file->size);
-#else
-    buf = (char *)grub_malloc(file->size);
-#endif   
-
-    grub_file_read(file, buf, file->size);
-
-    grub_snprintf(name, sizeof(name), "%s_addr", args[1]);
-    grub_snprintf(value, sizeof(value), "0x%llx", (unsigned long long)(unsigned long)buf);
-    grub_env_set(name, value);
-    
-    grub_snprintf(name, sizeof(name), "%s_size", args[1]);
-    grub_snprintf(value, sizeof(value), "%llu", (unsigned long long)file->size);
-    grub_env_set(name, value);
-
-    grub_file_close(file); 
-    rc = 0;
-    
-    return rc;
-}
-
-static grub_err_t ventoy_cmd_is_udf(grub_extcmd_context_t ctxt, int argc, char **args)
-{
-    int i;
-    int rc = 1;
-    grub_file_t file;
-    grub_uint8_t buf[32];
-    
-    (void)ctxt;
-    (void)argc;
-    (void)args;
-
-    if (argc != 1)
-    {
-        return rc;
-    }
-
-    file = ventoy_grub_file_open(VENTOY_FILE_TYPE, "%s", args[0]);
-    if (file == NULL)
-    {
-        debug("failed to open file <%s> for udf check\n", args[0]);
-        return 1;
-    }
-
-    for (i = 16; i < 32; i++)
-    {
-        grub_file_seek(file, i * 2048);
-        grub_file_read(file, buf, sizeof(buf));
-        if (buf[0] == 255)
-        {
-            break;
-        }
-    }
-
-    i++;
-    grub_file_seek(file, i * 2048);
-    grub_file_read(file, buf, sizeof(buf));
-
-    if (grub_memcmp(buf + 1, "BEA01", 5) == 0)
-    {
-        i++;
-        grub_file_seek(file, i * 2048);
-        grub_file_read(file, buf, sizeof(buf));
-
-        if (grub_memcmp(buf + 1, "NSR02", 5) == 0 ||
-            grub_memcmp(buf + 1, "NSR03", 5) == 0)
-        {
-            rc = 0;
-        }
-    }
-
-    grub_file_close(file); 
-
-    debug("ISO UDF: %s\n", rc ? "NO" : "YES");
-    
-    return rc;
 }
 
 static grub_err_t ventoy_cmd_check_compatible(grub_extcmd_context_t ctxt, int argc, char **args)
@@ -299,82 +194,6 @@ static grub_err_t ventoy_cmd_check_compatible(grub_extcmd_context_t ctxt, int ar
 
     grub_env_set("ventoy_compatible", "NO");
     VENTOY_CMD_RETURN(GRUB_ERR_NONE);
-}
-
-int ventoy_fill_data(grub_uint32_t buflen, char *buffer)
-{
-    int len = GRUB_UINT_MAX;
-    const char *value = NULL;
-    char name[32] = {0};
-    char plat[32] = {0};
-    char guidstr[32] = {0};
-    ventoy_guid guid = VENTOY_GUID;
-    const char *fmt1 = NULL;
-    const char *fmt2 = NULL;
-    const char *fmt3 = NULL;    
-    grub_uint32_t *puint = (grub_uint32_t *)name;
-    grub_uint32_t *puint2 = (grub_uint32_t *)plat;
-    const char fmtdata[]={ 0x39, 0x35, 0x25, 0x00, 0x35, 0x00, 0x23, 0x30, 0x30, 0x30, 0x30, 0x66, 0x66, 0x00 };
-    const char fmtcode[]={
-        0x22, 0x0A, 0x2B, 0x20, 0x68, 0x62, 0x6F, 0x78, 0x20, 0x7B, 0x0A, 0x20, 0x20, 0x74, 0x6F, 0x70,
-        0x20, 0x3D, 0x20, 0x25, 0x73, 0x0A, 0x20, 0x20, 0x6C, 0x65, 0x66, 0x74, 0x20, 0x3D, 0x20, 0x25,
-        0x73, 0x0A, 0x20, 0x20, 0x2B, 0x20, 0x6C, 0x61, 0x62, 0x65, 0x6C, 0x20, 0x7B, 0x74, 0x65, 0x78,
-        0x74, 0x20, 0x3D, 0x20, 0x22, 0x25, 0x73, 0x20, 0x25, 0x73, 0x25, 0x73, 0x22, 0x20, 0x63, 0x6F,
-        0x6C, 0x6F, 0x72, 0x20, 0x3D, 0x20, 0x22, 0x25, 0x73, 0x22, 0x20, 0x61, 0x6C, 0x69, 0x67, 0x6E,
-        0x20, 0x3D, 0x20, 0x22, 0x6C, 0x65, 0x66, 0x74, 0x22, 0x7D, 0x0A, 0x7D, 0x0A, 0x22, 0x00
-    };
-
-    grub_memset(name, 0, sizeof(name));
-    puint[0] = grub_swap_bytes32(0x56454e54);
-    puint[3] = grub_swap_bytes32(0x4f4e0000);
-    puint[2] = grub_swap_bytes32(0x45525349);
-    puint[1] = grub_swap_bytes32(0x4f595f56);
-    value = ventoy_get_env(name);
-
-    grub_memset(name, 0, sizeof(name));
-    puint[1] = grub_swap_bytes32(0x5f544f50);
-    puint[0] = grub_swap_bytes32(0x56544c45);
-    fmt1 = ventoy_get_env(name);
-    if (!fmt1)
-    {
-        fmt1 = fmtdata;
-    }
-    
-    grub_memset(name, 0, sizeof(name));
-    puint[1] = grub_swap_bytes32(0x5f4c4654);
-    puint[0] = grub_swap_bytes32(0x56544c45);
-    fmt2 = ventoy_get_env(name);
-    
-    grub_memset(name, 0, sizeof(name));
-    puint[1] = grub_swap_bytes32(0x5f434c52);
-    puint[0] = grub_swap_bytes32(0x56544c45);
-    fmt3 = ventoy_get_env(name);
-
-    grub_memcpy(guidstr, &guid, sizeof(guid));
-
-    #if defined (GRUB_MACHINE_EFI)
-    puint2[0] = grub_swap_bytes32(0x55454649);
-    #else
-    puint2[0] = grub_swap_bytes32(0x42494f53);
-    #endif
-
-    /* Easter egg :) It will be appreciated if you reserve it, but NOT mandatory. */
-    #pragma GCC diagnostic push
-    #pragma GCC diagnostic ignored "-Wformat-nonliteral"
-    len = grub_snprintf(buffer, buflen, fmtcode, 
-                        fmt1 ? fmt1 : fmtdata, 
-                        fmt2 ? fmt2 : fmtdata + 4, 
-                        value ? value : "", plat, guidstr, 
-                        fmt3 ? fmt3 : fmtdata + 6);
-    #pragma GCC diagnostic pop
-
-    grub_memset(name, 0, sizeof(name));
-    puint[0] = grub_swap_bytes32(0x76746f79);
-    puint[2] = grub_swap_bytes32(0x656e7365);
-    puint[1] = grub_swap_bytes32(0x5f6c6963);
-    ventoy_set_env(name, guidstr);
-
-    return len;
 }
 
 static int ventoy_get_disk_guid(const char *filename, grub_uint8_t *guid)
@@ -629,32 +448,6 @@ grub_file_t ventoy_grub_file_open(enum grub_file_type type, const char *fmt, ...
     return file;
 }
 
-int ventoy_is_file_exist(const char *fmt, ...)
-{
-    va_list ap;
-    int len;
-    char *pos = NULL;
-    char buf[256] = {0};
-
-    grub_snprintf(buf, sizeof(buf), "%s", "[ -f ");
-    pos = buf + 5;
-
-    va_start (ap, fmt);
-    len = grub_vsnprintf(pos, 255, fmt, ap);
-    va_end (ap);
-
-    grub_strncpy(pos + len, " ]", 2);
-
-    debug("script exec %s\n", buf);
-
-    if (0 == grub_script_execute_sourcecode(buf))
-    {
-        return 1;
-    }
-
-    return 0;
-}
-
 static int
 ventoy_env_init (void)
 {
@@ -683,9 +476,6 @@ static cmd_para ventoy_cmds[] =
     { "vt_dump_img_sector", ventoy_cmd_dump_img_sector, 0, NULL, "", "", NULL },
     { "vt_load_cpio", ventoy_cmd_load_cpio, 0, NULL, "", "", NULL },
 
-    { "vt_is_udf", ventoy_cmd_is_udf, 0, NULL, "", "", NULL },
-    { "vt_load_iso_to_mem", ventoy_cmd_load_iso_to_mem, 0, NULL, "", "", NULL },
-
     { "vt_linux_parse_initrd_isolinux", ventoy_cmd_isolinux_initrd_collect, 0, NULL, "{cfgfile}", "", NULL },
     { "vt_linux_parse_initrd_grub", ventoy_cmd_grub_initrd_collect, 0, NULL, "{cfgfile}", "", NULL },
     { "vt_linux_specify_initrd_file", ventoy_cmd_specify_initrd_file, 0, NULL, "", "", NULL },
@@ -702,8 +492,6 @@ static cmd_para ventoy_cmds[] =
 
     { "vt_add_replace_file", ventoy_cmd_add_replace_file, 0, NULL, "", "", NULL },
 
-    
-    { "vt_load_plugin", ventoy_cmd_load_plugin, 0, NULL, "", "", NULL },
 };
 
 static grub_extcmd_t cmd;

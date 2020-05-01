@@ -39,17 +39,6 @@
 #include "ventoy_def.h"
 #include "ventoy_wrap.h"
 
-#ifdef GRUB_MACHINE_EFI
-void *
-grub_efi_allocate_iso_buf (grub_size_t size)
-{
-  return grub_efi_allocate_pages_real (GRUB_EFI_MAX_USABLE_ADDRESS,
-                                       GRUB_EFI_BYTES_TO_PAGES (size),
-                                       GRUB_EFI_ALLOCATE_ANY_PAGES,
-                                       GRUB_EFI_RUNTIME_SERVICES_DATA);
-}
-#endif
-
 int
 vt_get_file_chunk (grub_uint64_t part_start, grub_file_t file,
                    ventoy_img_chunk_list *chunk_list)

@@ -23,12 +23,6 @@
 #include <grub/iso9660.h>
 #include <grub/udf.h>
 
-#ifdef GRUB_MACHINE_EFI
-
-void *grub_efi_allocate_iso_buf (grub_size_t size);
-
-#endif
-
 int vt_get_file_chunk (grub_uint64_t part_start, grub_file_t file,
                        ventoy_img_chunk_list *chunk_list);
 

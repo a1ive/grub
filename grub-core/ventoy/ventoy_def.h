@@ -21,10 +21,6 @@
 #ifndef __VENTOY_DEF_H__
 #define __VENTOY_DEF_H__
 
-#define JSON_SUCCESS    0
-#define JSON_FAILED     1
-#define JSON_NOT_FOUND  2
-
 #define ulonglong  unsigned long long
 
 #define vtoy_to_upper(c) (((char)(c) >= 'a' && (char)(c) <= 'z') ? ((char)(c) - 'a' + 'A') : (char)(c))
@@ -83,10 +79,6 @@ typedef struct cpio_newc_header
 #define cmd_raw_name ctxt->extcmd->cmd->name
 #define check_free(p, func) if (p) { func(p); p = NULL; }
 
-typedef int (*grub_char_check_func)(int c);
-#define ventoy_is_decimal(str)  ventoy_string_check(str, grub_isdigit)
-
-
 // El Torito Boot Record Volume Descriptor
 #pragma pack(1)
 typedef struct eltorito_descriptor
@@ -115,23 +107,6 @@ typedef struct ventoy_udf_override
 
 #pragma pack()
 
-
-typedef struct img_info
-{
-    char path[512];
-    char name[256];
-
-    struct img_info *next;
-    struct img_info *prev;
-}img_info;
-
-typedef struct img_iterator_node
-{
-    struct img_iterator_node *next;
-    img_info **tail;
-    char dir[400];
-}img_iterator_node;
-
 typedef struct initrd_info
 {
     char name[256];
@@ -141,7 +116,7 @@ typedef struct initrd_info
 
     grub_uint8_t  iso_type; // 0: iso9660  1:udf
     grub_uint32_t udf_start_block;
-    
+
     grub_uint64_t override_offset;
     grub_uint32_t override_length;
     char          override_data[32];
@@ -154,9 +129,6 @@ extern initrd_info *g_initrd_img_list;
 extern initrd_info *g_initrd_img_tail;
 extern int g_initrd_img_count;
 extern int g_valid_initrd_count;
-
-extern img_info *g_ventoy_img_list;
-extern int g_ventoy_img_count;
 
 extern grub_uint8_t *g_ventoy_cpio_buf;
 extern grub_uint32_t g_ventoy_cpio_size;
@@ -330,63 +302,6 @@ typedef struct wim_tail
     grub_uint32_t new_lookup_align_len;
 }wim_tail;
 
-
-
-typedef enum _JSON_TYPE
-{
-    JSON_TYPE_NUMBER = 0,
-    JSON_TYPE_STRING,
-    JSON_TYPE_BOOL,
-    JSON_TYPE_ARRAY,
-    JSON_TYPE_OBJECT,
-    JSON_TYPE_NULL,
-    JSON_TYPE_BUTT
-}JSON_TYPE;
-
-
-typedef struct _VTOY_JSON
-{
-    struct _VTOY_JSON *pstPrev;
-    struct _VTOY_JSON *pstNext;
-    struct _VTOY_JSON *pstChild;
-
-    JSON_TYPE enDataType;
-    union 
-    {
-        char  *pcStrVal;
-        int   iNumVal;
-        grub_uint64_t lValue;
-    }unData;
-
-    char *pcName;
-}VTOY_JSON;
-
-typedef struct _JSON_PARSE
-{
-    char *pcKey;
-    void *pDataBuf;
-    grub_uint32_t  uiBufSize;
-}JSON_PARSE;
-
-#define JSON_NEW_ITEM(pstJson, ret) \
-{ \
-    (pstJson) = (VTOY_JSON *)grub_zalloc(sizeof(VTOY_JSON)); \
-    if (NULL == (pstJson)) \
-    { \
-        json_debug("Failed to alloc memory for json.\n"); \
-        return (ret); \
-    } \
-}
-
-typedef int (*ventoy_plugin_entry_pf)(VTOY_JSON *json, const char *isodisk);
-
-typedef struct plugin_entry
-{
-    const char *key;
-    ventoy_plugin_entry_pf entryfunc;
-}plugin_entry;
-
-
 void ventoy_fill_os_param(grub_file_t file, ventoy_os_param *param);
 grub_err_t ventoy_cmd_isolinux_initrd_collect(grub_extcmd_context_t ctxt, int argc, char **args);
 grub_err_t ventoy_cmd_grub_initrd_collect(grub_extcmd_context_t ctxt, int argc, char **args);
@@ -402,97 +317,10 @@ grub_err_t ventoy_cmd_valid_initrd_count(grub_extcmd_context_t ctxt, int argc, c
 grub_err_t ventoy_cmd_load_cpio(grub_extcmd_context_t ctxt, int argc, char **args);
 int ventoy_cpio_newc_fill_head(void *buf, int filesize, void *filedata, const char *name);
 grub_file_t ventoy_grub_file_open(enum grub_file_type type, const char *fmt, ...);
-int ventoy_is_file_exist(const char *fmt, ...);
-int ventoy_fill_data(grub_uint32_t buflen, char *buffer);
-grub_err_t ventoy_cmd_load_plugin(grub_extcmd_context_t ctxt, int argc, char **args);
+
 grub_err_t ventoy_cmd_wimdows_reset(grub_extcmd_context_t ctxt, int argc, char **args);
 grub_err_t ventoy_cmd_wimdows_locate_wim(grub_extcmd_context_t ctxt, int argc, char **args);
 grub_err_t ventoy_cmd_windows_chain_data(grub_extcmd_context_t ctxt, int argc, char **args);
-
-VTOY_JSON *vtoy_json_find_item
-(
-    VTOY_JSON *pstJson,
-    JSON_TYPE  enDataType,
-    const char *szKey
-);
-int vtoy_json_parse_value
-(
-    char *pcNewStart,
-    char *pcRawStart,
-    VTOY_JSON *pstJson, 
-    const char *pcData,
-    const char **ppcEnd
-);
-VTOY_JSON * vtoy_json_create(void);
-int vtoy_json_parse(VTOY_JSON *pstJson, const char *szJsonData);
-
-int vtoy_json_scan_parse
-(
-    const VTOY_JSON    *pstJson,
-    grub_uint32_t       uiParseNum,
-    JSON_PARSE         *pstJsonParse
-);
-
-int vtoy_json_scan_array
-(
-     VTOY_JSON *pstJson, 
-     const char *szKey, 
-     VTOY_JSON **ppstArrayItem
-);
-
-int vtoy_json_scan_array_ex
-(
-     VTOY_JSON *pstJson, 
-     const char *szKey, 
-     VTOY_JSON **ppstArrayItem
-);
-int vtoy_json_scan_object
-(
-     VTOY_JSON *pstJson, 
-     const char *szKey, 
-    VTOY_JSON **ppstObjectItem
-);
-int vtoy_json_get_int
-(
-    VTOY_JSON *pstJson, 
-    const char *szKey, 
-    int *piValue
-);
-int vtoy_json_get_uint
-(
-    VTOY_JSON *pstJson, 
-    const char *szKey, 
-    grub_uint32_t *puiValue
-);
-int vtoy_json_get_uint64
-(
-    VTOY_JSON *pstJson, 
-    const char *szKey, 
-    grub_uint64_t *pui64Value
-);
-int vtoy_json_get_bool
-(
-    VTOY_JSON *pstJson,
-    const char *szKey, 
-    grub_uint8_t *pbValue
-);
-int vtoy_json_get_string
-(
-     VTOY_JSON *pstJson, 
-     const char *szKey, 
-     grub_uint32_t  uiBufLen,
-     char *pcBuf
-);
-const char * vtoy_json_get_string_ex(VTOY_JSON *pstJson,  const char *szKey);
-int vtoy_json_destroy(VTOY_JSON *pstJson);
-
-
-grub_uint32_t CalculateCrc32
-(
-    const void       *Buffer,
-    grub_uint32_t          Length,
-    grub_uint32_t          InitValue
-);
 
 static inline int ventoy_isspace (int c)
 {
