@@ -52,15 +52,11 @@ grubfm_add_menu_back (const char *filename)
 static int
 grubfm_ini_menu_check (const char *condition, const char *dev)
 {
-  char *src = NULL;
   const char *value = NULL;
-  src = grub_xasprintf ("unset grubfm_test\n"
-                        "source (%s)%srules/%s\n",
-                        dev, grubfm_data_path, condition);
-  if (!src)
-    return 0;
-  grub_script_execute_sourcecode (src);
-  grub_free (src);
+  grubfm_src_exe ("unset grubfm_test\n"
+                  "%s (%s)%srules/%s\n",
+                  grubfm_islua (condition)? "lua": "source",
+                  dev, grubfm_data_path, condition);
   value = grub_env_get ("grubfm_test");
   if (!value)
     return 0;
@@ -114,7 +110,8 @@ grubfm_add_ini_menu (ini_t *ini, const char *dev)
       title = "MENU";
     /* hotkey */
     hotkey = ini_get (ini, num, "hotkey");
-    src = grub_xasprintf ("configfile (%s)%srules/%s\n",
+    src = grub_xasprintf ("%s (%s)%srules/%s\n",
+                          grubfm_islua (script)? "lua": "configfile",
                           dev, grubfm_data_path, script);
     /* hidden menu */
     if (ini_get (ini, num, "hidden"))
@@ -131,17 +128,12 @@ grubfm_check_boot (struct grubfm_enum_file_info *info,
 {
   if (grubfm_boot && info->ext >= 0)
   {
-    char *src = NULL;
     const char *boot_script = NULL;
     boot_script = ini_get (ctx->config[info->ext], "type", "boot");
     if (boot_script)
-      src = grub_xasprintf ("source (%s)%srules/%s\n",
-                            dev, grubfm_data_path, boot_script);
-    if (src)
-    {
-      grub_script_execute_sourcecode (src);
-      grub_free (src);
-    }
+      grubfm_src_exe ("%s (%s)%srules/%s\n",
+                      grubfm_islua (boot_script)? "lua": "source",
+                      dev, grubfm_data_path, boot_script);
   }
 }
 

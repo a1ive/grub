@@ -65,13 +65,10 @@ grub_cmd_grubfm (grub_extcmd_context_t ctxt __attribute__ ((unused)),
     grubfm_enum_device ();
   else
     grubfm_enum_file (args[0]);
-  char *src = NULL;
-  src = grub_xasprintf ("source (%s)%sglobal.sh\n",
-                        grubfm_root, grubfm_data_path);
-  if (!src)
-    return 0;
-  grub_script_execute_sourcecode (src);
-  grub_free (src);
+  if (grubfm_file_exist ("(%s)%sglobal.lua", grubfm_root, grubfm_data_path))
+    grubfm_src_exe ("lua (%s)%sglobal.lua", grubfm_root, grubfm_data_path);
+  else if (grubfm_file_exist ("(%s)%sglobal.sh", grubfm_root, grubfm_data_path))
+    grubfm_src_exe ("source (%s)%sglobal.sh", grubfm_root, grubfm_data_path);
   return 0;
 }
 
@@ -323,14 +320,10 @@ grub_cmd_html_list (grub_extcmd_context_t ctxt __attribute__ ((unused)),
 
   grubfm_html_menu (buf, args[0]);
 
-  char *src = NULL;
-  src = grub_xasprintf ("source (%s)%sglobal.sh\n",
-                        grubfm_root, grubfm_data_path);
-  if (!src)
-    return 0;
-  grub_script_execute_sourcecode (src);
-  grub_free (src);
-
+  if (grubfm_file_exist ("(%s)%sglobal.lua", grubfm_root, grubfm_data_path))
+    grubfm_src_exe ("lua (%s)%sglobal.lua", grubfm_root, grubfm_data_path);
+  else if (grubfm_file_exist ("(%s)%sglobal.sh", grubfm_root, grubfm_data_path))
+    grubfm_src_exe ("source (%s)%sglobal.sh", grubfm_root, grubfm_data_path);
   return 0;
 }
 

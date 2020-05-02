@@ -72,9 +72,9 @@ extern struct grubfm_ini_enum_list grubfm_usr_table;
 extern ini_t *grubfm_usr_config;
 /* lib.c */
 int
-grubfm_dir_exist (const char *path);
+grubfm_dir_exist (const char *fmt, ...);
 int
-grubfm_file_exist (const char *path);
+grubfm_file_exist (const char *fmt, ...);
 int
 grubfm_command_exist (const char *str);
 grub_err_t
@@ -108,6 +108,19 @@ void
 grubfm_gfx_printf (grub_video_color_t color, int x, int y, const char *fmt, ...);
 void
 grubfm_gfx_clear (void);
+static inline int
+grubfm_islua (const char *name)
+{
+  if (!name)
+    return 0;
+  char *ext = grub_strrchr (name, '.');
+  if (!ext || *ext == '\0' || *(ext++) == '\0')
+    return 0;
+  if (grub_strcasecmp (ext, "lua") == 0)
+    return 1;
+  return 0;
+}
+void grubfm_src_exe (const char *fmt, ...);
 /* list.c */
 int
 grubfm_enum_device (void);

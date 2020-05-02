@@ -106,8 +106,9 @@ grubfm_ini_enum (const char *devname, struct grubfm_ini_enum_list *ctx)
       condition = ini_get(config, "type", "condition");
       if (condition)
         ctx->condition[ctx->i] = grub_xasprintf ("unset grubfm_test\n"
-                                    "source (%s)%srules/%s\n",
-                                    devname, grubfm_data_path, condition);
+                        "%s (%s)%srules/%s\n",
+                        grubfm_islua (condition)? "lua": "source",
+                        devname, grubfm_data_path, condition);
       ctx->config[ctx->i] = config;
     }
   }
@@ -115,8 +116,6 @@ grubfm_ini_enum (const char *devname, struct grubfm_ini_enum_list *ctx)
   /* generic menu */
   char *ini_name = NULL;
   ini_name = grub_xasprintf ("(%s)%srules/generic.ini", devname, grubfm_data_path);
-  if (!ini_name)
-    goto fail;
   if (grubfm_file_exist (ini_name))
     cfg = ini_load (ini_name);
   grub_free (ini_name);

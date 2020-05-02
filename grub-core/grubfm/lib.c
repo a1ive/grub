@@ -136,10 +136,18 @@ grubfm_get_fileinfo (const char *path, struct grubfm_test_parse_ctx *ctx)
 }
 
 int
-grubfm_dir_exist (const char *path)
+grubfm_dir_exist (const char *fmt, ...)
 {
-  struct grubfm_test_parse_ctx ctx = { .exist = 0};
+  struct grubfm_test_parse_ctx ctx = {.exist = 0};
+  va_list ap;
+  char *path = NULL;
+  va_start (ap, fmt);
+  path = grub_xvasprintf(fmt, ap);
+  va_end (ap);
+  if (!path)
+    return 0;
   grubfm_get_fileinfo (path, &ctx);
+  grub_free (path);
   if (ctx.exist && ctx.info.dir)
     return 1;
   else
@@ -147,10 +155,18 @@ grubfm_dir_exist (const char *path)
 }
 
 int
-grubfm_file_exist (const char *path)
+grubfm_file_exist (const char *fmt, ...)
 {
-  struct grubfm_test_parse_ctx ctx = { .exist = 0};
+  struct grubfm_test_parse_ctx ctx = {.exist = 0};
+  va_list ap;
+  char *path = NULL;
+  va_start (ap, fmt);
+  path = grub_xvasprintf(fmt, ap);
+  va_end (ap);
+  if (!path)
+    return 0;
   grubfm_get_fileinfo (path, &ctx);
+  grub_free (path);
   if (ctx.exist && !ctx.info.dir)
     return 1;
   else
@@ -271,4 +287,17 @@ grubfm_gfx_clear (void)
   if (!w || !h)
     return;
   grubfm_draw_rect (black, 0, 0, w, h);
+}
+
+void grubfm_src_exe (const char *fmt, ...)
+{
+  va_list ap;
+  char *src = NULL;
+  va_start (ap, fmt);
+  src = grub_xvasprintf(fmt, ap);
+  va_end (ap);
+  if (!src)
+    return;
+  grub_script_execute_sourcecode (src);
+  grub_free (src);
 }
