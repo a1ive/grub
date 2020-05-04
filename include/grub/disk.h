@@ -52,6 +52,7 @@ enum grub_disk_dev_id
     GRUB_DISK_DEVICE_OBDISK_ID,
     GRUB_DISK_DEVICE_VHD_ID,
     GRUB_DISK_DEVICE_VFAT_ID,
+    GRUB_DISK_DEVICE_INITRD_ID,
   };
 
 struct grub_disk;
