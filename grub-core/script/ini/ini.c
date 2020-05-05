@@ -27,7 +27,6 @@
 
 #include <grub/file.h>
 #include "ini.h"
-#include "sscanf.h"
 
 struct ini_t {
   char *data;

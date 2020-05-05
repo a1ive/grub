@@ -72,4 +72,21 @@ sprintf (char *str, const char *fmt, ...)
   return ret;
 }
 
+static inline int
+vsscanf (const char *str, const char *fmt, va_list ap)
+{
+  return grub_vsscanf (str, fmt, ap);
+}
+
+static inline int
+sscanf (const char *str, const char *format, ...)
+{
+  va_list ap;
+  int ret;
+  va_start (ap, format);
+  ret = grub_vsscanf (str, format, ap);
+  va_end (ap);
+  return ret;
+}
+
 #endif

@@ -1126,7 +1126,6 @@ module = {
   name = ini;
   common = script/ini/ini.c;
   common = script/ini/main.c;
-  common = script/ini/sscanf.c;
   cflags = '$(CFLAGS_POSIX)';
   cppflags = '$(CPPFLAGS_POSIX)';
 };

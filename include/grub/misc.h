@@ -460,6 +460,9 @@ grub_sprintf (char *str, const char *fmt, ...)
   return ret;
 }
 
+int EXPORT_FUNC(grub_vsscanf) (const char *str, const char *fmt, va_list ap);
+int EXPORT_FUNC(grub_sscanf) (const char *str, const char *format, ...);
+
 /* Must match softdiv group in gentpl.py.  */
 #if !defined(GRUB_MACHINE_EMU) && (defined(__arm__) || defined(__ia64__) || \
     (defined(__riscv) && (__riscv_xlen == 32)))
