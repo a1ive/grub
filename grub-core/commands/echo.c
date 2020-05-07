@@ -29,7 +29,7 @@ GRUB_MOD_LICENSE ("GPLv3+");
 static const struct grub_arg_option options[] =
 {
   {0, 'n', 0, N_("Do not output the trailing newline."), 0, 0},
-  {0, 'e', 0, N_("Enable interpretation of backslash escapes."), 0, 0},
+  {0, 'e', 0, N_("Enable interpretation of backslash escapes, e.g. \\t=tab,\\n=new line,\\e0x1f=white text on blue background."), 0, 0},
   {0, 0, 0, 0, 0, 0}
 };
 
@@ -190,7 +190,7 @@ GRUB_MOD_INIT(echo)
   cmd = grub_register_extcmd ("echo", grub_cmd_echo,
                   GRUB_COMMAND_ACCEPT_DASH
                   | GRUB_COMMAND_OPTIONS_AT_START,
-                  N_("[-e|-n] STRING"), N_("Display a line of text."),
+                  N_("[OPTIONS] STRING"), N_("Display a line of text."),
                   options);
 }
 
