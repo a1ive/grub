@@ -27,15 +27,6 @@
 #include <grub/efi/efi.h>
 #include <grub/efi/disk.h>
 
-struct grub_efidisk_data
-{
-  grub_efi_handle_t handle;
-  grub_efi_device_path_t *device_path;
-  grub_efi_device_path_t *last_device_path;
-  grub_efi_block_io_t *block_io;
-  struct grub_efidisk_data *next;
-};
-
 /* GUID.  */
 static grub_efi_guid_t block_io_guid = GRUB_EFI_BLOCK_IO_GUID;
 

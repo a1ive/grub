@@ -23,6 +23,15 @@
 #include <grub/symbol.h>
 #include <grub/disk.h>
 
+struct grub_efidisk_data
+{
+  grub_efi_handle_t handle;
+  grub_efi_device_path_t *device_path;
+  grub_efi_device_path_t *last_device_path;
+  grub_efi_block_io_t *block_io;
+  struct grub_efidisk_data *next;
+};
+
 grub_efi_handle_t
 EXPORT_FUNC(grub_efidisk_get_device_handle) (grub_disk_t disk);
 char *EXPORT_FUNC(grub_efidisk_get_device_name) (grub_efi_handle_t *handle);

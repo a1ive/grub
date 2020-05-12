@@ -49,6 +49,7 @@ static const struct grub_arg_option options_map[] =
   {"rw", 'w', 0, N_("Add write support for RAM disk."), 0, 0},
   {"nb", 'n', 0, N_("Don't boot virtual disk."), 0, 0},
   {"update", 'u', 0, N_("Update efidisk device mapping."), 0, 0},
+  {"unmap", 'x', 0, N_("Unmap devices."), N_("disk"), ARG_TYPE_STRING},
   {0, 0, 0, 0, 0, 0}
 };
 
@@ -61,6 +62,7 @@ enum options_map
   MAP_RW,
   MAP_NB,
   MAP_UPDATE,
+  MAP_UNMAP,
 };
 
 vdisk_t vdisk, vpart;
@@ -111,6 +113,36 @@ gen_uuid (void)
   }
 }
 
+static void
+unmap_device (const char *name)
+{
+  grub_disk_t disk = 0;
+  struct grub_efidisk_data *efidisk;
+  grub_efi_boot_services_t *b = grub_efi_system_table->boot_services;
+  grub_efi_guid_t dp_guid = GRUB_EFI_DEVICE_PATH_GUID;
+  grub_efi_guid_t blk_io_guid = GRUB_EFI_BLOCK_IO_GUID;
+  disk = grub_disk_open (name);
+  if (!disk)
+  {
+    grub_printf ("failed to open disk.\n");
+    return;
+  }
+  if (grub_strcmp (disk->dev->name, "efidisk") != 0 || !disk->data)
+  {
+    grub_printf ("invalid efidisk\n");
+    return;
+  }
+  efidisk = disk->data;
+  grub_printf ("PATH: ");
+  grub_efi_print_device_path (efidisk->device_path);
+  grub_printf ("\n");
+  grub_refresh ();
+  efi_call_6 (b->uninstall_multiple_protocol_interfaces,
+              efidisk->handle,
+              &dp_guid, efidisk->device_path,
+              &blk_io_guid, efidisk->block_io, NULL);
+}
+
 static grub_err_t
 grub_cmd_map (grub_extcmd_context_t ctxt, int argc, char **args)
 {
@@ -123,6 +155,17 @@ grub_cmd_map (grub_extcmd_context_t ctxt, int argc, char **args)
     grub_efidisk_fini ();
     grub_printf ("enumerate efidisk devices\n");
     grub_efidisk_init ();
+    return GRUB_ERR_NONE;
+  }
+  if (state[MAP_UNMAP].set)
+  {
+    if (state[MAP_UNMAP].arg[0] == '(')
+    {
+      state[MAP_UNMAP].arg[grub_strlen(state[MAP_UNMAP].arg) - 1] = '\0';
+      unmap_device (&state[MAP_UNMAP].arg[1]);
+    }
+    else
+      unmap_device (state[MAP_UNMAP].arg);
     return GRUB_ERR_NONE;
   }
 
