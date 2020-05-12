@@ -27,6 +27,12 @@
 
 #pragma pack(1)
 
+typedef struct ventoy_windows_data
+{
+    char auto_install_script[384];
+    grub_uint8_t reserved[128];
+}ventoy_windows_data;
+
 typedef struct ventoy_guid
 {
     grub_uint32_t   data1;
@@ -34,7 +40,6 @@ typedef struct ventoy_guid
     grub_uint16_t   data3;
     grub_uint8_t    data4[8];
 }ventoy_guid;
-
 
 typedef struct ventoy_image_disk_region
 {
