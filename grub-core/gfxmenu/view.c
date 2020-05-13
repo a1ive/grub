@@ -665,6 +665,8 @@ init_background (grub_gfxmenu_view_t view)
 {
   if (view->scaled_desktop_image)
     return;
+  if (!view->raw_desktop_image)
+    return;
 
   struct grub_video_bitmap *scaled_bitmap;
   if (view->desktop_image_scale_method ==
