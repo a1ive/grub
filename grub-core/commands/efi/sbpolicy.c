@@ -371,7 +371,7 @@ static const struct grub_arg_option options_fuck[] =
   {"install", 'i', 0, N_("fuck sb"), 0, 0},
   {"on", 'y', 0, N_("sb on"), 0, 0},
   {"off", 'n', 0, N_("sb off"), 0, 0},
-  {"bs", 'b', 0, N_("hook exit_boot_services"), 0, 0},
+  {"nobs", 'u', 0, N_("don't hook exit_boot_services"), 0, 0},
   {0, 0, 0, 0, 0, 0}
 };
 
@@ -383,7 +383,7 @@ grub_cmd_fucksb (grub_extcmd_context_t ctxt,
   struct grub_arg_list *state = ctxt->state;
   int ret = 0;
   if (state[0].set)
-    grub_efi_fucksb_install (state[3].set? 1: 0);
+    grub_efi_fucksb_install (state[3].set? 0: 1);
   else if (state[1].set)
     grub_efi_fucksb_enable ();
   else if (state[2].set)
