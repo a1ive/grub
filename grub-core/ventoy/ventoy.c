@@ -37,6 +37,7 @@
 #include <grub/efi/efi.h>
 #endif
 #include <grub/time.h>
+#include <grub/relocator.h>
 #include "ventoy.h"
 #include "ventoy_def.h"
 #include "ventoy_wrap.h"
@@ -420,15 +421,7 @@ static grub_err_t ventoy_cmd_dump_img_sector(grub_extcmd_context_t ctxt, int arg
     VENTOY_CMD_RETURN(GRUB_ERR_NONE);
 }
 
-#ifdef GRUB_MACHINE_EFI
-static grub_err_t ventoy_cmd_relocator_chaindata(grub_extcmd_context_t ctxt, int argc, char **args)
-{
-    (void)ctxt;
-    (void)argc;
-    (void)args;
-    return 0;
-}
-#else
+#ifdef GRUB_MACHINE_PCBIOS
 static grub_err_t ventoy_cmd_relocator_chaindata(grub_extcmd_context_t ctxt, int argc, char **args)
 {
     int rc = 0;
@@ -478,6 +471,14 @@ static grub_err_t ventoy_cmd_relocator_chaindata(grub_extcmd_context_t ctxt, int
     grub_env_set("vtoy_chain_relocator_addr", envbuf);
 
     VENTOY_CMD_RETURN(GRUB_ERR_NONE);
+}
+#else
+static grub_err_t ventoy_cmd_relocator_chaindata(grub_extcmd_context_t ctxt, int argc, char **args)
+{
+    (void)ctxt;
+    (void)argc;
+    (void)args;
+    return 0;
 }
 #endif
 

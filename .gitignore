@@ -59,8 +59,11 @@ widthspec.bin
 # Ignore patterns relative to this .gitignore file's directory.
 #
 /00_header
+/01_menu_auto_hide
+/01_users
 /10_*
 /20_linux_xen
+/20_ppc_terminfo
 /30_os-prober
 /30_uefi-firmware
 /40_custom
@@ -152,6 +155,7 @@ widthspec.bin
 /grub-fs-tester
 /grub-fstest
 /grub-fstest.exe
+/grub-get-kernel-settings
 /grub-glue-efi
 /grub-glue-efi.exe
 /grub-install
@@ -172,11 +176,14 @@ widthspec.bin
 /grub-render-label.exe
 /grub-script-check
 /grub-script-check.exe
+/grub-set-bootflag
+/grub-set-password
 /grub-set-default
 /grub-shell
 /grub-shell-tester
 /grub-sparc64-setup
 /grub-sparc64-setup.exe
+/grub-switch-to-blscfg
 /grub-syslinux2cfg
 /grub-syslinux2cfg.exe
 /grub_cmd_date
