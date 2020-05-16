@@ -1114,12 +1114,6 @@ grub> @kbd{initrd16 /initrd}
 Finally, run the command @command{boot} (@pxref{boot}).
 @end enumerate
 
-@strong{Caution:} If you use an initrd and specify the @samp{mem=}
-option to the kernel to let it use less than actual memory size, you
-will also have to specify the same memory size to GRUB. To let GRUB know
-the size, run the command @command{uppermem} @emph{before} loading the
-kernel. @xref{uppermem}, for more information.
-
 
 @node NetBSD
 @subsection NetBSD
@@ -4009,7 +4003,6 @@ you forget a command, you can run the command @command{help}
 * password_pbkdf2::             Set a hashed password
 * play::                        Play a tune
 * probe::                       Retrieve device info
-* pxe_unload::                  Unload the PXE environment
 * rdmsr::                       Read values from model-specific registers
 * read::                        Read user input
 * reboot::                      Reboot your computer
@@ -4029,7 +4022,6 @@ you forget a command, you can run the command @command{help}
 * true::                        Do nothing, successfully
 * trust::                       Add public key to list of trusted keys
 * unset::                       Unset an environment variable
-* uppermem::                    Set the upper memory size
 @comment * vbeinfo::                     List available video modes
 * verify_detached::             Verify detached digital signature
 * videoinfo::                   List available video modes
@@ -4860,16 +4852,6 @@ The option @option{--part-uuid} is currently only implemented for GPT-formatted 
 @end deffn
 
 
-@node pxe_unload
-@subsection pxe_unload
-
-@deffn Command pxe_unload
-Unload the PXE environment (@pxref{Network}).
-
-This command is only available on PC BIOS systems.
-@end deffn
-
-
 @node rdmsr
 @subsection rdmsr
 
@@ -5355,12 +5337,6 @@ information.
 @deffn Command unset envvar
 Unset the environment variable @var{envvar}.
 @end deffn
-
-
-@node uppermem
-@subsection uppermem
-
-This command is not yet implemented for GRUB 2, although it is planned.
 
 
 @ignore
