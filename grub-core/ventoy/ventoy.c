@@ -82,6 +82,36 @@ int ventoy_is_efi_os(void)
 #endif
 }
 
+static int ventoy_get_fs_type(const char *fs)
+{
+    if (NULL == fs)
+    {
+        return ventoy_fs_max;
+    }
+    else if (grub_strncmp(fs, "exfat", 5) == 0)
+    {
+        return ventoy_fs_exfat;
+    }
+    else if (grub_strncmp(fs, "ntfs", 4) == 0)
+    {
+        return ventoy_fs_ntfs;
+    }
+    else if (grub_strncmp(fs, "ext", 3) == 0)
+    {
+        return ventoy_fs_ext;
+    }
+    else if (grub_strncmp(fs, "xfs", 3) == 0)
+    {
+        return ventoy_fs_xfs;
+    }
+    else if (grub_strncmp(fs, "udf", 3) == 0)
+    {
+        return ventoy_fs_udf;
+    }
+
+    return ventoy_fs_max;
+}
+
 static grub_err_t ventoy_cmd_debug(grub_extcmd_context_t ctxt, int argc, char **args)
 {
     if (argc != 1)
@@ -302,19 +332,7 @@ void ventoy_fill_os_param(grub_file_t file, ventoy_os_param *param)
 
     param->vtoy_disk_size = disk->total_sectors * (1 << disk->log_sector_size);
     param->vtoy_disk_part_id = disk->partition->number + 1;
-
-    if (grub_strcmp(file->fs->name, "exfat") == 0)
-    {
-        param->vtoy_disk_part_type = 0;
-    }
-    else if (grub_strcmp(file->fs->name, "ntfs") == 0)
-    {
-        param->vtoy_disk_part_type = 1;
-    }
-    else
-    {
-        param->vtoy_disk_part_type = 0xFFFF;
-    }
+    param->vtoy_disk_part_type = ventoy_get_fs_type(file->fs->name);
 
     pos = grub_strstr(file->name, "/");
     if (!pos)
@@ -401,6 +419,67 @@ static grub_err_t ventoy_cmd_dump_img_sector(grub_extcmd_context_t ctxt, int arg
 
     VENTOY_CMD_RETURN(GRUB_ERR_NONE);
 }
+
+#ifdef GRUB_MACHINE_EFI
+static grub_err_t ventoy_cmd_relocator_chaindata(grub_extcmd_context_t ctxt, int argc, char **args)
+{
+    (void)ctxt;
+    (void)argc;
+    (void)args;
+    return 0;
+}
+#else
+static grub_err_t ventoy_cmd_relocator_chaindata(grub_extcmd_context_t ctxt, int argc, char **args)
+{
+    int rc = 0;
+    ulong chain_len = 0;
+    char *chain_data = NULL;
+    char *relocator_addr = NULL;
+    grub_relocator_chunk_t ch;
+    struct grub_relocator *relocator = NULL;
+    char envbuf[64] = { 0 };
+
+    (void)ctxt;
+    (void)argc;
+    (void)args;
+
+    if (argc != 2)
+    {
+        return 1;
+    }
+
+    chain_data = (char *)grub_strtoul(args[0], NULL, 16);
+    chain_len = grub_strtoul(args[1], NULL, 10);
+
+    relocator = grub_relocator_new ();
+    if (!relocator)
+    {
+        debug("grub_relocator_new failed %p %lu\n", chain_data, chain_len);
+        return 1;
+    }
+
+    rc = grub_relocator_alloc_chunk_addr (relocator, &ch,
+					   0x100000, // GRUB_LINUX_BZIMAGE_ADDR,
+					   chain_len);
+    if (rc)
+    {
+        debug("grub_relocator_alloc_chunk_addr failed %d %p %lu\n", rc, chain_data, chain_len);
+        grub_relocator_unload (relocator);
+        return 1;
+    }
+
+    relocator_addr = get_virtual_current_address(ch);
+
+    grub_memcpy(relocator_addr, chain_data, chain_len);
+
+    grub_relocator_unload (relocator);
+
+    grub_snprintf(envbuf, sizeof(envbuf), "0x%lx", (unsigned long)relocator_addr);
+    grub_env_set("vtoy_chain_relocator_addr", envbuf);
+
+    VENTOY_CMD_RETURN(GRUB_ERR_NONE);
+}
+#endif
 
 static grub_err_t ventoy_cmd_add_replace_file(grub_extcmd_context_t ctxt, int argc, char **args)
 {
@@ -492,6 +571,7 @@ static cmd_para ventoy_cmds[] =
     { "vt_windows_chain_data", ventoy_cmd_windows_chain_data, 0, NULL, "", "", NULL },
 
     { "vt_add_replace_file", ventoy_cmd_add_replace_file, 0, NULL, "", "", NULL },
+    { "vt_relocator_chaindata", ventoy_cmd_relocator_chaindata, 0, NULL, "", "", NULL },
 
 };
 

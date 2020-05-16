@@ -403,7 +403,7 @@ static int ventoy_update_all_hash(void *meta_data, wim_directory_entry *dir)
         return 0;
     }
 
-    if (dir->len == 0)
+    if (dir->len < sizeof(wim_directory_entry))
     {
         return 0;
     }
@@ -422,7 +422,7 @@ static int ventoy_update_all_hash(void *meta_data, wim_directory_entry *dir)
         }
     
         dir = (wim_directory_entry *)((char *)dir + dir->len);
-    } while (dir->len);
+    } while (dir->len >= sizeof(wim_directory_entry));
 
     return 0;
 }
