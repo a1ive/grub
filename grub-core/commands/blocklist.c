@@ -29,83 +29,6 @@
 
 GRUB_MOD_LICENSE ("GPLv3+");
 
-/* Context for grub_cmd_blocklist.  */
-struct blocklist_ctx
-{
-  unsigned long start_sector;
-  unsigned num_sectors;
-  int num_entries;
-  grub_disk_addr_t part_start;
-};
-
-/* Helper for grub_cmd_blocklist.  */
-static void
-print_blocklist (grub_disk_addr_t sector, unsigned num,
-		 unsigned offset, unsigned length, struct blocklist_ctx *ctx)
-{
-  if (ctx->num_entries++)
-    grub_printf (",");
-
-  grub_printf ("%llu", (unsigned long long) (sector - ctx->part_start));
-  if (num > 0)
-    grub_printf ("+%u", num);
-  if (offset != 0 || length != 0)
-    grub_printf ("[%u-%u]", offset, offset + length);
-}
-
-/* Helper for grub_cmd_blocklist.  */
-static void
-read_blocklist (grub_disk_addr_t sector, unsigned offset, unsigned length,
-		void *data)
-{
-  struct blocklist_ctx *ctx = data;
-
-  if (ctx->num_sectors > 0)
-    {
-      if (ctx->start_sector + ctx->num_sectors == sector
-	  && offset == 0 && length >= GRUB_DISK_SECTOR_SIZE)
-	{
-	  ctx->num_sectors += length >> GRUB_DISK_SECTOR_BITS;
-	  sector += length >> GRUB_DISK_SECTOR_BITS;
-	  length &= (GRUB_DISK_SECTOR_SIZE - 1);
-	}
-
-      if (!length)
-	return;
-      print_blocklist (ctx->start_sector, ctx->num_sectors, 0, 0, ctx);
-      ctx->num_sectors = 0;
-    }
-
-  if (offset)
-    {
-      unsigned l = length + offset;
-      l &= (GRUB_DISK_SECTOR_SIZE - 1);
-      l -= offset;
-      print_blocklist (sector, 0, offset, l, ctx);
-      length -= l;
-      sector++;
-      offset = 0;
-    }
-
-  if (!length)
-    return;
-
-  if (length & (GRUB_DISK_SECTOR_SIZE - 1))
-    {
-      if (length >> GRUB_DISK_SECTOR_BITS)
-	{
-	  print_blocklist (sector, length >> GRUB_DISK_SECTOR_BITS, 0, 0, ctx);
-	  sector += length >> GRUB_DISK_SECTOR_BITS;
-	}
-      print_blocklist (sector, 0, 0, length & (GRUB_DISK_SECTOR_SIZE - 1), ctx);
-    }
-  else
-    {
-      ctx->start_sector = sector;
-      ctx->num_sectors = length >> GRUB_DISK_SECTOR_BITS;
-    }
-}
-
 static grub_size_t
 blocklist_to_str (grub_file_t file, int num, char *text, grub_disk_addr_t start)
 {
@@ -146,12 +69,10 @@ grub_cmd_blocklist (grub_extcmd_context_t ctxt, int argc, char **args)
 {
   struct grub_arg_list *state = ctxt->state;
   grub_file_t file;
-  struct blocklist_ctx ctx = {
-    .start_sector = 0,
-    .num_sectors = 0,
-    .num_entries = 0,
-    .part_start = 0
-  };
+  int num;
+  char *text = NULL;
+  grub_size_t len;
+  grub_disk_addr_t start = 0;
 
   if (argc < 1)
     return grub_error (GRUB_ERR_BAD_ARGUMENT, N_("filename expected"));
@@ -168,36 +89,21 @@ grub_cmd_blocklist (grub_extcmd_context_t ctxt, int argc, char **args)
     goto fail;
   }
 
-  if (state[BLOCKLIST_SET].set)
-  {
-    int num;
-    char *text = NULL;
-    grub_size_t len;
-    grub_disk_addr_t start = 0;
-    num = grub_blocklist_convert (file);
-    if (!num)
-      goto fail;
-    if (state[BLOCKLIST_DISK].set)
-      start = grub_partition_get_start (file->device->disk->partition);
-    len = blocklist_to_str (file, num, NULL, start);
-    text = grub_malloc (len + 1);
-    if (!text)
-      goto fail;
-    blocklist_to_str (file, num, text, start);
-    grub_env_set (state[BLOCKLIST_SET].arg, text);
+  num = grub_blocklist_convert (file);
+  if (!num)
     goto fail;
-  }
-
-  if (!state[BLOCKLIST_DISK].set)
-    ctx.part_start = grub_partition_get_start (file->device->disk->partition);
-
-  file->read_hook = read_blocklist;
-  file->read_hook_data = &ctx;
-
-  grub_file_dummy_read (file);
-
-  if (ctx.num_sectors > 0)
-    print_blocklist (ctx.start_sector, ctx.num_sectors, 0, 0, &ctx);
+  if (state[BLOCKLIST_DISK].set)
+    start = grub_partition_get_start (file->device->disk->partition);
+  len = blocklist_to_str (file, num, NULL, start);
+  text = grub_malloc (len + 1);
+  if (!text)
+    goto fail;
+  blocklist_to_str (file, num, text, start);
+  if (state[BLOCKLIST_SET].set)
+    grub_env_set (state[BLOCKLIST_SET].arg, text);
+  else
+    grub_printf ("%s\n", text);
+  grub_free (text);
 
 fail:
   if (file)
