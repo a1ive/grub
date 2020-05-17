@@ -46,7 +46,7 @@ connect_all_efi (void)
   grub_efi_handle_t *handle_buffer;
   grub_efi_uintn_t index;
   grub_efi_boot_services_t *b;
-  grub_printf ("DEBUG: Connecting ...\n");
+  grub_dprintf ("efiload", "Connecting ...\n");
   b = grub_efi_system_table->boot_services;
   status = efi_call_5 (b->locate_handle_buffer,
                        GRUB_EFI_ALL_HANDLES,
@@ -95,7 +95,7 @@ grub_efi_driver_load (grub_size_t size, void *boot_image, int connect)
     grub_error (GRUB_ERR_BAD_OS, "no loaded image available");
     goto fail;
   }
-  grub_printf ("DEBUG: Registering loaded image\n");
+  grub_dprintf ("efiload", "Registering loaded image\n");
   status = efi_call_3 (b->handle_protocol, driver_handle, 
                        &loaded_image_protocol_guid, (void **)&loaded_image);
   if (status != GRUB_EFI_SUCCESS)
@@ -103,7 +103,7 @@ grub_efi_driver_load (grub_size_t size, void *boot_image, int connect)
     grub_printf ("Not a dirver\n");
     goto fail;
   }
-  grub_printf ("DEBUG: StartImage: %p\n", boot_image);
+  grub_dprintf ("efiload", "StartImage: %p\n", boot_image);
   status = efi_call_3 (b->start_image, driver_handle, NULL, NULL);
   if (status != GRUB_EFI_SUCCESS)
   {
@@ -119,7 +119,7 @@ grub_efi_driver_load (grub_size_t size, void *boot_image, int connect)
       goto fail;
     }
   }
-  grub_printf ("Driver installed\n");
+  grub_dprintf ("efiload", "Driver installed\n");
   return 0;
 fail:
   grub_error (GRUB_ERR_BAD_OS, N_("install failed."));
@@ -185,16 +185,28 @@ fail:
   return 1;
 }
 
-static grub_extcmd_t cmd_efiload;
+static grub_err_t
+grub_cmd_connect (grub_extcmd_context_t ctxt __attribute__ ((unused)),
+                  int argc __attribute__ ((unused)),
+                  char **args __attribute__ ((unused)))
+{
+  connect_all_efi ();
+  return GRUB_ERR_NONE;
+}
+
+static grub_extcmd_t cmd_efiload, cmd_connect;
 
 GRUB_MOD_INIT(efiload)
 {
   cmd_efiload = grub_register_extcmd ("efiload", grub_cmd_efiload, 0, 
                   N_("FILE"),
                   N_("Install UEFI driver."), options_efiload);
+  cmd_connect = grub_register_extcmd ("efi_connect_all", grub_cmd_connect, 0, 
+                  NULL, N_("Connect drivers."), 0);
 }
 
 GRUB_MOD_FINI(efiload)
 {
   grub_unregister_extcmd (cmd_efiload);
+  grub_unregister_extcmd (cmd_connect);
 }

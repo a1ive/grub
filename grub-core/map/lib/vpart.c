@@ -254,15 +254,15 @@ vpart_install (grub_efi_boolean_t ro)
   switch (vdisk.type)
   {
     case CD:
-      grub_printf ("Detecting ElTorito partition ... ");
+      grub_dprintf ("map", "Detecting ElTorito partition ...\n");
       vpart.present = get_iso_info ();
       break;
     case MBR:
-      grub_printf ("Detecting MBR active partition ... ");
+      grub_dprintf ("map", "Detecting MBR active partition ...\n");
       vpart.present = get_mbr_info ();
       break;
     case GPT:
-      grub_printf ("Detecting GPT ESP partition ... ");
+      grub_dprintf ("map", "Detecting GPT ESP partition ...\n");
       vpart.present = get_gpt_info ();
       break;
     default:
@@ -271,10 +271,9 @@ vpart_install (grub_efi_boolean_t ro)
 
   if (!vpart.present)
   {
-    grub_printf ("NOT FOUND\n");
+    grub_dprintf ("map", "BOOT PARTITION NOT FOUND\n");
     return GRUB_EFI_NOT_FOUND;
   }
-  grub_printf ("OK\n");
 
   vpart.handle = NULL;
   vpart.file = vdisk.file;
@@ -296,22 +295,22 @@ vpart_install (grub_efi_boolean_t ro)
   vpart.media.last_block =
               grub_divmod64 (vpart.size + vdisk.bs - 1, vdisk.bs, 0) - 1;
   /* info */
-  grub_printf ("VPART addr=%ld size=%lld\n", (unsigned long)vpart.addr,
+  grub_dprintf ("map", "VPART addr=%ld size=%lld\n", (unsigned long)vpart.addr,
           (unsigned long long)vpart.size);
-  grub_printf ("VPART blksize=%d lastblk=%lld\n", vpart.media.block_size,
+  grub_dprintf ("map", "VPART blksize=%d lastblk=%lld\n", vpart.media.block_size,
           (unsigned long long)vpart.media.last_block);
   text_dp = grub_efi_device_path_to_str (vpart.dp);
-  grub_printf ("VPART DevicePath: %s\n",text_dp);
+  grub_dprintf ("map", "VPART DevicePath: %s\n",text_dp);
   if (text_dp)
     grub_free (text_dp);
-  grub_printf ("Installing block_io protocol for virtual partition ...\n");
+  grub_dprintf ("map", "Installing block_io protocol for virtual partition ...\n");
   status = efi_call_6 (b->install_multiple_protocol_interfaces,
                        &vpart.handle,
                        &dp_guid, vpart.dp,
                        &blk_io_guid, &vpart.block_io, NULL);
   if(status != GRUB_EFI_SUCCESS)
   {
-    grub_printf ("failed to install virtual partition\n");
+    grub_dprintf ("map", "failed to install virtual partition\n");
     return GRUB_EFI_NOT_FOUND;
   }
   efi_call_4 (b->connect_controller, vpart.handle, NULL, NULL, TRUE);
@@ -337,7 +336,7 @@ vpart_install (grub_efi_boolean_t ro)
                          &cn2_guid, NULL, &count, &buf);
     if(status != GRUB_EFI_SUCCESS)
     {
-      grub_printf ("ComponentNameProtocol not found.\n");
+      grub_dprintf ("map", "ComponentNameProtocol not found.\n");
     }
     for (i = 0; i < count; i++)
     {
@@ -358,7 +357,7 @@ vpart_install (grub_efi_boolean_t ro)
     }
     else
     {
-      grub_printf ("FAT Driver not found.\n");
+      grub_dprintf ("map", "FAT Driver not found.\n");
       return GRUB_EFI_NOT_FOUND;
     }
   }

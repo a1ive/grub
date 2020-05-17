@@ -113,7 +113,7 @@ gen_uuid (void)
   }
 }
 
-static void
+static grub_err_t
 unmap_device (const char *name)
 {
   grub_disk_t disk = 0;
@@ -123,24 +123,16 @@ unmap_device (const char *name)
   grub_efi_guid_t blk_io_guid = GRUB_EFI_BLOCK_IO_GUID;
   disk = grub_disk_open (name);
   if (!disk)
-  {
-    grub_printf ("failed to open disk.\n");
-    return;
-  }
+    return grub_error (GRUB_ERR_BAD_DEVICE, "failed to open disk %s.", name);
   if (grub_strcmp (disk->dev->name, "efidisk") != 0 || !disk->data)
-  {
-    grub_printf ("invalid efidisk\n");
-    return;
-  }
+    return grub_error (GRUB_ERR_BAD_DEVICE, "invalid disk: %s", disk->dev->name);
+
   efidisk = disk->data;
-  grub_printf ("PATH: ");
-  grub_efi_print_device_path (efidisk->device_path);
-  grub_printf ("\n");
-  grub_refresh ();
   efi_call_6 (b->uninstall_multiple_protocol_interfaces,
               efidisk->handle,
               &dp_guid, efidisk->device_path,
               &blk_io_guid, efidisk->block_io, NULL);
+  return GRUB_ERR_NONE;
 }
 
 static grub_err_t
@@ -151,9 +143,9 @@ grub_cmd_map (grub_extcmd_context_t ctxt, int argc, char **args)
 
   if (state[MAP_UPDATE].set)
   {
-    grub_printf ("free efidisk devices\n");
+    grub_dprintf ("map", "free efidisk devices\n");
     grub_efidisk_fini ();
-    grub_printf ("enumerate efidisk devices\n");
+    grub_dprintf ("map", "enumerate efidisk devices\n");
     grub_efidisk_init ();
     return GRUB_ERR_NONE;
   }
@@ -166,7 +158,7 @@ grub_cmd_map (grub_extcmd_context_t ctxt, int argc, char **args)
     }
     else
       unmap_device (state[MAP_UNMAP].arg);
-    return GRUB_ERR_NONE;
+    return grub_errno;
   }
 
   gen_uuid ();
@@ -229,7 +221,7 @@ grub_cmd_map (grub_extcmd_context_t ctxt, int argc, char **args)
   status = vdisk_install (cmd->file, ro);
   if (status != GRUB_EFI_SUCCESS)
   {
-    grub_printf ("Failed to install vdisk.\n");
+    grub_error (GRUB_ERR_BAD_OS, "Failed to install vdisk.");
     goto fail;
   }
   if (state[MAP_NB].set)
@@ -240,7 +232,7 @@ grub_cmd_map (grub_extcmd_context_t ctxt, int argc, char **args)
     boot_image_handle = vdisk_boot ();
   if (!boot_image_handle)
   {
-    grub_printf ("Failed to boot vdisk.\n");
+    grub_error (GRUB_ERR_BAD_OS, "Failed to boot vdisk.");
     goto fail;
   }
   /* wait */
@@ -248,9 +240,10 @@ grub_cmd_map (grub_extcmd_context_t ctxt, int argc, char **args)
     pause ();
   /* boot */
   grub_script_execute_sourcecode ("terminal_output console");
-  grub_printf ("StartImage: %p\n", boot_image_handle);
+  grub_refresh ();
+  grub_dprintf ("map", "StartImage: %p\n", boot_image_handle);
   status = efi_call_3 (b->start_image, boot_image_handle, 0, NULL);
-  grub_printf ("StartImage returned 0x%lx\n", (unsigned long) status);
+  grub_dprintf ("map", "StartImage returned 0x%lx\n", (unsigned long) status);
   status = efi_call_1 (b->unload_image, boot_image_handle);
 
 fail:

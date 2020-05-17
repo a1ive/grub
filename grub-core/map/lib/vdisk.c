@@ -26,26 +26,14 @@
 static enum disk_type
 check_image (void)
 {
-  struct grub_msdos_partition_mbr *mbr = NULL;
-  mbr = grub_zalloc (FD_BLOCK_SIZE);
-  if (!mbr)
-    return FD;
-  file_read (cmd->disk, vdisk.file, mbr, FD_BLOCK_SIZE, 0);
-  if (mbr->signature != GRUB_PC_PARTITION_SIGNATURE)
-  {
-    grub_free (mbr);
+  struct grub_msdos_partition_mbr mbr;
+  file_read (cmd->disk, vdisk.file, &mbr, sizeof (mbr), 0);
+  if (mbr.signature != GRUB_PC_PARTITION_SIGNATURE)
     return CD;
-  }
-  if (mbr->entries[0].type != GRUB_PC_PARTITION_TYPE_GPT_DISK)
-  {
-    grub_free (mbr);
+  if (mbr.entries[0].type != GRUB_PC_PARTITION_TYPE_GPT_DISK)
     return MBR;
-  }
   else
-  {
-    grub_free (mbr);
     return GPT;
-  }
 }
 
 grub_efi_status_t
@@ -81,7 +69,7 @@ vdisk_install (grub_file_t file, grub_efi_boolean_t ro)
                                      (void **)&vdisk.addr);
     if (status != GRUB_EFI_SUCCESS)
     {
-      grub_printf ("out of memory\n");
+      grub_error (GRUB_ERR_OUT_OF_MEMORY, "out of memory");
       return GRUB_EFI_OUT_OF_RESOURCES;
     }
     file_read (cmd->disk, vdisk.file,
@@ -116,15 +104,15 @@ vdisk_install (grub_file_t file, grub_efi_boolean_t ro)
   vdisk.media.last_block =
               grub_divmod64 (vdisk.size + vdisk.bs - 1, vdisk.bs, 0) - 1;
   /* info */
-  grub_printf ("VDISK file=%s type=%d\n",
+  grub_dprintf ("map", "VDISK file=%s type=%d\n",
           vdisk.disk ? ((grub_disk_t)(vdisk.file))->name :
           ((grub_file_t)(vdisk.file))->name, vdisk.type);
-  grub_printf ("VDISK addr=%ld size=%lld\n", (unsigned long)vdisk.addr,
+  grub_dprintf ("map", "VDISK addr=%ld size=%lld\n", (unsigned long)vdisk.addr,
           (unsigned long long)vdisk.size);
-  grub_printf ("VDISK blksize=%d lastblk=%lld\n", vdisk.media.block_size,
+  grub_dprintf ("map", "VDISK blksize=%d lastblk=%lld\n", vdisk.media.block_size,
           (unsigned long long)vdisk.media.last_block);
   text_dp = grub_efi_device_path_to_str (vdisk.dp);
-  grub_printf ("VDISK DevicePath: %s\n",text_dp);
+  grub_dprintf ("map", "VDISK DevicePath: %s\n",text_dp);
   if (text_dp)
     grub_free (text_dp);
   if (cmd->pause)
@@ -134,14 +122,14 @@ vdisk_install (grub_file_t file, grub_efi_boolean_t ro)
   {
     status = vpart_install (ro);
   }
-  grub_printf ("Installing block_io protocol for virtual disk ...\n");
+  grub_dprintf ("map", "Installing block_io protocol for virtual disk ...\n");
   status = efi_call_6 (b->install_multiple_protocol_interfaces,
                           &vdisk.handle,
                           &dp_guid, vdisk.dp,
                           &blk_io_guid, &vdisk.block_io, NULL);
   if (status != GRUB_EFI_SUCCESS)
   {
-    grub_printf ("failed to install virtual disk\n");
+    grub_error (GRUB_ERR_BAD_OS, "Failed to install virtual disk.");
     return status;
   }
   efi_call_4 (b->connect_controller, vdisk.handle, NULL, NULL, TRUE);

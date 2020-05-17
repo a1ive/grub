@@ -117,12 +117,12 @@ grub_chainloader_boot (void)
 	      *grub_utf16_to_utf8 ((grub_uint8_t *) buf,
 				   exit_data, exit_data_size) = 0;
 
-	      grub_printf ("%s\n", buf);
+	      grub_dprintf ("chain", "%s\n", buf);
 	      grub_free (buf);
 	    }
 	}
       else
-	grub_printf ("Exit status code: 0x%08lx\n", (long unsigned int) status);
+	grub_dprintf ("chain", "Exit status code: 0x%08lx\n", (long unsigned int) status);
     }
 
   if (exit_data)
@@ -254,7 +254,7 @@ read_header (void *data, grub_efi_uint32_t size,
 
   if (status == GRUB_EFI_SUCCESS)
     {
-      grub_printf ("chain: context success\n");
+      grub_dprintf ("chain", "chain: context success\n");
       return 1;
     }
 
@@ -352,7 +352,7 @@ relocate_coff (pe_coff_loader_image_context_t *context,
   reloc_base_end = image_address (orig, size, section->raw_data_offset
 				  + section->virtual_size);
 
-  grub_printf ("chain: relocate_coff(): reloc_base %p reloc_base_end %p\n",
+  grub_dprintf ("chain", "chain: relocate_coff(): reloc_base %p reloc_base_end %p\n",
 		reloc_base, reloc_base_end);
 
   if (!reloc_base && !reloc_base_end)
@@ -499,11 +499,11 @@ handle_image (void *data, grub_efi_uint32_t datasize)
 
   if (read_header (data, datasize, &context))
     {
-      grub_printf ("chain: Succeed to read header\n");
+      grub_dprintf ("chain", "chain: Succeed to read header\n");
     }
   else
     {
-      grub_printf ("chain: Failed to read header\n");
+      grub_dprintf ("chain", "chain: Failed to read header\n");
       goto error_exit;
     }
 
@@ -527,7 +527,7 @@ handle_image (void *data, grub_efi_uint32_t datasize)
     section_alignment = 4096;
 
   buffer_size = context.image_size + section_alignment;
-  grub_printf ("chain: image size is %08lx, datasize is %08x\n",
+  grub_dprintf ("chain", "chain: image size is %08lx, datasize is %08x\n",
 	       (long unsigned)context.image_size, datasize);
 
   efi_status = grub_efi_allocate_pool (GRUB_EFI_LOADER_DATA, buffer_size, 
@@ -552,7 +552,7 @@ handle_image (void *data, grub_efi_uint32_t datasize)
   entry_point = image_address (buffer_aligned, context.image_size,
 			       context.entry_point);
 
-  grub_printf ("chain: entry_point: %p\n", entry_point);
+  grub_dprintf ("chain", "chain: entry_point: %p\n", entry_point);
   if (!entry_point)
     {
       grub_error (GRUB_ERR_BAD_ARGUMENT, "invalid entry point");
@@ -567,7 +567,7 @@ handle_image (void *data, grub_efi_uint32_t datasize)
   reloc_base_end = image_address (buffer_aligned, context.image_size,
 				  context.reloc_dir->rva
 				  + context.reloc_dir->size - 1);
-  grub_printf ("chain: reloc_base: %p reloc_base_end: %p\n",
+  grub_dprintf ("chain", "chain: reloc_base: %p reloc_base_end: %p\n",
 		reloc_base, reloc_base_end);
   struct grub_pe32_section_table *reloc_section = NULL;
 
@@ -583,12 +583,12 @@ handle_image (void *data, grub_efi_uint32_t datasize)
 
       grub_strncpy(name, section->name, 9);
       name[8] = '\0';
-      grub_printf ("chain: Section %d \"%s\" at %p..%p\n", i,
+      grub_dprintf ("chain", "chain: Section %d \"%s\" at %p..%p\n", i,
 		   name, base, end);
 
       if (end < base)
 	{
-	  grub_printf ("chain: base is %p but end is %p... bad.\n",
+	  grub_dprintf ("chain", "chain: base is %p but end is %p... bad.\n",
 		       base, end);
 	  grub_error (GRUB_ERR_BAD_ARGUMENT,
 		      "Image has invalid negative size");
@@ -600,7 +600,7 @@ handle_image (void *data, grub_efi_uint32_t datasize)
 	  > context.entry_point)
 	{
 	  found_entry_point++;
-	  grub_printf ("chain: section contains entry point\n");
+	  grub_dprintf ("chain", "chain: section contains entry point\n");
 	}
 
       /* We do want to process .reloc, but it's often marked
@@ -620,35 +620,35 @@ handle_image (void *data, grub_efi_uint32_t datasize)
 	  if (section->raw_data_size && section->virtual_size &&
 	      base && end && reloc_base == base && reloc_base_end == end)
 	    {
-	      grub_printf ("chain: section is relocation section\n");
+	      grub_dprintf ("chain", "chain: section is relocation section\n");
           reloc_section = section;
 	    }
       else
 	    {
-	      grub_printf ("chain: section is not reloc section?\n");
-	      grub_printf ("chain: rds: 0x%08x, vs: %08x\n",
+	      grub_dprintf ("chain", "chain: section is not reloc section?\n");
+	      grub_dprintf ("chain", "chain: rds: 0x%08x, vs: %08x\n",
 			    section->raw_data_size, section->virtual_size);
-	      grub_printf ("chain: base: %p end: %p\n", base, end);
-	      grub_printf ("chain: reloc_base: %p reloc_base_end: %p\n",
+	      grub_dprintf ("chain", "chain: base: %p end: %p\n", base, end);
+	      grub_dprintf ("chain", "chain: reloc_base: %p reloc_base_end: %p\n",
 			    reloc_base, reloc_base_end);
 	    }
 	}
 
-      grub_printf ("chain: Section characteristics are %08x\n",
+      grub_dprintf ("chain", "chain: Section characteristics are %08x\n",
 		   section->characteristics);
-      grub_printf ("chain: Section virtual size: %08x\n",
+      grub_dprintf ("chain", "chain: Section virtual size: %08x\n",
 		   section->virtual_size);
-      grub_printf ("chain: Section raw_data size: %08x\n",
+      grub_dprintf ("chain", "chain: Section raw_data size: %08x\n",
 		   section->raw_data_size);
       if (section->characteristics & GRUB_PE32_SCN_MEM_DISCARDABLE)
 	{
-	  grub_printf ("chain: Discarding section\n");
+	  grub_dprintf ("chain", "chain: Discarding section\n");
 	  continue;
     }
 
       if (!base || !end)
         {
-          grub_printf ("chain: section is invalid\n");
+          grub_dprintf ("chain", "chain: section is invalid\n");
           grub_error (GRUB_ERR_BAD_ARGUMENT, "Invalid section size");
           goto error_exit;
         }
@@ -656,7 +656,7 @@ handle_image (void *data, grub_efi_uint32_t datasize)
       if (section->characteristics & GRUB_PE32_SCN_CNT_UNINITIALIZED_DATA)
 	{
 	  if (section->raw_data_size != 0)
-	    grub_printf ("chain: UNINITIALIZED_DATA section has data?\n");
+	    grub_dprintf ("chain", "chain: UNINITIALIZED_DATA section has data?\n");
 	}
       else if (section->virtual_address < context.size_of_headers ||
 	       section->raw_data_offset < context.size_of_headers)
@@ -668,7 +668,7 @@ handle_image (void *data, grub_efi_uint32_t datasize)
 
       if (section->raw_data_size > 0)
     {
-	  grub_printf ("chain: copying 0x%08x bytes to %p\n",
+	  grub_dprintf ("chain", "chain: copying 0x%08x bytes to %p\n",
 			section->raw_data_size, base);
 	  grub_memcpy (base,
 		       (grub_efi_uint8_t*)data + section->raw_data_offset,
@@ -677,20 +677,20 @@ handle_image (void *data, grub_efi_uint32_t datasize)
 
       if (section->raw_data_size < section->virtual_size)
 	{
-	  grub_printf ("chain: padding with 0x%08x bytes at %p\n",
+	  grub_dprintf ("chain", "chain: padding with 0x%08x bytes at %p\n",
 			section->virtual_size - section->raw_data_size,
 			base + section->raw_data_size);
 	  grub_memset (base + section->raw_data_size, 0,
 		       section->virtual_size - section->raw_data_size);
 	}
 
-      grub_printf ("chain: finished section %s\n", name);
+      grub_dprintf ("chain", "chain: finished section %s\n", name);
     }
 
   /* 5 == EFI_IMAGE_DIRECTORY_ENTRY_BASERELOC */
   if (context.number_of_rva_and_sizes <= 5)
     {
-      grub_printf ("chain: image has no relocation entry\n");
+      grub_dprintf ("chain", "chain: image has no relocation entry\n");
       goto error_exit;
     }
 
@@ -739,18 +739,18 @@ handle_image (void *data, grub_efi_uint32_t datasize)
       goto error_exit;
     }
 
-  grub_printf ("chain: booting via entry point\n");
+  grub_dprintf ("chain", "chain: booting via entry point\n");
   efi_status = efi_call_2 (entry_point, grub_efi_image_handle,
 			   grub_efi_system_table);
 
-  grub_printf ("chain: entry_point returned %ld\n", (long int) efi_status);
+  grub_dprintf ("chain", "chain: entry_point returned %ld\n", (long int) efi_status);
   grub_memcpy (li, &li_bak, sizeof (grub_efi_loaded_image_t));
   efi_status = grub_efi_free_pool (buffer);
 
   return 1;
 
 error_exit:
-  grub_printf ("chain: error_exit: grub_errno: %d\n", grub_errno);
+  grub_dprintf ("chain", "chain: error_exit: grub_errno: %d\n", grub_errno);
   if (buffer)
       grub_efi_free_pool (buffer);
   
@@ -872,18 +872,12 @@ grub_cmd_chainloader (grub_extcmd_context_t ctxt,
     dp = grub_efi_get_device_path (dev_handle);
 
   if (! dp)
-    {
-      grub_printf ("file path: NULL\n");
-      file_path = NULL;
-    }
+    file_path = NULL;
   else
     {
       file_path = grub_efi_file_device_path (dp, filename);
       if (! file_path)
         goto fail;
-	  grub_printf ("file path: ");
-      grub_efi_print_device_path (file_path);
-      grub_printf ("\n");
 	}
 
   fsize = grub_file_size (file);
@@ -964,7 +958,7 @@ grub_cmd_chainloader (grub_extcmd_context_t ctxt,
       if (state[CHAIN_BOOT].set)
         {
           handle_image ((void *)(unsigned long)address, fsize);
-          grub_printf ("Exit alternative chainloader.\n");
+          grub_dprintf ("chain", "Exit alternative chainloader.\n");
           grub_loader_unset (); 
         } 
       return 0;
@@ -978,15 +972,15 @@ grub_cmd_chainloader (grub_extcmd_context_t ctxt,
       /* If it failed with security violation while not in secure boot mode,
          the firmware might be broken. We try to workaround on that by forcing
          the SB method! (bsc#887793) */
-      grub_printf ("LoadImage failed with EFI_SECURITY_VIOLATION.\n");
-      grub_printf ("Try alternative chainloader");
+      grub_dprintf ("chain", "LoadImage failed with EFI_SECURITY_VIOLATION.\n");
+      grub_dprintf ("chain", "Try alternative chainloader");
       grub_file_close (file);
       grub_loader_set (grub_secureboot_chainloader_boot,
 	      grub_secureboot_chainloader_unload, 0);
       if (state[CHAIN_BOOT].set)
         {
           handle_image ((void *)(unsigned long)address, fsize);
-          grub_printf ("Exit alternative chainloader.\n");
+          grub_dprintf ("chain", "Exit alternative chainloader.\n");
           grub_loader_unset (); 
         } 
       return 0;
@@ -1027,7 +1021,7 @@ grub_cmd_chainloader (grub_extcmd_context_t ctxt,
   if (state[CHAIN_BOOT].set)
     {
       status = efi_call_3 (b->start_image, image_handle, NULL, NULL);
-      grub_printf ("Exit status code: 0x%08lx\n", (long unsigned int) status);
+      grub_dprintf ("chain", "Exit status code: 0x%08lx\n", (long unsigned int) status);
 	  grub_loader_unset ();
     }
   return 0;

@@ -466,12 +466,6 @@ extern void (*EXPORT_VAR (grub_term_poll_usb)) (int wait_for_completion);
 #define GRUB_TERM_REPEAT_PRE_INTERVAL 400
 #define GRUB_TERM_REPEAT_INTERVAL 50
 
-/* Debugging output */
-#define DBG(...) do {            \
-    grub_printf ( __VA_ARGS__ ); \
-    grub_getkey ();              \
-} while ( 0 )
-
 #endif /* ! ASM_FILE */
 
 #endif /* ! GRUB_TERM_HEADER */

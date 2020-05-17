@@ -38,7 +38,7 @@ vpart_boot (grub_efi_handle_t *part_handle)
   boot_file = grub_efi_file_device_path (grub_efi_get_device_path (part_handle),
                                          EFI_REMOVABLE_MEDIA_FILE_NAME);
   text_dp = grub_efi_device_path_to_str (boot_file);
-  grub_printf ("LoadImage: %s\n", text_dp);
+  grub_dprintf ("map", "LoadImage: %s\n", text_dp);
   if (text_dp)
     grub_free (text_dp);
 
@@ -48,7 +48,7 @@ vpart_boot (grub_efi_handle_t *part_handle)
     grub_free (boot_file);
   if (status != GRUB_EFI_SUCCESS)
   {
-    grub_printf ("Failed to load image\n");
+    grub_error (GRUB_ERR_BAD_OS, "Failed to load image");
     return NULL;
   }
   return boot_image_handle;
@@ -73,14 +73,14 @@ vdisk_boot (void)
                               &sfs_protocol_guid, NULL, &count, &buf);
   if(status != GRUB_EFI_SUCCESS)
   {
-    grub_printf ("SimpleFileSystemProtocol not found.\n");
+    grub_error (GRUB_ERR_BAD_OS, "SimpleFileSystemProtocol not found.");
     return NULL;
   }
   for (i = 0; i < count; i++)
   {
     tmp_dp = grub_efi_get_device_path (buf[i]);
     text_dp = grub_efi_device_path_to_str (tmp_dp);
-    grub_printf ("Checking for %s\n",text_dp);
+    grub_dprintf ("map", "Checking for %s\n",text_dp);
     if (text_dp)
       grub_free (text_dp);
     if (((grub_efi_vendor_device_path_t *)tmp_dp)->header.type
@@ -94,7 +94,7 @@ vdisk_boot (void)
     boot_file = grub_efi_file_device_path (grub_efi_get_device_path (buf[i]),
                                            EFI_REMOVABLE_MEDIA_FILE_NAME);
     text_dp = grub_efi_device_path_to_str (boot_file);
-    grub_printf ("LoadImage: %s\n", text_dp);
+    grub_dprintf ("map", "LoadImage: %s\n", text_dp);
     if (text_dp)
       grub_free (text_dp);
     status = efi_call_6 (b->load_image, TRUE, grub_efi_image_handle,
@@ -109,7 +109,7 @@ vdisk_boot (void)
   }
   if (!boot_image_handle)
   {
-    grub_printf ("boot_image_handle not found\n");
+    grub_error (GRUB_ERR_BAD_OS, "boot_image_handle not found\n");
     return NULL;
   }
 
