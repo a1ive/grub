@@ -523,8 +523,9 @@ static int wim_patch_region ( struct wim_patch *patch,
   /* Patch this region */
   if ( ( rc = region->patch ( patch, region, data, offset, len ) ) != 0 )
     return rc;
-  DBG2 ( "...patched WIM %s at [0x%lx,0x%lx)\n", region->name,
-         ( region->offset + offset ), ( region->offset + offset + len ) );
+  DBG2 ( "...patched WIM %s at [0x%x,0x%x)\n", region->name,
+         (uint32_t)(region->offset + offset),
+         (uint32_t)(region->offset + offset + len));
 
   return 0;
 }
