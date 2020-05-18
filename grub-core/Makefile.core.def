@@ -2966,6 +2966,16 @@ module = {
 };
 
 module = {
+  name = crscreenshot;
+  common = lib/crscreenshot/crscreenshot.c;
+  common = lib/crscreenshot/lodepng.c;
+  cflags = '$(CFLAGS_POSIX)';
+  cppflags = '$(CPPFLAGS_POSIX)';
+  enable = x86_64_efi;
+  enable = i386_efi;
+};
+
+module = {
   name = efi_mouse;
   common = term/efi/mouse.c;
   enable = efi;
