@@ -1895,42 +1895,44 @@ grub_net_restore_hw (void)
   return GRUB_ERR_NONE;
 }
 
+
+static int
+grub_config_search_through (char *config, char *suffix,
+			    grub_size_t num_tries, grub_size_t slice_size)
+{
+  while (num_tries-- > 0)
+    {
+      grub_file_t file;
+
+      grub_dprintf ("net", "attempt to fetch config %s\n", config);
+
+      file = grub_file_open (config, GRUB_FILE_TYPE_CONFIG);
+
+      if (file)
+        {
+          grub_file_close (file);
+          return 0;
+        }
+      else
+        {
+          if (grub_errno == GRUB_ERR_IO)
+            grub_errno = GRUB_ERR_NONE;
+        }
+
+      if (grub_strlen (suffix) < slice_size)
+        break;
+
+      config[grub_strlen (config) - slice_size] = '\0';
+    }
+
+  return 1;
+}
+
 grub_err_t
 grub_net_search_config_file (char *config)
 {
   grub_size_t config_len;
   char *suffix;
-
-  auto int search_through (grub_size_t num_tries, grub_size_t slice_size);
-  int search_through (grub_size_t num_tries, grub_size_t slice_size)
-    {
-      while (num_tries-- > 0)
-        {
-          grub_file_t file;
-
-          grub_dprintf ("net", "attempt to fetch config %s\n", config);
-
-          file = grub_file_open (config, GRUB_FILE_TYPE_CONFIG);
-
-          if (file)
-            {
-              grub_file_close (file);
-              return 0;
-            }
-          else
-            {
-              if (grub_errno == GRUB_ERR_IO)
-                grub_errno = GRUB_ERR_NONE;
-            }
-
-          if (grub_strlen (suffix) < slice_size)
-            break;
-
-          config[grub_strlen (config) - slice_size] = '\0';
-        }
-
-      return 1;
-    }
 
   config_len = grub_strlen (config);
   config[config_len] = '-';
@@ -1961,7 +1963,7 @@ grub_net_search_config_file (char *config)
       if (client_uuid)
         {
           grub_strcpy (suffix, client_uuid);
-          if (search_through (1, 0) == 0)
+          if (grub_config_search_through (config, suffix, 1, 0) == 0)
             return GRUB_ERR_NONE;
         }
 
@@ -1976,7 +1978,7 @@ grub_net_search_config_file (char *config)
         if (*ptr == ':')
           *ptr = '-';
 
-      if (search_through (1, 0) == 0)
+      if (grub_config_search_through (config, suffix, 1, 0) == 0)
         return GRUB_ERR_NONE;
 
       /* By IP address */
@@ -1991,7 +1993,7 @@ grub_net_search_config_file (char *config)
                            ((n >> 24) & 0xff), ((n >> 16) & 0xff),      \
                            ((n >> 8) & 0xff), ((n >> 0) & 0xff));
 
-            if (search_through (8, 1) == 0)
+            if (grub_config_search_through (config, suffix, 8, 1) == 0)
               return GRUB_ERR_NONE;
             break;
           }
@@ -2008,7 +2010,7 @@ grub_net_search_config_file (char *config)
                 *ptr = '-';
 
             grub_snprintf (suffix, GRUB_NET_MAX_STR_ADDR_LEN, "%s", buf);
-            if (search_through (1, 0) == 0)
+            if (grub_config_search_through (config, suffix, 1, 0) == 0)
               return GRUB_ERR_NONE;
             break;
           }
