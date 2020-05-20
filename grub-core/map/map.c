@@ -240,6 +240,7 @@ grub_cmd_map (grub_extcmd_context_t ctxt, int argc, char **args)
     pause ();
   /* boot */
   grub_script_execute_sourcecode ("terminal_output console");
+  grub_printf ("Booting from vdisk ...\n");
   grub_refresh ();
   grub_dprintf ("map", "StartImage: %p\n", boot_image_handle);
   status = efi_call_3 (b->start_image, boot_image_handle, 0, NULL);
