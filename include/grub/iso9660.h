@@ -20,6 +20,7 @@
 #define GRUB_ISO9660_H	1
 
 #include <grub/types.h>
+#include <grub/file.h>
 
 #define GRUB_ISO9660_FSTYPE_DIR		0040000
 #define GRUB_ISO9660_FSTYPE_REG		0100000

@@ -20,6 +20,7 @@
 #define GRUB_UDF_H	1
 
 #include <grub/types.h>
+#include <grub/file.h>
 
 #define GRUB_UDF_MAX_PDS		2
 #define GRUB_UDF_MAX_PMS		6

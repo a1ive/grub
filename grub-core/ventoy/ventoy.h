@@ -33,14 +33,6 @@ typedef struct ventoy_windows_data
     grub_uint8_t reserved[128];
 }ventoy_windows_data;
 
-typedef struct ventoy_guid
-{
-    grub_uint32_t   data1;
-    grub_uint16_t   data2;
-    grub_uint16_t   data3;
-    grub_uint8_t    data4[8];
-}ventoy_guid;
-
 typedef struct ventoy_image_disk_region
 {
     grub_uint32_t   image_sector_count; /* image sectors contained in this region (in 2048) */
@@ -50,7 +42,7 @@ typedef struct ventoy_image_disk_region
 
 typedef struct ventoy_image_location
 {
-    ventoy_guid  guid;
+    grub_packed_guid_t  guid;
 
     /* image sector size, currently this value is always 2048 */
     grub_uint32_t   image_sector_size;
@@ -107,16 +99,6 @@ typedef struct ventoy_chain_head
     grub_uint32_t virt_chunk_num;
 }ventoy_chain_head;
 
-typedef struct ventoy_img_chunk
-{
-    grub_uint32_t img_start_sector; // sector size: 2KB
-    grub_uint32_t img_end_sector;   // included
-
-    grub_uint64_t disk_start_sector; // in disk_sector_size
-    grub_uint64_t disk_end_sector;   // included
-}ventoy_img_chunk;
-
-
 typedef struct ventoy_override_chunk
 {
     grub_uint64_t img_offset;
@@ -133,15 +115,6 @@ typedef struct ventoy_virt_chunk
     grub_uint32_t remap_sector_end;
     grub_uint32_t org_sector_start;
 }ventoy_virt_chunk;
-
-#define DEFAULT_CHUNK_NUM   1024
-typedef struct ventoy_img_chunk_list
-{
-    grub_uint32_t max_chunk;
-    grub_uint32_t cur_chunk;
-    ventoy_img_chunk *chunk;
-}ventoy_img_chunk_list;
-
 
 #pragma pack()
 

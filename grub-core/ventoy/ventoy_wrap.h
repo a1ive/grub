@@ -23,8 +23,34 @@
 #include <grub/iso9660.h>
 #include <grub/udf.h>
 
+extern grub_uint8_t g_ventoy_break_level;
+extern grub_uint8_t g_ventoy_debug_level;
+
+#pragma pack(4)
+
+typedef struct ventoy_img_chunk
+{
+  grub_uint32_t img_start_sector; // sector size: 2KB
+  grub_uint32_t img_end_sector;   // included
+
+  grub_uint64_t disk_start_sector; // in disk_sector_size
+  grub_uint64_t disk_end_sector;   // included
+} ventoy_img_chunk;
+
+#define DEFAULT_CHUNK_NUM   1024
+typedef struct ventoy_img_chunk_list
+{
+  grub_uint32_t max_chunk;
+  grub_uint32_t cur_chunk;
+  ventoy_img_chunk *chunk;
+} ventoy_img_chunk_list;
+
+#pragma pack()
+
 int vt_get_file_chunk (grub_uint64_t part_start, grub_file_t file,
                        ventoy_img_chunk_list *chunk_list);
+
+void ventoy_fill_os_param (grub_file_t file, ventoy_os_param *param);
 
 #endif
 

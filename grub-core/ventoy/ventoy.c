@@ -52,16 +52,12 @@ int g_valid_initrd_count = 0;
 
 char g_img_swap_tmp_buf[1024];
 
-grub_uint8_t g_ventoy_break_level = 0;
-grub_uint8_t g_ventoy_debug_level = 0;
 grub_uint8_t *g_ventoy_cpio_buf = NULL;
 grub_uint32_t g_ventoy_cpio_size = 0;
 cpio_newc_header *g_ventoy_initrd_head = NULL;
 grub_uint8_t *g_ventoy_runtime_buf = NULL;
 
 ventoy_grub_param *g_grub_param = NULL;
-
-ventoy_guid  g_ventoy_guid = VENTOY_GUID;
 
 ventoy_img_chunk_list g_img_chunk_list;
 
@@ -81,36 +77,6 @@ int ventoy_is_efi_os(void)
 #else
     return 0;
 #endif
-}
-
-static int ventoy_get_fs_type(const char *fs)
-{
-    if (NULL == fs)
-    {
-        return ventoy_fs_max;
-    }
-    else if (grub_strncmp(fs, "exfat", 5) == 0)
-    {
-        return ventoy_fs_exfat;
-    }
-    else if (grub_strncmp(fs, "ntfs", 4) == 0)
-    {
-        return ventoy_fs_ntfs;
-    }
-    else if (grub_strncmp(fs, "ext", 3) == 0)
-    {
-        return ventoy_fs_ext;
-    }
-    else if (grub_strncmp(fs, "xfs", 3) == 0)
-    {
-        return ventoy_fs_xfs;
-    }
-    else if (grub_strncmp(fs, "udf", 3) == 0)
-    {
-        return ventoy_fs_udf;
-    }
-
-    return ventoy_fs_max;
 }
 
 static grub_err_t ventoy_cmd_debug(grub_extcmd_context_t ctxt, int argc, char **args)
@@ -227,51 +193,6 @@ static grub_err_t ventoy_cmd_check_compatible(grub_extcmd_context_t ctxt, int ar
     VENTOY_CMD_RETURN(GRUB_ERR_NONE);
 }
 
-static int ventoy_get_disk_guid(const char *filename, grub_uint8_t *guid)
-{
-    grub_disk_t disk;
-    char *device_name;
-    char *pos;
-    char *pos2;
-    
-    device_name = grub_file_get_device_name(filename);
-    if (!device_name)
-    {
-        return 1;
-    }
-
-    pos = device_name;
-    if (pos[0] == '(')
-    {
-        pos++;
-    }
-
-    pos2 = grub_strstr(pos, ",");
-    if (!pos2)
-    {
-        pos2 = grub_strstr(pos, ")");
-    }
-    
-    if (pos2)
-    {
-        *pos2 = 0;
-    }
-
-    disk = grub_disk_open(pos);
-    if (disk)
-    {
-        grub_disk_read(disk, 0, 0x180, 16, guid);
-        grub_disk_close(disk);
-    }
-    else
-    {
-        return 1;
-    }
-
-    grub_free(device_name);
-    return 0;
-}
-
 grub_uint32_t ventoy_get_iso_boot_catlog(grub_file_t file)
 {
     eltorito_descriptor desc;
@@ -319,45 +240,6 @@ int ventoy_has_efi_eltorito(grub_file_t file, grub_uint32_t sector)
 
     debug("%s does not contain efi eltorito\n", file->name);
     return 0;
-}
-
-void ventoy_fill_os_param(grub_file_t file, ventoy_os_param *param)
-{
-    char *pos;
-    grub_uint32_t i;
-    grub_uint8_t  chksum = 0;
-    grub_disk_t   disk;
-
-    disk = file->device->disk;
-    grub_memcpy(&param->guid, &g_ventoy_guid, sizeof(ventoy_guid));
-
-    param->vtoy_disk_size = disk->total_sectors * (1 << disk->log_sector_size);
-    param->vtoy_disk_part_id = disk->partition->number + 1;
-    param->vtoy_disk_part_type = ventoy_get_fs_type(file->fs->name);
-
-    pos = grub_strstr(file->name, "/");
-    if (!pos)
-    {
-        pos = file->name;
-    }
-
-    grub_snprintf(param->vtoy_img_path, sizeof(param->vtoy_img_path), "%s", pos);
-
-    ventoy_get_disk_guid(file->name, param->vtoy_disk_guid);
-
-    param->vtoy_img_size = file->size;
-
-    param->vtoy_reserved[0] = g_ventoy_break_level;
-    param->vtoy_reserved[1] = g_ventoy_debug_level;
-
-    /* calculate checksum */
-    for (i = 0; i < sizeof(ventoy_os_param); i++)
-    {
-        chksum += *((grub_uint8_t *)param + i);
-    }
-    param->chksum = (grub_uint8_t)(0x100 - chksum);
-
-    return;
 }
 
 static grub_err_t ventoy_cmd_img_sector(grub_extcmd_context_t ctxt, int argc, char **args)
@@ -576,8 +458,6 @@ static cmd_para ventoy_cmds[] =
 
 };
 
-static grub_extcmd_t cmd;
-
 GRUB_MOD_INIT(ventoy)
 {
     grub_uint32_t i;
@@ -591,8 +471,7 @@ GRUB_MOD_INIT(ventoy)
         cur->cmd = grub_register_extcmd(cur->name, cur->func, cur->flags, 
                                         cur->summary, cur->description, cur->parser);
     }
-    cmd = grub_register_extcmd ("ventoy", grub_cmd_ventoy, 0, N_("[VAR]"),
-                              N_("Get Ventoy information."), 0);
+    vt_compatible_init ();
 }
 
 GRUB_MOD_FINI(ventoy)
@@ -603,6 +482,6 @@ GRUB_MOD_FINI(ventoy)
     {
         grub_unregister_extcmd(ventoy_cmds[i].cmd);
     }
-    grub_unregister_extcmd (cmd);
+    vt_compatible_fini ();
 }
 

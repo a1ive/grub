@@ -60,6 +60,7 @@ typedef enum ventoy_fs_type
     ventoy_fs_ext,       /* 2: ext2/ext3/ext4 */
     ventoy_fs_xfs,       /* 3: XFS */
     ventoy_fs_udf,       /* 4: UDF */
+    ventoy_fs_fat,       /* 5: FAT */
 
     ventoy_fs_max
 }ventoy_fs_type;
@@ -110,7 +111,8 @@ typedef ventoy_os_param ventoy_os_param_t;
 
 #pragma pack()
 
-grub_err_t grub_cmd_ventoy (grub_extcmd_context_t ctxt, int argc, char **args);
+void vt_compatible_init (void);
+void vt_compatible_fini (void);
 
 #endif
 

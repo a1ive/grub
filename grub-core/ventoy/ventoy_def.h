@@ -21,6 +21,8 @@
 #ifndef __VENTOY_DEF_H__
 #define __VENTOY_DEF_H__
 
+#include "ventoy_wrap.h"
+
 #define ulong unsigned long
 #define ulonglong  unsigned long long
 
@@ -135,8 +137,6 @@ extern grub_uint8_t *g_ventoy_cpio_buf;
 extern grub_uint32_t g_ventoy_cpio_size;
 extern cpio_newc_header *g_ventoy_initrd_head;
 extern grub_uint8_t *g_ventoy_runtime_buf;
-
-extern ventoy_guid  g_ventoy_guid;
 
 extern ventoy_img_chunk_list g_img_chunk_list;
 
@@ -303,7 +303,6 @@ typedef struct wim_tail
     grub_uint32_t new_lookup_align_len;
 }wim_tail;
 
-void ventoy_fill_os_param(grub_file_t file, ventoy_os_param *param);
 grub_err_t ventoy_cmd_isolinux_initrd_collect(grub_extcmd_context_t ctxt, int argc, char **args);
 grub_err_t ventoy_cmd_grub_initrd_collect(grub_extcmd_context_t ctxt, int argc, char **args);
 grub_err_t ventoy_cmd_specify_initrd_file(grub_extcmd_context_t ctxt, int argc, char **args);
