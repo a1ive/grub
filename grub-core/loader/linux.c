@@ -75,12 +75,13 @@ make_header (grub_uint8_t *ptr,
   set_field (head->devminor, 0);
   set_field (head->rdevmajor, 0);
   set_field (head->rdevminor, 0);
-  set_field (head->namesize, len);
+  set_field (head->namesize, len + 1);
   set_field (head->check, 0);
   optr = ptr;
   ptr += sizeof (struct newc_head);
   grub_memcpy (ptr, name, len);
   ptr += len;
+  *ptr++ = 0;
   oh = ALIGN_UP_OVERHEAD (ptr - optr, 4);
   grub_memset (ptr, 0, oh);
   ptr += oh;
@@ -130,7 +131,7 @@ insert_dir (const char *name, struct dir **root,
 	      ptr = make_header (ptr, name, ce - name,
 				 040777, 0);
 	    }
-	  size += ALIGN_UP ((ce - (char *) name)
+	  size += ALIGN_UP ((ce - (char *) name) + 1
 			    + sizeof (struct newc_head), 4);
 	  *head = n;
 	  cur = n;
@@ -181,7 +182,7 @@ grub_initrd_init (int argc, char *argv[],
 		}
 	      initrd_ctx->size
 		+= ALIGN_UP (sizeof (struct newc_head)
-			    + grub_strlen (initrd_ctx->components[i].newc_name),
+			    + grub_strlen (initrd_ctx->components[i].newc_name) + 1,
 			     4);
 	      initrd_ctx->size += insert_dir (initrd_ctx->components[i].newc_name,
 					      &root, 0);
@@ -192,7 +193,7 @@ grub_initrd_init (int argc, char *argv[],
       else if (newc)
 	{
 	  initrd_ctx->size += ALIGN_UP (sizeof (struct newc_head)
-					+ sizeof ("TRAILER!!!") - 1, 4);
+					+ sizeof ("TRAILER!!!"), 4);
 	  free_dir (root);
 	  root = 0;
 	  newc = 0;
@@ -215,7 +216,7 @@ grub_initrd_init (int argc, char *argv[],
     {
       initrd_ctx->size = ALIGN_UP (initrd_ctx->size, 4);
       initrd_ctx->size += ALIGN_UP (sizeof (struct newc_head)
-				    + sizeof ("TRAILER!!!") - 1, 4);
+				    + sizeof ("TRAILER!!!"), 4);
       free_dir (root);
       root = 0;
     }
