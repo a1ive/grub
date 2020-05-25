@@ -96,15 +96,17 @@ set_field (char *var, grub_uint32_t val)
 
 static grub_uint8_t *
 make_header (grub_uint8_t *ptr,
-             const char *name, grub_size_t name_size,
+             const char *name,
              grub_uint32_t mode,
-             grub_off_t file_size)
+             grub_uint32_t file_size)
 {
   struct head *head = (struct head *) ptr;
   grub_uint8_t *optr;
   grub_size_t oh = 0;
+  grub_uint32_t name_size = grub_strlen (name) + 1;
+  static grub_uint32_t ino = 0xFFFFFFF0;
   grub_memcpy (head->magic, MAGIC, 6);
-  set_field (head->ino, 0);
+  set_field (head->ino, ino--);
   set_field (head->mode, mode);
   set_field (head->uid, 0);
   set_field (head->gid, 0);
@@ -125,54 +127,6 @@ make_header (grub_uint8_t *ptr,
   grub_memset (ptr, 0, oh);
   ptr += oh;
   return ptr;
-}
-
-static void
-free_dir (struct dir *root)
-{
-  if (!root)
-    return;
-  free_dir (root->next);
-  free_dir (root->child);
-  grub_free (root->name);
-  grub_free (root);
-}
-
-static grub_size_t
-insert_dir (const char *name, struct dir **root,
-            grub_uint8_t *ptr)
-{
-  struct dir *cur, **head = root;
-  const char *cb, *ce = name;
-  grub_size_t size = 0;
-  while (1)
-  {
-    for (cb = ce; *cb == '/'; cb++);
-    for (ce = cb; *ce && *ce != '/'; ce++);
-    if (!*ce)
-      break;
-
-    for (cur = *root; cur; cur = cur->next)
-      if (grub_memcmp (cur->name, cb, ce - cb)
-          && cur->name[ce - cb] == 0)
-        break;
-    if (!cur)
-    {
-      struct dir *n;
-      n = grub_zalloc (sizeof (*n));
-      if (!n)
-        return 0;
-      n->next = *head;
-      n->name = grub_strndup (cb, ce - cb);
-      if (ptr)
-        ptr = make_header (ptr, name, ce - name, 040777, 0);
-      size += ALIGN_UP ((ce - (char *) name) + sizeof (struct head), 4);
-      *head = n;
-      cur = n;
-    }
-    root = &cur->next;
-  }
-  return size;
 }
 
 #define FSNAME "newc"
@@ -318,7 +272,6 @@ grub_initrd_find_end (grub_uint8_t *file_addr, grub_size_t file_size)
   grub_uint8_t *ptr;
   if (file_size < grub_strlen(MAGIC))
   {
-    grub_printf ("BUFFER TOO SMALL\n");
     return (file_addr + file_size);
   }
   ptr = file_addr + file_size - grub_strlen(MAGIC);
@@ -336,7 +289,6 @@ static grub_err_t
 grub_initrd_add (const char *dev_name, grub_file_t file, const char *name)
 {
   grub_uint8_t *ptr;
-  struct dir *root = 0;
   struct grub_initrd *dev;
   grub_size_t add_size = 0;
   if (!file || file->size >= GRUB_UINT_MAX)
@@ -347,8 +299,7 @@ grub_initrd_add (const char *dev_name, grub_file_t file, const char *name)
   if (! dev)
     return grub_error (GRUB_ERR_UNKNOWN_DEVICE, "can't open device");
   /* re-calculate size */
-  add_size = ALIGN_UP (sizeof (struct head) + grub_strlen (name), 4);
-  add_size += insert_dir (name, &root, 0);
+  add_size = ALIGN_UP (sizeof (struct head) + grub_strlen (name) + 1, 4);
   add_size += file->size;
   add_size = ALIGN_UP (add_size, 4);
   if (add_size >= dev->max_size - dev->cur_size)
@@ -361,16 +312,13 @@ grub_initrd_add (const char *dev_name, grub_file_t file, const char *name)
   ptr = grub_initrd_find_end (dev->addr, dev->cur_size);
   dev->cur_size += add_size;
   /* fill data */
-  ptr += insert_dir (name, &root, ptr);
-  ptr = make_header (ptr, name, grub_strlen (name), 0100777, file->size);
+  ptr = make_header (ptr, name, 0100777, file->size);
   grub_file_read (file, ptr, file->size);
   ptr += file->size;
   /* newc end */
   grub_memset (ptr, 0, ALIGN_UP_OVERHEAD (file->size, 4));
   ptr += ALIGN_UP_OVERHEAD (file->size, 4);
-  ptr = make_header (ptr, "TRAILER!!!", sizeof ("TRAILER!!!"), 0, 0);
-  free_dir (root);
-  root = 0;
+  ptr = make_header (ptr, "TRAILER!!!", 0, 0);
   return GRUB_ERR_NONE;
 }
 
