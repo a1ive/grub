@@ -45,9 +45,8 @@ grub_file_progress_hook_real (grub_disk_addr_t sector __attribute__ ((unused)),
     return;
 
   e = grub_env_get ("enable_progress_indicator");
-  if (e && e[0] == '0') {
+  if (!e || e[0] == '0')
     return;
-  }
 
   call_depth = 1;
   now = grub_get_time_ms ();
