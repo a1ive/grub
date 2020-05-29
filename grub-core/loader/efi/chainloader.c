@@ -37,6 +37,7 @@
 #include <grub/extcmd.h>
 #include <grub/i18n.h>
 #include <grub/net.h>
+#include <grub/term.h>
 #if defined (__i386__) || defined (__x86_64__)
 #include <grub/macho.h>
 #include <grub/i386/macho.h>
@@ -782,6 +783,50 @@ grub_secureboot_chainloader_boot (void)
   return grub_errno;
 }
 
+static grub_efi_boolean_t
+grub_chainloader_dp (const char *devname, const char *filename)
+{
+  grub_device_t dev = 0;
+  grub_efi_device_path_t *dp = 0;
+
+  file_path = 0;
+  dev_handle = 0;
+
+  dev = grub_device_open (devname);
+  if (! dev)
+    goto dp_fail;
+
+  if (dev->disk)
+    dev_handle = grub_efidisk_get_device_handle (dev->disk);
+  else if (dev->net && dev->net->server)
+  {
+    grub_net_network_level_address_t addr;
+    struct grub_net_network_level_interface *inf;
+    grub_net_network_level_address_t gateway;
+    grub_err_t err;
+
+    err = grub_net_resolve_address (dev->net->server, &addr);
+    if (err)
+      goto dp_fail;
+    err = grub_net_route_address (addr, &gateway, &inf);
+    if (err)
+      goto dp_fail;
+
+    dev_handle = grub_efinet_get_device_handle (inf->card);
+  }
+
+  if (dev_handle)
+    dp = grub_efi_get_device_path (dev_handle);
+
+  if (dp)
+    file_path = grub_efi_file_device_path (dp, filename);
+
+dp_fail:
+  if (dev)
+    grub_device_close (dev);
+  return file_path? 1: 0;
+}
+
 static grub_err_t
 grub_cmd_chainloader (grub_extcmd_context_t ctxt,
 		      int argc, char *argv[])
@@ -790,8 +835,6 @@ grub_cmd_chainloader (grub_extcmd_context_t ctxt,
   grub_file_t file = 0;
   grub_efi_status_t status;
   grub_efi_boot_services_t *b;
-  grub_device_t dev = 0;
-  grub_efi_device_path_t *dp = 0;
   grub_efi_loaded_image_t *loaded_image;
   char *filename;
   void *boot_image = 0;
@@ -805,8 +848,6 @@ grub_cmd_chainloader (grub_extcmd_context_t ctxt,
   /* Initialize some global variables.  */
   address = 0;
   image_handle = 0;
-  file_path = 0;
-  dev_handle = 0;
 
   b = grub_efi_system_table->boot_services;
 
@@ -842,43 +883,18 @@ grub_cmd_chainloader (grub_extcmd_context_t ctxt,
 
   /* Get the device path from filename. */
   char *devname = grub_file_get_device_name (filename);
-  dev = grub_device_open (devname);
+  if (! grub_chainloader_dp (devname, filename))
+  {
+    grub_printf ("Warning: Can't get device path from file name.\n");
+    if (! grub_chainloader_dp (0, filename))
+      grub_printf ("Warning: Can't get device path from root device.\n");
+  }
+  grub_printf ("Booting ");
+  grub_efi_print_device_path (file_path);
+  grub_printf ("\n");
+
   if (devname)
     grub_free (devname);
-  if (! dev)
-    goto fail;
-
-  if (dev->disk)
-    dev_handle = grub_efidisk_get_device_handle (dev->disk);
-  else if (dev->net && dev->net->server)
-    {
-      grub_net_network_level_address_t addr;
-      struct grub_net_network_level_interface *inf;
-      grub_net_network_level_address_t gateway;
-      grub_err_t err;
-
-      err = grub_net_resolve_address (dev->net->server, &addr);
-      if (err)
-	goto fail;
-
-      err = grub_net_route_address (addr, &gateway, &inf);
-      if (err)
-	goto fail;
-
-      dev_handle = grub_efinet_get_device_handle (inf->card);
-    }
-
-  if (dev_handle)
-    dp = grub_efi_get_device_path (dev_handle);
-
-  if (! dp)
-    file_path = NULL;
-  else
-    {
-      file_path = grub_efi_file_device_path (dp, filename);
-      if (! file_path)
-        goto fail;
-	}
 
   fsize = grub_file_size (file);
   if (!fsize)
@@ -948,7 +964,11 @@ grub_cmd_chainloader (grub_extcmd_context_t ctxt,
 #endif
 
   if (state[CHAIN_TEXT].set)
-	grub_script_execute_sourcecode ("terminal_output console");
+  {
+    grub_script_execute_sourcecode ("terminal_output console");
+    grub_printf ("Switch to text mode.\n");
+    grub_refresh ();
+  }
 
   if (state[CHAIN_ALT].set)
     {
@@ -966,7 +986,7 @@ grub_cmd_chainloader (grub_extcmd_context_t ctxt,
 
   status = efi_call_6 (b->load_image, 0, grub_efi_image_handle, file_path,
 		       boot_image, fsize, &image_handle);
-               
+
   if (status == GRUB_EFI_SECURITY_VIOLATION)
     {
       /* If it failed with security violation while not in secure boot mode,
@@ -1014,10 +1034,9 @@ grub_cmd_chainloader (grub_extcmd_context_t ctxt,
     }
 
   grub_file_close (file);
-  grub_device_close (dev);
 
   grub_loader_set (grub_chainloader_boot, grub_chainloader_unload, 0);
-  
+
   if (state[CHAIN_BOOT].set)
     {
       status = efi_call_3 (b->start_image, image_handle, NULL, NULL);
@@ -1027,9 +1046,6 @@ grub_cmd_chainloader (grub_extcmd_context_t ctxt,
   return 0;
 
  fail:
-
-  if (dev)
-    grub_device_close (dev);
 
   if (file)
     grub_file_close (file);
