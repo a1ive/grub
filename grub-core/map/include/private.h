@@ -61,6 +61,7 @@ struct map_private_data
 {
   grub_efi_boolean_t mem;
   grub_efi_boolean_t pause;
+  grub_efi_boolean_t rt;
   enum disk_type type;
   grub_efi_boolean_t disk;
   void *file;
