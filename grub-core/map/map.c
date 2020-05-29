@@ -50,6 +50,7 @@ static const struct grub_arg_option options_map[] =
   {"nb", 'n', 0, N_("Don't boot virtual disk."), 0, 0},
   {"update", 'u', 0, N_("Update efidisk device mapping."), 0, 0},
   {"unmap", 'x', 0, N_("Unmap devices."), N_("disk"), ARG_TYPE_STRING},
+  {"rt", 0, 0, N_("Set memory type to RUNTIME_SERVICES_DATA."), 0, 0},
   {0, 0, 0, 0, 0, 0}
 };
 
@@ -63,6 +64,7 @@ enum options_map
   MAP_NB,
   MAP_UPDATE,
   MAP_UNMAP,
+  MAP_RT,
 };
 
 vdisk_t vdisk, vpart;
@@ -172,6 +174,11 @@ grub_cmd_map (grub_extcmd_context_t ctxt, int argc, char **args)
     map.pause = TRUE;
   else
     map.pause = FALSE;
+
+  if (state[MAP_RT].set)
+    map.rt = TRUE;
+  else
+    map.rt = FALSE;
 
   if (argc != 1)
   {

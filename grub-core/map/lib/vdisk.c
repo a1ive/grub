@@ -64,9 +64,14 @@ vdisk_install (grub_file_t file, grub_efi_boolean_t ro)
   vdisk.size = get_size (cmd->disk, vdisk.file);
   if (cmd->mem)
   {
-    status = grub_efi_allocate_pool (GRUB_EFI_BOOT_SERVICES_DATA,
-                                     (grub_efi_uintn_t)(vdisk.size + 8),
-                                     (void **)&vdisk.addr);
+    if (cmd->rt)
+      status = grub_efi_allocate_pool (GRUB_EFI_RUNTIME_SERVICES_DATA,
+                                       (grub_efi_uintn_t)(vdisk.size + 8),
+                                       (void **)&vdisk.addr);
+    else
+      status = grub_efi_allocate_pool (GRUB_EFI_BOOT_SERVICES_DATA,
+                                       (grub_efi_uintn_t)(vdisk.size + 8),
+                                       (void **)&vdisk.addr);
     if (status != GRUB_EFI_SUCCESS)
     {
       grub_error (GRUB_ERR_OUT_OF_MEMORY, "out of memory");
