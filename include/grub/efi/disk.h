@@ -20,8 +20,10 @@
 #define GRUB_EFI_DISK_HEADER	1
 
 #include <grub/efi/api.h>
+#include <grub/efi/efi.h>
 #include <grub/symbol.h>
 #include <grub/disk.h>
+#include <grub/file.h>
 
 struct grub_efidisk_data
 {
@@ -38,5 +40,58 @@ char *EXPORT_FUNC(grub_efidisk_get_device_name) (grub_efi_handle_t *handle);
 
 void EXPORT_FUNC(grub_efidisk_init) (void);
 void EXPORT_FUNC(grub_efidisk_fini) (void);
+
+struct block_io_protocol
+{
+  grub_efi_uint64_t revision;
+  grub_efi_block_io_media_t *media;
+  grub_efi_status_t (EFIAPI *reset) (struct block_io_protocol *this,
+                                     grub_efi_boolean_t extended_verification);
+  grub_efi_status_t (EFIAPI *read_blocks) (struct block_io_protocol *this,
+                                           grub_efi_uint32_t media_id,
+                                           grub_efi_lba_t lba,
+                                           grub_efi_uintn_t buffer_size,
+                                           void *buffer);
+  grub_efi_status_t (EFIAPI *write_blocks) (struct block_io_protocol *this,
+                                            grub_efi_uint32_t media_id,
+                                            grub_efi_lba_t lba,
+                                            grub_efi_uintn_t buffer_size,
+                                            void *buffer);
+  grub_efi_status_t (EFIAPI *flush_blocks) (struct block_io_protocol *this);
+};
+typedef struct block_io_protocol block_io_protocol_t;
+
+typedef struct
+{
+  /* efi data */
+  grub_efi_uint64_t addr;
+  grub_efi_handle_t handle;
+  grub_efi_device_path_t *dp;
+  block_io_protocol_t block_io;
+  grub_efi_block_io_media_t media;
+  /* grub data */
+  grub_file_t file;
+} grub_efivdisk_t;
+
+enum grub_efivdisk_type
+{
+  HD,
+  CD,
+  FD,
+  MBR,
+  GPT,
+};
+
+struct grub_efivdisk_data
+{
+  char devname[20];
+  enum grub_efivdisk_type type;
+  grub_packed_guid_t guid;
+  grub_efivdisk_t vdisk;
+  grub_efivdisk_t vpart;
+  struct grub_efivdisk_data *next;
+};
+
+extern struct grub_efivdisk_data *EXPORT_VAR (grub_efivdisk_list);
 
 #endif /* ! GRUB_EFI_DISK_HEADER */

@@ -1,6 +1,6 @@
  /*
  *  GRUB  --  GRand Unified Bootloader
- *  Copyright (C) 2019  Free Software Foundation, Inc.
+ *  Copyright (C) 2019,2020  Free Software Foundation, Inc.
  *
  *  GRUB is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -23,12 +23,14 @@
 #include <grub/types.h>
 #include <grub/term.h>
 #include <grub/msdos_partition.h>
+#include <grub/gpt_partition.h>
 #include <grub/charset.h>
 
-#include "ntboot.h"
+#include <ntboot.h>
 #include <stdint.h>
-#include <maplib.h>
+#include <misc.h>
 #include <wimboot.h>
+#include <guid.h>
 
 static void
 bcd_patch_guid_offset (enum boot_type type, grub_size_t offset)
@@ -45,12 +47,10 @@ bcd_patch_guid_offset (enum boot_type type, grub_size_t offset)
     grub_printf ("bad BCD file.");
     return ;
   }
-  print_hex (bcd, offset - 0x10, "guid", 76, 0);
   if (type == BOOT_WIM)
     *p = 'a';
   if (type == BOOT_VHD)
     *p = 'b';
-  print_hex (bcd, offset - 0x10, "replace", 76, 0);
 }
 
 static void
@@ -65,7 +65,6 @@ bcd_patch_path_offset (const char *search, const char *path)
 {
   char *utf8_path = NULL, *p;
   wchar_t *utf16_path = NULL;
-  grub_size_t offset;
   grub_size_t len = 2 * (grub_strlen (path) + 1);
   utf8_path = grub_strdup (path);
   if (!utf8_path)
@@ -91,10 +90,8 @@ bcd_patch_path_offset (const char *search, const char *path)
   /* UTF-8 to UTF-16le */
   grub_utf8_to_utf16 (utf16_path, len, (grub_uint8_t *)utf8_path, -1, NULL);
 
-  offset = replace_hex (bcd, bcd_len,
-                        search, grub_strlen (search),
-                        (char *)utf16_path, len, 2);
-  print_hex (bcd, offset, "path", len, 0);
+  vfat_replace_hex (bcd, bcd_len, search, grub_strlen (search),
+                    (char *)utf16_path, len, 2);
   grub_free (utf16_path);
   grub_free (utf8_path);
 }
@@ -115,13 +112,10 @@ bcd_patch_mbr_offset (grub_uint8_t *start, grub_uint8_t *sgn)
 {
   const char default_sgn[] = { 0x53, 0xb7, 0x53, 0xb7 };
   const char default_start[] = { 0x00, 0x7e, 0x00, 0x00 };
-  grub_size_t offset;
   /* starting lba */
-  offset = replace_hex (bcd, bcd_len, default_start, 4, (char *)start, 8, 0);
-  print_hex (bcd, offset, "replace", 8, 1);
+  vfat_replace_hex (bcd, bcd_len, default_start, 4, (char *)start, 8, 0);
   /* unique signature */
-  offset = replace_hex (bcd, bcd_len, default_sgn, 4, (char *)sgn, 4, 0);
-  print_hex (bcd, offset, "replace", 4, 1);
+  vfat_replace_hex (bcd, bcd_len, default_sgn, 4, (char *)sgn, 4, 0);
 }
 
 static void
@@ -134,24 +128,24 @@ bcd_patch_mbr (const char *diskname, grub_disk_addr_t lba)
   if (!disk)
   {
     grub_printf ("failed to open %s\n", diskname);
-    goto fail;
+    goto mbr_fail;
   }
   mbr = grub_zalloc (GRUB_DISK_SECTOR_SIZE);
   if (!mbr)
   {
     grub_printf ("out of memory");
-    goto fail;
+    goto mbr_fail;
   }
   if (grub_disk_read (disk, 0, 0, GRUB_DISK_SECTOR_SIZE, mbr))
   {
     if (!grub_errno)
       grub_printf ("premature end of disk");
-    goto fail;
+    goto mbr_fail;
   }
   *(grub_uint64_t *)start = lba << GRUB_DISK_SECTOR_BITS;
   /* write */
   bcd_patch_mbr_offset (start, mbr->unique_signature);
-fail:
+mbr_fail:
   if (mbr)
     grub_free (mbr);
   if (disk)
@@ -165,17 +159,13 @@ bcd_patch_gpt_offset (grub_uint8_t *diskguid, grub_uint8_t *partguid)
                                    0x53, 0xb7, 0x53, 0xb7 };
   const char default_disk[] = { 0x53, 0xb7, 0x53, 0xb7 };
   const char default_part[] = { 0x00, 0x7e, 0x00, 0x00 };
-  grub_size_t offset;
   const char gpt_partmap[] = { 0x00 };
   /* partmap */
-  offset = replace_hex (bcd, bcd_len, default_partmap, 8, gpt_partmap, 1, 0);
-  print_hex (bcd, offset, "replace", 8, 1);
+  vfat_replace_hex (bcd, bcd_len, default_partmap, 8, gpt_partmap, 1, 0);
   /* disk guid */
-  offset = replace_hex (bcd, bcd_len, default_disk, 4, (char *)diskguid, 16, 0);
-  print_hex (bcd, offset, "replace", 16, 1);
+  vfat_replace_hex (bcd, bcd_len, default_disk, 4, (char *)diskguid, 16, 0);
   /* part guid */
-  offset = replace_hex (bcd, bcd_len, default_part, 4, (char *)partguid, 16, 0);
-  print_hex (bcd, offset, "replace", 16, 1);
+  vfat_replace_hex (bcd, bcd_len, default_part, 4, (char *)partguid, 16, 0);
 }
 
 static void
@@ -193,35 +183,35 @@ bcd_patch_gpt (const char *diskname, int partnum)
   if (!disk)
   {
     grub_printf ("failed to open %s\n", diskname);
-    goto fail;
+    goto gpt_fail;
   }
   gpt = grub_zalloc (GRUB_DISK_SECTOR_SIZE);
   if (!gpt)
   {
     grub_printf ("out of memory");
-    goto fail;
+    goto gpt_fail;
   }
   if (grub_disk_read (disk, 1, 0, GRUB_DISK_SECTOR_SIZE, gpt))
   {
     if (!grub_errno)
       grub_printf ("premature end of disk");
-    goto fail;
+    goto gpt_fail;
   }
-  guidcpy ((grub_packed_guid_t *)&diskguid, &gpt->guid);
+  grub_guidcpy ((grub_packed_guid_t *)&diskguid, &gpt->guid);
   gpt_entry_pos = gpt->partitions << GRUB_DISK_SECTOR_BITS;
   gpt_entry_size = gpt->partentry_size;
   gpt_entry = grub_zalloc (gpt_entry_size);
   if (!gpt_entry)
   {
     grub_printf ("out of memory");
-    goto fail;
+    goto gpt_fail;
   }
   grub_disk_read (disk, 0, gpt_entry_pos + partnum * gpt_entry_size,
                   gpt_entry_size, gpt_entry);
-  guidcpy ((grub_packed_guid_t *)&partguid, &gpt_entry->guid);
+  grub_guidcpy ((grub_packed_guid_t *)&partguid, &gpt_entry->guid);
   /* write */
   bcd_patch_gpt_offset (diskguid, partguid);
-fail:
+gpt_fail:
   if (gpt)
     grub_free (gpt);
   if (gpt_entry)
@@ -231,7 +221,7 @@ fail:
 }
 
 void
-bcd_patch (enum boot_type type, /* vhd or wim */
+ntboot_patch_bcd (enum boot_type type, /* vhd or wim */
            const char *path,    /* file path '/boot/boot.wim' */
            const char *diskname,/* disk name 'hd0' */
            grub_disk_addr_t lba,/* starting_lba */

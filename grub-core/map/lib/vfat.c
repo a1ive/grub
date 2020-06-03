@@ -21,9 +21,8 @@
 #include <string.h>
 #include <stdio.h>
 #include <assert.h>
-#include <maplib.h>
-#include <private.h>
 #include <vfat.h>
+#include <misc.h>
 
 #if __GNUC__ >= 9
 #pragma GCC diagnostic push
@@ -647,7 +646,7 @@ vfat_add_file (const char *name, void *opaque, size_t len,
   struct vfat_file *file;
   /* Sanity check */
   if (index >= VDISK_MAX_FILES)
-    die ("Too many files\n");
+    grub_pause_fatal ("Too many files\n");
   /* Store file */
   file = &vfat_files[index++];
   snprintf (file->name, sizeof (file->name), "%s", name);

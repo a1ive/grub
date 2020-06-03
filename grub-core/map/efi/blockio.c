@@ -18,9 +18,14 @@
  */
 
 #include <grub/efi/api.h>
-#include <private.h>
-#include <maplib.h>
+#include <grub/efi/efi.h>
+#include <grub/efi/disk.h>
+
 #include <vfat.h>
+#include <misc.h>
+#include <stddef.h>
+
+#define VDISK_BLOCKIO_TO_PARENT(a) CR(a, grub_efivdisk_t, block_io)
 
 static grub_efi_status_t EFIAPI
 blockio_reset (block_io_protocol_t *this __unused,
@@ -33,7 +38,7 @@ static grub_efi_status_t EFIAPI
 blockio_read (block_io_protocol_t *this, grub_efi_uint32_t media_id,
               grub_efi_lba_t lba, grub_efi_uintn_t len, void *buf)
 {
-  vdisk_t *data;
+  grub_efivdisk_t *data;
   grub_efi_uintn_t block_num;
 
   if (!buf)
@@ -45,9 +50,9 @@ blockio_read (block_io_protocol_t *this, grub_efi_uint32_t media_id,
   data = VDISK_BLOCKIO_TO_PARENT(this);
 
   /* wimboot */
-  if (data->type == VFAT)
+  if (data->media.media_id == VDISK_MBR_SIGNATURE)
   {
-    vfat_read ((lba + data->lba), (len / VDISK_SECTOR_SIZE), buf);
+    vfat_read ((lba + data->addr), (len / VDISK_SECTOR_SIZE), buf);
     return GRUB_EFI_SUCCESS;
   }
 
@@ -65,16 +70,8 @@ blockio_read (block_io_protocol_t *this, grub_efi_uint32_t media_id,
   if ((lba + block_num - 1) > data->media.last_block)
     return GRUB_EFI_INVALID_PARAMETER;
 
-  if(data->mem)
-  {
-    grub_memcpy (buf, (void *)(grub_efi_uintn_t)
-             (data->addr + lba * data->media.block_size), len);
-  }
-  else
-  {
-    file_read (data->disk, data->file, buf, len,
-               data->addr + lba * data->media.block_size);
-  }
+  file_read (data->file, buf, len, data->addr + lba * data->media.block_size);
+
   return GRUB_EFI_SUCCESS;
 }
 
@@ -84,7 +81,7 @@ blockio_write (block_io_protocol_t *this,
                grub_efi_lba_t lba,
                grub_efi_uintn_t len, void *buf)
 {
-  vdisk_t *data;
+  grub_efivdisk_t *data;
   grub_efi_uintn_t block_num;
 
   if (!buf)
@@ -96,7 +93,7 @@ blockio_write (block_io_protocol_t *this,
   data = VDISK_BLOCKIO_TO_PARENT(this);
 
   /* wimboot */
-  if (data->type == VFAT || data->media.read_only)
+  if (data->media.media_id == VDISK_MBR_SIGNATURE || data->media.read_only)
     return GRUB_EFI_WRITE_PROTECTED;
 
   if (media_id != data->media.media_id)
@@ -113,11 +110,7 @@ blockio_write (block_io_protocol_t *this,
   if ((lba + block_num - 1) > data->media.last_block)
     return GRUB_EFI_INVALID_PARAMETER;
 
-  if(data->mem)
-    grub_memcpy ((void *)(grub_efi_uintn_t)
-                 (data->addr + lba * data->media.block_size), buf, len);
-  else
-    return GRUB_EFI_WRITE_PROTECTED;
+  file_write (data->file, buf, len, data->addr + lba * data->media.block_size);
 
   return GRUB_EFI_SUCCESS;
 }

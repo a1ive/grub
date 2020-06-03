@@ -1,6 +1,6 @@
  /*
  *  GRUB  --  GRand Unified Bootloader
- *  Copyright (C) 2019  Free Software Foundation, Inc.
+ *  Copyright (C) 2019,2020  Free Software Foundation, Inc.
  *
  *  GRUB is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -29,30 +29,10 @@
 #include <grub/types.h>
 #include <grub/term.h>
 
-#include <maplib.h>
-#include <private.h>
-#include <efiapi.h>
-#include <wimboot.h>
 #include <vfat.h>
+#include <misc.h>
 
-void
-print_vfat_help (void)
-{
-  grub_printf ("\nvfat -- Virtual FAT Disk\n");
-  grub_printf ("vfat --create\n");
-  grub_printf ("    mount virtual disk to (vfat)\n");
-  grub_printf ("vfat [--mem] --add=XXX YYY\n");
-  grub_printf ("    Add file \"YYY\" to disk, file name is \"XXX\"\n");
-  grub_printf ("vfat --install\n");
-  grub_printf ("    Install block_io protocol for virtual disk\n");
-  grub_printf ("vfat --boot\n");
-  grub_printf ("    Boot bootmgfw.efi from virtual disk\n");
-  grub_printf ("vfat --ls\n");
-  grub_printf ("    List all files in virtual disk\n");
-  grub_printf ("vfat --patch=FILE --offset=n STRING\n");
-  grub_printf ("vfat --patch=FILE --search=STRING [--count=n] STRING\n");
-  grub_printf ("    Patch files in vdisk\n");
-}
+struct grub_vfatdisk_file *vfat_file_list;
 
 static int
 grub_vfatdisk_iterate (grub_disk_dev_iterate_hook_t hook, void *hook_data,
@@ -111,7 +91,26 @@ static struct grub_disk_dev grub_vfatdisk_dev =
 };
 
 void
-create_vfat (void)
+vfat_help (void)
+{
+  grub_printf ("\nvfat -- Virtual FAT Disk\n");
+  grub_printf ("vfat --create\n");
+  grub_printf ("    mount virtual disk to (vfat)\n");
+  grub_printf ("vfat [--mem] --add=XXX YYY\n");
+  grub_printf ("    Add file \"YYY\" to disk, file name is \"XXX\"\n");
+  grub_printf ("vfat --install\n");
+  grub_printf ("    Install block_io protocol for virtual disk\n");
+  grub_printf ("vfat --boot\n");
+  grub_printf ("    Boot bootmgfw.efi from virtual disk\n");
+  grub_printf ("vfat --ls\n");
+  grub_printf ("    List all files in virtual disk\n");
+  grub_printf ("vfat --patch=FILE --offset=n STRING\n");
+  grub_printf ("vfat --patch=FILE --search=STRING [--count=n] STRING\n");
+  grub_printf ("    Patch files in vdisk\n");
+}
+
+void
+vfat_create (void)
 {
   grub_disk_dev_t dev;
   for (dev = grub_disk_dev_list; dev; dev = dev->next)
@@ -126,50 +125,18 @@ create_vfat (void)
 }
 
 void
-ls_vfat (void)
+vfat_ls (void)
 {
   int i = 1;
   struct grub_vfatdisk_file *f = NULL;
   for (f = vfat_file_list; f; f = f->next, i++)
   {
-    grub_printf ("[%d] %s ", i, f->name);
-    if (f->addr)
-      grub_printf ("(mem)%p+%ld\n", f->addr, (unsigned long)f->file->size);
-    else
-      grub_printf ("%s,%ld\n", f->file->name, (unsigned long)f->file->size);
+    grub_printf ("[%d] %s %s", i, f->name, f->file->name);
   }
-}
-
-void
-print_hex (char *addr, grub_size_t offset,
-           const char *prefix, grub_size_t len, int hex)
-{
-  grub_size_t i, j;
-  char *p;
-  p = addr + offset;
-  grub_printf ("0x%04lx %s:\n", (unsigned long)offset, prefix);
-  for (i = 0, j = 0; i < len; i++, j++, p++)
-  {
-    if (j == 64)
-    {
-      grub_printf ("\n");
-      j = 0;
-    }
-    if (hex)
-      grub_printf (" %02x", *p);
-    else
-    {
-      if (*p > 0x19 && *p < 0x7f)
-        grub_printf ("%c", *p);
-      else
-        grub_printf (".");
-    }
-  }
-  grub_printf ("\n");
 }
 
 grub_size_t
-replace_hex (char *addr, grub_size_t addr_len,
+vfat_replace_hex (char *addr, grub_size_t addr_len,
              const char *search, grub_size_t search_len,
              const char *replace, grub_size_t replace_len, int count)
 {
@@ -180,15 +147,12 @@ replace_hex (char *addr, grub_size_t addr_len,
     if (grub_memcmp (addr + offset, search, search_len) == 0)
     {
       last = offset;
-      grub_printf (" 0x%04x", (unsigned) offset);
       cnt++;
       grub_memcpy (addr + offset, replace, replace_len);
       if (count && cnt == count)
         break;
     }
   }
-  if (cnt)
-    grub_printf ("\n");
   return last;
 }
 
@@ -248,9 +212,9 @@ get_vfat_file (const char *file, grub_size_t *size)
   struct grub_vfatdisk_file *f = NULL;
   for (f = vfat_file_list; f; f = f->next)
   {
-    if (f->addr && grub_strcmp (f->name, file) == 0)
+    if (grub_ismemfile (f->file->name) && grub_strcmp (f->name, file) == 0)
     {
-      addr = f->addr;
+      addr = f->file->data;
       if (size)
         *size = f->file->size;
       break;
@@ -287,7 +251,7 @@ process_str (const char *in, grub_size_t *len)
 }
 
 void
-patch_vfat_offset (const char *file, grub_size_t offset, const char *replace)
+vfat_patch_offset (const char *file, grub_size_t offset, const char *replace)
 {
   grub_size_t len;
   char *str = NULL;
@@ -298,12 +262,11 @@ patch_vfat_offset (const char *file, grub_size_t offset, const char *replace)
   if (!str)
     return;
   grub_memcpy (addr + offset, str, len);
-  print_hex (addr, offset, "replace", len, 1);
   grub_free (str);
 }
 
 void
-patch_vfat_search (const char *file, const char *search,
+vfat_patch_search (const char *file, const char *search,
                    const char *replace, int count)
 {
   grub_size_t search_len, replace_len;
@@ -315,7 +278,7 @@ patch_vfat_search (const char *file, const char *search,
     return;
   search_str = process_str (search, &search_len);
   replace_str = process_str (replace, &replace_len);
-  replace_hex (addr, size, search_str, search_len,
+  vfat_replace_hex (addr, size, search_str, search_len,
                replace_str, replace_len, count);
   if (search_str)
     grub_free (search_str);
@@ -324,36 +287,23 @@ patch_vfat_search (const char *file, const char *search,
 }
 
 void
-append_vfat_list (grub_file_t file, const char *file_name, void *addr, int mem)
+vfat_append_list (grub_file_t file, const char *file_name)
 {
   struct grub_vfatdisk_file *newfile = NULL;
   newfile = grub_malloc (sizeof (struct grub_vfatdisk_file));
   if (!newfile)
     goto err;
-  if (mem)
-  {
-    addr = grub_malloc (file->size);
-    if (!addr)
-      goto err;
-    grub_printf ("Loading %s ...\n", file->name);
-    grub_file_read (file, addr, file->size);
-    grub_printf ("Add: (mem)%p+%ld -> %s\n",
-                   addr, (unsigned long) file->size, file_name);
-  }
-  else
-    grub_printf ("Add: %s -> %s\n", file->name, file_name);
+
+  grub_printf ("Add: %s -> %s\n", file->name, file_name);
 
   newfile->name = grub_strdup (file_name);
   if (!newfile->name)
     goto err;
   newfile->file = file;
-  newfile->addr = addr;
   newfile->next = vfat_file_list;
   vfat_file_list = newfile;
   return;
 err:
   if (newfile)
     grub_free (newfile);
-  if (addr)
-    grub_free (addr);
 }

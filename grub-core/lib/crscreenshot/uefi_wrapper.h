@@ -26,18 +26,6 @@
 #include <grub/efi/sfs.h>
 #include <grub/efi/graphics_output.h>
 
-#if defined (__x86_64__)
-#if (defined(__GNUC__) && (__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 7)))||(defined(__clang__) && (__clang_major__ > 3 || (__clang_major__ == 3 && __clang_minor__ >= 2)))
-  #define EFIAPI __attribute__((ms_abi))
-#else
-  #error Compiler is too old for GNU_EFI_USE_MS_ABI
-#endif
-#endif
-
-#ifndef EFIAPI
-  #define EFIAPI
-#endif
-
 typedef grub_efi_boolean_t      BOOLEAN;
 typedef grub_efi_uintn_t        UINTN;
 typedef grub_efi_intn_t         INTN;

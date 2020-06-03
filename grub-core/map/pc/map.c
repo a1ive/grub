@@ -29,6 +29,8 @@
 #include <grub/memory.h>
 #include <grub/machine/memory.h>
 
+#include "drivemap.h"
+
 GRUB_MOD_LICENSE ("GPLv3+");
 
 /* Real mode IVT slot (seg:off far pointer) for interrupt 0x13.  */
@@ -203,8 +205,8 @@ list_mappings (void)
   return GRUB_ERR_NONE;
 }
 
-static grub_err_t
-grub_cmd_drivemap (struct grub_extcmd_context *ctxt, int argc, char **args)
+grub_err_t
+grub_pcbios_drivemap_cmd (struct grub_extcmd_context *ctxt, int argc, char **args)
 {
   if (ctxt->state[OPTIDX_LIST].set)
     {
@@ -405,11 +407,11 @@ grub_get_root_biosnumber_drivemap (void)
 static grub_extcmd_t cmd;
 static int (*grub_get_root_biosnumber_saved) (void);
 
-GRUB_MOD_INIT (drivemap)
+GRUB_MOD_INIT (map)
 {
   grub_get_root_biosnumber_saved = grub_get_root_biosnumber;
   grub_get_root_biosnumber = grub_get_root_biosnumber_drivemap;
-  cmd = grub_register_extcmd ("drivemap", grub_cmd_drivemap, 0,
+  cmd = grub_register_extcmd ("map", grub_pcbios_drivemap_cmd, 0,
 			      N_("-l | -r | [-s] grubdev osdisk."),
 			      N_("Manage the BIOS drive mappings."),
 			      options);
@@ -419,7 +421,7 @@ GRUB_MOD_INIT (drivemap)
 				       GRUB_LOADER_PREBOOT_HOOK_PRIO_NORMAL);
 }
 
-GRUB_MOD_FINI (drivemap)
+GRUB_MOD_FINI (map)
 {
   grub_get_root_biosnumber = grub_get_root_biosnumber_saved;
   grub_loader_unregister_preboot_hook (drivemap_hook);

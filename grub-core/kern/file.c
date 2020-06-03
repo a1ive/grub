@@ -60,7 +60,7 @@ grub_file_get_device_name (const char *name)
 #define GRUB_MEMFILE_MEM     "mem:"
 #define GRUB_MEMFILE_SIZE    "size:"
 /* mem:xxx:size:xxx */
-static int grub_ismemfile (const char *name)
+int grub_ismemfile (const char *name)
 {
   if (grub_strncmp (name, GRUB_MEMFILE_MEM, grub_strlen(GRUB_MEMFILE_MEM)) != 0)
     return 0;

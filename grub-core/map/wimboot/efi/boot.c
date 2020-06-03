@@ -1,39 +1,38 @@
-/*
- * Copyright (C) 2014 Michael Brown <mbrown@fensystems.co.uk>.
+ /*
+ *  GRUB  --  GRand Unified Bootloader
+ *  Copyright (C) 2019,2020  Free Software Foundation, Inc.
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License as
- * published by the Free Software Foundation; either version 2 of the
- * License, or (at your option) any later version.
+ *  GRUB is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
  *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
+ *  GRUB is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
- * 02110-1301, USA.
- */
-
-/**
- * @file
- *
- * EFI boot manager invocation
+ *  You should have received a copy of the GNU General Public License
+ *  along with GRUB.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
 
+#include <grub/misc.h>
 #include <grub/efi/api.h>
 #include <grub/efi/efi.h>
+#include <grub/efi/disk.h>
 #include <grub/efi/graphics_output.h>
 #include <grub/script_sh.h>
+
+#include <stddef.h>
+#include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include <guid.h>
+#include <misc.h>
 #include <vfat.h>
-#include <efiapi.h>
 #include <wimboot.h>
-#include <maplib.h>
 
 typedef grub_efi_status_t
 (EFIAPI *open_protocol) (grub_efi_handle_t handle,
@@ -79,7 +78,7 @@ efi_open_protocol_wrapper (grub_efi_handle_t handle,
 }
 
 void
-wimboot_boot (struct vfat_file *file)
+grub_wimboot_boot (struct vfat_file *file, struct wimboot_cmdline *cmd)
 {
   grub_efi_boot_services_t *b;
   b = grub_efi_system_table->boot_services;
@@ -97,7 +96,7 @@ wimboot_boot (struct vfat_file *file)
                        GRUB_EFI_BOOT_SERVICES_DATA, pages, &phys);
   if (status != GRUB_EFI_SUCCESS)
   {
-    die ("Could not allocate %d pages: 0x%lx\n", pages, ((unsigned long) status));
+    grub_pause_fatal ("Could not allocate %d pages\n", pages);
   }
   data = ((void *)(intptr_t) phys);
 
@@ -118,14 +117,14 @@ wimboot_boot (struct vfat_file *file)
     free (path);
   if (status != GRUB_EFI_SUCCESS)
   {
-    die ("Could not load %s: 0x%lx\n", file->name, ((unsigned long) status));
+    grub_pause_fatal ("Could not load %s\n", file->name);
   }
   printf ("Loaded %s\n", file->name);
 
   /* Get loaded image protocol */
   loaded = grub_efi_get_loaded_image (handle);
   if (! loaded)
-    die ("no loaded image available");
+    grub_pause_fatal ("no loaded image available");
   /* Force correct device handle */
   if (loaded->device_handle != wimboot_part.handle)
     loaded->device_handle = wimboot_part.handle;
@@ -135,13 +134,14 @@ wimboot_boot (struct vfat_file *file)
   *(open_protocol *)&loaded->system_table->boot_services->open_protocol =
           efi_open_protocol_wrapper;
   /* Start image */
-  if (wimboot_cmd.pause)
-    pause();
+  if (cmd->pause)
+    grub_pause_boot ();
   grub_script_execute_sourcecode ("terminal_output console");
+  grub_printf ("Booting VFAT ...\n");
   status = efi_call_3 (b->start_image, handle, NULL, NULL);
   if (status != GRUB_EFI_SUCCESS)
   {
-    die ("Could not start %s: 0x%lx\n", file->name, ((unsigned long) status));
+    grub_pause_fatal ("Could not start %s\n", file->name);
   }
-  die ("%s returned\n", file->name);
+  grub_pause_fatal ("%s returned\n", file->name);
 }

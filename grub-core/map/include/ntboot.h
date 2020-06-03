@@ -33,7 +33,7 @@ enum boot_type
 };
 
 void
-bcd_patch (enum boot_type type, const char *path, const char *diskname,
+ntboot_patch_bcd (enum boot_type type, const char *path, const char *diskname,
            grub_disk_addr_t lba, int partnum, const char *partmap);
 
 #endif
