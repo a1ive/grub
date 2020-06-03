@@ -28,10 +28,11 @@
  *
  */
 
+#include <grub/types.h>
+
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
-#include <byteswap.h>
 #include <assert.h>
 #include <rotate.h>
 #include <sha1.h>
@@ -117,11 +118,11 @@ static struct sha1_step sha1_steps[4] = {
 void sha1_init ( void *ctx ) {
 	struct sha1_context *context = ctx;
 
-	context->ddd.dd.digest.h[0] = cpu_to_be32 ( 0x67452301 );
-	context->ddd.dd.digest.h[1] = cpu_to_be32 ( 0xefcdab89 );
-	context->ddd.dd.digest.h[2] = cpu_to_be32 ( 0x98badcfe );
-	context->ddd.dd.digest.h[3] = cpu_to_be32 ( 0x10325476 );
-	context->ddd.dd.digest.h[4] = cpu_to_be32 ( 0xc3d2e1f0 );
+	context->ddd.dd.digest.h[0] = grub_cpu_to_be32 ( 0x67452301 );
+	context->ddd.dd.digest.h[1] = grub_cpu_to_be32 ( 0xefcdab89 );
+	context->ddd.dd.digest.h[2] = grub_cpu_to_be32 ( 0x98badcfe );
+	context->ddd.dd.digest.h[3] = grub_cpu_to_be32 ( 0x10325476 );
+	context->ddd.dd.digest.h[4] = grub_cpu_to_be32 ( 0xc3d2e1f0 );
 	context->len = 0;
 }
 
@@ -152,7 +153,7 @@ static void sha1_digest ( struct sha1_context *context ) {
 	 */
 	for ( i = 0 ; i < ( sizeof ( u.ddd.dword ) /
 			    sizeof ( u.ddd.dword[0] ) ) ; i++ ) {
-		be32_to_cpus ( &context->ddd.dword[i] );
+		context->ddd.dword[i] = grub_be_to_cpu32 ( context->ddd.dword[i] );
 		u.ddd.dword[i] = context->ddd.dword[i];
 	}
 
@@ -176,7 +177,7 @@ static void sha1_digest ( struct sha1_context *context ) {
 	/* Add chunk to hash and convert back to big-endian */
 	for ( i = 0 ; i < 5 ; i++ ) {
 		context->ddd.dd.digest.h[i] =
-			cpu_to_be32 ( context->ddd.dd.digest.h[i] +
+			grub_cpu_to_be32 ( context->ddd.dd.digest.h[i] +
 				      u.ddd.dd.digest.h[i] );
 	}
 }
@@ -217,7 +218,7 @@ void sha1_final ( void *ctx, void *out ) {
 	uint8_t pad;
 
 	/* Record length before pre-processing */
-	len_bits = cpu_to_be64 ( ( ( uint64_t ) context->len ) * 8 );
+	len_bits = grub_cpu_to_be64 ( ( ( uint64_t ) context->len ) * 8 );
 
 	/* Pad with a single "1" bit followed by as many "0" bits as required */
 	pad = 0x80;

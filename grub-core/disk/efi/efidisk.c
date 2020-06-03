@@ -34,6 +34,8 @@ static struct grub_efidisk_data *fd_devices;
 static struct grub_efidisk_data *hd_devices;
 static struct grub_efidisk_data *cd_devices;
 
+struct grub_efivdisk_data *grub_efivdisk_list;
+
 static struct grub_efidisk_data *
 make_devices (void)
 {
@@ -659,12 +661,29 @@ grub_efidisk_get_device_handle (grub_disk_t disk)
 {
   struct grub_efidisk_data *d;
   char type;
+  struct grub_efidisk_data dummy_data;
 
-  if (disk->dev->id != GRUB_DISK_DEVICE_EFIDISK_ID)
+  if (disk->dev->id == GRUB_DISK_DEVICE_EFIDISK_ID)
+  {
+    d = disk->data;
+    type = disk->name[0];
+  }
+  else if (grub_strcmp (disk->dev->name, "efivdisk") == 0)
+  {
+    struct grub_efivdisk_data *v = disk->data;
+    d = &dummy_data;
+    dummy_data.handle = v->vdisk.handle;
+    dummy_data.device_path = v->vdisk.dp;
+    dummy_data.block_io = (grub_efi_block_io_t *)&v->vdisk.block_io;
+    if (v->type == CD)
+      type = 'c';
+    else if (v->type == FD)
+      type = 'f';
+    else
+      type = 'h';
+  }
+  else
     return 0;
-
-  d = disk->data;
-  type = disk->name[0];
 
   switch (type)
     {

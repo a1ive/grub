@@ -1,6 +1,6 @@
  /*
  *  GRUB  --  GRand Unified Bootloader
- *  Copyright (C) 2019  Free Software Foundation, Inc.
+ *  Copyright (C) 2019,2020  Free Software Foundation, Inc.
  *
  *  GRUB is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -17,37 +17,17 @@
  *
  */
 
-#ifndef _MAPLIB_H
-#define _MAPLIB_H
+#ifndef GRUB_MAPLIB_GUID_H
+#define GRUB_MAPLIB_GUID_H
 
-#include <grub/misc.h>
-#include <grub/mm.h>
-#include <grub/term.h>
 #include <grub/types.h>
-#include <grub/gpt_partition.h>
-#include <grub/efi/api.h>
 
-#include <stdint.h>
+void grub_guidgen (grub_packed_guid_t *guid);
 
-wchar_t *wstrstr
-(const wchar_t *str, const wchar_t *search_str);
+int
+grub_guidcmp (const grub_packed_guid_t *g1, const grub_packed_guid_t *g2);
 
-grub_efi_boolean_t
-guidcmp (const grub_packed_guid_t *g1, const grub_packed_guid_t *g2);
 grub_packed_guid_t *
-guidcpy (grub_packed_guid_t *dst, const grub_packed_guid_t *src);
-
-void pause (void);
-
-static inline void die (const char *fmt, ...)
-{
-  va_list args;
-  /* Print message */
-  va_start (args, fmt);
-  grub_vprintf (fmt, args);
-  va_end (args);
-  grub_getkey ();
-  grub_fatal ("Exit.\n");
-}
+grub_guidcpy (grub_packed_guid_t *dst, const grub_packed_guid_t *src);
 
 #endif

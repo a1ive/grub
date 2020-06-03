@@ -1,5 +1,5 @@
-#ifndef _VDISK_H
-#define _VDISK_H
+#ifndef GRUB_MAPLIB_VDISK_H
+#define GRUB_MAPLIB_VDISK_H
 
 /*
  * Copyright (C) 2012 Michael Brown <mbrown@fensystems.co.uk>.
@@ -20,6 +20,8 @@
  * 02110-1301, USA.
  */
 
+#include <grub/misc.h>
+#include <grub/file.h>
 #include <stdint.h>
 
 /** Number of cylinders */
@@ -611,15 +613,39 @@ struct vfat_file
 
 extern struct vfat_file vfat_files[VDISK_MAX_FILES];
 
-extern void vfat_read (uint64_t lba, unsigned int count, void *data);
-extern struct vfat_file *
+void vfat_read (uint64_t lba, unsigned int count, void *data);
+struct vfat_file *
 vfat_add_file (const char *name, void *opaque, size_t len,
      void (* read) (struct vfat_file *file, void *data,
            size_t offset, size_t len));
 
-extern void
+void
 vfat_patch_file (struct vfat_file *file,
        void (* patch) (struct vfat_file *file, void *data,
               size_t offset, size_t len));
+
+/* vfat_grub */
+struct grub_vfatdisk_file
+{
+  const char *name;
+  grub_file_t file;
+  struct grub_vfatdisk_file *next;
+};
+extern struct grub_vfatdisk_file *vfat_file_list;
+
+void vfat_help (void);
+void vfat_create (void);
+void vfat_ls (void);
+grub_size_t
+vfat_replace_hex (char *addr, grub_size_t addr_len,
+                  const char *search, grub_size_t search_len,
+                  const char *replace, grub_size_t replace_len, int count);
+void
+vfat_patch_offset (const char *file, grub_size_t offset, const char *replace);
+void
+vfat_patch_search (const char *file, const char *search,
+                   const char *replace, int count);
+void
+vfat_append_list (grub_file_t file, const char *file_name);
 
 #endif /* _VDISK_H */

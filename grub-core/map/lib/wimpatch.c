@@ -33,6 +33,7 @@
 #include <wim.h>
 #include <wimpatch.h>
 #include <wimboot.h>
+#include <misc.h>
 
 #if __GNUC__ >= 9
 #pragma GCC diagnostic push
@@ -523,9 +524,6 @@ static int wim_patch_region ( struct wim_patch *patch,
   /* Patch this region */
   if ( ( rc = region->patch ( patch, region, data, offset, len ) ) != 0 )
     return rc;
-  DBG2 ( "...patched WIM %s at [0x%x,0x%x)\n", region->name,
-         (uint32_t)(region->offset + offset),
-         (uint32_t)(region->offset + offset + len));
 
   return 0;
 }
@@ -774,7 +772,7 @@ void patch_wim ( struct vfat_file *file, void *data, size_t offset,
   if ( file != patch->file ) {
     if ( ( rc = wim_construct_patch ( file, boot_index, inject,
               patch ) ) != 0 ) {
-      die ( "Could not patch WIM %s\n", file->name );
+      grub_pause_fatal ( "Could not patch WIM %s\n", file->name );
     }
   }
   patch = &cached_patch;
@@ -785,7 +783,7 @@ void patch_wim ( struct vfat_file *file, void *data, size_t offset,
     region = &patch->regions.region[i];
     if ( ( rc = wim_patch_region ( patch, region, data, offset,
                  len ) ) != 0 ) {
-      die ( "Could not patch WIM %s %s at [0x%lx,0x%lx)\n",
+      grub_pause_fatal ( "Could not patch WIM %s %s at [0x%lx,0x%lx)\n",
             file->name, region->name, offset,
             ( offset + len ) );
     }

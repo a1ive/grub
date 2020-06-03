@@ -57,6 +57,18 @@
   #error Unknown Processor Type
 #endif
 
+#if defined (__x86_64__)
+#if (defined(__GNUC__) && (__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 7)))||(defined(__clang__) && (__clang_major__ > 3 || (__clang_major__ == 3 && __clang_minor__ >= 2)))
+  #define EFIAPI __attribute__((ms_abi))
+#else
+  #error Compiler is too old for GNU_EFI_USE_MS_ABI
+#endif
+#endif
+
+#ifndef EFIAPI
+  #define EFIAPI  // Substitute expresion to force C calling convention 
+#endif
+
 /* Functions.  */
 void *EXPORT_FUNC(grub_efi_locate_protocol) (grub_efi_guid_t *protocol,
 					     void *registration);
@@ -182,32 +194,30 @@ grub_efi_handle_t
 grub_efinet_get_device_handle (struct grub_net_card *card);
 
 /* dp */
-char *grub_efi_device_path_to_str (grub_efi_device_path_t *dp);
+char *EXPORT_FUNC (grub_efi_device_path_to_str) (grub_efi_device_path_t *dp);
 grub_efi_uintn_t
-grub_efi_get_dp_size (const grub_efi_device_path_protocol_t *dp);
+EXPORT_FUNC (grub_efi_get_dp_size) (const grub_efi_device_path_protocol_t *dp);
 
-grub_efi_device_path_protocol_t*
-grub_efi_create_device_node (grub_efi_uint8_t node_type,
-                             grub_efi_uintn_t node_subtype,
-                             grub_efi_uint16_t node_length);
+grub_efi_device_path_protocol_t *EXPORT_FUNC (grub_efi_create_device_node)
+    (grub_efi_uint8_t node_type, grub_efi_uintn_t node_subtype,
+     grub_efi_uint16_t node_length);
 
-grub_efi_device_path_protocol_t*
-grub_efi_append_device_path (const grub_efi_device_path_protocol_t *dp1,
-                             const grub_efi_device_path_protocol_t *dp2);
+grub_efi_device_path_protocol_t *EXPORT_FUNC (grub_efi_append_device_path)
+    (const grub_efi_device_path_protocol_t *dp1,
+     const grub_efi_device_path_protocol_t *dp2);
 
-grub_efi_device_path_protocol_t*
-grub_efi_append_device_node (const grub_efi_device_path_protocol_t *device_path,
-                             const grub_efi_device_path_protocol_t *device_node);
+grub_efi_device_path_protocol_t *EXPORT_FUNC (grub_efi_append_device_node)
+    (const grub_efi_device_path_protocol_t *device_path,
+     const grub_efi_device_path_protocol_t *device_node);
 
-#if defined (__i386__) || defined (__x86_64__)
-void
-grub_efi_get_eltorito (grub_disk_t disk, grub_efi_uintn_t *part_addr,
-                       grub_efi_uint64_t *part_size);
+int EXPORT_FUNC (grub_efi_is_child_dp)
+    (const grub_efi_device_path_t *child, const grub_efi_device_path_t *parent);
 
-grub_efi_device_path_t *
-grub_efi_eltorito_fix (const grub_efi_device_path_t *dp,
-                       grub_efi_uintn_t addr, grub_efi_uint64_t size);
-#endif
+grub_efi_handle_t
+grub_efi_bootpart (grub_efi_device_path_t *dp, const char *filename);
+
+grub_efi_handle_t
+grub_efi_bootdisk (grub_efi_device_path_t *dp, const char *filename);
 
 int grub_efi_fucksb_status (void);
 void grub_efi_fucksb_install (int hook);

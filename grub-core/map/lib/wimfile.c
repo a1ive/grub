@@ -31,6 +31,7 @@
 #include <wim.h>
 #include <wimfile.h>
 #include <wimboot.h>
+#include <misc.h>
 
 /** A WIM virtual file */
 struct wim_file {
@@ -64,7 +65,7 @@ static void wim_read_file ( struct vfat_file *file, void *data,
   /* Read from resource */
   if ( ( rc = wim_read ( wfile->file, &wfile->header, &wfile->resource,
              data, offset, len ) ) != 0 ) {
-    die ( "Could not read from WIM virtual file\n" );
+    grub_pause_fatal ( "Could not read from WIM virtual file\n" );
   }
 }
 
@@ -87,7 +88,7 @@ struct vfat_file * wim_add_file ( struct vfat_file *file, unsigned int index,
 
   /* Sanity check */
   if ( wim_file_idx >= WIM_MAX_FILES )
-    die ( "Too many WIM files\n" );
+    grub_pause_fatal ( "Too many WIM files\n" );
   wfile = &wim_files[wim_file_idx];
 
   /* Get WIM header */

@@ -32,25 +32,13 @@
 
 GRUB_MOD_LICENSE ("GPLv3+");
 
-#if defined (__x86_64__)
-#if (defined(__GNUC__) && (__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 7)))||(defined(__clang__) && (__clang_major__ > 3 || (__clang_major__ == 3 && __clang_minor__ >= 2)))
-  #define EFIAPI __attribute__((ms_abi))
-#else
-  #error Compiler is too old for GNU_EFI_USE_MS_ABI
-#endif
-#endif
-
-#ifndef EFIAPI
-  #define EFIAPI  // Substitute expresion to force C calling convention 
-#endif
-
 static const struct grub_arg_option options[] =
-  {
-    {"install", 'i', 0, N_("Install override security policy"), 0, 0},
-    {"uninstall", 'u', 0, N_("Uninstall security policy"), 0, 0},
-    {"status", 's', 0, N_("Display security policy status"), 0, 0},
-    {0, 0, 0, 0, 0, 0}
-  };
+{
+  {"install", 'i', 0, N_("Install override security policy"), 0, 0},
+  {"uninstall", 'u', 0, N_("Uninstall security policy"), 0, 0},
+  {"status", 's', 0, N_("Display security policy status"), 0, 0},
+  {0, 0, 0, 0, 0, 0}
+};
 
 struct grub_efi_security2_protocol;
 

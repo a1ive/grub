@@ -902,14 +902,6 @@ module = {
 };
 
 module = {
-  name = drivemap;
-
-  i386_pc = commands/i386/pc/drivemap.c;
-  i386_pc = commands/i386/pc/drivemap_int13h.S;
-  enable = i386_pc;
-};
-
-module = {
   name = dd;
   common = commands/dd.c;
 };
@@ -2815,51 +2807,59 @@ module = {
 
 module = {
   name = map;
-  common = map/map.c;
-  common = map/lib/maplib.c;
-  common = map/lib/vblock.c;
-  common = map/lib/vdisk.c;
-  common = map/lib/vpart.c;
-  common = map/lib/vboot.c;
+  efi = map/efi/map.c;
+  common = map/lib/guid.c;
+  common = map/lib/misc.c;
   common = map/lib/vfat.c;
+  common = map/lib/vfat_grub.c;
+  common = map/lib/sha1.c;
+  common = map/lib/huffman.c;
+  common = map/lib/lzx.c;
+  efi = map/efi/blockio.c;
+  efi = map/efi/vdisk.c;
+  efi = map/efi/vpart.c;
+
+  i386_pc = map/pc/map.c;
+  i386_pc = map/pc/drivemap_int13h.S;
 
   cflags = '-Wno-strict-aliasing -fshort-wchar';
-  cppflags = '-I$(srcdir)/map/include -I$(srcdir)/map/posix';
-  enable = x86_64_efi;
-  enable = i386_efi;
+  cppflags = '-I$(srcdir)/map/include';
+  enable = efi;
+  enable = i386_pc;
+};
+
+module = {
+  name = drivemap;
+  i386_pc = map/pc/drivemap.c;
+  enable = i386_pc;
 };
 
 module = {
   name = wimboot;
-  common = map/wim/huffman.c;
-  common = map/wim/lzx.c;
-  common = map/wim/sha1.c;
-  efi = map/wim/wim.c;
-  efi = map/wim/wimfile.c;
-  efi = map/wim/wimpatch.c;
-  efi = map/wimboot/efimain.c;
-  efi = map/wimboot/efiboot.c;
-  efi = map/wimboot/efifile.c;
-  efi = map/wimboot/efiinstall.c;
-  efi = map/wimboot/efivfat.c;
+  efi = map/wimboot/efi/boot.c;
+  efi = map/wimboot/efi/install.c;
+  common = map/lib/wim.c;
+  common = map/lib/wimfile.c;
+  common = map/lib/wimpatch.c;
+  common = map/wimboot/init.c;
+  common = map/wimboot/wimboot.c;
 
-  cflags = '-Wno-strict-aliasing -Wno-vla -fshort-wchar';
-  cppflags = '-I$(srcdir)/map/include -I$(srcdir)/map/posix -I$(srcdir)/map/wim';
-  enable = x86_64_efi;
-  enable = i386_efi;
+  cflags = '-Wno-strict-aliasing -fshort-wchar -Wno-vla';
+  cppflags = '-I$(srcdir)/map/include';
+  enable = efi;
   enable = i386_pc;
 };
 
 module = {
   name = ntboot;
-  common = map/ntboot/ntboot.c;
+  efi = map/ntboot/efi/bcd.c;
   common = map/ntboot/patch.c;
-  common = map/ntboot/bcd.c;
+  common = map/ntboot/ntboot.c;
 
   cflags = '-Wno-strict-aliasing -fshort-wchar';
-  cppflags = '-I$(srcdir)/map/include -I$(srcdir)/map/posix';
-  enable = x86_64_efi;
+  cppflags = '-I$(srcdir)/map/include';
   enable = i386_efi;
+  enable = x86_64_efi;
 };
 
 module = {
@@ -2984,16 +2984,4 @@ module = {
 module = {
   name = setkey;
   common = term/setkey.c;
-};
-
-module = {
-  name = ventoy;
-  common = ventoy/vt.c;
-  common = ventoy/ventoy.c;
-  common = ventoy/ventoy_linux.c;
-  common = ventoy/ventoy_windows.c;
-  common = ventoy/ventoy_wrap.c;
-  enable = x86_64_efi;
-  enable = i386_efi;
-  enable = i386_pc;
 };

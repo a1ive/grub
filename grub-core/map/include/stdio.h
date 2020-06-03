@@ -68,19 +68,4 @@ sprintf (char *str, const char *fmt, ...)
   return ret;
 }
 
-#define DEBUG 1
-
-/* Debugging output */
-#define DBG(...) do {            \
-    grub_dprintf ("wimboot", __VA_ARGS__ ); \
-    grub_refresh ();              \
-} while ( 0 )
-
-#define DBG2(...) do {      \
-  if ( DEBUG & 2 ) {       \
-    grub_dprintf ("wimboot", __VA_ARGS__ );\
-    grub_refresh ();        \
-  }                        \
-} while ( 0 )
-
 #endif

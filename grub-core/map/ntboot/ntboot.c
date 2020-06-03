@@ -18,8 +18,6 @@
  */
 
 #include <grub/dl.h>
-#include <grub/efi/api.h>
-#include <grub/efi/efi.h>
 #include <grub/device.h>
 #include <grub/err.h>
 #include <grub/env.h>
@@ -30,11 +28,11 @@
 #include <grub/mm.h>
 #include <grub/types.h>
 #include <grub/term.h>
+#include <grub/partition.h>
 
-#include <maplib.h>
-#include <private.h>
-#include <efiapi.h>
+#include <misc.h>
 #include <wimboot.h>
+#include <ntboot.h>
 #include <vfat.h>
 
 #include "ntboot.h"
@@ -74,6 +72,8 @@ grub_cmd_ntboot (grub_extcmd_context_t ctxt,
   char *filename = NULL;
   enum boot_type type;
   grub_disk_t disk = 0;
+  grub_file_t bcd_file = 0;
+  char bcd_name[64];
 
   if (argc != 1)
   {
@@ -81,23 +81,27 @@ grub_cmd_ntboot (grub_extcmd_context_t ctxt,
     goto fail;
   }
 
-  wimboot_cmd.rawbcd = TRUE;
+  wimboot_cmd.rawbcd = 1;
+  wimboot_cmd.rawwim = 1;
   if (state[NTBOOT_GUI].set)
-    wimboot_cmd.gui = TRUE;
+    wimboot_cmd.gui = 1;
   if (state[NTBOOT_PAUSE].set)
-    wimboot_cmd.pause = TRUE;
+    wimboot_cmd.pause = 1;
   if (state[NTBOOT_EFI].set)
-    bootmgr = grub_file_open (state[NTBOOT_EFI].arg,
-                              GRUB_FILE_TYPE_EFI_CHAINLOADED_IMAGE);
+    bootmgr = grub_file_open (state[NTBOOT_EFI].arg, GRUB_FILE_TYPE_GET_SIZE);
   else
     bootmgr = grub_file_open ("/efi/microsoft/boot/bootmgfw.efi",
-                              GRUB_FILE_TYPE_EFI_CHAINLOADED_IMAGE);
+                              GRUB_FILE_TYPE_GET_SIZE);
   if (!bootmgr)
   {
     grub_error (GRUB_ERR_FILE_READ_ERROR, N_("failed to open bootmgfw.efi"));
     goto fail;
   }
-  add_file ("bootmgfw.efi", bootmgr, bootmgr->size, efi_read_file);
+  file_add ("bootmgfw.efi", bootmgr, &wimboot_cmd);
+
+  grub_snprintf (bcd_name, 64, "mem:%p:size:%u", &bcd, bcd_len);
+  bcd_file = grub_file_open (bcd_name, GRUB_FILE_TYPE_GET_SIZE);
+  file_add ("bcd", bcd_file, &wimboot_cmd);
 
   if (state[NTBOOT_WIN].set)
   {
@@ -116,15 +120,12 @@ grub_cmd_ntboot (grub_extcmd_context_t ctxt,
       goto fail;
     }
     type = BOOT_WIN;
-    bcd_patch (type, NULL, disk->name,
-             disk->partition->start,
-             disk->partition->number,
-             disk->partition->partmap->name);
-    add_file ("bcd", bcd, bcd_len, mem_read_file);
-    if (wimboot_cmd.pause)
-      grub_getkey ();
-    wimboot_install ();
-    wimboot_boot (bootmgfw);
+    ntboot_patch_bcd (type, NULL, disk->name,
+                      grub_partition_get_start (disk->partition),
+                      disk->partition->number,
+                      disk->partition->partmap->name);
+    grub_wimboot_install ();
+    grub_wimboot_boot (bootmgfw, &wimboot_cmd);
     goto fail;
   }
 
@@ -176,18 +177,16 @@ grub_cmd_ntboot (grub_extcmd_context_t ctxt,
       grub_error (GRUB_ERR_FILE_READ_ERROR, N_("failed to open boot.sdi"));
       goto fail;
     }
-    add_file ("boot.sdi", bootsdi, bootsdi->size, efi_read_file);
+    file_add ("boot.sdi", bootsdi, &wimboot_cmd);
   }
 
-  bcd_patch (type, filename, file->device->disk->name,
-             file->device->disk->partition->start,
+  ntboot_patch_bcd (type, filename, file->device->disk->name,
+             grub_partition_get_start (file->device->disk->partition),
              file->device->disk->partition->number,
              file->device->disk->partition->partmap->name);
-  add_file ("bcd", bcd, bcd_len, mem_read_file);
-  if (wimboot_cmd.pause)
-    grub_getkey ();
-  wimboot_install ();
-  wimboot_boot (bootmgfw);
+
+  grub_wimboot_install ();
+  grub_wimboot_boot (bootmgfw, &wimboot_cmd);
 fail:
   if (disk)
     grub_disk_close (disk);

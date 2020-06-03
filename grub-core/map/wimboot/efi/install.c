@@ -1,38 +1,35 @@
-/*
- * Copyright (C) 2014 Michael Brown <mbrown@fensystems.co.uk>.
+ /*
+ *  GRUB  --  GRand Unified Bootloader
+ *  Copyright (C) 2019,2020  Free Software Foundation, Inc.
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License as
- * published by the Free Software Foundation; either version 2 of the
- * License, or (at your option) any later version.
+ *  GRUB is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
  *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
+ *  GRUB is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
- * 02110-1301, USA.
+ *  You should have received a copy of the GNU General Public License
+ *  along with GRUB.  If not, see <http://www.gnu.org/licenses/>.
+ *
  */
 
-/**
- * @file
- *
- * EFI block device
- *
- */
+#include <grub/misc.h>
+#include <grub/efi/api.h>
+#include <grub/efi/efi.h>
+#include <grub/efi/disk.h>
 
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <guid.h>
+#include <misc.h>
 #include <vfat.h>
-#include <efiapi.h>
-#include <private.h>
 #include <wimboot.h>
-#include <maplib.h>
 
 /** GUID used in vendor device path */
 static const grub_packed_guid_t WIMBOOT_GUID =
@@ -40,10 +37,10 @@ static const grub_packed_guid_t WIMBOOT_GUID =
   { 0xa6, 0xa4, 0xfa, 0x57, 0x05, 0x4e, 0xa6, 0x14 }
 };
 
-vdisk_t wimboot_disk, wimboot_part;
+grub_efivdisk_t wimboot_disk, wimboot_part;
 
-grub_efi_status_t
-wimboot_install (void)
+grub_err_t
+grub_wimboot_install (void)
 {
   grub_efi_boot_services_t *b;
   b = grub_efi_system_table->boot_services;
@@ -53,15 +50,13 @@ wimboot_install (void)
   grub_efi_guid_t dp_guid = GRUB_EFI_DEVICE_PATH_GUID;
   grub_efi_guid_t blk_io_guid = GRUB_EFI_BLOCK_IO_GUID;
   /* Install virtual disk */
-  wimboot_disk.lba = 0;
-  wimboot_disk.bs = VDISK_SECTOR_SIZE;
-  wimboot_disk.type = VFAT;
+  wimboot_disk.addr = 0;
   wimboot_disk.handle = NULL;
   grub_memcpy (&wimboot_disk.block_io,
                &blockio_template, sizeof (block_io_protocol_t));
   tmp_dp = grub_efi_create_device_node (HARDWARE_DEVICE_PATH, HW_VENDOR_DP,
                                         sizeof(grub_efi_vendor_device_path_t));
-  guidcpy (&((grub_efi_vendor_device_path_t *)tmp_dp)->vendor_guid, &WIMBOOT_GUID);
+  grub_guidcpy (&((grub_efi_vendor_device_path_t *)tmp_dp)->vendor_guid, &WIMBOOT_GUID);
   wimboot_disk.dp = grub_efi_append_device_node (NULL, tmp_dp);
   if (tmp_dp)
     grub_free (tmp_dp);
@@ -82,13 +77,10 @@ wimboot_install (void)
                        &blk_io_guid, &wimboot_disk.block_io, NULL);
   if (status != GRUB_EFI_SUCCESS)
   {
-    grub_printf ("failed to install virtual disk\n");
-    return status;
+    return grub_error (GRUB_ERR_BAD_OS, "failed to install virtual disk\n");
   }
   /* Install virtual partition */
-  wimboot_part.lba = VDISK_PARTITION_LBA;
-  wimboot_part.bs = VDISK_SECTOR_SIZE;
-  wimboot_part.type = VFAT;
+  wimboot_part.addr = VDISK_PARTITION_LBA;
   wimboot_part.handle = NULL;
   grub_memcpy (&wimboot_part.block_io,
                &blockio_template, sizeof (block_io_protocol_t));
@@ -132,7 +124,7 @@ wimboot_install (void)
                        &blk_io_guid, &wimboot_part.block_io, NULL);
   if (status != GRUB_EFI_SUCCESS)
   {
-    grub_printf ("failed to install virtual partition\n");
+    return grub_error (GRUB_ERR_BAD_OS, "failed to install virtual partition\n");
   }
-  return status;
+  return GRUB_ERR_NONE;
 }
