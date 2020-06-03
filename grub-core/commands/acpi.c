@@ -826,6 +826,7 @@ create_bgrt (grub_file_t file, struct grub_acpi_rsdp_v20 *rsdp)
   bgrt->status = 0x01;
   bgrt->type = 0;
   bgrt->addr = (grub_uint64_t)(grub_addr_t) bgrt_bmp;
+  bgrt->header.checksum = 0;
   bgrt->header.checksum = 1 + ~grub_byte_checksum (bgrt, bgrt->header.length);
 
   acpi_get_bgrt (xsdt);
@@ -846,6 +847,7 @@ create_bgrt (grub_file_t file, struct grub_acpi_rsdp_v20 *rsdp)
         / sizeof(grub_uint64_t);
   new_xsdt_entry[entry_count - 1] = (grub_uint64_t)(grub_addr_t) bgrt;
 
+  new_xsdt->checksum = 0;
   new_xsdt->checksum = 1 + ~grub_byte_checksum (xsdt, xsdt->length);
 
   // invalidate old XSDT table signature and checksum
@@ -855,6 +857,7 @@ create_bgrt (grub_file_t file, struct grub_acpi_rsdp_v20 *rsdp)
   rsdp->xsdt_addr = (grub_uint64_t)(grub_addr_t) new_xsdt;
 
   // re-calculate RSDP extended checksum
+  rsdp->checksum = 0;
   rsdp->checksum = 1 + ~grub_byte_checksum (rsdp, rsdp->length);
 
   grub_printf ("New BGRT table inserted\n");
