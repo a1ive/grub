@@ -29,6 +29,7 @@
 #include <grub/types.h>
 #include <grub/term.h>
 #include <grub/partition.h>
+#include <grub/procfs.h>
 
 #include <misc.h>
 #include <wimboot.h>
@@ -61,6 +62,40 @@ enum options_ntboot
   NTBOOT_SDI,
 };
 
+static char *
+get_bcd (grub_size_t *sz)
+{
+  *sz = 0;
+  char *ret = NULL;
+  *sz = bcd_len;
+  if (!*sz)
+    return ret;
+  ret = grub_malloc (*sz);
+  if (!ret)
+    return ret;
+  grub_memcpy (ret, bcd, *sz);
+  return ret;
+}
+
+struct grub_procfs_entry proc_bcd =
+{
+  .name = "bcd",
+  .get_contents = get_bcd,
+};
+
+static void
+ntboot_load (enum boot_type type, const char *path, grub_disk_t disk)
+{
+  ntboot_patch_bcd (type, path, disk->name,
+                    grub_partition_get_start (disk->partition),
+                    disk->partition->number, disk->partition->partmap->name);
+
+#ifdef GRUB_MACHINE_EFI
+  grub_wimboot_install ();
+  grub_wimboot_boot (bootmgfw, &wimboot_cmd);
+#endif
+}
+
 static grub_err_t
 grub_cmd_ntboot (grub_extcmd_context_t ctxt,
                   int argc, char *argv[])
@@ -72,8 +107,10 @@ grub_cmd_ntboot (grub_extcmd_context_t ctxt,
   char *filename = NULL;
   enum boot_type type;
   grub_disk_t disk = 0;
+#ifdef GRUB_MACHINE_EFI
   grub_file_t bcd_file = 0;
   char bcd_name[64];
+#endif
 
   if (argc != 1)
   {
@@ -81,6 +118,7 @@ grub_cmd_ntboot (grub_extcmd_context_t ctxt,
     goto fail;
   }
 
+#ifdef GRUB_MACHINE_EFI
   wimboot_cmd.rawbcd = 1;
   wimboot_cmd.rawwim = 1;
   if (state[NTBOOT_GUI].set)
@@ -102,6 +140,7 @@ grub_cmd_ntboot (grub_extcmd_context_t ctxt,
   grub_snprintf (bcd_name, 64, "mem:%p:size:%u", &bcd, bcd_len);
   bcd_file = grub_file_open (bcd_name, GRUB_FILE_TYPE_GET_SIZE);
   file_add ("bcd", bcd_file, &wimboot_cmd);
+#endif
 
   if (state[NTBOOT_WIN].set)
   {
@@ -120,12 +159,7 @@ grub_cmd_ntboot (grub_extcmd_context_t ctxt,
       goto fail;
     }
     type = BOOT_WIN;
-    ntboot_patch_bcd (type, NULL, disk->name,
-                      grub_partition_get_start (disk->partition),
-                      disk->partition->number,
-                      disk->partition->partmap->name);
-    grub_wimboot_install ();
-    grub_wimboot_boot (bootmgfw, &wimboot_cmd);
+    ntboot_load (type, NULL, disk);
     goto fail;
   }
 
@@ -165,6 +199,7 @@ grub_cmd_ntboot (grub_extcmd_context_t ctxt,
   if (state[NTBOOT_VHD].set)
     type = BOOT_VHD;
 
+#ifdef GRUB_MACHINE_EFI
   if (type == BOOT_WIM)
   {
     if (state[NTBOOT_SDI].set)
@@ -179,14 +214,8 @@ grub_cmd_ntboot (grub_extcmd_context_t ctxt,
     }
     file_add ("boot.sdi", bootsdi, &wimboot_cmd);
   }
-
-  ntboot_patch_bcd (type, filename, file->device->disk->name,
-             grub_partition_get_start (file->device->disk->partition),
-             file->device->disk->partition->number,
-             file->device->disk->partition->partmap->name);
-
-  grub_wimboot_install ();
-  grub_wimboot_boot (bootmgfw, &wimboot_cmd);
+#endif
+  ntboot_load (type, filename, file->device->disk);
 fail:
   if (disk)
     grub_disk_close (disk);
@@ -203,6 +232,7 @@ static grub_extcmd_t cmd_ntboot;
 
 GRUB_MOD_INIT(ntboot)
 {
+  grub_procfs_register ("bcd", &proc_bcd);
   cmd_ntboot = grub_register_extcmd ("ntboot", grub_cmd_ntboot, 0,
                     N_("[-v|-w] [--efi=FILE] [--sdi=FILE] FILE"),
                     N_("Boot NT6+ VHD/VHDX/WIM"), options_ntboot);
@@ -210,5 +240,6 @@ GRUB_MOD_INIT(ntboot)
 
 GRUB_MOD_FINI(ntboot)
 {
+  grub_procfs_unregister (&proc_bcd);
   grub_unregister_extcmd (cmd_ntboot);
 }

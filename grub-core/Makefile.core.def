@@ -2852,7 +2852,7 @@ module = {
 
 module = {
   name = ntboot;
-  efi = map/ntboot/efi/bcd.c;
+  common = map/ntboot/bcd.c;
   common = map/ntboot/patch.c;
   common = map/ntboot/ntboot.c;
 
@@ -2860,6 +2860,7 @@ module = {
   cppflags = '-I$(srcdir)/map/include';
   enable = i386_efi;
   enable = x86_64_efi;
+  enable = i386_pc;
 };
 
 module = {

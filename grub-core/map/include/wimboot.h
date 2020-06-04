@@ -56,4 +56,6 @@ grub_err_t grub_wimboot_install (void);
 void grub_wimboot_boot (struct vfat_file *file, struct wimboot_cmdline *cmd);
 #endif
 
+void vfat_patch_bcd (struct vfat_file *file, void *data, size_t offset, size_t len);
+
 #endif
