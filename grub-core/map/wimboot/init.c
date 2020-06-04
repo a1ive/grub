@@ -57,11 +57,20 @@ read_wrapper (struct vfat_file *vfile, void *data, size_t offset, size_t len)
   file_read (vfile->opaque, data, len, offset);
 }
 
-static void
-patch_bcd (struct vfat_file *vfile __unused, void *data, size_t offset, size_t len)
+#ifdef GRUB_MACHINE_EFI
+#define SEARCH_EXT  L".exe"
+#define REPLACE_EXT L".efi"
+#else
+#define SEARCH_EXT  L".efi"
+#define REPLACE_EXT L".exe"
+#endif
+
+void
+vfat_patch_bcd (struct vfat_file *file __unused,
+           void *data, size_t offset __unused, size_t len)
 {
-  static const wchar_t search[] = L".exe";
-  static const wchar_t replace[] = L".efi";
+  static const wchar_t search[] = SEARCH_EXT;
+  static const wchar_t replace[] = REPLACE_EXT;
   size_t i;
 
   /* Patch any occurrences of ".exe" to ".efi".  In the common
@@ -73,8 +82,6 @@ patch_bcd (struct vfat_file *vfile __unused, void *data, size_t offset, size_t l
     if (wcscasecmp ((wchar_t *)((char *)data + i), search) == 0)
     {
       memcpy (((char *)data + i), replace, sizeof (replace));
-      printf ("...patched BCD at 0x%lx: \".exe\" to \".efi\"\n",
-              (unsigned long)(offset + i));
     }
   }
 }
@@ -100,10 +107,10 @@ int file_add (const char *name, grub_file_t data, struct wimboot_cmdline *cmd)
     printf ("...found bootmgfw.efi file %s\n", name);
     bootmgfw = vfile;
   }
-  else if (strcasecmp (name, "BCD") == 0 && grub_isefi && !cmd->rawbcd)
+  else if (strcasecmp (name, "BCD") == 0 && !cmd->rawbcd)
   {
     printf ("...found BCD\n");
-    vfat_patch_file (vfile, patch_bcd);
+    vfat_patch_file (vfile, vfat_patch_bcd);
   }
   else if (strlen(name) > 4 &&
            strcasecmp ((name + (strlen (name) - 4)), ".wim") == 0)

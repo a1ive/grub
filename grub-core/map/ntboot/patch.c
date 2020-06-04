@@ -228,6 +228,7 @@ ntboot_patch_bcd (enum boot_type type, /* vhd or wim */
            int partnum,         /* partition number */
            const char *partmap) /* partition table 'msdos' */
 {
+  vfat_patch_bcd (NULL, bcd, 0, bcd_len);
   if (type != BOOT_WIN)
   {
     bcd_patch_guid (type);
