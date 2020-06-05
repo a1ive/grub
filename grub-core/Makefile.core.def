@@ -2815,6 +2815,7 @@ module = {
   common = map/lib/sha1.c;
   common = map/lib/huffman.c;
   common = map/lib/lzx.c;
+  common = map/lib/ventoy.c;
   efi = map/efi/blockio.c;
   efi = map/efi/vdisk.c;
   efi = map/efi/vpart.c;
