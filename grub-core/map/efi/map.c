@@ -32,6 +32,7 @@
 #include <grub/mm.h>
 #include <grub/types.h>
 #include <grub/term.h>
+#include <grub/ventoy.h>
 
 #include <guid.h>
 #include <misc.h>
@@ -271,6 +272,8 @@ grub_cmd_map (grub_extcmd_context_t ctxt, int argc, char **args)
   }
   grub_efivdisk_install (disk, state);
   grub_efivdisk_append (disk);
+  if (disk->type == CD)
+    grub_ventoy_set_osparam (args[0]);
 
   if (state[MAP_NB].set)
     return grub_errno;
