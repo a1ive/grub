@@ -40,9 +40,11 @@
 #include <grub/relocator.h>
 #include "ventoy.h"
 #include "ventoy_def.h"
-#include "ventoy_wrap.h"
 
 GRUB_MOD_LICENSE ("GPLv3+");
+
+grub_uint8_t g_ventoy_break_level = 0;
+grub_uint8_t g_ventoy_debug_level = 0;
 
 int g_ventoy_debug = 0;
 initrd_info *g_initrd_img_list = NULL;
@@ -273,7 +275,7 @@ static grub_err_t ventoy_cmd_img_sector(grub_extcmd_context_t ctxt, int argc, ch
 
     debug("get fat file chunk part start:%llu\n",
           grub_partition_get_start (file->device->disk->partition));
-    vt_get_file_chunk(grub_partition_get_start (file->device->disk->partition), file, &g_img_chunk_list);
+    grub_ventoy_get_chunklist(grub_partition_get_start (file->device->disk->partition), file, &g_img_chunk_list);
 
     grub_file_close(file);
 

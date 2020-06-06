@@ -22,6 +22,10 @@
 #define __VENTOY_H__
 
 #include "vt_compatible.h"
+#include <grub/ventoy.h>
+
+extern grub_uint8_t g_ventoy_break_level;
+extern grub_uint8_t g_ventoy_debug_level;
 
 #define COMPILE_ASSERT(expr)  extern char __compile_assert[(expr) ? 1 : -1]
 

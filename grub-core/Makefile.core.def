@@ -2987,3 +2987,14 @@ module = {
   name = setkey;
   common = term/setkey.c;
 };
+
+module = {
+  name = ventoy;
+  common = ventoy/vt.c;
+  common = ventoy/ventoy.c;
+  common = ventoy/ventoy_linux.c;
+  common = ventoy/ventoy_windows.c;
+  enable = x86_64_efi;
+  enable = i386_efi;
+  enable = i386_pc;
+};
