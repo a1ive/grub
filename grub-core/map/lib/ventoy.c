@@ -34,6 +34,44 @@
 #include <grub/efi/efi.h>
 #endif
 
+int
+grub_ventoy_get_chunklist (grub_uint64_t part_start, grub_file_t file,
+                           ventoy_img_chunk_list *chunk_list)
+{
+  grub_uint32_t max_chunk, i, m = DEFAULT_CHUNK_NUM;
+  struct grub_fs_block *p;
+  if (!file)
+    return -1;
+  if (!file->device->disk)
+    return -1;
+  max_chunk = grub_blocklist_convert (file);
+  if (!max_chunk)
+    return -1;
+  if (max_chunk > m)
+  {
+    while (max_chunk > m)
+      m = m << 1;
+    chunk_list->max_chunk = m;
+    chunk_list->chunk = grub_realloc (chunk_list->chunk,
+                                      m * sizeof (ventoy_img_chunk));
+  }
+  p = file->data;
+  for (i = 0; i < max_chunk; i++)
+  {
+    chunk_list->chunk[i].disk_start_sector
+            = (p->offset >> GRUB_DISK_SECTOR_BITS) + part_start;
+    chunk_list->chunk[i].disk_end_sector
+            = chunk_list->chunk[i].disk_start_sector
+              + (p->length >> GRUB_DISK_SECTOR_BITS) - 1;
+    chunk_list->chunk[i].img_start_sector =
+            i ? (chunk_list->chunk[i-1].img_end_sector + 1) : 0;
+    chunk_list->chunk[i].img_end_sector =
+            chunk_list->chunk[i].img_start_sector + (p->length >> 11) - 1;
+  }
+  chunk_list->cur_chunk = max_chunk;
+  return 0;
+}
+
 ventoy_os_param *
 grub_ventoy_get_osparam (void)
 {

@@ -26,76 +26,30 @@
 #include <grub/i18n.h>
 #include <grub/procfs.h>
 #include <grub/partition.h>
+#include <grub/ventoy.h>
 #include "vt_compatible.h"
-#include "ventoy_wrap.h"
-
-#ifdef GRUB_MACHINE_EFI
-#include <grub/efi/api.h>
-#include <grub/efi/efi.h>
-#endif
-
-#ifdef GRUB_MACHINE_PCBIOS
-static int
-get_vt_data (ventoy_os_param_t *data)
-{
-  grub_packed_guid_t ventoy_guid = VENTOY_GUID;
-  grub_addr_t addr = VENTOY_BIOS_ADDR_L;
-  while (addr < VENTOY_BIOS_ADDR_U)
-  {
-    if (grub_memcmp (&ventoy_guid, (void *)addr, sizeof (grub_packed_guid_t)))
-    {
-      addr++;
-      continue;
-    }
-    grub_printf ("VentoyOsParam found.\n");
-    grub_memcpy (data, (void *)addr, sizeof (ventoy_os_param_t));
-    return 1;
-  }
-  return 0;
-}
-#elif defined (GRUB_MACHINE_EFI)
-static int
-get_vt_data (ventoy_os_param_t *data)
-{
-  grub_efi_guid_t ventoy_guid = VENTOY_GUID;
-  void *value = NULL;
-  grub_size_t datasize = 0;
-  value = grub_efi_get_variable("VentoyOsParam", &ventoy_guid, &datasize);
-  if (!value || !datasize || datasize != sizeof (ventoy_os_param_t))
-  {
-    if (value)
-      grub_free (value);
-    return 0;
-  }
-  grub_printf ("VentoyOsParam found.\n");
-  grub_memcpy (data, value, sizeof (ventoy_os_param_t));
-  grub_free (value);
-  return 1;
-}
-#else
-static int
-get_vt_data (ventoy_os_param_t *data __attribute__ ((unused)))
-{
-  return 0;
-}
-#endif
 
 static grub_err_t
 grub_cmd_ventoy (grub_extcmd_context_t ctxt __attribute__ ((unused)),
                  int argc, char **args)
 {
-  ventoy_os_param_t os_param;
-  if (!get_vt_data (&os_param))
+  ventoy_os_param *os_param = NULL;
+  os_param = grub_ventoy_get_osparam ();
+  if (os_param)
     return grub_error (GRUB_ERR_FILE_NOT_FOUND, N_("Ventoy data not found"));
 
   if (argc > 0)
-    grub_env_set (args[0], os_param.vtoy_img_path);
+    grub_env_set (args[0], os_param->vtoy_img_path);
   else
-    grub_printf ("%s\n", os_param.vtoy_img_path);
+    grub_printf ("%s\n", os_param->vtoy_img_path);
+
+#ifdef GRUB_MACHINE_EFI
+  grub_free (os_param);
+#endif
   return GRUB_ERR_NONE;
 }
 
-static ventoy_os_param_t proc_vt_param;
+static ventoy_os_param proc_vt_param;
 static ventoy_img_chunk_list image_chunk_list;
 static ventoy_img_chunk_list persist_chunk_list;
 
@@ -104,7 +58,7 @@ get_osparam (grub_size_t *sz)
 {
   *sz = 0;
   char *ret = NULL;
-  *sz = sizeof (ventoy_os_param_t);
+  *sz = sizeof (ventoy_os_param);
   if (!*sz)
     return ret;
   ret = grub_malloc (*sz);
@@ -177,8 +131,8 @@ grub_cmd_osparam (grub_extcmd_context_t ctxt __attribute__ ((unused)),
     goto end;
   }
 
-  grub_memset (&proc_vt_param, 0, sizeof (ventoy_os_param_t));
-  ventoy_fill_os_param (file, &proc_vt_param);
+  grub_memset (&proc_vt_param, 0, sizeof (ventoy_os_param));
+  grub_ventoy_fill_osparam (file, &proc_vt_param);
 
   if (image_chunk_list.chunk)
     grub_free(image_chunk_list.chunk);
@@ -192,8 +146,9 @@ grub_cmd_osparam (grub_extcmd_context_t ctxt __attribute__ ((unused)),
   }
   image_chunk_list.max_chunk = DEFAULT_CHUNK_NUM;
   image_chunk_list.cur_chunk = 0;
-  vt_get_file_chunk (grub_partition_get_start (file->device->disk->partition),
-                     file, &image_chunk_list);
+  grub_ventoy_get_chunklist
+      (grub_partition_get_start (file->device->disk->partition),
+       file, &image_chunk_list);
 
 end:
   if (file)
@@ -226,8 +181,9 @@ grub_cmd_persist (grub_extcmd_context_t ctxt __attribute__ ((unused)),
   }
   persist_chunk_list.max_chunk = DEFAULT_CHUNK_NUM;
   persist_chunk_list.cur_chunk = 0;
-  vt_get_file_chunk (grub_partition_get_start (file->device->disk->partition),
-                     file, &persist_chunk_list);
+  grub_ventoy_get_chunklist
+    (grub_partition_get_start (file->device->disk->partition),
+     file, &persist_chunk_list);
 
   grub_file_close (file);
   return GRUB_ERR_NONE;

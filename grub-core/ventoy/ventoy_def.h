@@ -21,8 +21,6 @@
 #ifndef __VENTOY_DEF_H__
 #define __VENTOY_DEF_H__
 
-#include "ventoy_wrap.h"
-
 #define ulong unsigned long
 #define ulonglong  unsigned long long
 

@@ -35,11 +35,12 @@
  *
  */
 
-#ifndef __VENTOY_COMPATIBLE_H__
-#define __VENTOY_COMPATIBLE_H__
+#ifndef GRUB_VENTOY_COMMON_HEADER
+#define GRUB_VENTOY_COMMON_HEADER
 
 #include <grub/types.h>
 #include <grub/misc.h>
+#include <grub/file.h>
 
 #define VENTOY_COMPATIBLE_STR      "VENTOY COMPATIBLE"
 #define VENTOY_COMPATIBLE_STR_LEN  17
@@ -104,12 +105,34 @@ typedef struct
   grub_uint8_t reserved[31];
 } ventoy_os_param;
 
+typedef struct
+{
+  grub_uint32_t img_start_sector; // sector size: 2KB
+  grub_uint32_t img_end_sector;   // included
+
+  grub_uint64_t disk_start_sector; // in disk_sector_size
+  grub_uint64_t disk_end_sector;   // included
+} ventoy_img_chunk;
+
+#define DEFAULT_CHUNK_NUM   1024
+
+typedef struct
+{
+  grub_uint32_t max_chunk;
+  grub_uint32_t cur_chunk;
+  ventoy_img_chunk *chunk;
+} ventoy_img_chunk_list;
+
 #pragma pack()
 
 ventoy_os_param *grub_ventoy_get_osparam (void);
 void
 grub_ventoy_fill_osparam (grub_file_t file, ventoy_os_param *param);
 void grub_ventoy_set_osparam (const char *filename);
+
+int
+grub_ventoy_get_chunklist (grub_uint64_t part_start, grub_file_t file,
+                           ventoy_img_chunk_list *chunk_list);
 
 #endif
 

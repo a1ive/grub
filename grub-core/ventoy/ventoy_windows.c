@@ -904,7 +904,7 @@ grub_err_t ventoy_cmd_windows_chain_data(grub_extcmd_context_t ctxt, int argc, c
     grub_memset(chain, 0, sizeof(ventoy_chain_head));
 
     /* part 1: os parameter */
-    ventoy_fill_os_param(file, &(chain->os_param));
+    grub_ventoy_fill_osparam(file, &(chain->os_param));
 
     if (g_wim_data.jump_bin_data && g_wim_data.new_meta_data)
     {
