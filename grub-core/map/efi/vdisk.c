@@ -38,8 +38,6 @@ grub_efivdisk_install (struct grub_efivdisk_data *disk,
   grub_efi_guid_t dp_guid = GRUB_EFI_DEVICE_PATH_GUID;
   grub_efi_guid_t blk_io_guid = GRUB_EFI_BLOCK_IO_GUID;
 
-  if (disk->type == HD)
-    disk->type = grub_vdisk_check_type (disk->vdisk.file);
   /* block size */
   if (disk->type == CD)
     bs = CD_BLOCK_SIZE;

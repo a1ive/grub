@@ -61,7 +61,9 @@ enum options_map
   MAP_UNMAP,
 };
 
-enum grub_efivdisk_type grub_vdisk_check_type (grub_file_t file);
+enum grub_efivdisk_type
+grub_vdisk_check_type (const char *name, grub_file_t file,
+                       enum grub_efivdisk_type type);
 
 grub_err_t
 grub_efivdisk_install (struct grub_efivdisk_data *disk,
