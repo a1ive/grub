@@ -22,6 +22,7 @@
 #include <grub/misc.h>
 #include <grub/file.h>
 #include <grub/msdos_partition.h>
+#include <grub/eltorito.h>
 
 #include <misc.h>
 
@@ -31,12 +32,37 @@
 #include <grub/efi/disk.h>
 
 enum grub_efivdisk_type
-grub_vdisk_check_type (grub_file_t file)
+grub_vdisk_check_type (const char *name, grub_file_t file,
+                       enum grub_efivdisk_type type)
 {
   struct grub_msdos_partition_mbr mbr;
+  struct
+  {
+    grub_uint8_t type;
+    grub_uint8_t id[5];
+  } GRUB_PACKED vol;
+  char *ext = NULL;
+  if (type == CD || type == FD)
+    return type;
+  if (type == UNKNOWN)
+  {
+    ext = grub_strrchr (name, '.');
+    if (ext && *ext != '\0' && *(ext++) != '\0')
+    {
+      if (grub_strcasecmp (ext, "iso") == 0)
+        return CD;
+    }
+    grub_memset (&vol, 0, sizeof (vol));
+    file_read (file, &vol, sizeof (vol), CD_BOOT_SECTOR * CD_BLOCK_SIZE);
+    if (vol.type == CDVOL_TYPE_STANDARD &&
+        grub_memcmp (vol.id, CDVOL_ID, sizeof (CDVOL_ID) - 1) == 0)
+      return CD;
+  }
+
+  grub_memset (&mbr, 0, sizeof (mbr));
   file_read (file, &mbr, sizeof (mbr), 0);
   if (mbr.signature != GRUB_PC_PARTITION_SIGNATURE)
-    return CD;
+    return FD;
   if (mbr.entries[0].type != GRUB_PC_PARTITION_TYPE_GPT_DISK)
     return MBR;
   else
@@ -121,6 +147,7 @@ file_open (const char *name, int mem, int bl, int rt)
       return NULL;
     }
     grub_printf ("Loading %s ...\n", name);
+    grub_refresh ();
     grub_file_read (file, addr, size);
     grub_file_close (file);
     grub_snprintf (newname, 100, "mem:%p:size:%lld", addr, (unsigned long long)size);

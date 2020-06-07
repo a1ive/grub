@@ -75,6 +75,7 @@ typedef struct
 
 enum grub_efivdisk_type
 {
+  UNKNOWN,
   HD,
   CD,
   FD,

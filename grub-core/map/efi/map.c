@@ -213,7 +213,7 @@ grub_efivdisk_append (struct grub_efivdisk_data *disk)
 static const struct grub_arg_option options_map[] =
 {
   {"mem", 'm', 0, N_("Copy to RAM."), 0, 0},
-  {"blocklist", 'b', 0, N_("Convert to blocklist."), 0, 0},
+  {"blocklist", 'l', 0, N_("Force convert to blocklist."), 0, 0},
   {"type", 't', 0, N_("Specify the disk type."), N_("CD/HD/FD"), ARG_TYPE_STRING},
   {"rt", 0, 0, N_("Set memory type to RUNTIME_SERVICES_DATA."), 0, 0},
   {"ro", 'o', 0, N_("Disable write support."), 0, 0},
@@ -252,15 +252,7 @@ grub_cmd_map (grub_extcmd_context_t ctxt, int argc, char **args)
     grub_free (disk);
     return grub_error (GRUB_ERR_FILE_READ_ERROR, "failed to open file");
   }
-  disk->vdisk.file = file;
-  disk->vpart.file = file;
-  grub_snprintf (disk->devname, 20, "vd%u", last_id);
-  last_id++;
-  grub_guidgen (&disk->guid);
-  if (grub_tolower (args[0][grub_strlen (args[0]) - 1]) == 'o')
-    disk->type = CD;
-  else
-    disk->type = HD;
+  disk->type = UNKNOWN;
   if (state[MAP_TYPE].set)
   {
     if (state[MAP_TYPE].arg[0] == 'C' || state[MAP_TYPE].arg[0] == 'c')
@@ -270,6 +262,16 @@ grub_cmd_map (grub_extcmd_context_t ctxt, int argc, char **args)
     if (state[MAP_TYPE].arg[0] == 'F' || state[MAP_TYPE].arg[0] == 'f')
       disk->type = FD;
   }
+  disk->type = grub_vdisk_check_type (args[0], file, disk->type);
+  disk->vdisk.file = file;
+  disk->vpart.file = file;
+  if (argc < 2)
+    grub_snprintf (disk->devname, 20, "vd%u", last_id);
+  else
+    grub_snprintf (disk->devname, 20, "%s", args[1]);
+  last_id++;
+  grub_guidgen (&disk->guid);
+
   grub_efivdisk_install (disk, state);
   grub_efivdisk_append (disk);
   if (disk->type == CD)
@@ -297,7 +299,7 @@ static grub_extcmd_t cmd_map;
 
 GRUB_MOD_INIT(map)
 {
-  cmd_map = grub_register_extcmd ("map", grub_cmd_map, 0, N_("FILE"),
+  cmd_map = grub_register_extcmd ("map", grub_cmd_map, 0, N_("FILE [DISK NAME]"),
                                   N_("Create virtual disk."), options_map);
   grub_disk_dev_register (&grub_efivdisk_dev);
 }
