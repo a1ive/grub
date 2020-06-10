@@ -28,6 +28,8 @@
 #include <misc.h>
 #include <stddef.h>
 
+#pragma GCC diagnostic ignored "-Wcast-align"
+
 #define EFI_PARTITION   0xef
 
 static grub_efi_device_path_t *

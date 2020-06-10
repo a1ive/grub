@@ -24,6 +24,8 @@
 
 #include <guid.h>
 
+#pragma GCC diagnostic ignored "-Wcast-align"
+
 void
 grub_guidgen (grub_packed_guid_t *guid)
 {

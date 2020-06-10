@@ -27,11 +27,12 @@
 #include <grub/partition.h>
 #include <grub/file.h>
 #include <grub/misc.h>
-#include <grub/relocator.h>
 #include <grub/ventoy.h>
 #ifdef GRUB_MACHINE_EFI
 #include <grub/efi/api.h>
 #include <grub/efi/efi.h>
+#else
+#include <grub/relocator.h>
 #endif
 
 int

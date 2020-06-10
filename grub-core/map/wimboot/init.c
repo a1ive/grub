@@ -31,6 +31,8 @@
 #include <wimpatch.h>
 #include <wimfile.h>
 
+#pragma GCC diagnostic ignored "-Wcast-align"
+
 #if defined (__i386__)
   #define BOOT_FILE_NAME   L"BOOTIA32.EFI"
 #elif defined (__x86_64__)

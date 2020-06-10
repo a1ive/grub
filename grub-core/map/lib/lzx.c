@@ -38,6 +38,8 @@
 #include <huffman.h>
 #include <lzx.h>
 
+#pragma GCC diagnostic ignored "-Wcast-align"
+
 /** Base positions, indexed by position slot */
 static unsigned int lzx_position_base[LZX_POSITION_SLOTS];
 
