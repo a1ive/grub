@@ -106,7 +106,7 @@ extern struct grub_fs grub_fs_blocklist;
 struct grub_fs_block
 {
   grub_disk_addr_t offset;
-  unsigned long length;
+  grub_off_t length;
 };
 
 /* This hook is used to automatically load filesystem modules.

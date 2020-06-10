@@ -39,9 +39,9 @@ blocklist_to_str (grub_file_t file, int num, char *text, grub_disk_addr_t start)
   p = file->data;
   for (i = 0; i < num; i++, p++)
   {
-    grub_snprintf (str, 255, "%llu+%lu", (unsigned long long)
+    grub_snprintf (str, 255, "%llu+%llu", (unsigned long long)
                    ((p->offset >> GRUB_DISK_SECTOR_BITS) + start),
-                   p->length >> GRUB_DISK_SECTOR_BITS);
+                   (unsigned long long) (p->length >> GRUB_DISK_SECTOR_BITS));
     if (text)
       grub_sprintf (text + len, "%s,", str);
     len += grub_strlen (str) + 1;
