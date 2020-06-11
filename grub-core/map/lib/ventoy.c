@@ -209,7 +209,7 @@ grub_ventoy_set_osparam (const char *filename)
   ventoy_os_param param;
   grub_file_t file = 0;
   file = grub_file_open (filename, GRUB_FILE_TYPE_GET_SIZE);
-  if (!file || !file->fs || grub_strcmp (file->fs->name, "blocklist") != 0)
+  if (!file)
     goto fail;
   grub_ventoy_fill_osparam (file, &param);
 #ifdef GRUB_MACHINE_EFI
