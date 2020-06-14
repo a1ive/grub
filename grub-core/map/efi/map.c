@@ -213,7 +213,7 @@ grub_efivdisk_append (struct grub_efivdisk_data *disk)
 static const struct grub_arg_option options_map[] =
 {
   {"mem", 'm', 0, N_("Copy to RAM."), 0, 0},
-  {"blocklist", 'l', 0, N_("Force convert to blocklist."), 0, 0},
+  {"blocklist", 'l', 0, N_("Convert to blocklist."), 0, 0},
   {"type", 't', 0, N_("Specify the disk type."), N_("CD/HD/FD"), ARG_TYPE_STRING},
   {"rt", 0, 0, N_("Set memory type to RUNTIME_SERVICES_DATA."), 0, 0},
   {"ro", 'o', 0, N_("Disable write support."), 0, 0},

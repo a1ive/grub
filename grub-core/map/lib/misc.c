@@ -127,7 +127,7 @@ file_open (const char *name, int mem, int bl, int rt)
   if (!file)
     return NULL;
   size = grub_file_size (file);
-  if (bl || (file->fs && file->fs->fast_blocklist))
+  if (bl && (file->fs && file->fs->fast_blocklist))
     grub_blocklist_convert (file);
   if (mem)
   {

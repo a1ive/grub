@@ -44,11 +44,12 @@ static const struct grub_arg_option options[] =
        not wiped, avoid to scare user.  */
     {"delete", 'd', 0, N_("Delete the specified loopback drive."), 0, 0},
     {"mem", 'm', 0, N_("Copy to RAM."), 0, 0},
+    {"blocklist", 'l', 0, N_("Convert to blocklist."), 0, 0},
     {0, 0, 0, 0, 0, 0}
   };
 
 static grub_file_t
-loop_file_open (const char *name, int mem)
+loop_file_open (const char *name, int mem, int bl)
 {
   grub_file_t file = 0;
   grub_size_t size = 0;
@@ -58,7 +59,7 @@ loop_file_open (const char *name, int mem)
   if (!file)
     return NULL;
   size = grub_file_size (file);
-  if (file->fs && file->fs->fast_blocklist)
+  if (bl && (file->fs && file->fs->fast_blocklist))
     grub_blocklist_convert (file);
   if (mem)
   {
@@ -157,7 +158,7 @@ grub_cmd_loopback (grub_extcmd_context_t ctxt, int argc, char **args)
   if (argc < 2)
     return grub_error (GRUB_ERR_BAD_ARGUMENT, N_("filename expected"));
 
-  file = loop_file_open (args[1], state[1].set);
+  file = loop_file_open (args[1], state[1].set, state[2].set);
   if (! file)
     return grub_errno;
 

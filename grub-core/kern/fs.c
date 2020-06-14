@@ -135,12 +135,12 @@ grub_fs_blocklist_open (grub_file_t file, const char *name)
 
   /* First, count the number of blocks.  */
   do
-    {
-      num++;
-      p = grub_strchr (p, ',');
-      if (p)
-	p++;
-    }
+  {
+    num++;
+    p = grub_strchr (p, ',');
+    if (p)
+      p++;
+  }
   while (p);
 
   /* Allocate a block list.  */
@@ -151,53 +151,50 @@ grub_fs_blocklist_open (grub_file_t file, const char *name)
   file->size = 0;
   p = (char *) name;
   if (! *p)
-    {
-      blocks[0].offset = 0;
-      blocks[0].length = (disk->total_sectors == GRUB_ULONG_MAX) ?
-	GRUB_ULONG_MAX : (disk->total_sectors << 9);
-      file->size = blocks[0].length;
-    }
+  {
+    blocks[0].offset = 0;
+    blocks[0].length = disk->total_sectors << 9;
+    file->size = blocks[0].length;
+  }
   else for (i = 0; i < num; i++)
+  {
+    if (*p != '+')
     {
-      if (*p != '+')
-	{
-	  blocks[i].offset = grub_strtoull (p, &p, 0);
-	  if (grub_errno != GRUB_ERR_NONE || *p != '+')
-	    {
-	      grub_error (GRUB_ERR_BAD_FILENAME,
-			  N_("invalid file name `%s'"), name);
-	      goto fail;
-	    }
-	}
-
-      p++;
-      blocks[i].length = grub_strtoul (p, &p, 0);
-      if (grub_errno != GRUB_ERR_NONE
-	  || blocks[i].length == 0
-	  || (*p && *p != ',' && ! grub_isspace (*p)))
-	{
-	  grub_error (GRUB_ERR_BAD_FILENAME,
-		      N_("invalid file name `%s'"), name);
-	  goto fail;
-	}
-
-      if (disk->total_sectors < blocks[i].offset + blocks[i].length)
-	{
-	  grub_error (GRUB_ERR_BAD_FILENAME, "beyond the total sectors");
-	  goto fail;
-	}
-
-      blocks[i].offset <<= GRUB_DISK_SECTOR_BITS;
-      blocks[i].length <<= GRUB_DISK_SECTOR_BITS;
-      file->size += blocks[i].length;
-      p++;
+      blocks[i].offset = grub_strtoull (p, &p, 0);
+      if (grub_errno != GRUB_ERR_NONE || *p != '+')
+      {
+        grub_error (GRUB_ERR_BAD_FILENAME, N_("invalid file name `%s'"), name);
+        goto fail;
+      }
     }
+
+    p++;
+    blocks[i].length = grub_strtoul (p, &p, 0);
+    if (grub_errno != GRUB_ERR_NONE
+        || blocks[i].length == 0
+        || (*p && *p != ',' && ! grub_isspace (*p)))
+    {
+      grub_error (GRUB_ERR_BAD_FILENAME, N_("invalid file name `%s'"), name);
+      goto fail;
+    }
+
+    if (disk->total_sectors < blocks[i].offset + blocks[i].length)
+    {
+      grub_error (GRUB_ERR_BAD_FILENAME, "beyond the total sectors");
+      goto fail;
+    }
+
+    blocks[i].offset <<= GRUB_DISK_SECTOR_BITS;
+    blocks[i].length <<= GRUB_DISK_SECTOR_BITS;
+    file->size += blocks[i].length;
+    p++;
+  }
 
   file->data = blocks;
 
   return GRUB_ERR_NONE;
 
- fail:
+fail:
   grub_free (blocks);
   return grub_errno;
 }
@@ -214,31 +211,31 @@ grub_fs_blocklist_rw (int write, grub_file_t file, char *buf, grub_size_t len)
 
   offset = file->offset;
   for (p = file->data; p->length && len > 0; p++)
+  {
+    if (offset < p->length)
     {
-      if (offset < p->length)
-	{
-	  grub_size_t size;
+      grub_size_t size;
 
-	  size = len;
-	  if (offset + size > p->length)
-	    size = p->length - offset;
+      size = len;
+      if (offset + size > p->length)
+        size = p->length - offset;
 
-	  if ((write) ?
-	       grub_disk_write_weak (file->device->disk, 0, p->offset + offset,
-				size, buf) :
-	       grub_disk_read_ex (file->device->disk, 0, p->offset + offset,
-				  size, buf, file->blocklist) != GRUB_ERR_NONE)
-	    return -1;
+      if ((write) ?
+           grub_disk_write_weak (file->device->disk, 0, p->offset + offset,
+              size, buf) :
+           grub_disk_read_ex (file->device->disk, 0, p->offset + offset,
+              size, buf, file->blocklist) != GRUB_ERR_NONE)
+        return -1;
 
-	  ret += size;
-	  len -= size;
-	  if (buf)
-	    buf += size;
-	  offset += size;
-	}
-      else
-	offset -= p->length;
+      ret += size;
+      len -= size;
+      if (buf)
+        buf += size;
+      offset += size;
     }
+    else
+      offset -= p->length;
+  }
 
   return ret;
 }
@@ -288,24 +285,24 @@ read_blocklist (grub_disk_addr_t sector, unsigned offset,
 
   if ((c->num) &&
       (c->blocks[c->num - 1].offset + c->blocks[c->num - 1].length == sector))
-    {
-      c->blocks[c->num - 1].length += length;
-      goto quit;
-    }
+  {
+    c->blocks[c->num - 1].length += length;
+    goto quit;
+  }
 
   if ((c->num & (BLOCKLIST_INC_STEP - 1)) == 0)
-    {
-      c->blocks = grub_realloc (c->blocks, (c->num + BLOCKLIST_INC_STEP) *
-				sizeof (struct grub_fs_block));
-      if (! c->blocks)
-	return;
-    }
+  {
+    c->blocks = grub_realloc (c->blocks, (c->num + BLOCKLIST_INC_STEP) *
+                  sizeof (struct grub_fs_block));
+    if (! c->blocks)
+      return;
+  }
 
   c->blocks[c->num].offset = sector;
   c->blocks[c->num].length = length;
   c->num++;
 
- quit:
+quit:
   c->total_size += length;
 }
 
