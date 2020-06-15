@@ -26,6 +26,7 @@
 #include <grub/types.h>
 #include <grub/fshelp.h>
 #include <grub/ext2.h>
+#include <grub/safemath.h>
 
 GRUB_MOD_LICENSE ("GPLv3+");
 
@@ -433,6 +434,7 @@ grub_ext2_read_symlink (grub_fshelp_node_t node)
 {
   char *symlink;
   struct grub_fshelp_node *diro = node;
+  grub_size_t sz;
 
   if (! diro->inode_read)
     {
@@ -447,7 +449,13 @@ grub_ext2_read_symlink (grub_fshelp_node_t node)
        }
     }
 
-  symlink = grub_malloc (grub_le_to_cpu32 (diro->inode.size) + 1);
+  if (grub_add (grub_le_to_cpu32 (diro->inode.size), 1, &sz))
+    {
+      grub_error (GRUB_ERR_OUT_OF_RANGE, N_("overflow is detected"));
+      return NULL;
+    }
+
+  symlink = grub_malloc (sz);
   if (! symlink)
     return 0;
 
