@@ -66,17 +66,7 @@ GRUB_MOD_LICENSE ("GPLv3+");
  * @param   type    The return type of the function declaration.
  * @remarks Don't use this macro on C++ methods.
  */
-#ifdef __GNUC__
 # define DECLINLINE(type) static __inline__ type
-#elif defined(__cplusplus)
-# define DECLINLINE(type) inline type
-#elif defined(_MSC_VER)
-# define DECLINLINE(type) _inline type
-#elif defined(__IBMC__)
-# define DECLINLINE(type) _Inline type
-#else
-# define DECLINLINE(type) inline type
-#endif
 
 /** 1 M (Mega)                 (1 048 576). */
 #define _1M                     0x00100000
@@ -406,26 +396,8 @@ DECLINLINE(grub_uint32_t) _log2(grub_uint32_t x)
  *          traps accessing the last bits in the bitmap.
  */
 DECLINLINE(bool) ASMBitTest(const volatile void *pvBitmap, grub_uint32_t iBit)
-{    
-#ifdef __GNUC__
-	
-	union { bool f; grub_uint32_t u32; grub_uint8_t u8; } rc;
-    asm volatile("btl %2, %1\n\t"
-                         "setc %b0\n\t"
-                         "andl $1, %0\n\t"
-                         : "=q" (rc.u32)
-                         : "m" (*(const volatile long *)pvBitmap),
-                           "Ir" (iBit)
-                         : "memory");
-
-	 return rc.f;
-
-# else
-
+{
    return (((((grub_uint32_t *)pvBitmap)[(iBit) / 32]) >> ((iBit) % 32)) & 0x1);
-
-# endif
-   
 }
 
 static int vhdFileOpen(PVHDIMAGE pImage)
@@ -461,12 +433,7 @@ static grub_uint64_t vhdGetSize(void *pBackendData)
     }
     else
 	{
-#if defined(__GNUC__)
 		return 0;
-#else
-		grub_uint64_t zero = {0};
-		return zero;
-#endif
 	}
 }
 
@@ -606,11 +573,7 @@ static int vhdOpen(const char *pszFilename, void **ppvBackendData)
  */
 DECLINLINE(grub_uint8_t *) vhdBlockBitmapAllocate(PVHDIMAGE pImage)
 {
-#ifdef RT_ARCH_AMD64
     return (grub_uint8_t *)grub_zalloc(pImage->cbDataBlockBitmap + 8);
-#else
-    return (grub_uint8_t *)grub_zalloc(pImage->cbDataBlockBitmap + 4);
-#endif
 }
 
 //static grub_uint32_t g_block_table_cache[VHD_ALLOCATION_TABLE_ENTRIES];
@@ -1178,7 +1141,7 @@ GRUB_MOD_INIT(vhd)
 {
   cmd = grub_register_extcmd ("vhd", grub_cmd_vhd,
 			      0,
-			      "vhd [-d|-p] DEVICENAME FILE",
+			      "[-d|-p] DEVICENAME FILE",
 			      "Make a device of a file.", options);
   grub_disk_dev_register (&grub_vhd_dev);
 }

@@ -2774,7 +2774,6 @@ module = {
 
 module = {
   name = vhd;
-  enable = x86;
   common = disk/vhd.c;
 };
 
