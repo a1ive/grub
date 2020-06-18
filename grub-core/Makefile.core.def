@@ -2841,6 +2841,7 @@ module = {
   common = map/lib/wim.c;
   common = map/lib/wimfile.c;
   common = map/lib/wimpatch.c;
+  common = map/lib/wimtools.c;
   common = map/wimboot/init.c;
   common = map/wimboot/wimboot.c;
 

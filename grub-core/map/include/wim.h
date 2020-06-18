@@ -35,6 +35,7 @@
  */
 
 #include <stdint.h>
+#include <vfat.h>
 
 /** A WIM resource header */
 struct wim_resource_header {

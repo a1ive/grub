@@ -98,6 +98,33 @@ isbootmgfw (const char *name)
   return strcasecmp (name, bootarch) == 0;
 }
 
+#define WIM_MAX_PATH (256 + VDISK_NAME_LEN + 1)
+
+static void
+add_orig (struct vfat_file *wimfile, struct wimboot_cmdline *cmd)
+{
+  unsigned int i;
+  struct vfat_file *file;
+  char path[WIM_MAX_PATH];
+  wchar_t wpath[WIM_MAX_PATH];
+  char name[VDISK_NAME_LEN + 1];
+  wchar_t wname[VDISK_NAME_LEN + 1];
+  wcstombs (path, cmd->inject, 256);
+
+  for (i = 0 ;i < VDISK_MAX_FILES; i++ )
+  {
+    file = &vfat_files[i];
+    if (!file->opaque)
+      break;
+    grub_snprintf (path, WIM_MAX_PATH, "%s\\%s", path, file->name);
+    mbstowcs (wpath, path, WIM_MAX_PATH);
+    grub_snprintf (name, VDISK_NAME_LEN + 1, "orig_%s", file->name);
+    mbstowcs (wname, name, VDISK_NAME_LEN + 1);
+    grub_printf ("looking up %s -> %s ...\n", path, name);
+    wim_add_file (wimfile, cmd->index, wpath, wname);
+  }
+}
+
 int file_add (const char *name, grub_file_t data, struct wimboot_cmdline *cmd)
 {
   struct vfat_file *vfile;
@@ -119,7 +146,10 @@ int file_add (const char *name, grub_file_t data, struct wimboot_cmdline *cmd)
   {
     printf ("...found WIM file %s\n", name);
     if (!cmd->rawwim)
+    {
+      add_orig (vfile, cmd);
       vfat_patch_file (vfile, patch_wim);
+    }
     if ((! bootmgfw) && grub_isefi &&
         (bootmgfw = wim_add_file (vfile, cmd->index,
                                   bootmgfw_path, efi_bootarch)))

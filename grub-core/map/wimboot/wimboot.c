@@ -29,6 +29,7 @@
 #include <grub/term.h>
 
 #include <misc.h>
+#include <wimtools.h>
 #include <wimboot.h>
 #include <vfat.h>
 #include <string.h>
@@ -185,6 +186,58 @@ static grub_extcmd_t cmd_wimboot, cmd_vfat;
 
 #endif
 
+static const struct grub_arg_option options_wimtools[] = {
+  {"index", 'i', 0, N_("Use WIM image index n."), N_("n"), ARG_TYPE_INT},
+  {"exist", 'e', 0, N_("Check file exists or not."), 0, 0},
+  {"is64", 'a', 0, N_("Check winload.exe is 64 bit or not."), 0, 0},
+  {0, 0, 0, 0, 0, 0}
+};
+
+enum options_wimtools
+{
+  WIMTOOLS_INDEX,
+  WIMTOOLS_EXIST,
+  WIMTOOLS_IS64,
+};
+
+static grub_err_t
+grub_cmd_wimtools (grub_extcmd_context_t ctxt, int argc, char *argv[])
+{
+  struct grub_arg_list *state = ctxt->state;
+  unsigned int index = 0;
+  grub_file_t file = 0;
+  wchar_t path[256];
+  grub_err_t err = GRUB_ERR_NONE;
+  if (argc < 1 || (state[WIMTOOLS_EXIST].set && argc < 2))
+    return grub_error (GRUB_ERR_BAD_ARGUMENT, N_("filename expected"));
+
+  if (state[WIMTOOLS_INDEX].set)
+    index = grub_strtoul (state[WIMTOOLS_INDEX].arg, NULL, 0);
+  file = grub_file_open (argv[0], GRUB_FILE_TYPE_LOOPBACK);
+  if (!file)
+    return grub_error (GRUB_ERR_BAD_ARGUMENT, N_("failed to open file"));
+
+  if (state[WIMTOOLS_EXIST].set)
+  {
+    mbstowcs (path, argv[1], 256);
+    if (grub_wim_file_exist (file, index, path))
+      err = GRUB_ERR_NONE;
+    else
+      err = GRUB_ERR_TEST_FAILURE;
+  }
+  else if (state[WIMTOOLS_IS64].set)
+  {
+    if (grub_wim_is64 (file, index))
+      err = GRUB_ERR_NONE;
+    else
+      err = GRUB_ERR_TEST_FAILURE;
+  }
+  grub_file_close (file);
+  return err;
+}
+
+static grub_extcmd_t cmd_wimtools;
+
 GRUB_MOD_INIT(wimboot)
 {
 #ifdef GRUB_MACHINE_EFI
@@ -195,6 +248,9 @@ GRUB_MOD_INIT(wimboot)
                     N_("[--mem] [--add=FILE PATH]"),
                     N_("Virtual FAT Disk"), options_vfat);
 #endif
+  cmd_wimtools = grub_register_extcmd ("wimtools", grub_cmd_wimtools, 0,
+                    N_("[--index=n] [OPTIONS] FILE [PATH]"),
+                    N_("WIM Tools"), options_wimtools);
 }
 
 GRUB_MOD_FINI(wimboot)
@@ -203,4 +259,5 @@ GRUB_MOD_FINI(wimboot)
   grub_unregister_extcmd (cmd_wimboot);
   grub_unregister_extcmd (cmd_vfat);
 #endif
+  grub_unregister_extcmd (cmd_wimtools);
 }
