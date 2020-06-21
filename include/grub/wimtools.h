@@ -22,10 +22,9 @@
 
 #include <grub/misc.h>
 #include <grub/file.h>
-#include <stdint.h>
 
 int
-grub_wim_file_exist (grub_file_t file, unsigned int index, const wchar_t *path);
+grub_wim_file_exist (grub_file_t file, unsigned int index, const char *path);
 
 int
 grub_wim_is64 (grub_file_t file, unsigned int index);

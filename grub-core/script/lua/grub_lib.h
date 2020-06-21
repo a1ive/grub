@@ -27,5 +27,6 @@ extern luaL_Reg inputlib[];
 extern luaL_Reg videolib[];
 extern luaL_Reg gbklib[];
 extern luaL_Reg fatlib[];
+extern luaL_Reg wimlib[];
 
 #endif

@@ -27,9 +27,9 @@
 #include <grub/mm.h>
 #include <grub/types.h>
 #include <grub/term.h>
+#include <grub/wimtools.h>
 
 #include <misc.h>
-#include <wimtools.h>
 #include <wimboot.h>
 #include <vfat.h>
 #include <string.h>
@@ -206,7 +206,6 @@ grub_cmd_wimtools (grub_extcmd_context_t ctxt, int argc, char *argv[])
   struct grub_arg_list *state = ctxt->state;
   unsigned int index = 0;
   grub_file_t file = 0;
-  wchar_t path[256];
   grub_err_t err = GRUB_ERR_NONE;
   if (argc < 1 || (state[WIMTOOLS_EXIST].set && argc < 2))
     return grub_error (GRUB_ERR_BAD_ARGUMENT, N_("filename expected"));
@@ -219,8 +218,7 @@ grub_cmd_wimtools (grub_extcmd_context_t ctxt, int argc, char *argv[])
 
   if (state[WIMTOOLS_EXIST].set)
   {
-    mbstowcs (path, argv[1], 256);
-    if (grub_wim_file_exist (file, index, path))
+    if (grub_wim_file_exist (file, index, argv[1]))
       err = GRUB_ERR_NONE;
     else
       err = GRUB_ERR_TEST_FAILURE;

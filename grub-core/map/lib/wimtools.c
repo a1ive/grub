@@ -34,7 +34,7 @@
 #include <lzx.h>
 #include <wim.h>
 #include <misc.h>
-#include <wimtools.h>
+#include <grub/wimtools.h>
 
 #pragma GCC diagnostic ignored "-Wcast-align"
 
@@ -483,9 +483,10 @@ grub_wim_ispe64 (grub_uint8_t *buffer)
 }
 
 int
-grub_wim_file_exist (grub_file_t file, unsigned int index, const wchar_t *path)
+grub_wim_file_exist (grub_file_t file, unsigned int index, const char *path)
 {
-  int rc;
+  int ret;
+  wchar_t *wpath = NULL;
   /** WIM header */
   struct wim_header header;
   /** Resource */
@@ -493,17 +494,25 @@ grub_wim_file_exist (grub_file_t file, unsigned int index, const wchar_t *path)
   struct wim_resource_header meta;
 
   /* Get WIM header */
-  if ((rc = grub_wim_header (file, &header)) != 0)
+  if (grub_wim_header (file, &header))
     return 0;
 
   /* Get image metadata */
-  if ((rc = grub_wim_metadata (file, &header, index, &meta)) != 0)
+  if (grub_wim_metadata (file, &header, index, &meta))
     return 0;
 
-  /* Get file resource */
-  if ((rc = grub_wim_file (file, &header, &meta, path, &resource)) != 0)
+  wpath = malloc (2 * (strlen (path) + 1));
+  if (!wpath)
     return 0;
-  return 1;
+  mbstowcs (wpath, path, strlen (path) + 1);
+
+  /* Get file resource */
+  if (grub_wim_file (file, &header, &meta, wpath, &resource))
+    ret = 0;
+  else
+    ret = 1;
+  grub_free (wpath);
+  return ret;
 }
 
 int
@@ -517,12 +526,17 @@ grub_wim_is64 (grub_file_t file, unsigned int index)
   struct wim_resource_header meta;
   const wchar_t winload[] = L"\\Windows\\System32\\Boot\\winload.exe";
 
-  if (!grub_wim_file_exist (file, index, winload))
+  if (grub_wim_header (file, &header))
     return 0;
 
-  grub_wim_header (file, &header);
-  grub_wim_metadata (file, &header, index, &meta);
-  grub_wim_file (file, &header, &meta, winload, &resource);
+  /* Get image metadata */
+  if (grub_wim_metadata (file, &header, index, &meta))
+    return 0;
+
+  /* Get file resource */
+  if (grub_wim_file (file, &header, &meta, winload, &resource))
+    return 0;
+
   exe_len = (uint32_t) resource.len;
   exe_data = grub_zalloc (exe_len);
   if (!exe_data)
