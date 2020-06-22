@@ -773,67 +773,6 @@ grub_lua_add_hidden_menu (lua_State *state)
   return push_result (state);
 }
 
-
-static int
-grub_lua_read_byte (lua_State *state)
-{
-  grub_addr_t addr;
-
-  addr = luaL_checkinteger (state, 1);
-  lua_pushinteger (state, *((grub_uint8_t *) addr));
-  return 1;
-}
-
-static int
-grub_lua_read_word (lua_State *state)
-{
-  grub_addr_t addr;
-
-  addr = luaL_checkinteger (state, 1);
-  lua_pushinteger (state, *((grub_uint16_t *) addr));
-  return 1;
-}
-
-static int
-grub_lua_read_dword (lua_State *state)
-{
-  grub_addr_t addr;
-
-  addr = luaL_checkinteger (state, 1);
-  lua_pushinteger (state, *((grub_uint32_t *) addr));
-  return 1;
-}
-
-static int
-grub_lua_write_byte (lua_State *state)
-{
-  grub_addr_t addr;
-
-  addr = luaL_checkinteger (state, 1);
-  *((grub_uint8_t *) addr) = luaL_checkinteger (state, 2);
-  return 1;
-}
-
-static int
-grub_lua_write_word (lua_State *state)
-{
-  grub_addr_t addr;
-
-  addr = luaL_checkinteger (state, 1);
-  *((grub_uint16_t *) addr) = luaL_checkinteger (state, 2);
-  return 1;
-}
-
-static int
-grub_lua_write_dword (lua_State *state)
-{
-  grub_addr_t addr;
-
-  addr = luaL_checkinteger (state, 1);
-  *((grub_uint32_t *) addr) = luaL_checkinteger (state, 2);
-  return 1;
-}
-
 static int
 grub_lua_cls (lua_State *state __attribute__ ((unused)))
 {
@@ -1000,12 +939,7 @@ luaL_Reg grub_lua_lib[] =
   {"add_icon_menu", grub_lua_add_icon_menu},
   {"add_hidden_menu", grub_lua_add_hidden_menu},
   {"clear_menu", grub_lua_clear_menu},
-  {"read_byte", grub_lua_read_byte},
-  {"read_word", grub_lua_read_word},
-  {"read_dword", grub_lua_read_dword},
-  {"write_byte", grub_lua_write_byte},
-  {"write_word", grub_lua_write_word},
-  {"write_dword", grub_lua_write_dword},
+
   {"cls", grub_lua_cls},
   {"setcolorstate", grub_lua_setcolorstate},
   {"refresh", grub_lua_refresh},

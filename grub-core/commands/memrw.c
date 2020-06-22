@@ -22,6 +22,7 @@
 #include <grub/extcmd.h>
 #include <grub/env.h>
 #include <grub/i18n.h>
+#include <grub/lua.h>
 
 GRUB_MOD_LICENSE ("GPLv3+");
 
@@ -140,6 +141,71 @@ grub_cmd_write_bytes (grub_command_t cmd __attribute__ ((unused)),
   return 0;
 }
 
+static int
+lua_read_byte (lua_State *state)
+{
+  grub_addr_t addr;
+  addr = luaL_checkinteger (state, 1);
+  lua_pushinteger (state, *((grub_uint8_t *) addr));
+  return 1;
+}
+
+static int
+lua_read_word (lua_State *state)
+{
+  grub_addr_t addr;
+  addr = luaL_checkinteger (state, 1);
+  lua_pushinteger (state, *((grub_uint16_t *) addr));
+  return 1;
+}
+
+static int
+lua_read_dword (lua_State *state)
+{
+  grub_addr_t addr;
+  addr = luaL_checkinteger (state, 1);
+  lua_pushinteger (state, *((grub_uint32_t *) addr));
+  return 1;
+}
+
+static int
+lua_write_byte (lua_State *state)
+{
+  grub_addr_t addr;
+  addr = luaL_checkinteger (state, 1);
+  *((grub_uint8_t *) addr) = luaL_checkinteger (state, 2);
+  return 1;
+}
+
+static int
+lua_write_word (lua_State *state)
+{
+  grub_addr_t addr;
+  addr = luaL_checkinteger (state, 1);
+  *((grub_uint16_t *) addr) = luaL_checkinteger (state, 2);
+  return 1;
+}
+
+static int
+lua_write_dword (lua_State *state)
+{
+  grub_addr_t addr;
+  addr = luaL_checkinteger (state, 1);
+  *((grub_uint32_t *) addr) = luaL_checkinteger (state, 2);
+  return 1;
+}
+
+static luaL_Reg memlib[] =
+{
+  {"read_byte", lua_read_byte},
+  {"read_word", lua_read_word},
+  {"read_dword", lua_read_dword},
+  {"write_byte", lua_write_byte},
+  {"write_word", lua_write_word},
+  {"write_dword", lua_write_dword},
+  {0, 0}
+};
+
 GRUB_MOD_INIT(memrw)
 {
   cmd_read_byte =
@@ -170,6 +236,12 @@ GRUB_MOD_INIT(memrw)
     grub_register_command ("write_bytes", grub_cmd_write_bytes,
 			   N_("ADDR VALUE1 [VALUE2 [VALUE3 ...]]"),
 			   N_("Write sequences of 8-bit VALUES to ADDR."));
+  if (grub_lua_global_state)
+  {
+    lua_gc (grub_lua_global_state, LUA_GCSTOP, 0);
+    luaL_register (grub_lua_global_state, "memrw", memlib);
+    lua_gc (grub_lua_global_state, LUA_GCRESTART, 0);
+  }
 }
 
 GRUB_MOD_FINI(memrw)
