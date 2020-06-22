@@ -30,8 +30,11 @@
 #include <grub/file.h>
 #include <grub/misc.h>
 #include <grub/partition.h>
+#include <grub/msdos_partition.h>
+#include <grub/gpt_partition.h>
 #include <grub/fs.h>
 #include <grub/extcmd.h>
+#include <grub/normal.h>
 #include <grub/i18n.h>
 #include <grub/lua.h>
 
@@ -295,14 +298,23 @@ lua_disk_open (lua_State *state)
 {
   grub_disk_t disk = 0;
   const char *name;
+  char *str = NULL;
 
   name = luaL_checkstring (state, 1);
-  disk = grub_disk_open (name);
-  save_errno (state);
-
-  if (! disk)
+  str = grub_strdup (name);
+  if (!str)
     return 0;
-
+  if (str[0] == '(')
+  {
+    str[grub_strlen (str) - 1] = 0;
+    disk = grub_disk_open (&str[1]);
+  }
+  else
+    disk = grub_disk_open (str);
+  save_errno (state);
+  grub_free (str);
+  if (!disk)
+    return 0;
   lua_pushlightuserdata (state, disk);
   return 1;
 }
@@ -359,12 +371,151 @@ lua_disk_write (lua_State *state)
   return 0;
 }
 
+static int
+lua_disk_partmap (lua_State *state)
+{
+  grub_disk_t disk;
+  const char *buf = "none";
+  luaL_checktype (state, 1, LUA_TLIGHTUSERDATA);
+  disk = lua_touserdata (state, 1);
+  if (disk->partition && disk->partition->partmap)
+    buf = disk->partition->partmap->name;
+  lua_pushstring (state, buf);
+  return 1;
+}
+
+static int
+lua_disk_driver (lua_State *state)
+{
+  grub_disk_t disk;
+  const char *buf = "none";
+  luaL_checktype (state, 1, LUA_TLIGHTUSERDATA);
+  disk = lua_touserdata (state, 1);
+  if (disk->dev)
+    buf = disk->dev->name;
+  lua_pushstring (state, buf);
+  return 1;
+}
+
+static int
+lua_disk_fs (lua_State *state)
+{
+  grub_disk_t disk;
+  struct grub_device dev = {NULL, NULL};
+  grub_fs_t fs;
+  const char *buf = "none";
+  luaL_checktype (state, 1, LUA_TLIGHTUSERDATA);
+  disk = lua_touserdata (state, 1);
+  dev.disk = disk;
+  fs = grub_fs_probe (&dev);
+  if (fs)
+    buf = fs->name;
+  lua_pushstring (state, buf);
+  return 1;
+}
+
+static int
+lua_disk_fsuuid (lua_State *state)
+{
+  grub_disk_t disk;
+  struct grub_device dev = {NULL, NULL};
+  grub_fs_t fs;
+  char *buf = NULL;
+  luaL_checktype (state, 1, LUA_TLIGHTUSERDATA);
+  disk = lua_touserdata (state, 1);
+  dev.disk = disk;
+  fs = grub_fs_probe (&dev);
+  if (fs && fs->fs_uuid)
+    fs->fs_uuid (&dev, &buf);
+  if (buf)
+  {
+    lua_pushstring (state, buf);
+    grub_free (buf);
+  }
+  else
+    lua_pushstring (state, "");
+  return 1;
+}
+
+static int
+lua_disk_label (lua_State *state)
+{
+  grub_disk_t disk;
+  struct grub_device dev = {NULL, NULL};
+  grub_fs_t fs;
+  char *buf = NULL;
+  luaL_checktype (state, 1, LUA_TLIGHTUSERDATA);
+  disk = lua_touserdata (state, 1);
+  dev.disk = disk;
+  fs = grub_fs_probe (&dev);
+  if (fs && fs->fs_label)
+    fs->fs_label (&dev, &buf);
+  if (buf)
+  {
+    lua_pushstring (state, buf);
+    grub_free (buf);
+  }
+  else
+    lua_pushstring (state, "");
+  return 1;
+}
+
+static int
+lua_disk_size (lua_State *state)
+{
+  grub_disk_t disk;
+  char buf[32];
+  unsigned long long size;
+  luaL_checktype (state, 1, LUA_TLIGHTUSERDATA);
+  disk = lua_touserdata (state, 1);
+  size = grub_disk_get_size (disk);
+  if (lua_gettop (state) > 1)
+    grub_snprintf (buf, 32, "%s", grub_get_human_size (size, GRUB_HUMAN_SIZE_SHORT));
+  else
+    grub_snprintf (buf, 32, "%llu", size);
+  lua_pushstring (state, buf);
+  return 1;
+}
+
+static int
+lua_disk_bootable (lua_State *state)
+{
+  grub_disk_t disk;
+  int boot = 0;
+  luaL_checktype (state, 1, LUA_TLIGHTUSERDATA);
+  disk = lua_touserdata (state, 1);
+  if (disk->partition &&
+      disk->partition->msdostype != GRUB_PC_PARTITION_TYPE_GPT_DISK &&
+      grub_strcmp (disk->partition->partmap->name, "msdos") == 0)
+  {
+    if (disk->partition->flag & 0x80)
+      boot = 1;
+  }
+  else if (disk->partition &&
+           grub_strcmp (disk->partition->partmap->name, "gpt") == 0)
+  {
+    grub_packed_guid_t EFI_GUID = GRUB_GPT_PARTITION_TYPE_EFI_SYSTEM;
+    if (grub_memcmp (&disk->partition->gpttype,
+                     &EFI_GUID, sizeof (grub_packed_guid_t)) == 0)
+      boot = 1;
+  }
+  lua_pushboolean (state, boot);
+  return 1;
+}
+
 static luaL_Reg disklib[] =
 {
   {"open", lua_disk_open},
   {"close", lua_disk_close},
   {"read", lua_disk_read},
   {"write", lua_disk_write},
+  {"partmap", lua_disk_partmap},
+  {"driver", lua_disk_driver},
+  {"fs", lua_disk_fs},
+  {"fsuuid", lua_disk_fsuuid},
+  {"label", lua_disk_label},
+  {"size", lua_disk_size},
+  {"bootable", lua_disk_bootable},
   {0, 0}
 };
 
