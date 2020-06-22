@@ -32,6 +32,7 @@
 #include <grub/extcmd.h>
 #include <grub/i18n.h>
 #include <grub/msdos_partition.h>
+#include <grub/gpt_partition.h>
 
 GRUB_MOD_LICENSE ("GPLv3+");
 
@@ -244,12 +245,21 @@ grub_cmd_probe (grub_extcmd_context_t ctxt, int argc, char **args)
   if (state[PROBE_BOOTABLE].set)
     {
       const char *val = "none";
-      if (dev->disk &&
-          dev->disk->partition &&
+      if (dev->disk && dev->disk->partition &&
           dev->disk->partition->msdostype != GRUB_PC_PARTITION_TYPE_GPT_DISK &&
           grub_strcmp (dev->disk->partition->partmap->name, "msdos") == 0)
+      {
         if (dev->disk->partition->flag & 0x80)
           val = "bootable";
+      }
+      else if (dev->disk && dev->disk->partition &&
+               grub_strcmp (dev->disk->partition->partmap->name, "gpt") == 0)
+      {
+        grub_packed_guid_t EFI_GUID = GRUB_GPT_PARTITION_TYPE_EFI_SYSTEM;
+        if (grub_memcmp (&dev->disk->partition->gpttype,
+                         &EFI_GUID, sizeof (grub_packed_guid_t)) == 0)
+          val = "bootable";
+      }
       if (state[PROBE_SET].set)
         grub_env_set (state[PROBE_SET].arg, val);
       else
