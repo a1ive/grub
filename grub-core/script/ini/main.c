@@ -24,6 +24,7 @@
 #include <grub/dl.h>
 #include <grub/extcmd.h>
 #include <grub/i18n.h>
+#include <grub/lua.h>
 
 #include "ini.h"
 
@@ -48,13 +49,13 @@ grub_cmd_ini_get (grub_extcmd_context_t ctxt, int argc, char **args)
   struct grub_arg_list *state = ctxt->state;
   if (argc != 2)
     return grub_error (GRUB_ERR_BAD_ARGUMENT, "string required");
-  
+
   ini_t *config = ini_load (args[0]);
   char *input = NULL;
   char *section = NULL;
   char *key = NULL;
   const char *name = NULL;
- 
+
   if (!config)
   {
     grub_printf ("cannot parse file: %s\n", args[0]);
@@ -88,11 +89,68 @@ grub_cmd_ini_get (grub_extcmd_context_t ctxt, int argc, char **args)
 
 static grub_extcmd_t cmd_get;
 
+static int
+lua_ini_load (lua_State *state)
+{
+  ini_t *config = NULL;
+  const char *name;
+  name = luaL_checkstring (state, 1);
+  config = ini_load (name);
+  if (! config)
+    return 0;
+  lua_pushlightuserdata (state, config);
+  return 1;
+}
+
+static int
+lua_ini_free (lua_State *state)
+{
+  ini_t *config = NULL;
+  luaL_checktype (state, 1, LUA_TLIGHTUSERDATA);
+  config = lua_touserdata (state, 1);
+  ini_free (config);
+  return push_result (state);
+}
+
+static int
+lua_ini_get (lua_State *state)
+{
+  ini_t *config = NULL;
+  const char *section = NULL;
+  const char *key = NULL;
+  const char *val = NULL;
+  luaL_checktype (state, 1, LUA_TLIGHTUSERDATA);
+  config = lua_touserdata (state, 1);
+  section = (lua_gettop (state) > 2) ?
+             luaL_checkstring (state, 2) : NULL;
+  key = (lua_gettop (state) > 2) ?
+         luaL_checkstring (state, 3) : luaL_checkstring (state, 2);
+  val = ini_get (config, section, key);
+  if (!val)
+    return 0;
+  lua_pushstring (state, val);
+  return 1;
+}
+
+static luaL_Reg inilib[] =
+{
+  {"load", lua_ini_load},
+  {"free", lua_ini_free},
+  {"get", lua_ini_get},
+  {0, 0}
+};
+
 GRUB_MOD_INIT(ini)
 {
   cmd_get = grub_register_extcmd ("ini_get", grub_cmd_ini_get, 0,
                   N_("[--set=VARNAME] FILE [SECTION:]KEY"),
                   N_("Get value from ini files."), options_get);
+  if (grub_lua_global_state)
+  {
+    lua_gc (grub_lua_global_state, LUA_GCSTOP, 0);
+    luaL_register (grub_lua_global_state, "ini", inilib);
+    lua_gc (grub_lua_global_state, LUA_GCRESTART, 0);
+  }
 }
 
 GRUB_MOD_FINI(ini)

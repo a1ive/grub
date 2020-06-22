@@ -20,7 +20,6 @@
 #include "lauxlib.h"
 #include "lualib.h"
 #include "grub_lib.h"
-#include "../ini/ini.h"
 
 #include <grub/dl.h>
 #include <grub/env.h>
@@ -34,7 +33,6 @@
 #include <grub/device.h>
 #include <grub/partition.h>
 #include <grub/i18n.h>
-#include <grub/lib/crc.h>
 #include <grub/time.h>
 #include <grub/script_sh.h>
 #include <grub/lua.h>
@@ -549,28 +547,6 @@ grub_lua_file_exist (lua_State *state)
 }
 
 static int
-grub_lua_file_crc32 (lua_State *state)
-{
-  grub_file_t file;
-  const char *name;
-  int crc;
-  char crcstr[10];
-  char buf[GRUB_DISK_SECTOR_SIZE];
-  grub_ssize_t size;
-  name = luaL_checkstring (state, 1);
-  file = grub_file_open (name, GRUB_FILE_TYPE_TO_HASH);
-  if (file)
-    {
-      crc = 0;
-      while ((size = grub_file_read (file, buf, sizeof (buf))) > 0)
-        crc = grub_getcrc32c (crc, buf, size);
-      grub_snprintf (crcstr, 10, "%08x", crc);
-      lua_pushstring (state, crcstr);
-    }
-  return 1;
-}
-
-static int
 grub_lua_disk_open (lua_State *state)
 {
   grub_disk_t disk = 0;
@@ -940,62 +916,19 @@ grub_lua_disk_getsize (lua_State *state)
   return 1;
 }
 
-static int
-grub_lua_ini_load (lua_State *state)
-{
-  ini_t *config = NULL;
-  const char *name;
-  name = luaL_checkstring (state, 1);
-  config = ini_load (name);
-  if (! config)
-    return 0;
-  lua_pushlightuserdata (state, config);
-  return 1;
-}
-
-static int
-grub_lua_ini_free (lua_State *state)
-{
-  ini_t *config = NULL;
-  luaL_checktype (state, 1, LUA_TLIGHTUSERDATA);
-  config = lua_touserdata (state, 1);
-  ini_free (config);
-  return push_result (state);
-}
-
-static int
-grub_lua_ini_get (lua_State *state)
-{
-  ini_t *config = NULL;
-  const char *section = NULL;
-  const char *key = NULL;
-  const char *val = NULL;
-  luaL_checktype (state, 1, LUA_TLIGHTUSERDATA);
-  config = lua_touserdata (state, 1);
-  section = (lua_gettop (state) > 2) ?
-             luaL_checkstring (state, 2) : NULL;
-  key = (lua_gettop (state) > 2) ?
-         luaL_checkstring (state, 3) : luaL_checkstring (state, 2);
-  val = ini_get (config, section, key);
-  if (!val)
-    return 0;
-  lua_pushstring (state, val);
-  return 1;
-}
-
 /* Helper for grub_lua_enum_block.  */
 static int
-grub_lua_enum_block_iter (grub_disk_addr_t offset,
-                          unsigned long length,
-                          grub_disk_addr_t start, void *data)
+grub_lua_enum_block_iter (unsigned long long offset,
+                          unsigned long long length,
+                          unsigned long long start, void *data)
 {
   lua_State *state = data;
   int result;
   char str[255];
 
   lua_pushvalue (state, 1);
-  grub_snprintf (str, 255, "%llu+%lu",
-                 (unsigned long long)((offset >> GRUB_DISK_SECTOR_BITS) + start),
+  grub_snprintf (str, 255, "%llu+%llu",
+                 (offset >> GRUB_DISK_SECTOR_BITS) + start,
                  length >> GRUB_DISK_SECTOR_BITS);
   lua_pushstring (state, str);
 
@@ -1037,54 +970,50 @@ grub_lua_enum_block (lua_State *state)
 }
 
 luaL_Reg grub_lua_lib[] =
-  {
-    {"run", grub_lua_run},
-    {"script", grub_lua_script},
-    {"getenv", grub_lua_getenv},
-    {"setenv", grub_lua_setenv},
-    {"exportenv", grub_lua_exportenv},
-    {"enum_device", grub_lua_enum_device},
-    {"enum_file", grub_lua_enum_file},
+{
+  {"run", grub_lua_run},
+  {"script", grub_lua_script},
+  {"getenv", grub_lua_getenv},
+  {"setenv", grub_lua_setenv},
+  {"exportenv", grub_lua_exportenv},
+  {"enum_device", grub_lua_enum_device},
+  {"enum_file", grub_lua_enum_file},
 #ifdef ENABLE_LUA_PCI
-    {"enum_pci", grub_lua_enum_pci},
+  {"enum_pci", grub_lua_enum_pci},
 #endif
-    {"file_open", grub_lua_file_open},
-    {"file_close", grub_lua_file_close},
-    {"file_seek", grub_lua_file_seek},
-    {"file_read", grub_lua_file_read},
-    {"file_write", grub_lua_file_write},
-    {"file_getline", grub_lua_file_getline},
-    {"file_getsize", grub_lua_file_getsize},
-    {"file_getpos", grub_lua_file_getpos},
-    {"file_eof", grub_lua_file_eof},
-    {"file_exist", grub_lua_file_exist},
-    {"file_crc32", grub_lua_file_crc32},
-    {"disk_open", grub_lua_disk_open},
-    {"disk_close", grub_lua_disk_close},
-    {"disk_read", grub_lua_disk_read},
-    {"disk_write", grub_lua_disk_write},
-    {"hexdump", grub_lua_hexdump},
-    {"add_menu", grub_lua_add_menu},
-    {"add_icon_menu", grub_lua_add_icon_menu},
-    {"add_hidden_menu", grub_lua_add_hidden_menu},
-    {"clear_menu", grub_lua_clear_menu},
-    {"read_byte", grub_lua_read_byte},
-    {"read_word", grub_lua_read_word},
-    {"read_dword", grub_lua_read_dword},
-    {"write_byte", grub_lua_write_byte},
-    {"write_word", grub_lua_write_word},
-    {"write_dword", grub_lua_write_dword},
-    {"cls", grub_lua_cls},
-    {"setcolorstate", grub_lua_setcolorstate},
-    {"refresh", grub_lua_refresh},
-    {"read", grub_lua_read},
-    {"gettext", grub_lua_gettext},
-    {"get_time_ms", grub_lua_get_time_ms},
-    {"random", grub_lua_random},
-    {"disk_getsize", grub_lua_disk_getsize},
-    {"ini_load", grub_lua_ini_load},
-    {"ini_free", grub_lua_ini_free},
-    {"ini_get", grub_lua_ini_get},
-    {"enum_block", grub_lua_enum_block},
-    {0, 0}
-  };
+  {"file_open", grub_lua_file_open},
+  {"file_close", grub_lua_file_close},
+  {"file_seek", grub_lua_file_seek},
+  {"file_read", grub_lua_file_read},
+  {"file_write", grub_lua_file_write},
+  {"file_getline", grub_lua_file_getline},
+  {"file_getsize", grub_lua_file_getsize},
+  {"file_getpos", grub_lua_file_getpos},
+  {"file_eof", grub_lua_file_eof},
+  {"file_exist", grub_lua_file_exist},
+  {"disk_open", grub_lua_disk_open},
+  {"disk_close", grub_lua_disk_close},
+  {"disk_read", grub_lua_disk_read},
+  {"disk_write", grub_lua_disk_write},
+  {"hexdump", grub_lua_hexdump},
+  {"add_menu", grub_lua_add_menu},
+  {"add_icon_menu", grub_lua_add_icon_menu},
+  {"add_hidden_menu", grub_lua_add_hidden_menu},
+  {"clear_menu", grub_lua_clear_menu},
+  {"read_byte", grub_lua_read_byte},
+  {"read_word", grub_lua_read_word},
+  {"read_dword", grub_lua_read_dword},
+  {"write_byte", grub_lua_write_byte},
+  {"write_word", grub_lua_write_word},
+  {"write_dword", grub_lua_write_dword},
+  {"cls", grub_lua_cls},
+  {"setcolorstate", grub_lua_setcolorstate},
+  {"refresh", grub_lua_refresh},
+  {"read", grub_lua_read},
+  {"gettext", grub_lua_gettext},
+  {"get_time_ms", grub_lua_get_time_ms},
+  {"random", grub_lua_random},
+  {"disk_getsize", grub_lua_disk_getsize},
+  {"enum_block", grub_lua_enum_block},
+  {0, 0}
+};
