@@ -546,75 +546,6 @@ grub_lua_file_exist (lua_State *state)
   return 1;
 }
 
-static int
-grub_lua_disk_open (lua_State *state)
-{
-  grub_disk_t disk = 0;
-  const char *name;
-
-  name = luaL_checkstring (state, 1);
-  disk = grub_disk_open (name);
-  save_errno (state);
-
-  if (! disk)
-    return 0;
-
-  lua_pushlightuserdata (state, disk);
-  return 1;
-}
-
-static int
-grub_lua_disk_close (lua_State *state)
-{
-  grub_disk_t disk;
-
-  luaL_checktype (state, 1, LUA_TLIGHTUSERDATA);
-  disk = lua_touserdata (state, 1);
-  grub_disk_close (disk);
-
-  return push_result (state);
-}
-
-/* disk, sector, offset, len */
-static int
-grub_lua_disk_read (lua_State *state)
-{
-  grub_disk_t disk;
-  char *b = NULL;
-  int len, sec, ofs;
-  luaL_checktype (state, 1, LUA_TLIGHTUSERDATA);
-  disk = lua_touserdata (state, 1);
-  sec = luaL_checkinteger (state, 2);
-  ofs = luaL_checkinteger (state, 3);
-  len = luaL_checkinteger (state, 4);
-  b = grub_malloc (len);
-  if (! b)
-    return 0;
-  grub_disk_read (disk, sec, ofs, len, b);
-  save_errno (state);
-  lua_pushstring (state, b);
-  grub_free (b);
-  return 1;
-}
-
-/* disk, sector, offset, size, buf */
-static int
-grub_lua_disk_write (lua_State *state)
-{
-  grub_disk_t disk;
-  const char *buf = NULL;
-  int len, sec, ofs;
-  luaL_checktype (state, 1, LUA_TLIGHTUSERDATA);
-  disk = lua_touserdata (state, 1);
-  sec = luaL_checkinteger (state, 2);
-  ofs = luaL_checkinteger (state, 3);
-  len = luaL_checkinteger (state, 4);
-  buf = luaL_checkstring (state, 5);
-  grub_disk_write (disk, sec, ofs, len, buf);
-  save_errno (state);
-  return 0;
-}
-
 //file, skip, length
 static int
 grub_lua_hexdump (lua_State *state)
@@ -838,23 +769,6 @@ grub_lua_random (lua_State *state)
   return 1;
 }
 
-static int
-grub_lua_disk_getsize (lua_State *state)
-{
-  const char *name;
-  name = luaL_checkstring (state, 1);
-  grub_disk_t disk = 0;
-  disk = grub_disk_open (name);
-  if (disk)
-  {
-    lua_pushinteger (state, grub_disk_get_size (disk));
-    grub_disk_close (disk);
-  }
-  else
-    lua_pushinteger (state, 0);
-  return 1;
-}
-
 /* Helper for grub_lua_enum_block.  */
 static int
 grub_lua_enum_block_iter (unsigned long long offset,
@@ -930,10 +844,7 @@ luaL_Reg grub_lua_lib[] =
   {"file_getpos", grub_lua_file_getpos},
   {"file_eof", grub_lua_file_eof},
   {"file_exist", grub_lua_file_exist},
-  {"disk_open", grub_lua_disk_open},
-  {"disk_close", grub_lua_disk_close},
-  {"disk_read", grub_lua_disk_read},
-  {"disk_write", grub_lua_disk_write},
+
   {"hexdump", grub_lua_hexdump},
   {"add_menu", grub_lua_add_menu},
   {"add_icon_menu", grub_lua_add_icon_menu},
@@ -947,7 +858,6 @@ luaL_Reg grub_lua_lib[] =
   {"gettext", grub_lua_gettext},
   {"get_time_ms", grub_lua_get_time_ms},
   {"random", grub_lua_random},
-  {"disk_getsize", grub_lua_disk_getsize},
   {"enum_block", grub_lua_enum_block},
   {0, 0}
 };

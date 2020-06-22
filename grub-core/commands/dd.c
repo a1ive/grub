@@ -33,6 +33,7 @@
 #include <grub/fs.h>
 #include <grub/extcmd.h>
 #include <grub/i18n.h>
+#include <grub/lua.h>
 
 GRUB_MOD_LICENSE ("GPLv3+");
 
@@ -289,10 +290,94 @@ fail:
 
 static grub_extcmd_t cmd;
 
+static int
+lua_disk_open (lua_State *state)
+{
+  grub_disk_t disk = 0;
+  const char *name;
+
+  name = luaL_checkstring (state, 1);
+  disk = grub_disk_open (name);
+  save_errno (state);
+
+  if (! disk)
+    return 0;
+
+  lua_pushlightuserdata (state, disk);
+  return 1;
+}
+
+static int
+lua_disk_close (lua_State *state)
+{
+  grub_disk_t disk;
+
+  luaL_checktype (state, 1, LUA_TLIGHTUSERDATA);
+  disk = lua_touserdata (state, 1);
+  grub_disk_close (disk);
+
+  return push_result (state);
+}
+
+/* disk, sector, offset, len */
+static int
+lua_disk_read (lua_State *state)
+{
+  grub_disk_t disk;
+  char *b = NULL;
+  int len, sec, ofs;
+  luaL_checktype (state, 1, LUA_TLIGHTUSERDATA);
+  disk = lua_touserdata (state, 1);
+  sec = luaL_checkinteger (state, 2);
+  ofs = luaL_checkinteger (state, 3);
+  len = luaL_checkinteger (state, 4);
+  b = grub_malloc (len);
+  if (! b)
+    return 0;
+  grub_disk_read (disk, sec, ofs, len, b);
+  save_errno (state);
+  lua_pushstring (state, b);
+  grub_free (b);
+  return 1;
+}
+
+/* disk, sector, offset, size, buf */
+static int
+lua_disk_write (lua_State *state)
+{
+  grub_disk_t disk;
+  const char *buf = NULL;
+  int len, sec, ofs;
+  luaL_checktype (state, 1, LUA_TLIGHTUSERDATA);
+  disk = lua_touserdata (state, 1);
+  sec = luaL_checkinteger (state, 2);
+  ofs = luaL_checkinteger (state, 3);
+  len = luaL_checkinteger (state, 4);
+  buf = luaL_checkstring (state, 5);
+  grub_disk_write (disk, sec, ofs, len, buf);
+  save_errno (state);
+  return 0;
+}
+
+static luaL_Reg disklib[] =
+{
+  {"open", lua_disk_open},
+  {"close", lua_disk_close},
+  {"read", lua_disk_read},
+  {"write", lua_disk_write},
+  {0, 0}
+};
+
 GRUB_MOD_INIT(dd)
 {
   cmd = grub_register_extcmd ("dd", grub_cmd_dd, 0,
                               N_("[OPTIONS]"), N_("Copy data."), options);
+  if (grub_lua_global_state)
+  {
+    lua_gc (grub_lua_global_state, LUA_GCSTOP, 0);
+    luaL_register (grub_lua_global_state, "disk", disklib);
+    lua_gc (grub_lua_global_state, LUA_GCRESTART, 0);
+  }
 }
 
 GRUB_MOD_FINI(dd)
