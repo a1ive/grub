@@ -93,21 +93,6 @@ read_block_start (grub_disk_addr_t sector,
   *start = sector + 1 - (length >> GRUB_DISK_SECTOR_BITS);
 }
 
-static grub_uint64_t total_mem = 0;
-
-#ifndef GRUB_MACHINE_EMU
-static int
-totalmem_hook (grub_uint64_t addr __attribute__ ((unused)),
-               grub_uint64_t size,
-               grub_memory_type_t type,
-               void *data __attribute__ ((unused)))
-{
-  if (type != GRUB_MEMORY_RESERVED)
-  total_mem += size;
-  return 0;
-}
-#endif
-
 static grub_err_t
 grub_cmd_stat (grub_extcmd_context_t ctxt, int argc, char **args)
 {
@@ -127,11 +112,9 @@ grub_cmd_stat (grub_extcmd_context_t ctxt, int argc, char **args)
 
   if (state[STAT_RAM].set)
   {
-    total_mem = 0;
-#ifndef GRUB_MACHINE_EMU
-    grub_machine_mmap_iterate (totalmem_hook, NULL);
-#endif
-    grub_snprintf (str, GRUB_DISK_SECTOR_SIZE, "%" PRIuGRUB_UINT64_T, total_mem >> 20);
+    grub_uint64_t total_mem = grub_get_total_mem_size ();
+    grub_snprintf (str, GRUB_DISK_SECTOR_SIZE, "%" PRIuGRUB_UINT64_T,
+                   total_mem >> 20);
     if (!state[STAT_QUIET].set)
       grub_printf ("%s\n", str);
     goto fail;

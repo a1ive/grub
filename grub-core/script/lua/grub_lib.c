@@ -29,6 +29,7 @@
 #include <grub/term.h>
 #include <grub/file.h>
 #include <grub/menu.h>
+#include <grub/memory.h>
 #include <grub/misc.h>
 #include <grub/device.h>
 #include <grub/partition.h>
@@ -758,6 +759,16 @@ grub_lua_refresh (lua_State *state __attribute__ ((unused)))
   return 0;
 }
 
+static int
+grub_lua_getmem (lua_State *state __attribute__ ((unused)))
+{
+  const char *str;
+  grub_uint64_t total_mem = grub_get_total_mem_size ();
+  str = grub_get_human_size (total_mem, GRUB_HUMAN_SIZE_SHORT);
+  lua_pushstring (state, str);
+  return 1;
+}
+
 luaL_Reg grub_lua_lib[] =
 {
   {"run", grub_lua_run},
@@ -792,5 +803,7 @@ luaL_Reg grub_lua_lib[] =
   {"cls", grub_lua_cls},
   {"setcolorstate", grub_lua_setcolorstate},
   {"refresh", grub_lua_refresh},
+
+  {"getmem", grub_lua_getmem},
   {0, 0}
 };

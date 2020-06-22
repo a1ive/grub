@@ -531,7 +531,32 @@ grub_cmd_cutmem (grub_command_t cmd __attribute__ ((unused)),
 
 static grub_command_t cmd, cmd_cut;
 
-
+static grub_uint64_t total_mem = 0;
+
+#ifndef GRUB_MACHINE_EMU
+static int
+totalmem_hook (grub_uint64_t addr __attribute__ ((unused)),
+               grub_uint64_t size,
+               grub_memory_type_t type,
+               void *data __attribute__ ((unused)))
+{
+  if (type != GRUB_MEMORY_RESERVED)
+  total_mem += size;
+  return 0;
+}
+#endif
+
+grub_uint64_t
+grub_get_total_mem_size (void)
+{
+  total_mem = 0;
+#ifndef GRUB_MACHINE_EMU
+  grub_machine_mmap_iterate (totalmem_hook, NULL);
+#endif
+  return total_mem;
+}
+
+
 GRUB_MOD_INIT(mmap)
 {
   cmd = grub_register_command ("badram", grub_cmd_badram,

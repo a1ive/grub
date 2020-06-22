@@ -84,4 +84,6 @@ struct grub_mmap_region
 extern struct grub_mmap_region *grub_mmap_overlays;
 #endif
 
+grub_uint64_t grub_get_total_mem_size (void);
+
 #endif /* ! GRUB_MEMORY_HEADER */

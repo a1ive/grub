@@ -468,7 +468,7 @@ lua_disk_size (lua_State *state)
   unsigned long long size;
   luaL_checktype (state, 1, LUA_TLIGHTUSERDATA);
   disk = lua_touserdata (state, 1);
-  size = grub_disk_get_size (disk);
+  size = grub_disk_get_size (disk) << GRUB_DISK_SECTOR_BITS;
   if (lua_gettop (state) > 1)
     grub_snprintf (buf, 32, "%s", grub_get_human_size (size, GRUB_HUMAN_SIZE_SHORT));
   else
