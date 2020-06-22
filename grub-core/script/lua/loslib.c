@@ -17,6 +17,7 @@
 #include "lauxlib.h"
 #include "lualib.h"
 
+#include <grub/time.h>
 #include <grub/datetime.h>
 #include <grub/script_sh.h>
 
@@ -69,12 +70,10 @@ static int os_getenv (lua_State *L) {
   return 1;
 }
 
-/*
 static int os_clock (lua_State *L) {
-  lua_pushnumber(L, ((lua_Number)grub_get_time_ms());
+  lua_pushnumber(L, grub_get_time_ms());
   return 1;
 }
-*/
 
 /*
 ** {======================================================
@@ -205,7 +204,7 @@ static int os_exit (lua_State *L __attribute__ ((unused))) {
 }
 
 static const luaL_Reg syslib[] = {
-  //{"clock",     os_clock},
+  {"clock",     os_clock},
   {"date",      os_date},
   //{"difftime",  os_difftime},
   {"execute",   os_execute},

@@ -37,10 +37,6 @@
 #include <grub/script_sh.h>
 #include <grub/lua.h>
 
-#ifdef ENABLE_LUA_PCI
-#include <grub/pci.h>
-#endif
-
 /* Updates the globals grub_errno and grub_msg, leaving their values on the 
    top of the stack, and clears grub_errno. When grub_errno is zero, grub_msg
    is not left on the stack. The value returned is the number of values left on
@@ -327,42 +323,6 @@ grub_lua_enum_file (lua_State *state)
 
   return push_result (state);
 }
-
-#ifdef ENABLE_LUA_PCI
-/* Helper for grub_lua_enum_pci.  */
-static int
-grub_lua_enum_pci_iter (grub_pci_device_t dev, grub_pci_id_t pciid, void *data)
-{
-  lua_State *state = data;
-  int result;
-  grub_pci_address_t addr;
-  grub_uint32_t class;
-
-  lua_pushvalue (state, 1);
-  lua_pushinteger (state, grub_pci_get_bus (dev));
-  lua_pushinteger (state, grub_pci_get_device (dev));
-  lua_pushinteger (state, grub_pci_get_function (dev));
-  lua_pushinteger (state, pciid);
-
-  addr = grub_pci_make_address (dev, GRUB_PCI_REG_CLASS);
-  class = grub_pci_read (addr);
-  lua_pushinteger (state, class);
-
-  lua_call (state, 5, 1);
-  result = lua_tointeger (state, -1);
-  lua_pop (state, 1);
-
-  return result;
-}
-
-static int
-grub_lua_enum_pci (lua_State *state)
-{
-  luaL_checktype (state, 1, LUA_TFUNCTION);
-  grub_pci_iterate (grub_lua_enum_pci_iter, state);
-  return push_result (state);
-}
-#endif
 
 static int
 grub_lua_file_open (lua_State *state)
@@ -705,56 +665,11 @@ grub_lua_add_hidden_menu (lua_State *state)
 }
 
 static int
-grub_lua_cls (lua_State *state __attribute__ ((unused)))
-{
-  grub_cls ();
-  return 0;
-}
-
-static int
-grub_lua_setcolorstate (lua_State *state)
-{
-  grub_setcolorstate (luaL_checkinteger (state, 1));
-  return 0;
-}
-
-static int
-grub_lua_refresh (lua_State *state __attribute__ ((unused)))
-{
-  grub_refresh ();
-  return 0;
-}
-
-static int
-grub_lua_read (lua_State *state)
-{
-  int hide;
-  hide = (lua_gettop (state) > 0) ? luaL_checkinteger (state, 1) : 0;
-  char *line = grub_getline (hide);
-  if (! line)
-    lua_pushnil(state);
-  else
-    lua_pushstring (state, line);
-
-  grub_free (line);
-  grub_printf ("\n");
-  return 1;
-}
-
-static int
 grub_lua_gettext (lua_State *state)
 {
   const char *translation;
   translation = luaL_checkstring (state, 1);
   lua_pushstring (state, grub_gettext (translation));
-  return 1;
-}
-
-/* Lua function: get_time_ms() : returns the time in milliseconds.  */
-static int
-grub_lua_get_time_ms (lua_State *state)
-{
-  lua_pushinteger (state, grub_get_time_ms ());
   return 1;
 }
 
@@ -822,6 +737,27 @@ grub_lua_enum_block (lua_State *state)
   return push_result (state);
 }
 
+static int
+grub_lua_cls (lua_State *state __attribute__ ((unused)))
+{
+  grub_cls ();
+  return 0;
+}
+
+static int
+grub_lua_setcolorstate (lua_State *state)
+{
+  grub_setcolorstate (luaL_checkinteger (state, 1));
+  return 0;
+}
+
+static int
+grub_lua_refresh (lua_State *state __attribute__ ((unused)))
+{
+  grub_refresh ();
+  return 0;
+}
+
 luaL_Reg grub_lua_lib[] =
 {
   {"run", grub_lua_run},
@@ -831,9 +767,7 @@ luaL_Reg grub_lua_lib[] =
   {"exportenv", grub_lua_exportenv},
   {"enum_device", grub_lua_enum_device},
   {"enum_file", grub_lua_enum_file},
-#ifdef ENABLE_LUA_PCI
-  {"enum_pci", grub_lua_enum_pci},
-#endif
+
   {"file_open", grub_lua_file_open},
   {"file_close", grub_lua_file_close},
   {"file_seek", grub_lua_file_seek},
@@ -851,13 +785,12 @@ luaL_Reg grub_lua_lib[] =
   {"add_hidden_menu", grub_lua_add_hidden_menu},
   {"clear_menu", grub_lua_clear_menu},
 
+  {"gettext", grub_lua_gettext},
+  {"random", grub_lua_random},
+  {"enum_block", grub_lua_enum_block},
+
   {"cls", grub_lua_cls},
   {"setcolorstate", grub_lua_setcolorstate},
   {"refresh", grub_lua_refresh},
-  {"read", grub_lua_read},
-  {"gettext", grub_lua_gettext},
-  {"get_time_ms", grub_lua_get_time_ms},
-  {"random", grub_lua_random},
-  {"enum_block", grub_lua_enum_block},
   {0, 0}
 };

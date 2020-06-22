@@ -1108,7 +1108,6 @@ module = {
 
   cflags = '$(CFLAGS_POSIX)';
   cppflags = '$(CPPFLAGS_POSIX) -DGRUB_LUA';
-  pci_cppflags = '$(CPPFLAGS_POSIX) -DENABLE_LUA_PCI -DGRUB_LUA';
 };
 
 module = {
