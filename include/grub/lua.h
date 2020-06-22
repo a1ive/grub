@@ -30,49 +30,7 @@ typedef unsigned char lu_byte;
 typedef int lua_Number;
 typedef long lua_Integer;
 
-typedef struct lua_TValue {
-  union
-  {
-    void *gc;
-    void *p;
-    lua_Number n;
-    int b;
-  } value;
-  int tt;
-} TValue;
-
-typedef struct lua_State {
-  /* CommonHeader */
-  void *next;
-  lu_byte tt;
-  lu_byte marked;
-  /* CommonHeader end */
-  lu_byte status;
-  void *top;  /* first free slot in the stack */
-  void *base;  /* base of current function */
-  void *l_G;
-  void *ci;  /* call info for current function */
-  const void *savedpc;  /* `savedpc' of current function */
-  void *stack_last;  /* last free slot in the stack */
-  void *stack;  /* stack base */
-  void *end_ci;  /* points after end of ci array*/
-  void *base_ci;  /* array of CallInfo's */
-  int stacksize;
-  int size_ci;  /* size of array `base_ci' */
-  unsigned short nCcalls;  /* number of nested C calls */
-  unsigned short baseCcalls;  /* nested C calls when resuming coroutine */
-  lu_byte hookmask;
-  lu_byte allowhook;
-  int basehookcount;
-  int hookcount;
-  void (*hook) (void *L, void *ar);
-  TValue l_gt;  /* table of globals */
-  TValue env;  /* temporary place for environments */
-  void *openupval;  /* list of open upvalues in this stack */
-  void *gclist;
-  void *errorJmp;  /* current error recover point */
-  long errfunc;  /* current error handling function (stack index) */
-} lua_State;
+typedef void lua_State;
 
 typedef int (*lua_CFunction) (lua_State *L);
 typedef void * (*lua_Alloc) (void *ud, void *ptr, grub_size_t osize, grub_size_t nsize);
