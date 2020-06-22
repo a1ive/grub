@@ -19,14 +19,6 @@
 #ifndef GRUB_LUA_LIB_HEADER
 #define GRUB_LUA_LIB_HEADER 1
 
-int push_result (lua_State *state);
-int save_errno (lua_State *state);
-
 extern luaL_Reg grub_lua_lib[];
-extern luaL_Reg inputlib[];
-extern luaL_Reg videolib[];
-extern luaL_Reg gbklib[];
-extern luaL_Reg fatlib[];
-extern luaL_Reg wimlib[];
 
 #endif

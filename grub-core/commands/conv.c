@@ -26,10 +26,11 @@
 #include <grub/conv.h>
 #include <grub/conv_private.h>
 #include <grub/env.h>
+#include <grub/lua.h>
 
 GRUB_MOD_LICENSE ("GPLv3+");
 
-/* by Cnangel */
+/* by Cnangel https://github.com/KyleRicardo/strnormalize */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -455,11 +456,75 @@ grub_cmd_conv (grub_extcmd_context_t ctxt, int argc, char **args)
 
 static grub_extcmd_t cmd;
 
+static int lua_gbk_fromutf8(lua_State *state)
+{
+  const char *str;
+  char *buffer = NULL;
+  uint32_t len, buf_len;
+  str = luaL_checkstring (state, 1);
+  len = strlen (str);
+  buf_len = len * 2 + 1;
+  buffer = (char *) grub_zalloc (buf_len);
+  if (!buffer)
+    return 0;
+  utf8_to_gbk (str, len, &buffer, &buf_len);
+  lua_pushstring (state, buffer);
+  grub_free (buffer);
+  return 1;
+}
+
+static int lua_gbk_toutf8 (lua_State *state)
+{
+  const char *str;
+  char *buffer = NULL;
+  uint32_t len, buf_len;
+  str = luaL_checkstring (state, 1);
+  len = strlen (str);
+  buf_len = len * 3 + 1;
+  buffer = (char *) grub_zalloc (buf_len);
+  if (!buffer)
+    return 0;
+  gbk_to_utf8 (str, len, &buffer, &buf_len);
+  lua_pushstring (state, buffer);
+  grub_free (buffer);
+  return 1;
+}
+
+static int lua_gbk_tosimp (lua_State *state)
+{
+  const char *str;
+  char *buf = NULL;
+  str = luaL_checkstring (state, 1);
+  buf = grub_strdup (str);
+  if (!buf)
+    return 0;
+  str_normalize_utf8 (buf, SNO_TO_SIMPLIFIED);
+  lua_pushstring (state, buf);
+  grub_free (buf);
+  return 1;
+}
+
+static luaL_Reg gbklib[] =
+{
+  {"fromutf8", lua_gbk_fromutf8},
+  {"toutf8", lua_gbk_toutf8},
+  {"tosimp", lua_gbk_tosimp},
+  {0, 0}
+};
+
+
 GRUB_MOD_INIT(conv)
 {
   str_normalize_init();
   cmd = grub_register_extcmd ("strconv", grub_cmd_conv, 0, 0,
-			      N_("convert string between GBK and UTF-8."), options_conv);
+                              N_("convert string between GBK and UTF-8."),
+                              options_conv);
+  if (grub_lua_global_state)
+  {
+    lua_gc (grub_lua_global_state, LUA_GCSTOP, 0);
+    luaL_register (grub_lua_global_state, "gbk", gbklib);
+    lua_gc (grub_lua_global_state, LUA_GCRESTART, 0);
+  }
 }
 
 GRUB_MOD_FINI(conv)

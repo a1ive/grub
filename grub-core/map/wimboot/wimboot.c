@@ -28,6 +28,7 @@
 #include <grub/types.h>
 #include <grub/term.h>
 #include <grub/wimtools.h>
+#include <grub/lua.h>
 
 #include <misc.h>
 #include <wimboot.h>
@@ -236,6 +237,59 @@ grub_cmd_wimtools (grub_extcmd_context_t ctxt, int argc, char *argv[])
 
 static grub_extcmd_t cmd_wimtools;
 
+static int
+wim_file_exist (lua_State *state)
+{
+  const char *wim;
+  const char *path;
+  unsigned int index = 0;
+  grub_file_t file = 0;
+
+  wim = luaL_checkstring (state, 1);
+  path = luaL_checkstring (state, 2);
+  if (lua_gettop (state) > 2)
+    index = luaL_checkinteger (state, 3);
+
+  file = grub_file_open (wim, GRUB_FILE_TYPE_LOOPBACK);
+  if (file)
+  {
+    lua_pushboolean (state, grub_wim_file_exist (file, index, path));
+    grub_file_close (file);
+  }
+  else
+    lua_pushboolean (state, 0);
+  return 1;
+}
+
+static int
+wim_is64 (lua_State *state)
+{
+  const char *wim;
+  unsigned int index = 0;
+  grub_file_t file = 0;
+
+  wim = luaL_checkstring (state, 1);
+  if (lua_gettop (state) > 1)
+    index = luaL_checkinteger (state, 2);
+
+  file = grub_file_open (wim, GRUB_FILE_TYPE_LOOPBACK);
+  if (file)
+  {
+    lua_pushboolean (state, grub_wim_is64 (file, index));
+    grub_file_close (file);
+  }
+  else
+    lua_pushboolean (state, 0);
+  return 1;
+}
+
+static luaL_Reg wimlib[] =
+{
+  {"file_exist", wim_file_exist},
+  {"is64", wim_is64},
+  {0, 0}
+};
+
 GRUB_MOD_INIT(wimboot)
 {
 #ifdef GRUB_MACHINE_EFI
@@ -249,6 +303,12 @@ GRUB_MOD_INIT(wimboot)
   cmd_wimtools = grub_register_extcmd ("wimtools", grub_cmd_wimtools, 0,
                     N_("[--index=n] [OPTIONS] FILE [PATH]"),
                     N_("WIM Tools"), options_wimtools);
+  if (grub_lua_global_state)
+  {
+    lua_gc (grub_lua_global_state, LUA_GCSTOP, 0);
+    luaL_register (grub_lua_global_state, "wim", wimlib);
+    lua_gc (grub_lua_global_state, LUA_GCRESTART, 0);
+  }
 }
 
 GRUB_MOD_FINI(wimboot)

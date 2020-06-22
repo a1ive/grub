@@ -22,14 +22,16 @@
 #include "grub_lib.h"
 
 #include <grub/dl.h>
-#include <grub/extcmd.h>
 #include <grub/i18n.h>
 #include <grub/misc.h>
 #include <grub/normal.h>
+#include <grub/lua.h>
+#include <grub/command.h>
+#include <grub/extcmd.h>
 
 GRUB_MOD_LICENSE("GPLv3+");
 
-static lua_State *state;
+lua_State *grub_lua_global_state = NULL;
 
 /* Call `grub_error' to report a Lua error.  The error message string must be
    on the top of the Lua stack (at index -1).  The error message is popped off
@@ -38,12 +40,12 @@ static void
 handle_lua_error (const char *error_type)
 {
   const char *error_msg;
-  error_msg = lua_tostring (state, -1);
+  error_msg = lua_tostring (grub_lua_global_state, -1);
   if (error_msg == NULL)
     error_msg = "(error message not a string)";
   grub_error (GRUB_ERR_BAD_ARGUMENT, "%s: %s", error_type, error_msg);
   /* Pop the error message.  */
-  lua_pop (state, 1);
+  lua_pop (grub_lua_global_state, 1);
 }
 
 /* Taken from lua.c */
@@ -88,11 +90,11 @@ interactive (void)
       chunk[len] = '\0';
       grub_free (line);
 
-      r = luaL_loadbuffer (state, chunk, len, "stdin");
+      r = luaL_loadbuffer (grub_lua_global_state, chunk, len, "stdin");
       if (!r)
 	{
 	  /* No error: Execute this chunk and prepare to read another */
-	  r = lua_pcall (state, 0, 0, 0);
+	  r = lua_pcall (grub_lua_global_state, 0, 0, 0);
 	  if (r)
 	    {
 	      handle_lua_error ("Lua");
@@ -104,7 +106,7 @@ interactive (void)
 	  len = 0;
 	  prompt = ps1;
 	}
-      else if (incomplete (state, r))
+      else if (incomplete (grub_lua_global_state, r))
 	{
 	  /* Chunk is incomplete, try reading another line */
 	  prompt = ps2;
@@ -132,7 +134,7 @@ interactive (void)
     }
 
   grub_free (chunk);
-  lua_gc (state, LUA_GCCOLLECT, 0);
+  lua_gc (grub_lua_global_state, LUA_GCCOLLECT, 0);
 
   return grub_errno;
 }
@@ -165,22 +167,22 @@ grub_cmd_lua (grub_extcmd_context_t ctxt, int argc, char **args)
   struct grub_arg_list *opt = ctxt->state;
   if (opt[GRUB_LUA_LOA].set)
   {
-    lua_getglobal(state, "require");
-    lua_pushstring(state, opt[GRUB_LUA_LOA].arg);
+    lua_getglobal(grub_lua_global_state, "require");
+    lua_pushstring(grub_lua_global_state, opt[GRUB_LUA_LOA].arg);
   }
   if (argc == 1)
   {
     if (opt[GRUB_LUA_EXE].set)
     {
-      if (!luaL_loadbuffer (state, args[0], strlen(args[0]), "stdin"))
-        lua_pcall (state, 0, 0, 0);
+      if (!luaL_loadbuffer (grub_lua_global_state, args[0], strlen(args[0]), "stdin"))
+        lua_pcall (grub_lua_global_state, 0, 0, 0);
       handle_lua_error ("Lua");
     }
-    else if (luaL_loadfile (state, args[0]))
+    else if (luaL_loadfile (grub_lua_global_state, args[0]))
     {
       handle_lua_error ("Lua");
     }
-    else if (lua_pcall (state, 0, 0, 0))
+    else if (lua_pcall (grub_lua_global_state, 0, 0, 0))
     {
       handle_lua_error ("Lua");
     }
@@ -206,20 +208,13 @@ static grub_extcmd_t cmd;
 
 GRUB_MOD_INIT (lua)
 {
-  (void) mod;
-
-  state = lua_open ();
-  if (state)
+  grub_lua_global_state = lua_open ();
+  if (grub_lua_global_state)
   {
-    lua_gc (state, LUA_GCSTOP, 0);
-    luaL_openlibs (state);
-    luaL_register (state, "grub", grub_lua_lib);
-    luaL_register (state, "video", videolib);
-    luaL_register (state, "input", inputlib);
-    luaL_register (state, "gbk", gbklib);
-    luaL_register (state, "fat", fatlib);
-    luaL_register (state, "wim", wimlib);
-    lua_gc (state, LUA_GCRESTART, 0);
+    lua_gc (grub_lua_global_state, LUA_GCSTOP, 0);
+    luaL_openlibs (grub_lua_global_state);
+    luaL_register (grub_lua_global_state, "grub", grub_lua_lib);
+    lua_gc (grub_lua_global_state, LUA_GCRESTART, 0);
     cmd = grub_register_extcmd ("lua", grub_cmd_lua, 0, N_("[OPTIONS] [FILE]"),
               N_ ("Run lua script FILE or start interactive lua shell"), options);
   }
@@ -227,9 +222,9 @@ GRUB_MOD_INIT (lua)
 
 GRUB_MOD_FINI (lua)
 {
-  if (state)
+  if (grub_lua_global_state)
   {
-    lua_close (state);
+    lua_close (grub_lua_global_state);
     grub_unregister_extcmd (cmd);
   }
 }

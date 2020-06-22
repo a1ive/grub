@@ -8,8 +8,6 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
-#include <grub/datetime.h>
-#include <grub/script_sh.h>
 
 #define loslib_c
 #define LUA_LIB
@@ -18,6 +16,9 @@
 
 #include "lauxlib.h"
 #include "lualib.h"
+
+#include <grub/datetime.h>
+#include <grub/script_sh.h>
 
 /*
 static int os_pushresult (lua_State *L, int i, const char *filename) {

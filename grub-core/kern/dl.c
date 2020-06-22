@@ -38,8 +38,6 @@
 #define GRUB_MODULES_MACHINE_READONLY
 #endif
 
-
-
 #pragma GCC diagnostic ignored "-Wcast-align"
 
 grub_dl_t grub_dl_head = 0;

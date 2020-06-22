@@ -37,6 +37,7 @@
 #include <grub/lib/crc.h>
 #include <grub/time.h>
 #include <grub/script_sh.h>
+#include <grub/lua.h>
 
 #ifdef ENABLE_LUA_PCI
 #include <grub/pci.h>

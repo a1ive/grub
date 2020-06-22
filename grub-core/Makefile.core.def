@@ -1105,14 +1105,10 @@ module = {
 
   common = script/lua/grub_main.c;
   common = script/lua/grub_lib.c;
-  common = script/lua/gbk_lib.c;
-  common = script/lua/video_lib.c;
-  common = script/lua/fatfs_lib.c;
-  common = script/lua/wim_lib.c;
 
   cflags = '$(CFLAGS_POSIX)';
-  cppflags = '-I$(srcdir)/lib/fatfs $(CPPFLAGS_POSIX)';
-  pci_cppflags = '-I$(srcdir)/lib/fatfs $(CPPFLAGS_POSIX) -DENABLE_LUA_PCI';
+  cppflags = '$(CPPFLAGS_POSIX) -DGRUB_LUA';
+  pci_cppflags = '$(CPPFLAGS_POSIX) -DENABLE_LUA_PCI -DGRUB_LUA';
 };
 
 module = {

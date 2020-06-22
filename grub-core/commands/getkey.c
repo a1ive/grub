@@ -22,6 +22,7 @@
 #include <grub/env.h>
 #include <grub/extcmd.h>
 #include <grub/i18n.h>
+#include <grub/lua.h>
 
 GRUB_MOD_LICENSE ("GPLv3+");
 
@@ -57,12 +58,60 @@ grub_cmd_getkey (grub_extcmd_context_t ctxt, int argc, char **args)
 
 static grub_extcmd_t cmd;
 
+static int
+lua_input_read (lua_State *state)
+{
+  int hide;
+  hide = (lua_gettop (state) > 0) ? luaL_checkinteger (state, 1) : 0;
+  char *line = grub_getline (hide);
+  if (! line)
+    lua_pushnil(state);
+  else
+    lua_pushstring (state, line);
+
+  grub_free (line);
+  grub_printf ("\n");
+  return 1;
+}
+
+/* Lua function: input.getkey() : returns { ASCII char, scan code }.  */
+static int
+lua_input_getkey (lua_State *state)
+{
+  int c = grub_getkey();
+  lua_pushinteger (state, c & 0xFF);          /* Push ASCII character code.  */
+  lua_pushinteger (state, (c >> 8) & 0xFF);   /* Push the scan code.  */
+  return 2;
+}
+static int
+lua_input_getkey_noblock (lua_State *state __attribute__ ((unused)))
+{
+  int c = grub_getkey_noblock ();
+  lua_pushinteger (state, c & 0xFF);          /* Push ASCII character code.  */
+  lua_pushinteger (state, (c >> 8) & 0xFF);   /* Push the scan code.  */
+  return 2;
+}
+
+static luaL_Reg inputlib[] =
+{
+  {"getkey", lua_input_getkey},
+  {"getkey_noblock", lua_input_getkey_noblock},
+  {"read", lua_input_read},
+  {0, 0}
+};
+
 GRUB_MOD_INIT(getkey)
 {
   cmd = grub_register_extcmd ("getkey", grub_cmd_getkey, 0,
                               N_("[-n] [VARNAME]"),
                               N_("Return the value of the pressed key. "),
                               options);
+  if (grub_lua_global_state)
+  {
+    lua_gc (grub_lua_global_state, LUA_GCSTOP, 0);
+    luaL_register (grub_lua_global_state, "input", inputlib);
+    lua_gc (grub_lua_global_state, LUA_GCRESTART, 0);
+  }
 }
 
 GRUB_MOD_FINI(getkey)

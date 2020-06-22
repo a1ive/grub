@@ -22,7 +22,6 @@
 #include <grub/misc.h>
 #include <grub/mm.h>
 
-
 /* All the possible state transitions on the command line.  If a
    transition can not be found, it is assumed that there is no
    transition and keep_value is assumed to be 1.  */
