@@ -13,13 +13,7 @@ jobs:
       uses: actions/checkout@v1
     - name: initialize
       run: |
-        sudo -E apt-get -y install build-essential python iasl lzop unifont autopoint bison flex gettext
-    - name: download toolchains
-      run: |
-        mkdir /tmp/cross
-        cd /tmp/cross
-        wget -t 3 -O - https://mirrors.kernel.org/pub/tools/crosstool/files/bin/x86_64/9.2.0/x86_64-gcc-9.2.0-nolibc-aarch64-linux.tar.xz | tar xJ
-        wget -t 3 -O - https://mirrors.kernel.org/pub/tools/crosstool/files/bin/x86_64/9.2.0/x86_64-gcc-9.2.0-nolibc-arm-linux-gnueabi.tar.xz | tar xJ
+        sudo -E apt-get -y install build-essential python iasl lzop unifont autopoint bison flex gettext gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi
     - name: bootstrap
       run: ./bootstrap
 
@@ -61,11 +55,9 @@ jobs:
 
     - name: arm64-efi configure
       run: |
-        export PATH=$PATH:/tmp/cross/gcc-9.2.0-nolibc/aarch64-linux/bin
-        ./configure --prefix=/ --target=aarch64-linux --with-platform=efi
+        ./configure --prefix=/ --target=aarch64-linux-gnu --with-platform=efi --host=aarch64-linux-gnu
     - name: arm64-efi make
       run: |
-        export PATH=$PATH:/tmp/cross/gcc-9.2.0-nolibc/aarch64-linux/bin
         make
         make install DESTDIR=$PWD/PKG
     - name: arm64-efi clean
@@ -73,11 +65,9 @@ jobs:
 
     - name: arm-efi configure
       run: |
-        export PATH=$PATH:/tmp/cross/gcc-9.2.0-nolibc/arm-linux-gnueabi/bin
-        ./configure --prefix=/ --target=arm-linux-gnueabi --with-platform=efi
+        ./configure --prefix=/ --target=arm-linux-gnueabi --with-platform=efi --host=arm-linux-gnueabi
     - name: arm-efi make
       run: |
-        export PATH=$PATH:/tmp/cross/gcc-9.2.0-nolibc/arm-linux-gnueabi/bin
         make
         make install DESTDIR=$PWD/PKG
     - name: arm-efi clean
