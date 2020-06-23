@@ -15,6 +15,7 @@
 #include <grub/net.h>
 #include <grub/types.h>
 #include <grub/term.h>
+#include <grub/lua.h>
 
 GRUB_MOD_LICENSE ("GPLv3+");
 
@@ -200,6 +201,82 @@ static grub_extcmd_t cmd_elt;
 
 static grub_extcmd_t cmd_dp;
 
+static int
+lua_efi_vendor (lua_State *state)
+{
+  char *vendor;
+  grub_uint16_t *vendor16, *fv = grub_efi_system_table->firmware_vendor;
+
+  for (vendor16 = fv; *vendor16; vendor16++)
+    ;
+  vendor = grub_malloc (4 * (vendor16 - fv + 1));
+  if (!vendor)
+    return 0;
+  *grub_utf16_to_utf8 ((grub_uint8_t *) vendor, fv, vendor16 - fv) = 0;
+  lua_pushstring (state, vendor);
+  grub_free (vendor);
+  return 1;
+}
+
+static int
+lua_efi_version (lua_State *state)
+{
+  char uefi_ver[11];
+  grub_efi_uint16_t uefi_major_rev =
+            grub_efi_system_table->hdr.revision >> 16;
+  grub_efi_uint16_t uefi_minor_rev =
+            grub_efi_system_table->hdr.revision & 0xffff;
+  grub_efi_uint8_t uefi_minor_1 = uefi_minor_rev / 10;
+  grub_efi_uint8_t uefi_minor_2 = uefi_minor_rev % 10;
+  grub_snprintf (uefi_ver, 10, "%d.%d", uefi_major_rev, uefi_minor_1);
+  if (uefi_minor_2)
+    grub_snprintf (uefi_ver, 10, "%s.%d", uefi_ver, uefi_minor_2);
+  lua_pushstring (state, uefi_ver);
+  return 1;
+}
+
+static int
+lua_efi_getdp (lua_State *state)
+{
+  grub_disk_t disk;
+  grub_efi_handle_t handle = 0;
+  grub_efi_device_path_t *dp = NULL;
+  luaL_checktype (state, 1, LUA_TLIGHTUSERDATA);
+  disk = lua_touserdata (state, 1);
+  handle = grub_efidisk_get_device_handle (disk);
+  if (!handle)
+    return 0;
+  dp = grub_efi_get_device_path (handle);
+  if (!dp)
+    return 0;
+  lua_pushlightuserdata (state, dp);
+  return 1;
+}
+
+static int
+lua_efi_dptostr (lua_State *state)
+{
+  char *str = NULL;
+  grub_efi_device_path_t *dp;
+  luaL_checktype (state, 1, LUA_TLIGHTUSERDATA);
+  dp = lua_touserdata (state, 1);
+  str = grub_efi_device_path_to_str (dp);
+  if (!str)
+    return 0;
+  lua_pushstring (state, str);
+  grub_free (str);
+  return 1;
+}
+
+static luaL_Reg efilib[] =
+{
+  {"vendor", lua_efi_vendor},
+  {"version", lua_efi_version},
+  {"getdp", lua_efi_getdp},
+  {"dptostr", lua_efi_dptostr},
+  {0, 0}
+};
+
 GRUB_MOD_INIT(dp)
 {
   cmd_dp = grub_register_extcmd ("dp", grub_cmd_dp, 0, N_("DEVICE"),
@@ -208,6 +285,12 @@ GRUB_MOD_INIT(dp)
   cmd_elt = grub_register_extcmd ("cdboot", grub_cmd_elt, 0, N_("DEVICE [FILE]"),
                   N_("Eltorito BOOT."), 0);
 #endif
+  if (grub_lua_global_state)
+  {
+    lua_gc (grub_lua_global_state, LUA_GCSTOP, 0);
+    luaL_register (grub_lua_global_state, "efi", efilib);
+    lua_gc (grub_lua_global_state, LUA_GCRESTART, 0);
+  }
 }
 
 GRUB_MOD_FINI(dp)

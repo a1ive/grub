@@ -71,7 +71,7 @@ grub_cmd_version (grub_command_t cmd __attribute__ ((unused)),
   {
     char *vendor;
     grub_uint16_t *vendor_utf16;
-    
+
     for (vendor_utf16 = grub_efi_system_table->firmware_vendor; *vendor_utf16; vendor_utf16++);
     vendor = grub_malloc (4 *
         (vendor_utf16 - grub_efi_system_table->firmware_vendor) + 1);
