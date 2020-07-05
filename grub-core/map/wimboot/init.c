@@ -34,30 +34,16 @@
 #pragma GCC diagnostic ignored "-Wcast-align"
 
 #if defined (__i386__)
-  #define BOOT_FILE_NAME   L"BOOTIA32.EFI"
+  #define BOOT_FILE_NAME   "BOOTIA32.EFI"
 #elif defined (__x86_64__)
-  #define BOOT_FILE_NAME   L"BOOTX64.EFI"
+  #define BOOT_FILE_NAME   "BOOTX64.EFI"
 #elif defined (__arm__)
-  #define BOOT_FILE_NAME   L"BOOTARM.EFI"
+  #define BOOT_FILE_NAME   "BOOTARM.EFI"
 #elif defined (__aarch64__)
-  #define BOOT_FILE_NAME   L"BOOTAA64.EFI"
+  #define BOOT_FILE_NAME   "BOOTAA64.EFI"
 #else
   #error Unknown Processor Type
 #endif
-
-/** bootmgfw.efi path within WIM */
-static const wchar_t bootmgfw_path[] = L"\\Windows\\Boot\\EFI\\bootmgfw.efi";
-
-/** bootmgfw.efi file */
-struct vfat_file *bootmgfw;
-
-static const wchar_t efi_bootarch[] = BOOT_FILE_NAME;
-
-static void
-read_wrapper (struct vfat_file *vfile, void *data, size_t offset, size_t len)
-{
-  file_read (vfile->opaque, data, len, offset);
-}
 
 #ifdef GRUB_MACHINE_EFI
 #define SEARCH_EXT  L".exe"
@@ -67,7 +53,7 @@ read_wrapper (struct vfat_file *vfile, void *data, size_t offset, size_t len)
 #define REPLACE_EXT L".exe"
 #endif
 
-void
+static void
 vfat_patch_bcd (struct vfat_file *file __unused,
            void *data, size_t offset __unused, size_t len)
 {
@@ -91,11 +77,17 @@ vfat_patch_bcd (struct vfat_file *file __unused,
 static int
 isbootmgfw (const char *name)
 {
-  char bootarch[32];
   if (strcasecmp(name, "bootmgfw.efi") == 0)
     return 1;
-  wcstombs (bootarch, efi_bootarch, sizeof (bootarch));
-  return strcasecmp (name, bootarch) == 0;
+  if (strcasecmp (name, BOOT_FILE_NAME) == 0)
+    return 1;
+#ifndef GRUB_MACHINE_EFI
+  if (strcasecmp(name, "bootmgr.exe") == 0)
+    return 1;
+  if (strcasecmp (name, "bootmgr") == 0)
+    return 1;
+#endif
+  return 0;
 }
 
 #define WIM_MAX_PATH (256 + VDISK_NAME_LEN + 1)
@@ -125,36 +117,39 @@ add_orig (struct vfat_file *wimfile, struct wimboot_cmdline *cmd)
   }
 }
 
-int file_add (const char *name, grub_file_t data, struct wimboot_cmdline *cmd)
+static int
+file_add (const char *name, grub_file_t data, struct wimboot_cmdline *cmd)
 {
   struct vfat_file *vfile;
-  vfile = vfat_add_file (name, data, data->size, read_wrapper);
+  vfile = vfat_add_file (name, data, data->size, vfat_read_wrapper);
 
-    /* Check for special-case files */
-  if (isbootmgfw (name) && grub_isefi)
+  /* Check for special-case files */
+  if (isbootmgfw (name) )
   {
-    printf ("...found bootmgfw.efi file %s\n", name);
-    bootmgfw = vfile;
+    printf ("...found bootmgr file %s\n", name);
+    cmd->bootmgfw = vfile;
   }
-  else if (strcasecmp (name, "BCD") == 0 && !cmd->rawbcd)
+  else if (strcasecmp (name, "BCD") == 0)
   {
     printf ("...found BCD\n");
-    vfat_patch_file (vfile, vfat_patch_bcd);
+    if (!cmd->rawbcd)
+      vfat_patch_file (vfile, vfat_patch_bcd);
+    cmd->bcd = vfile;
+  }
+  else if (strcasecmp (name, "boot.sdi") == 0)
+  {
+    printf ("...found boot.sdi\n");
+    cmd->bootsdi = vfile;
   }
   else if (strlen(name) > 4 &&
            strcasecmp ((name + (strlen (name) - 4)), ".wim") == 0)
   {
     printf ("...found WIM file %s\n", name);
+    cmd->wim = name;
     if (!cmd->rawwim)
     {
       add_orig (vfile, cmd);
       vfat_patch_file (vfile, patch_wim);
-    }
-    if ((! bootmgfw) && grub_isefi &&
-        (bootmgfw = wim_add_file (vfile, cmd->index,
-                                  bootmgfw_path, efi_bootarch)))
-    {
-      printf ("...extracted bootmgfw.efi from WIM\n");
     }
   }
   return 0;
@@ -169,8 +164,8 @@ grub_wimboot_extract (struct wimboot_cmdline *cmd)
     file_add (f->name, f->file, cmd);
   }
   /* Check that we have a boot file */
-  if (! bootmgfw)
-    grub_pause_fatal ("FATAL: bootmgfw.efi not found\n");
+  if (! cmd->bootmgfw)
+    grub_pause_fatal ("FATAL: bootmgr not found\n");
 }
 
 void

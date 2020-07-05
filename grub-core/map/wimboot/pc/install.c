@@ -17,41 +17,20 @@
  *
  */
 
-#ifndef WIMBOOT_PRIVATE_DATA_H
-#define WIMBOOT_PRIVATE_DATA_H
-
+#include <grub/types.h>
 #include <grub/misc.h>
-#include <grub/disk.h>
-#include <grub/file.h>
+#include <grub/err.h>
 
 #include <misc.h>
-#include <stdint.h>
-#include <stddef.h>
-#include <stdlib.h>
 #include <vfat.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stddef.h>
+#include <wimboot.h>
 
-struct wimboot_cmdline
+grub_err_t grub_wimboot_install (void)
 {
-  grub_uint8_t gui;
-  grub_uint8_t rawbcd;
-  grub_uint8_t rawwim;
-  unsigned int index;
-  grub_uint8_t pause;
-  wchar_t inject[256];
-  struct vfat_file *bootmgfw;
-  struct vfat_file *bcd;
-  struct vfat_file *bootsdi;
-  const char *wim;
-};
-
-#ifdef GRUB_MACHINE_EFI
-extern grub_efivdisk_t wimboot_disk, wimboot_part;
-#endif
-
-void grub_wimboot_extract (struct wimboot_cmdline *cmd);
-void grub_wimboot_init (int argc, char *argv[]);
-
-grub_err_t grub_wimboot_install (void);
-void grub_wimboot_boot (struct wimboot_cmdline *cmd);
-
-#endif
+  vfat_create ();
+  return GRUB_ERR_NONE;
+}

@@ -34,6 +34,8 @@
 #include <vfat.h>
 #include <wimboot.h>
 
+static uint8_t gui;
+
 typedef grub_efi_status_t
 (EFIAPI *open_protocol) (grub_efi_handle_t handle,
                          grub_efi_guid_t *protocol,
@@ -69,7 +71,7 @@ efi_open_protocol_wrapper (grub_efi_handle_t handle,
    * fail to boot.
    */
   if ((memcmp (protocol, &gop_guid, sizeof (*protocol)) == 0) &&
-      (count++ == 0) && (! wimboot_cmd.gui))
+      (count++ == 0) && (! gui))
   {
     printf ("Forcing text mode output\n");
     return GRUB_EFI_INVALID_PARAMETER;
@@ -78,7 +80,7 @@ efi_open_protocol_wrapper (grub_efi_handle_t handle,
 }
 
 void
-grub_wimboot_boot (struct vfat_file *file, struct wimboot_cmdline *cmd)
+grub_wimboot_boot (struct wimboot_cmdline *cmd)
 {
   grub_efi_boot_services_t *b;
   b = grub_efi_system_table->boot_services;
@@ -89,7 +91,9 @@ grub_wimboot_boot (struct vfat_file *file, struct wimboot_cmdline *cmd)
   grub_efi_handle_t handle;
   grub_efi_status_t status;
   grub_efi_loaded_image_t *loaded = NULL;
+  struct vfat_file *file = cmd->bootmgfw;
 
+  gui = cmd->gui;
   /* Allocate memory */
   pages = ((file->len + PAGE_SIZE - 1) / PAGE_SIZE);
   status = efi_call_4 (b->allocate_pages, GRUB_EFI_ALLOCATE_ANY_PAGES,

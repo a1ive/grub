@@ -36,7 +36,7 @@ struct grub_vfatdisk_file *vfat_file_list;
 
 static int
 grub_vfatdisk_iterate (grub_disk_dev_iterate_hook_t hook, void *hook_data,
-                       grub_disk_pull_t pull)
+                       grub_disk_pull_t pull __unused)
 {
   if (pull != GRUB_DISK_PULL_NONE)
     return 0;
@@ -306,4 +306,10 @@ vfat_append_list (grub_file_t file, const char *file_name)
 err:
   if (newfile)
     grub_free (newfile);
+}
+
+void
+vfat_read_wrapper (struct vfat_file *vfile, void *data, size_t offset, size_t len)
+{
+  file_read (vfile->opaque, data, len, offset);
 }

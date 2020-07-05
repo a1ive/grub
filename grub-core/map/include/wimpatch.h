@@ -29,8 +29,11 @@
 
 #include <vfat.h>
 #include <stdint.h>
+#include <wimboot.h>
 
 extern void
 patch_wim (struct vfat_file *file, void *data, size_t offset, size_t len);
+
+extern void set_wim_patch (struct wimboot_cmdline *cmd);
 
 #endif /* _WIMPATCH_H */

@@ -1,6 +1,6 @@
  /*
  *  GRUB  --  GRand Unified Bootloader
- *  Copyright (C) 2019  Free Software Foundation, Inc.
+ *  Copyright (C) 2019,2020  Free Software Foundation, Inc.
  *
  *  GRUB is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -32,8 +32,11 @@
 
 #include <misc.h>
 #include <wimboot.h>
+#include <wimpatch.h>
 #include <vfat.h>
 #include <string.h>
+#include <bcd.h>
+#include <sdi.h>
 
 #ifdef GRUB_MACHINE_EFI
 #include <grub/efi/api.h>
@@ -43,21 +46,26 @@
 
 GRUB_MOD_LICENSE ("GPLv3+");
 
-struct wimboot_cmdline wimboot_cmd =
+static const struct grub_arg_option options_wimboot[] =
 {
-  0, 0, 0, 0, 0,
-  L"\\Windows\\System32",
-};
-
-#ifdef GRUB_MACHINE_EFI
-
-static const struct grub_arg_option options_wimboot[] = {
   {"gui", 'g', 0, N_("Display graphical boot messages."), 0, 0},
   {"rawbcd", 'b', 0, N_("Disable rewriting .exe to .efi in the BCD file."), 0, 0},
   {"rawwim", 'w', 0, N_("Disable patching the wim file."), 0, 0},
   {"index", 'i', 0, N_("Use WIM image index n."), N_("n"), ARG_TYPE_INT},
   {"pause", 'p', 0, N_("Show info and wait for keypress."), 0, 0},
   {"inject", 'j', 0, N_("Set inject dir."), N_("PATH"), ARG_TYPE_STRING},
+
+  {"testmode", 0, 0, N_("Test Mode (testsigning)."), N_("yes|no"), ARG_TYPE_STRING},
+  {"highest", 0, 0, N_("Force Highest Resolution."), N_("yes|no"), ARG_TYPE_STRING},
+  {"nx", 0, 0, N_("Nx Policy."),
+    N_("OptIn|OptOut|AlwaysOff|AlwaysOn"), ARG_TYPE_STRING},
+  {"pae", 0, 0, N_("PAE Policy."), N_("Default|Enable|Disable"), ARG_TYPE_STRING},
+  {"detecthal", 0, 0, N_("Detect HAL and kernel."), N_("yes|no"), ARG_TYPE_STRING},
+  {"winpe", 0, 0, N_("Boot into WinPE."), N_("yes|no"), ARG_TYPE_STRING},
+  {"timeout", 0, 0, N_("Set Timeout."), N_("n"), ARG_TYPE_INT},
+  {"sos", 0, 0, N_("Display driver names."), N_("yes|no"), ARG_TYPE_STRING},
+  {"novesa", 0, 0, N_("Avoid VESA BIOS calls."), N_("yes|no"), ARG_TYPE_STRING},
+  {"novga", 0, 0, N_("Disables VGA modes."), N_("yes|no"), ARG_TYPE_STRING},
   {0, 0, 0, 0, 0, 0}
 };
 
@@ -68,22 +76,29 @@ enum options_wimboot
   WIMBOOT_RAWWIM,
   WIMBOOT_INDEX,
   WIMBOOT_PAUSE,
-  WIMBOOT_INJECT
+  WIMBOOT_INJECT,
+
+  WIMBOOT_TESTMODE, // bool
+  WIMBOOT_HIGHEST,  // bool
+  WIMBOOT_NX,       // uint64
+  WIMBOOT_PAE,      // uint64
+  WIMBOOT_DETHAL,   // bool
+  WIMBOOT_PE,       // bool
+  WIMBOOT_TIMEOUT,  // uint64
+  WIMBOOT_SOS,      // bool
+  WIMBOOT_NOVESA,   // bool
+  WIMBOOT_NOVGA,    // bool
 };
 
 static grub_err_t
-grub_cmd_wimboot (grub_extcmd_context_t ctxt,
-                  int argc, char *argv[])
+grub_cmd_wimboot (grub_extcmd_context_t ctxt, int argc, char *argv[])
 {
   struct grub_arg_list *state = ctxt->state;
+  struct wimboot_cmdline wimboot_cmd =
+      { 0, 0, 0, 0, 0, L"\\Windows\\System32", NULL, NULL, NULL, NULL };
 
-  if (argc == 0)
-  {
-    grub_error (GRUB_ERR_BAD_ARGUMENT, N_("filename expected"));
-    goto fail;
-  }
-
-  grub_wimboot_init (argc, argv);
+  if (argc < 1)
+    return grub_error (GRUB_ERR_BAD_ARGUMENT, N_("filename expected"));
 
   if (state[WIMBOOT_GUI].set)
     wimboot_cmd.gui = 1;
@@ -98,94 +113,54 @@ grub_cmd_wimboot (grub_extcmd_context_t ctxt,
   if (state[WIMBOOT_INJECT].set)
     mbstowcs (wimboot_cmd.inject, state[WIMBOOT_INJECT].arg, 256);
 
+  set_wim_patch (&wimboot_cmd);
+
+  grub_wimboot_init (argc, argv);
+
   grub_wimboot_extract (&wimboot_cmd);
+  if (! wimboot_cmd.bcd)
+  {
+    struct bcd_patch_data data;
+    grub_memset (&data, 0, sizeof (data));
+    data.type = BOOT_RAW;
+    data.path = wimboot_cmd.wim? wimboot_cmd.wim: "boot.wim";
+    if (state[WIMBOOT_TESTMODE].set)
+      data.testmode = state[WIMBOOT_TESTMODE].arg;
+    if (state[WIMBOOT_HIGHEST].set)
+      data.highest = state[WIMBOOT_HIGHEST].arg;
+    if (state[WIMBOOT_NX].set)
+      data.nx = state[WIMBOOT_NX].arg;
+    if (state[WIMBOOT_PAE].set)
+      data.pae = state[WIMBOOT_PAE].arg;
+    if (state[WIMBOOT_DETHAL].set)
+      data.detecthal = state[WIMBOOT_DETHAL].arg;
+    if (state[WIMBOOT_PE].set)
+      data.winpe = state[WIMBOOT_PE].arg;
+    if (state[WIMBOOT_TIMEOUT].set)
+      data.timeout = state[WIMBOOT_TIMEOUT].arg;
+    if (state[WIMBOOT_SOS].set)
+      data.sos = state[WIMBOOT_SOS].arg;
+    if (state[WIMBOOT_NOVESA].set)
+      data.novesa = state[WIMBOOT_NOVESA].arg;
+    if (state[WIMBOOT_NOVGA].set)
+      data.novga = state[WIMBOOT_NOVGA].arg;
+    grub_patch_bcd (&data);
+    grub_file_t bcd = file_open ("(proc)/bcd", 0, 0, 0);
+    vfat_add_file ("bcd", bcd, bcd->size, vfat_read_wrapper);
+  }
+  if (! wimboot_cmd.bootsdi)
+  {
+    grub_file_t bootsdi = file_open ("(proc)/boot.sdi", 0, 0, 0);
+    vfat_add_file ("boot.sdi", bootsdi, bootsdi->size, vfat_read_wrapper);
+  }
   grub_wimboot_install ();
-  grub_wimboot_boot (bootmgfw, &wimboot_cmd);
-fail:
+  grub_wimboot_boot (&wimboot_cmd);
+
   grub_pause_fatal ("failed to boot.\n");
   return grub_errno;
 }
 
-static const struct grub_arg_option options_vfat[] = {
-  {"create", 'c', 0, N_("Create virtual FAT disk."), 0, 0},
-  {"add", 'a', 0, N_("Add files to virtual FAT disk."), N_("FILE"), ARG_TYPE_STRING},
-  {"mem", 'm', 0, N_("Copy to memory."), 0, 0},
-  {"install", 'i', 0, N_("Install virtual FAT disk to BIOS."), 0, 0},
-  {"boot", 'b', 0, N_("Boot virtual FAT disk."), 0, 0},
-  {"ls", 'l', 0, N_("List all files in virtual disk."), 0, 0},
-  /* patch */
-  {"patch", 'p', 0, N_("Patch files in virtual disk."), N_("FILE"), ARG_TYPE_STRING},
-  {"offset", 'o', 0, N_("Set the offset."), N_("n"), ARG_TYPE_INT},
-  {"search", 's', 0, N_("search"), N_("STRING"), ARG_TYPE_STRING},
-  {"count", 'n', 0, N_("count"), N_("FILE"), ARG_TYPE_INT},
-  {0, 0, 0, 0, 0, 0}
-};
-
-enum options_vfat
-{
-  OPS_CREATE,
-  OPS_ADD,
-  OPS_MEM,
-  OPS_INSTALL,
-  OPS_BOOT,
-  OPS_LS,
-  OPS_PATCH,
-  OPS_OFFSET,
-  OPS_SEARCH,
-  OPS_COUNT,
-};
-
-static grub_err_t
-grub_cmd_vfat (grub_extcmd_context_t ctxt, int argc, char *argv[])
-{
-  struct grub_arg_list *state = ctxt->state;
-  grub_file_t file = 0;
-  char *file_name = NULL;
-  wimboot_cmd.gui = 1;
-  wimboot_cmd.rawbcd = 1;
-  wimboot_cmd.rawwim = 1;
-  wimboot_cmd.pause = 0;
-  if (state[OPS_ADD].set && argc == 1)
-  {
-    file = file_open (argv[0], state[OPS_MEM].set, 0, 0);
-    if (!file)
-    {
-      file_close (file);
-      goto fail;
-    }
-    file_name = state[OPS_ADD].arg;
-
-    vfat_append_list (file, file_name);
-    file_add (file_name, file, &wimboot_cmd);
-  }
-  else if (state[OPS_INSTALL].set)
-    grub_wimboot_install ();
-  else if (state[OPS_BOOT].set)
-    grub_wimboot_boot (bootmgfw, &wimboot_cmd);
-  else if (state[OPS_CREATE].set)
-    vfat_create ();
-  else if (state[OPS_LS].set)
-    vfat_ls ();
-  else if (state[OPS_PATCH].set && state[OPS_OFFSET].set && argc == 1)
-    vfat_patch_offset (state[OPS_PATCH].arg,
-                       grub_strtoul (state[OPS_OFFSET].arg, NULL, 0),
-                       argv[0]);
-  else if (state[OPS_PATCH].set && state[OPS_SEARCH].set && argc == 1)
-  {
-    int count = 0;
-    if (state[OPS_COUNT].set)
-      count = grub_strtoul (state[OPS_COUNT].arg, NULL, 0);
-    vfat_patch_search (state[OPS_PATCH].arg, state[OPS_SEARCH].arg, argv[0], count);
-  }
-  else
-    vfat_help ();
-fail:
-  return grub_errno;
-}
-
-static grub_extcmd_t cmd_wimboot, cmd_vfat;
-
-#endif
+static grub_extcmd_t cmd_wimboot;
 
 static const struct grub_arg_option options_wimtools[] = {
   {"index", 'i', 0, N_("Use WIM image index n."), N_("n"), ARG_TYPE_INT},
@@ -292,14 +267,11 @@ static luaL_Reg wimlib[] =
 
 GRUB_MOD_INIT(wimboot)
 {
-#ifdef GRUB_MACHINE_EFI
+  grub_load_bcd ();
+  grub_load_bootsdi ();
   cmd_wimboot = grub_register_extcmd ("wimboot", grub_cmd_wimboot, 0,
                     N_("[--rawbcd] [--index=n] [--pause] @:NAME:PATH"),
                     N_("Windows Imaging Format bootloader"), options_wimboot);
-  cmd_vfat = grub_register_extcmd ("vfat", grub_cmd_vfat, 0,
-                    N_("[--mem] [--add=FILE PATH]"),
-                    N_("Virtual FAT Disk"), options_vfat);
-#endif
   cmd_wimtools = grub_register_extcmd ("wimtools", grub_cmd_wimtools, 0,
                     N_("[--index=n] [OPTIONS] FILE [PATH]"),
                     N_("WIM Tools"), options_wimtools);
@@ -313,9 +285,8 @@ GRUB_MOD_INIT(wimboot)
 
 GRUB_MOD_FINI(wimboot)
 {
-#ifdef GRUB_MACHINE_EFI
+  grub_unload_bcd ();
+  grub_unload_bootsdi ();
   grub_unregister_extcmd (cmd_wimboot);
-  grub_unregister_extcmd (cmd_vfat);
-#endif
   grub_unregister_extcmd (cmd_wimtools);
 }

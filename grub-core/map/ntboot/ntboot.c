@@ -1,6 +1,6 @@
  /*
  *  GRUB  --  GRand Unified Bootloader
- *  Copyright (C) 2019  Free Software Foundation, Inc.
+ *  Copyright (C) 2019,2020  Free Software Foundation, Inc.
  *
  *  GRUB is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -29,25 +29,39 @@
 #include <grub/types.h>
 #include <grub/term.h>
 #include <grub/partition.h>
-#include <grub/procfs.h>
+#include <xz.h>
 
 #include <misc.h>
 #include <wimboot.h>
-#include <ntboot.h>
+#include <bcd.h>
 #include <vfat.h>
-
-#include "ntboot.h"
+#include <sdi.h>
 
 GRUB_MOD_LICENSE ("GPLv3+");
 
-static const struct grub_arg_option options_ntboot[] = {
+static const struct grub_arg_option options_ntboot[] =
+{
   {"gui", 'g', 0, N_("Display graphical boot messages."), 0, 0},
   {"pause", 'p', 0, N_("Show info and wait for keypress."), 0, 0},
   {"vhd", 'v', 0, N_("Boot NT6+ VHD/VHDX."), 0, 0},
   {"wim", 'w', 0, N_("Boot NT6+ WIM."), 0, 0},
   {"win", 'n', 0, N_("Boot NT6+ Windows."), 0, 0},
+  {"ramvhd", 'r', 0, N_("Boot NT6+ RAM VHD/VHDX."), 0, 0},
   {"efi", 'e', 0, N_("Specify the bootmgfw.efi file."), N_("FILE"), ARG_TYPE_FILE},
   {"sdi", 's', 0, N_("Specify the boot.sdi file."), N_("FILE"), ARG_TYPE_FILE},
+
+  {"testmode", 0, 0, N_("Test Mode (testsigning)."), N_("yes|no"), ARG_TYPE_STRING},
+  {"highest", 0, 0, N_("Force Highest Resolution."), N_("yes|no"), ARG_TYPE_STRING},
+  {"nx", 0, 0, N_("Nx Policy."),
+    N_("OptIn|OptOut|AlwaysOff|AlwaysOn"), ARG_TYPE_STRING},
+  {"pae", 0, 0, N_("PAE Policy."), N_("Default|Enable|Disable"), ARG_TYPE_STRING},
+  {"detecthal", 0, 0, N_("Detect HAL and kernel."), N_("yes|no"), ARG_TYPE_STRING},
+  {"winpe", 0, 0, N_("Boot into WinPE."), N_("yes|no"), ARG_TYPE_STRING},
+  {"imgoffset", 0, 0, N_("Set Ramdisk Image Offset."), N_("n"), ARG_TYPE_INT},
+  {"timeout", 0, 0, N_("Set Timeout."), N_("n"), ARG_TYPE_INT},
+  {"sos", 0, 0, N_("Display driver names."), N_("yes|no"), ARG_TYPE_STRING},
+  {"novesa", 0, 0, N_("Avoid VESA BIOS calls."), N_("yes|no"), ARG_TYPE_STRING},
+  {"novga", 0, 0, N_("Disables VGA modes."), N_("yes|no"), ARG_TYPE_STRING},
   {0, 0, 0, 0, 0, 0}
 };
 
@@ -58,59 +72,33 @@ enum options_ntboot
   NTBOOT_VHD,
   NTBOOT_WIM,
   NTBOOT_WIN,
+  NTBOOT_RAMVHD,
   NTBOOT_EFI,
   NTBOOT_SDI,
+  /* bcd boot options */
+  NTBOOT_TESTMODE, // bool
+  NTBOOT_HIGHEST,  // bool
+  NTBOOT_NX,       // uint64
+  NTBOOT_PAE,      // uint64
+  NTBOOT_DETHAL,   // bool
+  NTBOOT_PE,       // bool
+  NTBOOT_IMGOFS,   // uint64
+  NTBOOT_TIMEOUT,  // uint64
+  NTBOOT_SOS,      // bool
+  NTBOOT_NOVESA,   // bool
+  NTBOOT_NOVGA,    // bool
 };
-
-static char *
-get_bcd (grub_size_t *sz)
-{
-  *sz = 0;
-  char *ret = NULL;
-  *sz = bcd_len;
-  if (!*sz)
-    return ret;
-  ret = grub_malloc (*sz);
-  if (!ret)
-    return ret;
-  grub_memcpy (ret, bcd, *sz);
-  return ret;
-}
-
-struct grub_procfs_entry proc_bcd =
-{
-  .name = "bcd",
-  .get_contents = get_bcd,
-};
-
-static void
-ntboot_load (enum boot_type type, const char *path, grub_disk_t disk)
-{
-  ntboot_patch_bcd (type, path, disk->name,
-                    grub_partition_get_start (disk->partition),
-                    disk->partition->number, disk->partition->partmap->name);
-
-#ifdef GRUB_MACHINE_EFI
-  grub_wimboot_install ();
-  grub_wimboot_boot (bootmgfw, &wimboot_cmd);
-#endif
-}
 
 static grub_err_t
 grub_cmd_ntboot (grub_extcmd_context_t ctxt,
                   int argc, char *argv[])
 {
   struct grub_arg_list *state = ctxt->state;
-  grub_file_t bootmgr = 0;
-  grub_file_t bootsdi = 0;
   grub_file_t file = 0;
-  char *filename = NULL;
-  enum boot_type type;
-  grub_disk_t disk = 0;
-#ifdef GRUB_MACHINE_EFI
-  grub_file_t bcd_file = 0;
-  char bcd_name[64];
-#endif
+  char *path = NULL;
+  enum bcd_type type;
+  struct bcd_patch_data ntcmd;
+  grub_memset (&ntcmd, 0, sizeof (ntcmd));
 
   if (argc != 1)
   {
@@ -118,52 +106,15 @@ grub_cmd_ntboot (grub_extcmd_context_t ctxt,
     goto fail;
   }
 
-#ifdef GRUB_MACHINE_EFI
-  wimboot_cmd.rawbcd = 1;
-  wimboot_cmd.rawwim = 1;
-  if (state[NTBOOT_GUI].set)
-    wimboot_cmd.gui = 1;
-  if (state[NTBOOT_PAUSE].set)
-    wimboot_cmd.pause = 1;
-  if (state[NTBOOT_EFI].set)
-    bootmgr = grub_file_open (state[NTBOOT_EFI].arg, GRUB_FILE_TYPE_GET_SIZE);
+  if (argv[0][0] == 'h')
+  {
+    char str[32];
+    grub_snprintf (str, 32, "(%s)", argv[0]);
+    file = file_open (str, 0, 0, 0);
+  }
   else
-    bootmgr = grub_file_open ("/efi/microsoft/boot/bootmgfw.efi",
-                              GRUB_FILE_TYPE_GET_SIZE);
-  if (!bootmgr)
-  {
-    grub_error (GRUB_ERR_FILE_READ_ERROR, N_("failed to open bootmgfw.efi"));
-    goto fail;
-  }
-  file_add ("bootmgfw.efi", bootmgr, &wimboot_cmd);
+    file = file_open (argv[0], 0, 0, 0);
 
-  grub_snprintf (bcd_name, 64, "mem:%p:size:%u", &bcd, bcd_len);
-  bcd_file = grub_file_open (bcd_name, GRUB_FILE_TYPE_GET_SIZE);
-  file_add ("bcd", bcd_file, &wimboot_cmd);
-#endif
-
-  if (state[NTBOOT_WIN].set)
-  {
-    int namelen = grub_strlen (argv[0]);
-    if (argv[0][0] == '(' && argv[0][namelen - 1] == ')')
-    {
-      argv[0][namelen - 1] = 0;
-      disk = grub_disk_open (&argv[0][1]);
-    }
-    else
-      disk = grub_disk_open (argv[0]);
-    if (!disk || disk->name[0] != 'h' || !disk->partition)
-    {
-      grub_error (GRUB_ERR_BAD_DEVICE,
-                "this command is available only for disk devices");
-      goto fail;
-    }
-    type = BOOT_WIN;
-    ntboot_load (type, NULL, disk);
-    goto fail;
-  }
-
-  file = grub_file_open (argv[0], GRUB_FILE_TYPE_GET_SIZE);
   if (!file)
   {
     grub_error (GRUB_ERR_FILE_READ_ERROR, N_("failed to open file"));
@@ -177,54 +128,105 @@ grub_cmd_ntboot (grub_extcmd_context_t ctxt,
     goto fail;
   }
   if (argv[0][0] == '(')
-  {
-    filename = grub_strchr (argv[0], '/');
-    if (!filename)
-      goto fail;
-  }
-  else if (argv[0][0] == '/')
-  {
-    filename = &argv[0][0];
-  }
-  else
-    goto fail;
+    path = grub_strchr (argv[0], '/');
+  if (!path)
+    path = argv[0];
 
-  if (filename[grub_strlen (filename) - 1] == 'm' ||
-      filename[grub_strlen (filename) - 1] == 'M') /* wim */
+  if (path[grub_strlen (path) - 1] == 'm' ||
+      path[grub_strlen (path) - 1] == 'M') /* wim */
     type = BOOT_WIM;
+  else if (path[grub_strlen (path) - 1] == ')')
+    type = BOOT_WIN;
   else
     type = BOOT_VHD;
   if (state[NTBOOT_WIM].set)
     type = BOOT_WIM;
   if (state[NTBOOT_VHD].set)
     type = BOOT_VHD;
+  if (state[NTBOOT_RAMVHD].set)
+    type = BOOT_RAMVHD;
+  if (state[NTBOOT_WIN].set)
+    type = BOOT_WIN;
 
-#ifdef GRUB_MACHINE_EFI
+  /* fill ntboot_cmd */
+  ntcmd.type = type;
+  ntcmd.file = file;
+  ntcmd.path = path;
+  if (state[NTBOOT_TESTMODE].set)
+    ntcmd.testmode = state[NTBOOT_TESTMODE].arg;
+  if (state[NTBOOT_HIGHEST].set)
+    ntcmd.highest = state[NTBOOT_HIGHEST].arg;
+  if (state[NTBOOT_NX].set)
+    ntcmd.nx = state[NTBOOT_NX].arg;
+  if (state[NTBOOT_PAE].set)
+    ntcmd.pae = state[NTBOOT_PAE].arg;
+  if (state[NTBOOT_DETHAL].set)
+    ntcmd.detecthal = state[NTBOOT_DETHAL].arg;
+  if (state[NTBOOT_PE].set)
+    ntcmd.winpe = state[NTBOOT_PE].arg;
+  if (state[NTBOOT_IMGOFS].set)
+    ntcmd.imgoffset = state[NTBOOT_IMGOFS].arg;
+  if (state[NTBOOT_TIMEOUT].set)
+    ntcmd.timeout = state[NTBOOT_TIMEOUT].arg;
+  if (state[NTBOOT_SOS].set)
+    ntcmd.sos = state[NTBOOT_SOS].arg;
+  if (state[NTBOOT_NOVESA].set)
+    ntcmd.novesa = state[NTBOOT_NOVESA].arg;
+  if (state[NTBOOT_NOVGA].set)
+    ntcmd.novga = state[NTBOOT_NOVGA].arg;
+  grub_patch_bcd (&ntcmd);
+
+  struct wimboot_cmdline wimboot_cmd =
+      { 0, 1, 1, 0, 0, L"\\Windows\\System32", NULL, NULL, NULL, NULL };
+  grub_file_t bootmgr = 0;
+  grub_file_t bootsdi = 0;
+  grub_file_t bcd = 0;
+
+  if (state[NTBOOT_GUI].set)
+    wimboot_cmd.gui = 1;
+  if (state[NTBOOT_PAUSE].set)
+    wimboot_cmd.pause = 1;
+
+  bcd = file_open ("(proc)/bcd", 0, 0, 0);
+  vfat_add_file ("bcd", bcd, bcd->size, vfat_read_wrapper);
+
+  if (state[NTBOOT_EFI].set)
+    bootmgr = file_open (state[NTBOOT_EFI].arg, 0, 0, 0);
+  else
+    bootmgr = file_open ("/efi/microsoft/boot/bootmgfw.efi", 0, 0, 0);
+  if (!bootmgr)
+  {
+    grub_error (GRUB_ERR_FILE_READ_ERROR, N_("failed to open bootmgfw.efi"));
+    goto fail;
+  }
+  wimboot_cmd.bootmgfw = vfat_add_file ("bootmgfw.efi",
+                                        bootmgr, bootmgr->size, vfat_read_wrapper);
+
   if (type == BOOT_WIM)
   {
     if (state[NTBOOT_SDI].set)
-      bootsdi = grub_file_open (state[NTBOOT_SDI].arg,
-                                GRUB_FILE_TYPE_LOOPBACK);
+      bootsdi = file_open (state[NTBOOT_SDI].arg, 0, 0, 0);
     else
-      bootsdi = grub_file_open ("/boot/boot.sdi", GRUB_FILE_TYPE_LOOPBACK);
+      bootsdi = file_open ("(proc)/boot.sdi", 0, 0, 0);
     if (!bootsdi)
     {
       grub_error (GRUB_ERR_FILE_READ_ERROR, N_("failed to open boot.sdi"));
       goto fail;
     }
-    file_add ("boot.sdi", bootsdi, &wimboot_cmd);
+    vfat_add_file ("boot.sdi", bootsdi, bootsdi->size, vfat_read_wrapper);
   }
-#endif
-  ntboot_load (type, filename, file->device->disk);
-fail:
-  if (disk)
-    grub_disk_close (disk);
-  if (file)
-    grub_file_close (file);
+  grub_wimboot_install ();
+  if (wimboot_cmd.pause)
+    grub_getkey ();
+  grub_wimboot_boot (&wimboot_cmd);
   if (bootmgr)
     grub_file_close (bootmgr);
   if (bootsdi)
     grub_file_close (bootsdi);
+
+fail:
+  if (file)
+    grub_file_close (file);
   return grub_errno;
 }
 
@@ -232,14 +234,12 @@ static grub_extcmd_t cmd_ntboot;
 
 GRUB_MOD_INIT(ntboot)
 {
-  grub_procfs_register ("bcd", &proc_bcd);
   cmd_ntboot = grub_register_extcmd ("ntboot", grub_cmd_ntboot, 0,
-                    N_("[-v|-w] [--efi=FILE] [--sdi=FILE] FILE"),
+                    N_("[-v|-w] [--efi=FILE] FILE"),
                     N_("Boot NT6+ VHD/VHDX/WIM"), options_ntboot);
 }
 
 GRUB_MOD_FINI(ntboot)
 {
-  grub_procfs_unregister (&proc_bcd);
   grub_unregister_extcmd (cmd_ntboot);
 }

@@ -25,6 +25,7 @@
 #include <grub/term.h>
 #include <grub/i18n.h>
 #include <grub/charset.h>
+#include <grub/lua.h>
 
 #include "reg.h"
 
@@ -77,10 +78,137 @@ grub_cmd_reg (grub_command_t cmd __attribute__ ((unused)),
 
 static grub_command_t cmd;
 
+static int
+reg_open (lua_State *state)
+{
+  grub_reg_hive_t *hive = NULL;
+  grub_file_t file;
+
+  luaL_checktype (state, 1, LUA_TLIGHTUSERDATA);
+  file = lua_touserdata (state, 1);
+  grub_open_hive (file, &hive);
+  lua_pushlightuserdata (state, hive);
+  return 1;
+}
+
+static int
+reg_close (lua_State *state)
+{
+  grub_reg_hive_t *hive;
+
+  luaL_checktype (state, 1, LUA_TLIGHTUSERDATA);
+  hive = lua_touserdata (state, 1);
+  hive->close (hive);
+  return 0;
+}
+
+static int
+reg_find_root (lua_State *state)
+{
+  HKEY root = 0;
+  grub_reg_hive_t *hive = NULL;
+
+  luaL_checktype (state, 1, LUA_TLIGHTUSERDATA);
+  hive = lua_touserdata (state, 1);
+  hive->find_root (hive, &root);
+  lua_pushinteger (state, root);
+  return 1;
+}
+
+static int
+reg_find_key (lua_State *state)
+{
+  HKEY root, key;
+  grub_reg_hive_t *hive = NULL;
+  const char *path8;
+  uint16_t path16[MAX_NAME];
+
+  luaL_checktype (state, 1, LUA_TLIGHTUSERDATA);
+  hive = lua_touserdata (state, 1);
+  root = luaL_checkinteger (state, 2);
+  path8 = luaL_checkstring (state, 3);
+
+  grub_memset (&path16, 0, MAX_NAME);
+  grub_utf8_to_utf16 (path16, MAX_NAME * sizeof (uint16_t),
+                      (grub_uint8_t *)path8, -1, NULL);
+
+  hive->find_key (hive, root, path16, &key);
+  lua_pushinteger (state, key);
+  return 1;
+}
+
+static void
+enum_reg (struct grub_reg_hive *hive, HKEY key)
+{
+  grub_err_t errno;
+  HKEY subkey;
+  uint32_t i, type, data_len;
+  uint16_t wname[MAX_NAME];
+  unsigned char name[MAX_NAME];
+  uint8_t *data;
+  for (i = 0; ; i++)
+  {
+    errno = hive->enum_keys (hive, key, i, wname, MAX_NAME);
+    if (errno)
+      break;
+    subkey = 0;
+    hive->find_key (hive, key, wname, &subkey);
+    if (!subkey)
+      break;
+    grub_utf16_to_utf8 (name, wname, MAX_NAME);
+    grub_printf ("%u [%s]\n", subkey, name);
+    grub_refresh ();
+    grub_getkey ();
+    enum_reg (hive, subkey);
+  }
+  for (i = 0; ; i++)
+  {
+    errno = hive->enum_values (hive, key, i, wname, MAX_NAME, &type);
+    if (errno)
+      break;
+    data_len = 0;
+    errno = hive->query_value_no_copy (hive, key,
+                                       wname, (void **)&data, &data_len, &type);
+    for (i = 0; i < data_len; i++)
+      grub_printf ("%02x ", data[i]);
+    grub_printf ("len=%d type=0x%x\n", data_len, type);
+    grub_getkey ();
+  }
+}
+
+static int
+reg_query_value (lua_State *state)
+{
+  HKEY root = 0;
+  grub_reg_hive_t *hive = NULL;
+
+  luaL_checktype (state, 1, LUA_TLIGHTUSERDATA);
+  hive = lua_touserdata (state, 1);
+  hive->find_root (hive, &root);
+  enum_reg (hive, root);
+  return 0;
+}
+
+static luaL_Reg reglib[] =
+{
+  {"open", reg_open},
+  {"close", reg_close},
+  {"find_root", reg_find_root},
+  {"find_key", reg_find_key},
+  {"query_value", reg_query_value},
+  {0, 0}
+};
+
 GRUB_MOD_INIT(libreg)
 {
   cmd = grub_register_command ("regtool", grub_cmd_reg, 0,
                                N_("Load Windows Registry."));
+  if (grub_lua_global_state)
+  {
+    lua_gc (grub_lua_global_state, LUA_GCSTOP, 0);
+    luaL_register (grub_lua_global_state, "reg", reglib);
+    lua_gc (grub_lua_global_state, LUA_GCRESTART, 0);
+  }
 }
 
 GRUB_MOD_FINI(libreg)

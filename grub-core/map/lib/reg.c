@@ -43,7 +43,7 @@
 #include <grub/misc.h>
 #include <grub/types.h>
 #include <grub/file.h>
-#include "reg.h"
+#include <reg.h>
 
 #define _CR(RECORD, TYPE, FIELD) \
     ((TYPE *) ((char *) (RECORD) - (char *) &(((TYPE *) 0)->FIELD)))
@@ -51,6 +51,12 @@
 #define _offsetof(TYPE, MEMBER) ((size_t) &((TYPE *)NULL)->MEMBER)
 
 #pragma GCC diagnostic ignored "-Wcast-align"
+
+enum reg_bool
+{
+  false = 0,
+  true  = 1,
+};
 
 static size_t
 reg_wcslen (const uint16_t *s)
@@ -61,7 +67,7 @@ reg_wcslen (const uint16_t *s)
   return i;
 }
 
-static bool check_header(grub_hive_t *h)
+static enum reg_bool check_header(grub_hive_t *h)
 {
   HBASE_BLOCK* base_block = (HBASE_BLOCK*)h->data;
   uint32_t csum;
@@ -155,7 +161,7 @@ enum_keys (grub_reg_hive_t *this, HKEY key, uint32_t index,
   CM_KEY_NODE* nk;
   CM_KEY_FAST_INDEX* lh;
   CM_KEY_NODE* nk2;
-  bool overflow = false;
+  enum reg_bool overflow = false;
 
   // FIXME - make sure no buffer overruns (here and elsewhere)
   // find parent key node
@@ -195,7 +201,7 @@ enum_keys (grub_reg_hive_t *this, HKEY key, uint32_t index,
   lh = (CM_KEY_FAST_INDEX*)((uint8_t*)h->data + 0x1000
                             + nk->SubKeyList + sizeof(int32_t));
 
-  if (lh->Signature != CM_KEY_HASH_LEAF)
+  if (lh->Signature != CM_KEY_HASH_LEAF && lh->Signature != CM_KEY_LEAF)
     return GRUB_ERR_BAD_ARGUMENT;
 
   if ((uint32_t)size < sizeof(int32_t) + _offsetof(CM_KEY_FAST_INDEX, List[0])
@@ -300,7 +306,7 @@ find_child_key (grub_hive_t* h, HKEY parent,
   lh = (CM_KEY_FAST_INDEX*)((uint8_t*)h->data + 0x1000
                             + nk->SubKeyList + sizeof(int32_t));
 
-  if (lh->Signature != CM_KEY_HASH_LEAF)
+  if (lh->Signature != CM_KEY_HASH_LEAF && lh->Signature != CM_KEY_LEAF)
     return GRUB_ERR_BAD_ARGUMENT;
 
   if ((uint32_t)size < sizeof(int32_t)
@@ -424,7 +430,7 @@ enum_values (grub_reg_hive_t *this, HKEY key,
   CM_KEY_NODE* nk;
   uint32_t* list;
   CM_KEY_VALUE* vk;
-  bool overflow = false;
+  enum reg_bool overflow = false;
 
   // find key node
   size = -*(int32_t*)((uint8_t*)h->data + key);
@@ -620,12 +626,8 @@ query_value_no_copy (grub_reg_hive_t *this, HKEY key,
       size_t datalen = vk->DataLength & ~CM_KEY_VALUE_SPECIAL_SIZE;
       uint8_t *ptr = NULL;
 
-      if (datalen == 4)
+      if (datalen == 4 || datalen == 2 || datalen == 1)
         ptr = (uint8_t*)&vk->Data;
-      else if (datalen == 2)
-        ptr = (uint8_t*)&vk->Data + 2;
-      else if (datalen == 1)
-        ptr = (uint8_t*)&vk->Data + 3;
       else if (datalen != 0)
         return GRUB_ERR_BAD_ARGUMENT;
 
@@ -721,6 +723,17 @@ static void clear_volatile (grub_hive_t* h, HKEY key)
     for (unsigned int i = 0; i < lh->Count; i++)
     {
       clear_volatile(h, 0x1000 + lh->List[i].Cell);
+    }
+  }
+  else if (sig == CM_KEY_LEAF)
+  {
+    CM_KEY_FAST_INDEX* lf =
+        (CM_KEY_FAST_INDEX*)((uint8_t*)h->data + 0x1000
+                             + nk->SubKeyList + sizeof(int32_t));
+
+    for (unsigned int i = 0; i < lf->Count; i++)
+    {
+      clear_volatile(h, 0x1000 + lf->List[i].Cell);
     }
   }
   else if (sig == CM_KEY_INDEX_ROOT)

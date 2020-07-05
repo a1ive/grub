@@ -52,6 +52,14 @@ grub_fs_probe (grub_device_t device)
       /* Make it sure not to have an infinite recursive calls.  */
       static int count = 0;
 
+      if (grub_strcmp (device->disk->name, "vfat") == 0)
+      {
+        grub_dprintf ("fs", "VFAT DISK\n");
+        for (p = grub_fs_list; p; p = p->next)
+          if (grub_strcmp (p->name, "fat") == 0)
+            return p;
+      }
+
       for (p = grub_fs_list; p; p = p->next)
 	{
 	  grub_dprintf ("fs", "Detecting %s...\n", p->name);

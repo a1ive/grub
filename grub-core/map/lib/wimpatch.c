@@ -621,7 +621,7 @@ static size_t wim_construct_dir ( struct wim_patch *patch,
  * @ret rc    Return status code
  */
 static int wim_construct_patch ( struct vfat_file *file,
-         unsigned int boot_index, int inject,
+         unsigned int boot_index, int inject, const wchar_t *inject_path,
          struct wim_patch *patch ) {
   union wim_patch_regions *regions = &patch->regions;
   struct wim_patch_region *rfile;
@@ -719,7 +719,7 @@ static int wim_construct_patch ( struct vfat_file *file,
 
   /* Locate directory containing injected files */
   if ( ( rc = wim_path ( file, &patch->header, &patch->boot,
-             wimboot_cmd.inject, &patch->dir.parent,
+             inject_path, &patch->dir.parent,
              &direntry ) ) != 0 )
     return rc;
   patch->dir.offset = direntry.subdir;
@@ -744,6 +744,10 @@ static int wim_construct_patch ( struct vfat_file *file,
   return 0;
 }
 
+static uint8_t cmd_rawwim = 0;
+static unsigned int cmd_index = 0;
+static const wchar_t *cmd_inject = L"\\Windows\\System32";
+
 /**
  * Patch WIM file
  *
@@ -763,15 +767,15 @@ void patch_wim ( struct vfat_file *file, void *data, size_t offset,
   int rc;
 
   /* Do nothing unless patching is required */
-  boot_index = wimboot_cmd.index;
-  inject = ( ! wimboot_cmd.rawwim );
+  boot_index = cmd_index;
+  inject = ( ! cmd_rawwim );
   if ( ( boot_index == 0 ) && ( ! inject ) )
     return;
 
   /* Update cached patch if required */
   if ( file != patch->file ) {
     if ( ( rc = wim_construct_patch ( file, boot_index, inject,
-              patch ) ) != 0 ) {
+              cmd_inject, patch ) ) != 0 ) {
       grub_pause_fatal ( "Could not patch WIM %s\n", file->name );
     }
   }
@@ -788,6 +792,13 @@ void patch_wim ( struct vfat_file *file, void *data, size_t offset,
             ( offset + len ) );
     }
   }
+}
+
+void set_wim_patch (struct wimboot_cmdline *cmd)
+{
+  cmd_index = cmd->index;
+  cmd_rawwim = cmd->rawwim;
+  cmd_inject = cmd->inject;
 }
 
 #if __GNUC__ >= 9

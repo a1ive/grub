@@ -648,4 +648,7 @@ vfat_patch_search (const char *file, const char *search,
 void
 vfat_append_list (grub_file_t file, const char *file_name);
 
+void
+vfat_read_wrapper (struct vfat_file *vfile, void *data, size_t offset, size_t len);
+
 #endif /* _VDISK_H */

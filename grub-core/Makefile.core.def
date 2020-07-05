@@ -2832,13 +2832,19 @@ module = {
 
 module = {
   name = wimboot;
+  common = map/wimboot/init.c;
   efi = map/wimboot/efi/boot.c;
   efi = map/wimboot/efi/install.c;
+  i386_pc = map/wimboot/pc/boot.c;
+  i386_pc = map/wimboot/pc/install.c;
+  common = map/lib/reg.c;
+  common = map/lib/bcd.c;
+  common = map/lib/xz.c;
+  common = map/lib/sdi.c;
   common = map/lib/wim.c;
   common = map/lib/wimfile.c;
   common = map/lib/wimpatch.c;
   common = map/lib/wimtools.c;
-  common = map/wimboot/init.c;
   common = map/wimboot/wimboot.c;
 
   cflags = '-Wno-strict-aliasing -fshort-wchar -Wno-vla';
@@ -2849,11 +2855,9 @@ module = {
 
 module = {
   name = ntboot;
-  common = map/ntboot/bcd.c;
-  common = map/ntboot/patch.c;
   common = map/ntboot/ntboot.c;
 
-  cflags = '-Wno-strict-aliasing -fshort-wchar';
+  cflags = '-Wno-strict-aliasing -fshort-wchar ';
   cppflags = '-I$(srcdir)/map/include';
   enable = i386_efi;
   enable = x86_64_efi;
@@ -2952,14 +2956,6 @@ module = {
   name = nes;
   common = lib/nes/nes.c;
   cflags = '$(CFLAGS_POSIX) -Wno-unused-parameter';
-  cppflags = '$(CPPFLAGS_POSIX)';
-};
-
-module = {
-  name = libreg;
-  common = lib/libreg/reg.c;
-  common = lib/libreg/regtool.c;
-  cflags = '$(CFLAGS_POSIX)';
   cppflags = '$(CPPFLAGS_POSIX)';
 };
 
