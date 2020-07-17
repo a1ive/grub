@@ -96,10 +96,14 @@ struct wim_header {
 
 /** WIM header flags */
 enum wim_header_flags {
+	/** Unused, reserved flag for another compression type.  */
+	WIM_HDR_COMPRESS_RESERVED = 0x00010000,
 	/** WIM uses Xpress compresson */
 	WIM_HDR_XPRESS = 0x00020000,
 	/** WIM uses LZX compression */
 	WIM_HDR_LZX = 0x00040000,
+	/** WIM uses LZMS compression. */
+	WIM_HDR_LZMS = 0x00080000,
 };
 
 /** A WIM file hash */

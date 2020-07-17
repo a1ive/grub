@@ -30,6 +30,7 @@
 #include <string.h>
 #include <vfat.h>
 #include <lzx.h>
+#include <xpress.h>
 #include <wim.h>
 
 /**
@@ -182,6 +183,11 @@ static int wim_chunk ( struct vfat_file *file, struct wim_header *header,
     /* Identify decompressor */
     if ( header->flags & WIM_HDR_LZX ) {
       decompress = lzx_decompress;
+    } else if ( header->flags & WIM_HDR_XPRESS ) {
+      decompress = xca_decompress;
+    } else if ( header->flags & WIM_HDR_LZMS ) {
+      printf ( "LZMS compression is not supported.\n" );
+      return -1;
     } else {
       return -1;
     }
