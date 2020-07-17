@@ -29,4 +29,10 @@ grub_wim_file_exist (grub_file_t file, unsigned int index, const char *path);
 int
 grub_wim_is64 (grub_file_t file, unsigned int index);
 
+grub_uint32_t
+grub_wim_image_count (grub_file_t file);
+
+grub_uint32_t
+grub_wim_boot_index (grub_file_t file);
+
 #endif /* _WIMTOOLS_H */

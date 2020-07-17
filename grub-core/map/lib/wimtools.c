@@ -32,6 +32,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <lzx.h>
+#include <xpress.h>
 #include <wim.h>
 #include <misc.h>
 #include <grub/wimtools.h>
@@ -176,6 +177,8 @@ grub_wim_chunk (grub_file_t file, struct wim_header *header,
     /* Identify decompressor */
     if (header->flags & WIM_HDR_LZX)
       decompress = lzx_decompress;
+    else if (header->flags & WIM_HDR_XPRESS)
+      decompress = xca_decompress;
     else
       return -1;
 
@@ -545,4 +548,22 @@ grub_wim_is64 (grub_file_t file, unsigned int index)
   ret = grub_wim_ispe64 (exe_data);
   grub_free (exe_data);
   return ret;
+}
+
+grub_uint32_t
+grub_wim_image_count (grub_file_t file)
+{
+  struct wim_header header;
+  if (grub_wim_header (file, &header))
+    return 0;
+  return header.images;
+}
+
+grub_uint32_t
+grub_wim_boot_index (grub_file_t file)
+{
+  struct wim_header header;
+  if (grub_wim_header (file, &header))
+    return 0;
+  return header.boot_index;
 }

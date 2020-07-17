@@ -20,6 +20,7 @@
 #include <grub/dl.h>
 #include <grub/device.h>
 #include <grub/err.h>
+#include <grub/env.h>
 #include <grub/extcmd.h>
 #include <grub/file.h>
 #include <grub/i18n.h>
@@ -166,6 +167,8 @@ static const struct grub_arg_option options_wimtools[] = {
   {"index", 'i', 0, N_("Use WIM image index n."), N_("n"), ARG_TYPE_INT},
   {"exist", 'e', 0, N_("Check file exists or not."), 0, 0},
   {"is64", 'a', 0, N_("Check winload.exe is 64 bit or not."), 0, 0},
+  {"boot_index", 'b', 0, N_("Get boot index."), N_("VAR"), ARG_TYPE_STRING},
+  {"image_count", 'c', 0, N_("Get number of images."), N_("VAR"), ARG_TYPE_STRING},
   {0, 0, 0, 0, 0, 0}
 };
 
@@ -174,12 +177,15 @@ enum options_wimtools
   WIMTOOLS_INDEX,
   WIMTOOLS_EXIST,
   WIMTOOLS_IS64,
+  WIMTOOLS_BOOT,
+  WIMTOOLS_COUNT,
 };
 
 static grub_err_t
 grub_cmd_wimtools (grub_extcmd_context_t ctxt, int argc, char *argv[])
 {
   struct grub_arg_list *state = ctxt->state;
+  char str[10];
   unsigned int index = 0;
   grub_file_t file = 0;
   grub_err_t err = GRUB_ERR_NONE;
@@ -205,6 +211,20 @@ grub_cmd_wimtools (grub_extcmd_context_t ctxt, int argc, char *argv[])
       err = GRUB_ERR_NONE;
     else
       err = GRUB_ERR_TEST_FAILURE;
+  }
+  else if (state[WIMTOOLS_BOOT].set)
+  {
+    index = grub_wim_boot_index (file);
+    grub_snprintf (str, 10, "%u", index);
+    grub_env_set (state[WIMTOOLS_BOOT].arg, str);
+    err = GRUB_ERR_NONE;
+  }
+  else if (state[WIMTOOLS_COUNT].set)
+  {
+    index = grub_wim_image_count (file);
+    grub_snprintf (str, 10, "%u", index);
+    grub_env_set (state[WIMTOOLS_COUNT].arg, str);
+    err = GRUB_ERR_NONE;
   }
   grub_file_close (file);
   return err;
@@ -258,10 +278,50 @@ wim_is64 (lua_State *state)
   return 1;
 }
 
+static int
+wim_image_count (lua_State *state)
+{
+  const char *wim;
+  grub_file_t file = 0;
+
+  wim = luaL_checkstring (state, 1);
+
+  file = grub_file_open (wim, GRUB_FILE_TYPE_LOOPBACK);
+  if (file)
+  {
+    lua_pushinteger (state, grub_wim_image_count (file));
+    grub_file_close (file);
+  }
+  else
+    lua_pushinteger (state, 0);
+  return 1;
+}
+
+static int
+wim_boot_index (lua_State *state)
+{
+  const char *wim;
+  grub_file_t file = 0;
+
+  wim = luaL_checkstring (state, 1);
+
+  file = grub_file_open (wim, GRUB_FILE_TYPE_LOOPBACK);
+  if (file)
+  {
+    lua_pushinteger (state, grub_wim_boot_index (file));
+    grub_file_close (file);
+  }
+  else
+    lua_pushinteger (state, 0);
+  return 1;
+}
+
 static luaL_Reg wimlib[] =
 {
   {"file_exist", wim_file_exist},
   {"is64", wim_is64},
+  {"image_count", wim_image_count},
+  {"boot_index", wim_boot_index},
   {0, 0}
 };
 

@@ -44,7 +44,7 @@ struct wim_file {
 };
 
 /** Maximum number of WIM virtual files */
-#define WIM_MAX_FILES 4
+#define WIM_MAX_FILES 8
 
 /** WIM virtual files */
 static struct wim_file wim_files[WIM_MAX_FILES];
