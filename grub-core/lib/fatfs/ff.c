@@ -3298,23 +3298,36 @@ static DWORD make_rand (
 
 /* Check what the sector is */
 
-static UINT check_fs (	/* 0:FAT VBR, 1:exFAT VBR, 2:Valid BS but not FAT, 3:Invalid BS, 4:Disk error */
+static UINT check_fs (	/* 0:FAT VBR, 1:exFAT VBR, 2:Not FAT and valid BS, 3:Not FAT and invalid BS, 4:Disk error */
 	FATFS* fs,			/* Filesystem object */
 	LBA_t sect			/* Sector to load and check if it is an FAT-VBR or not */
 )
 {
+	WORD w, sign;
+	BYTE b;
+
 	fs->wflag = 0; fs->winsect = (LBA_t)0 - 1;		/* Invaidate window */
 	if (move_window(fs, sect) != FR_OK) return 4;	/* Load the boot sector */
-
-	if (ld_word(fs->win + BS_55AA) != 0xAA55) return 3;	/* Check boot signature (always here regardless of the sector size) */
-
-	if (FF_FS_EXFAT && !mem_cmp(fs->win + BS_JmpBoot, "\xEB\x76\x90" "EXFAT   ", 11)) return 1;	/* Check if exFAT VBR */
-
-	if (fs->win[BS_JmpBoot] == 0xE9 || fs->win[BS_JmpBoot] == 0xEB || fs->win[BS_JmpBoot] == 0xE8) {	/* Valid JumpBoot code? */
-		if (!mem_cmp(fs->win + BS_FilSysType, "FAT", 3)) return 0;		/* Is it an FAT VBR? */
-		if (!mem_cmp(fs->win + BS_FilSysType32, "FAT32", 5)) return 0;	/* Is it an FAT32 VBR? */
+	sign = ld_word(fs->win + BS_55AA);
+#if FF_FS_EXFAT
+	if (sign == 0xAA55 && !mem_cmp(fs->win + BS_JmpBoot, "\xEB\x76\x90" "EXFAT   ", 11)) return 1;	/* It is an exFAT VBR */
+#endif
+	b = fs->win[BS_JmpBoot];
+	if (b == 0xEB || b == 0xE9 || b == 0xE8) {	/* Valid JumpBoot code? (short jump, near jump or near call) */
+		if (sign == 0xAA55 && !mem_cmp(fs->win + BS_FilSysType32, "FAT32   ", 8)) return 0;	/* It is an FAT32 VBR */
+		/* FAT volumes formatted with early MS-DOS lack boot signature and FAT string, so that we need to identify the FAT VBR without them. */
+		w = ld_word(fs->win + BPB_BytsPerSec);
+		if ((w & (w - 1)) == 0 && w >= FF_MIN_SS && w <= FF_MAX_SS) {	/* Properness of sector size */
+			b = fs->win[BPB_SecPerClus];
+			if (b != 0 && (b & (b - 1)) == 0						/* Properness of cluster size */
+			&& (fs->win[BPB_NumFATs] == 1 || fs->win[BPB_NumFATs] == 2)	/* Properness of number of FATs */
+			&& ld_word(fs->win + BPB_RootEntCnt) != 0				/* Properness of root entry count */
+			&& ld_word(fs->win + BPB_FATSz16) != 0) {				/* Properness of FAT size */
+				return 0;	/* Sector can be presumed an FAT VBR */
+			}
+		}
 	}
-	return 2;	/* Valid BS but not FAT */
+	return sign == 0xAA55 ? 2 : 3;	/* Not an FAT VBR (valid or invalid BS) */
 }
 
 
@@ -6529,7 +6542,7 @@ static void putc_bfd (putbuff* pb, TCHAR c)
 	WCHAR hs, wc;
 #if FF_LFN_UNICODE == 2
 	DWORD dc;
-	TCHAR *tp;
+	const TCHAR *tp;
 #endif
 #endif
 
@@ -6571,7 +6584,7 @@ static void putc_bfd (putbuff* pb, TCHAR c)
 			return;
 		}
 	}
-	tp = (TCHAR*)pb->bs;
+	tp = (const TCHAR*)pb->bs;
 	dc = tchar2uni((const TCHAR **)&tp);	/* UTF-8 ==> UTF-16 */
 	if (dc == 0xFFFFFFFF) return;	/* Wrong code? */
 	wc = (WCHAR)dc;
