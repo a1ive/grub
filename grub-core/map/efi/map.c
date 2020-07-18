@@ -287,6 +287,9 @@ grub_cmd_map (grub_extcmd_context_t ctxt, int argc, char **args)
   if (!boot_image_handle)
     boot_image_handle = grub_efi_bootdisk (disk->vdisk.dp,
                                            EFI_REMOVABLE_MEDIA_FILE_NAME);
+  if (!boot_image_handle)
+    boot_image_handle = grub_efi_bootpart (disk->vdisk.dp,
+                                           EFI_REMOVABLE_MEDIA_FILE_NAME);
   if (boot_image_handle)
   {
     grub_loader_set (grub_efiloader_boot, grub_efiloader_unload, 0);
