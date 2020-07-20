@@ -112,5 +112,4 @@ grub_efi_fini (void)
   grub_prot_fini ();
   grub_efidisk_fini ();
   grub_console_fini ();
-  grub_efi_memory_fini ();
 }
