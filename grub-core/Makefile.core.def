@@ -2966,8 +2966,7 @@ module = {
   common = lib/crscreenshot/lodepng.c;
   cflags = '$(CFLAGS_POSIX)';
   cppflags = '$(CPPFLAGS_POSIX)';
-  enable = x86_64_efi;
-  enable = i386_efi;
+  enable = efi;
 };
 
 module = {
