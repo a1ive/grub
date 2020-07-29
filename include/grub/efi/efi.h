@@ -158,7 +158,7 @@ grub_efi_device_path_t*
 EXPORT_FUNC (grub_efi_file_device_path)
              (grub_efi_device_path_t *dp, const char *filename);
 
-void
+grub_err_t
 copy_file_path (grub_efi_file_path_device_path_t *fp, 
                 const char *str, grub_efi_uint16_t len);
 
