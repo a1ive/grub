@@ -53,6 +53,15 @@
 #define REPLACE_EXT L".exe"
 #endif
 
+/** bootmgfw.efi path within WIM */
+#ifdef GRUB_MACHINE_EFI
+#define WIM_BOOTMGR_PATH L"\\Windows\\Boot\\EFI\\bootmgfw.efi"
+#define WIM_BOOTMGR_NAME L"bootmgfw.efi"
+#else
+#define WIM_BOOTMGR_PATH L"\\Windows\\Boot\\PXE\\bootmgr.exe"
+#define WIM_BOOTMGR_NAME L"bootmgr.exe"
+#endif
+
 static void
 vfat_patch_bcd (struct vfat_file *file __unused,
            void *data, size_t offset __unused, size_t len)
@@ -77,11 +86,12 @@ vfat_patch_bcd (struct vfat_file *file __unused,
 static int
 isbootmgfw (const char *name)
 {
+#ifdef GRUB_MACHINE_EFI
   if (strcasecmp(name, "bootmgfw.efi") == 0)
     return 1;
   if (strcasecmp (name, BOOT_FILE_NAME) == 0)
     return 1;
-#ifndef GRUB_MACHINE_EFI
+#else
   if (strcasecmp(name, "bootmgr.exe") == 0)
     return 1;
   if (strcasecmp (name, "bootmgr") == 0)
@@ -151,6 +161,13 @@ file_add (const char *name, grub_file_t data, struct wimboot_cmdline *cmd)
       add_orig (vfile, cmd);
       vfat_patch_file (vfile, patch_wim);
     }
+    if (!cmd->bootmgfw)
+    {
+      cmd->bootmgfw = wim_add_file (vfile, cmd->index,
+                                    WIM_BOOTMGR_PATH, WIM_BOOTMGR_NAME);
+      if (cmd->bootmgfw)
+        grub_printf ("...extract bootmgr from %s\n", name);
+    }
   }
   return 0;
 }
@@ -172,15 +189,15 @@ void
 grub_wimboot_init (int argc, char *argv[])
 {
   int i;
-  struct grub_vfatdisk_file *wim = NULL;
 
   for (i = 0; i < argc; i++)
   {
     const char *fname = argv[i];
     char *file_name = NULL;
     grub_file_t file = 0;
-    if (grub_memcmp (argv[i], "@:", 2) == 0 || 
-        grub_memcmp (argv[i], "m:", 2) == 0)
+    if (grub_memcmp (argv[i], "@:", 2) == 0 ||
+        grub_memcmp (argv[i], "m:", 2) == 0 ||
+        grub_memcmp (argv[i], "b:", 2) == 0)
     {
       const char *ptr, *eptr;
       ptr = argv[i] + 2;
@@ -194,34 +211,17 @@ grub_wimboot_init (int argc, char *argv[])
       }
     }
     int mem = 0;
+    int bl = 0;
     if (argv[i][0] == 'm')
       mem = 1;
-    file = file_open (fname, mem, 0, 0);
+    if (argv[i][0] == 'b')
+      bl = 1;
+    file = file_open (fname, mem, bl, 0);
     if (!file)
-      grub_pause_fatal ("bad file.\n");
+      grub_pause_fatal ("fatal: bad file %s.\n", fname);
     if (!file_name)
       file_name = grub_strdup (file->name);
-    /* Skip wim file */
-    if (!wim && strlen(file_name) > 4 &&
-        strcasecmp ((file_name + (strlen (file_name) - 4)), ".wim") == 0)
-    {
-      wim = malloc (sizeof (struct grub_vfatdisk_file));
-      wim->name = grub_strdup (file_name);
-      wim->file = file;
-      wim->next = NULL;
-      grub_free (file_name);
-      continue;
-    }
     vfat_append_list (file, file_name);
     grub_free (file_name);
-  }
-  if (wim)
-  {
-    struct grub_vfatdisk_file *f = vfat_file_list;
-    while (f && f->next)
-    {
-      f = f->next;
-    }
-    f->next = wim;
   }
 }
