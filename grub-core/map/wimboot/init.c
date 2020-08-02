@@ -86,9 +86,9 @@ vfat_patch_bcd (struct vfat_file *file __unused,
 static int
 isbootmgfw (const char *name)
 {
-#ifdef GRUB_MACHINE_EFI
   if (strcasecmp(name, "bootmgfw.efi") == 0)
     return 1;
+#ifdef GRUB_MACHINE_EFI
   if (strcasecmp (name, BOOT_FILE_NAME) == 0)
     return 1;
 #else
