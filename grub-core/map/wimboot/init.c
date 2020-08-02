@@ -100,6 +100,13 @@ isbootmgfw (const char *name)
   return 0;
 }
 
+static int
+iswim (const char *name)
+{
+  uint32_t len = strlen (name);
+  return (len > 4 && strcasecmp (name + len - 4, ".wim") == 0);
+}
+
 #define WIM_MAX_PATH (256 + VDISK_NAME_LEN + 1)
 
 static void
@@ -151,8 +158,7 @@ file_add (const char *name, grub_file_t data, struct wimboot_cmdline *cmd)
     printf ("...found boot.sdi\n");
     cmd->bootsdi = vfile;
   }
-  else if (strlen(name) > 4 &&
-           strcasecmp ((name + (strlen (name) - 4)), ".wim") == 0)
+  else if (iswim (name))
   {
     printf ("...found WIM file %s\n", name);
     cmd->wim = name;
@@ -176,10 +182,16 @@ void
 grub_wimboot_extract (struct wimboot_cmdline *cmd)
 {
   struct grub_vfatdisk_file *f = NULL;
+  struct grub_vfatdisk_file *wim = NULL;
   for (f = vfat_file_list; f; f = f->next)
   {
-    file_add (f->name, f->file, cmd);
+    if (iswim (f->name) && !wim)
+      wim = f;
+    else
+      file_add (f->name, f->file, cmd);
   }
+  if (wim)
+    file_add (wim->name, wim->file, cmd);
   /* Check that we have a boot file */
   if (! cmd->bootmgfw)
     grub_pause_fatal ("FATAL: bootmgr not found\n");
