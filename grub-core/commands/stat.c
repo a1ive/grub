@@ -26,6 +26,7 @@
 #include <grub/extcmd.h>
 #include <grub/env.h>
 #include <grub/file.h>
+#include <grub/fs.h>
 #include <grub/normal.h>
 #include <grub/partition.h>
 #include <grub/i18n.h>
@@ -56,33 +57,6 @@ enum options
   STAT_RAM,
   STAT_QUIET,
 };
-
-struct block_ctx
-{
-  int num;
-  grub_disk_addr_t start;
-  unsigned long length;
-  grub_off_t total_size;
-  grub_disk_addr_t part_start;
-};
-
-static void
-read_block_contig (grub_disk_addr_t sector, unsigned offset,
-                   unsigned length, void *data)
-{
-  struct block_ctx *ctx = data;
-  sector = ((sector - ctx->part_start) << GRUB_DISK_SECTOR_BITS) + offset;
-  if ((ctx->num) && (ctx->start + ctx->length == sector))
-  {
-    ctx->length += length;
-    goto quit;
-  }
-  ctx->start = sector;
-  ctx->length = length;
-  ctx->num++;
- quit:
-  ctx->total_size += length;
-}
 
 static void
 read_block_start (grub_disk_addr_t sector,
@@ -150,17 +124,15 @@ grub_cmd_stat (grub_extcmd_context_t ctxt, int argc, char **args)
 
   if (state[STAT_CONTIG].set)
   {
-    struct block_ctx file_block = {0, 0, 0, 0, 0};
+    int num = 0;
     if (file->device && file->device->disk)
     {
-      file->read_hook = read_block_contig;
-      file->read_hook_data = &file_block;
-      grub_file_dummy_read (file);
+      num = grub_blocklist_convert (file);
       if (!state[STAT_QUIET].set)
         grub_printf ("File is%scontiguous.\nNumber of fragments: %d\n",
-                     (file_block.num > 1)? " NOT ":" ", file_block.num);
+                     (num > 1)? " NOT ":" ", num);
     }
-    grub_snprintf (str, GRUB_DISK_SECTOR_SIZE, "%d", file_block.num);
+    grub_snprintf (str, GRUB_DISK_SECTOR_SIZE, "%d", num);
     goto fail;
   }
 
