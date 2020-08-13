@@ -20,7 +20,6 @@
 #include <grub/efi/efi.h>
 #include <grub/efi/console.h>
 #include <grub/efi/disk.h>
-#include <grub/efi/protocol.h>
 #include <grub/term.h>
 #include <grub/misc.h>
 #include <grub/env.h>
@@ -72,8 +71,6 @@ grub_efi_init (void)
   grub_efi_cmdline_init ();
 
   grub_efidisk_init ();
-
-  grub_prot_init ();
 }
 
 void (*grub_efi_net_config) (grub_efi_handle_t hnd, 
@@ -109,7 +106,6 @@ grub_machine_get_bootlocation (char **device, char **path)
 void
 grub_efi_fini (void)
 {
-  grub_prot_fini ();
   grub_efidisk_fini ();
   grub_console_fini ();
 }
