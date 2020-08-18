@@ -25,34 +25,8 @@
 #include <grub/env.h>
 #include <grub/mm.h>
 #include <grub/kernel.h>
-#include <grub/charset.h>
 
 grub_addr_t grub_modbase;
-
-#ifdef __GNUC__
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wvla"
-#endif
-
-static void
-grub_efi_cmdline_init (void)
-{
-  grub_efi_loaded_image_t *image = NULL;
-  image = grub_efi_get_loaded_image (grub_efi_image_handle);
-  if (!image)
-    return;
-
-  grub_ssize_t cmdline_len = (image->load_options_size / sizeof (grub_efi_char16_t));
-  const grub_efi_char16_t *wcmdline = image->load_options;
-  unsigned char cmdline[cmdline_len + 1];
-  grub_utf16_to_utf8 (cmdline, wcmdline, sizeof (cmdline));
-  grub_env_set ("grub_cmdline", (const char *) cmdline);
-  grub_env_export ("grub_cmdline");
-}
-
-#ifdef __GNUC__
-#pragma GCC diagnostic pop
-#endif
 
 void
 grub_efi_init (void)
@@ -66,16 +40,12 @@ grub_efi_init (void)
   grub_efi_mm_init ();
 
   efi_call_4 (grub_efi_system_table->boot_services->set_watchdog_timer,
-	      0, 0, 0, NULL);
-  
-  grub_efi_cmdline_init ();
+              0, 0, 0, NULL);
 
   grub_efidisk_init ();
 }
 
-void (*grub_efi_net_config) (grub_efi_handle_t hnd, 
-			     char **device,
-			     char **path);
+void (*grub_efi_net_config) (grub_efi_handle_t hnd, char **device, char **path);
 
 void
 grub_machine_get_bootlocation (char **device, char **path)
