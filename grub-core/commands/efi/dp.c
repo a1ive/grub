@@ -57,6 +57,7 @@ grub_efi_handle_t
 grub_efi_bootdisk (grub_efi_device_path_t *dp, const char *filename)
 {
   grub_efi_status_t status;
+  char *text_dp = NULL;
   grub_efi_uintn_t count = 0;
   grub_efi_uintn_t i = 0;
   grub_efi_handle_t *buf = NULL;
@@ -75,11 +76,10 @@ grub_efi_bootdisk (grub_efi_device_path_t *dp, const char *filename)
   }
   for (i = 0; i < count; i++)
   {
-    char *text_dp = NULL;
     tmp_dp = grub_efi_get_device_path (buf[i]);
-    text_dp = grub_efi_device_path_to_str (tmp_dp);
     if (!grub_efi_is_child_dp (tmp_dp, dp))
       continue;
+    text_dp = grub_efi_device_path_to_str (tmp_dp);
     grub_printf ("Child DP: %s\n", text_dp);
     grub_free (text_dp);
 

@@ -1460,21 +1460,25 @@ grub_efi_is_child_dp (const grub_efi_device_path_t *child,
                       const grub_efi_device_path_t *parent)
 {
   grub_efi_device_path_t *dp, *ldp;
-  int ret;
+  int ret = 0;
 
   dp = grub_efi_duplicate_device_path (child);
   if (! dp)
     return 0;
 
-  ldp = grub_efi_find_last_device_path (dp);
-  if (! ldp)
-    return 0;
+  while (!ret)
+  {
+    ldp = grub_efi_find_last_device_path (dp);
+    if (!ldp)
+      break;
 
-  ldp->type = GRUB_EFI_END_DEVICE_PATH_TYPE;
-  ldp->subtype = GRUB_EFI_END_ENTIRE_DEVICE_PATH_SUBTYPE;
-  ldp->length = sizeof (*ldp);
+    ldp->type = GRUB_EFI_END_DEVICE_PATH_TYPE;
+    ldp->subtype = GRUB_EFI_END_ENTIRE_DEVICE_PATH_SUBTYPE;
+    ldp->length = sizeof (*ldp);
 
-  ret = (grub_efi_compare_device_paths (dp, parent) == 0);
+    ret = (grub_efi_compare_device_paths (dp, parent) == 0);
+  }
+
   grub_free (dp);
   return ret;
 }
