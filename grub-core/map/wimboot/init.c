@@ -56,7 +56,7 @@
 /** bootmgfw.efi path within WIM */
 #ifdef GRUB_MACHINE_EFI
 #define WIM_BOOTMGR_PATH L"\\Windows\\Boot\\EFI\\bootmgfw.efi"
-#define WIM_BOOTMGR_NAME L"bootmgfw.efi"
+#define WIM_BOOTMGR_NAME L"" BOOT_FILE_NAME
 #else
 #define WIM_BOOTMGR_PATH L"\\Windows\\Boot\\PXE\\bootmgr.exe"
 #define WIM_BOOTMGR_NAME L"bootmgr.exe"
