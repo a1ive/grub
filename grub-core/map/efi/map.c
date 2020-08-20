@@ -34,6 +34,7 @@
 #include <grub/term.h>
 #include <grub/ventoy.h>
 
+#include <iso.h>
 #include <guid.h>
 #include <misc.h>
 
@@ -143,8 +144,8 @@ grub_efivdisk_open (const char *name, grub_disk_t disk)
     return grub_error (GRUB_ERR_UNKNOWN_DEVICE, "can't open device");
 
   /* Use the filesize for the disk size, round up to a complete sector.  */
-  if (dev->vdisk.file->size != GRUB_FILE_SIZE_UNKNOWN)
-    disk->total_sectors = (dev->vdisk.file->size + GRUB_DISK_SECTOR_SIZE - 1)
+  if (dev->vdisk.size != GRUB_FILE_SIZE_UNKNOWN)
+    disk->total_sectors = (dev->vdisk.size + GRUB_DISK_SECTOR_SIZE - 1)
                           >> GRUB_DISK_SECTOR_BITS;
   else
     disk->total_sectors = GRUB_DISK_SIZE_UNKNOWN;
@@ -164,19 +165,21 @@ grub_efivdisk_read (grub_disk_t disk, grub_disk_addr_t sector,
                     grub_size_t size, char *buf)
 {
   grub_file_t file = ((struct grub_efivdisk_data *) disk->data)->vdisk.file;
+  grub_off_t start = ((struct grub_efivdisk_data *) disk->data)->vdisk.addr;
+  grub_off_t len = ((struct grub_efivdisk_data *) disk->data)->vdisk.size;
   grub_off_t pos = (sector + size) << GRUB_DISK_SECTOR_BITS;
 
   file_read (file, buf, size << GRUB_DISK_SECTOR_BITS,
-             sector << GRUB_DISK_SECTOR_BITS);
+             (sector << GRUB_DISK_SECTOR_BITS) + start);
 
   if (grub_errno)
     return grub_errno;
   /* In case there is more data read than there is available, in case
      of files that are not a multiple of GRUB_DISK_SECTOR_SIZE, fill
      the rest with zeros.  */
-  if (pos > file->size)
+  if (pos > len)
   {
-    grub_size_t amount = pos - file->size;
+    grub_size_t amount = pos - len;
     grub_memset (buf + (size << GRUB_DISK_SECTOR_BITS) - amount, 0, amount);
   }
   return 0;
@@ -187,8 +190,9 @@ grub_efivdisk_write (grub_disk_t disk, grub_disk_addr_t sector,
                      grub_size_t size, const char *buf)
 {
   grub_file_t file = ((struct grub_efivdisk_data *) disk->data)->vdisk.file;
+  grub_off_t start = ((struct grub_efivdisk_data *) disk->data)->vdisk.addr;
   file_write (file, buf, size << GRUB_DISK_SECTOR_BITS,
-              sector << GRUB_DISK_SECTOR_BITS);
+              (sector << GRUB_DISK_SECTOR_BITS) + start);
   return 0;
 }
 
@@ -210,6 +214,32 @@ grub_efivdisk_append (struct grub_efivdisk_data *disk)
   grub_efivdisk_list = disk;
 }
 
+static grub_err_t
+mount_eltorito (struct grub_efivdisk_data *src, const char *name)
+{
+  struct grub_efivdisk_data *dst = NULL;
+  grub_off_t ofs, len;
+
+  if (!grub_iso_get_eltorito (src->vdisk.file, &ofs, &len))
+    return grub_error (GRUB_ERR_FILE_READ_ERROR, "eltorito image not found");;
+  dst = grub_zalloc (sizeof (struct grub_efivdisk_data));
+  if (!dst)
+    return grub_error (GRUB_ERR_BAD_OS, "out of memory");
+
+  grub_printf ("Found UEFI El Torito image at %"
+               PRIuGRUB_UINT64_T"+%"PRIuGRUB_UINT64_T"\n", ofs, len);
+  grub_memcpy (dst, src, sizeof (struct grub_efivdisk_data));
+  dst->type = FD;
+  dst->vpart.size = len;
+  dst->vpart.addr = ofs;
+  grub_memcpy (&dst->vdisk, &dst->vpart, sizeof (grub_efivdisk_t));
+  grub_snprintf (dst->devname, 20, "%s", name);
+  last_id++;
+  grub_efivdisk_append (dst);
+
+  return GRUB_ERR_NONE;
+}
+
 static const struct grub_arg_option options_map[] =
 {
   {"mem", 'm', 0, N_("Copy to RAM."), 0, 0},
@@ -218,6 +248,8 @@ static const struct grub_arg_option options_map[] =
   {"rt", 0, 0, N_("Set memory type to RUNTIME_SERVICES_DATA."), 0, 0},
   {"ro", 'o', 0, N_("Disable write support."), 0, 0},
 
+  {"eltorito", 'e', 0,
+    N_("Mount UEFI Eltorito image at the same time."), N_("disk"), ARG_TYPE_STRING},
   {"nb", 'n', 0, N_("Don't boot virtual disk."), 0, 0},
   {"unmap", 'x', 0, N_("Unmap devices."), N_("disk"), ARG_TYPE_STRING},
   {0, 0, 0, 0, 0, 0}
@@ -264,6 +296,7 @@ grub_cmd_map (grub_extcmd_context_t ctxt, int argc, char **args)
   }
   disk->type = grub_vdisk_check_type (args[0], file, disk->type);
   disk->vdisk.file = file;
+  disk->vdisk.size = file->size;
   disk->vpart.file = file;
   if (argc < 2)
     grub_snprintf (disk->devname, 20, "vd%u", last_id);
@@ -276,6 +309,9 @@ grub_cmd_map (grub_extcmd_context_t ctxt, int argc, char **args)
   grub_efivdisk_append (disk);
   if (disk->type == CD)
     grub_ventoy_set_osparam (args[0]);
+
+  if (disk->type == CD && state[MAP_ELT].set)
+    mount_eltorito (disk, state[MAP_ELT].arg);
 
   if (state[MAP_NB].set)
     return grub_errno;
@@ -298,17 +334,71 @@ grub_cmd_map (grub_extcmd_context_t ctxt, int argc, char **args)
   return GRUB_ERR_FILE_NOT_FOUND;
 }
 
-static grub_extcmd_t cmd_map;
+static const struct grub_arg_option options_iso[] =
+{
+  {"offset", 'o', 0, N_("Offset of UEFI El Torito image (in sector unit)."), 0, 0},
+  {"length", 'l', 0, N_("Size of UEFI El Torito image (in sector unit)."), 0, 0},
+  {"ventoy", 'v', 0, N_("Check for whether ISO is ventoy compatible."), 0, 0},
+
+  {0, 0, 0, 0, 0, 0}
+};
+
+enum options_iso
+{
+  ISO_OFS,
+  ISO_LEN,
+  ISO_VT,
+};
+
+static grub_err_t
+grub_cmd_iso (grub_extcmd_context_t ctxt, int argc, char **args)
+{
+  struct grub_arg_list *state = ctxt->state;
+  grub_file_t file = 0;
+  int ret = 0;
+  char str[32];
+  grub_off_t ofs = 0, len = 0;
+  if (argc < 1)
+    return grub_error (GRUB_ERR_BAD_ARGUMENT, N_("filename expected"));
+  if (argc < 2 && (state[ISO_OFS].set || state[ISO_LEN].set))
+    return grub_error (GRUB_ERR_BAD_ARGUMENT, N_("varname expected"));
+  file = file_open (args[0], 0, 0, 0);
+  if (!file)
+    return grub_error (GRUB_ERR_FILE_READ_ERROR, "failed to open file");
+
+  if (state[ISO_VT].set)
+    ret = grub_iso_check_vt (file);
+  else
+    ret = grub_iso_get_eltorito (file, &ofs, &len);
+
+  if (state[ISO_OFS].set)
+  {
+    grub_snprintf (str, 32, "%"PRIuGRUB_UINT64_T, ofs >> GRUB_DISK_SECTOR_BITS);
+    grub_env_set (args[1], str);
+  }
+  if (state[ISO_LEN].set)
+  {
+    grub_snprintf (str, 32, "%"PRIuGRUB_UINT64_T, len >> GRUB_DISK_SECTOR_BITS);
+    grub_env_set (args[1], str);
+  }
+  return (ret ? GRUB_ERR_NONE : GRUB_ERR_TEST_FAILURE);
+}
+
+static grub_extcmd_t cmd_map, cmd_iso;
 
 GRUB_MOD_INIT(map)
 {
   cmd_map = grub_register_extcmd ("map", grub_cmd_map, 0, N_("FILE [DISK NAME]"),
                                   N_("Create virtual disk."), options_map);
+  cmd_iso = grub_register_extcmd ("isotools", grub_cmd_iso, 0,
+                                  N_("[-o|-l] FILE [VARNAME]"),
+                                  N_("ISO tools."), options_iso);
   grub_disk_dev_register (&grub_efivdisk_dev);
 }
 
 GRUB_MOD_FINI(map)
 {
   grub_unregister_extcmd (cmd_map);
+  grub_unregister_extcmd (cmd_iso);
   grub_disk_dev_unregister (&grub_efivdisk_dev);
 }

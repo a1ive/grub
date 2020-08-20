@@ -2807,6 +2807,7 @@ module = {
   common = map/lib/vfat.c;
   common = map/lib/vfat_grub.c;
   common = map/lib/ventoy.c;
+  common = map/lib/iso.c;
   efi = map/efi/blockio.c;
   efi = map/efi/vdisk.c;
   efi = map/efi/vpart.c;

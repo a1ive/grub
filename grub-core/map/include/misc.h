@@ -57,6 +57,7 @@ enum options_map
   MAP_TYPE,
   MAP_RT,
   MAP_RO,
+  MAP_ELT,
   MAP_NB,
   MAP_UNMAP,
 };

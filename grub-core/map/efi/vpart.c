@@ -20,13 +20,13 @@
 #include <grub/efi/efi.h>
 #include <grub/efi/api.h>
 #include <grub/efi/sfs.h>
-#include <grub/eltorito.h>
 #include <grub/msdos_partition.h>
 #include <grub/gpt_partition.h>
 
 #include <guid.h>
 #include <misc.h>
 #include <stddef.h>
+#include <iso.h>
 
 #pragma GCC diagnostic ignored "-Wcast-align"
 
@@ -147,62 +147,11 @@ fill_gpt_dp (grub_efivdisk_t *vpart, grub_off_t *size)
 static grub_efi_device_path_t *
 fill_iso_dp (grub_efivdisk_t *vpart, grub_off_t *size)
 {
-  cdrom_volume_descriptor_t *vol = NULL;
-  eltorito_catalog_t *catalog = NULL;
-  grub_efi_uintn_t dbr_img_size = sizeof (grub_efi_uint16_t);
-  grub_efi_uint16_t dbr_img_buf;
-  grub_efi_boolean_t boot_entry = FALSE;
-  grub_efi_uintn_t i;
   grub_efi_device_path_t *tmp_dp;
   grub_uint64_t part_size = 0;
 
-  vol = grub_zalloc (CD_BLOCK_SIZE);
-  if (!vol)
+  if (!grub_iso_get_eltorito (vpart->file, &vpart->addr, &part_size))
     return NULL;
-
-  file_read (vpart->file, vol, CD_BLOCK_SIZE, CD_BOOT_SECTOR * CD_BLOCK_SIZE);
-
-  if (vol->unknown.type != CDVOL_TYPE_STANDARD ||
-      grub_memcmp (vol->boot_record_volume.system_id, CDVOL_ELTORITO_ID,
-                   sizeof (CDVOL_ELTORITO_ID) - 1) != 0)
-  {
-    grub_free (vol);
-    return NULL;
-  }
-
-  catalog = (eltorito_catalog_t *) vol;
-  file_read (vpart->file, catalog, CD_BLOCK_SIZE,
-    *((grub_efi_uint32_t*) vol->boot_record_volume.elt_catalog) * CD_BLOCK_SIZE);
-  if (catalog[0].catalog.indicator != ELTORITO_ID_CATALOG)
-  {
-    grub_free (vol);
-    return NULL;
-  }
-
-  for (i = 0; i < 64; i++)
-  {
-    if (catalog[i].section.indicator == ELTORITO_ID_SECTION_HEADER_FINAL &&
-        catalog[i].section.platform_id == EFI_PARTITION &&
-        catalog[i+1].boot.indicator == ELTORITO_ID_SECTION_BOOTABLE)
-    {
-      boot_entry = TRUE;
-      vpart->addr = catalog[i+1].boot.lba << CD_SHIFT;
-      part_size = catalog[i+1].boot.sector_count << FD_SHIFT;
-
-      file_read (vpart->file, &dbr_img_buf, dbr_img_size, vpart->addr + 0x13);
-      dbr_img_size = dbr_img_buf << FD_SHIFT;
-      part_size = part_size > dbr_img_size ? part_size : dbr_img_size;
-
-      if (part_size < BLOCK_OF_1_44MB * FD_BLOCK_SIZE)
-        part_size = BLOCK_OF_1_44MB * FD_BLOCK_SIZE;
-      break;
-    }
-  }
-  if (!boot_entry)
-  {
-    grub_free (vol);
-    return NULL;
-  }
 
   tmp_dp = grub_efi_create_device_node (MEDIA_DEVICE_PATH, MEDIA_CDROM_DP,
                                         sizeof (grub_efi_cdrom_device_path_t));
@@ -211,7 +160,7 @@ fill_iso_dp (grub_efivdisk_t *vpart, grub_off_t *size)
             vpart->addr >> CD_SHIFT;
   ((grub_efi_cdrom_device_path_t *)tmp_dp)->partition_size =
             part_size >> CD_SHIFT;
-  grub_free (vol);
+
   *size = part_size;
   return tmp_dp;
 }
@@ -252,6 +201,7 @@ grub_efivpart_install (struct grub_efivdisk_data *disk,
     return GRUB_ERR_FILE_NOT_FOUND;
   }
 
+  disk->vpart.size = part_size;
   disk->vpart.handle = NULL;
   disk->vpart.dp = grub_efi_append_device_node (disk->vdisk.dp, tmp_dp);
   grub_free (tmp_dp);

@@ -1,3 +1,22 @@
+ /*
+ *  GRUB  --  GRand Unified Bootloader
+ *  Copyright (C) 2019,2020  Free Software Foundation, Inc.
+ *
+ *  GRUB is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
+ *
+ *  GRUB is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with GRUB.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ */
+
 #include <grub/dl.h>
 #include <grub/efi/api.h>
 #include <grub/efi/efi.h>
@@ -5,7 +24,6 @@
 #include <grub/device.h>
 #include <grub/disk.h>
 #include <grub/charset.h>
-#include <grub/eltorito.h>
 #include <grub/err.h>
 #include <grub/extcmd.h>
 #include <grub/file.h>
@@ -157,52 +175,6 @@ out:
   return 0;
 }
 
-#if defined (__i386__) || defined (__x86_64__)
-
-static grub_err_t
-grub_cmd_elt (grub_extcmd_context_t ctxt __attribute__ ((unused)),
-              int argc, char **args)
-{
-  const char *filename;
-  grub_efi_status_t status;
-  grub_disk_t disk = 0;
-  grub_efi_handle_t dev_handle = 0;
-  grub_efi_handle_t image_handle;
-  grub_efi_device_path_t *dp = 0;
-  grub_efi_boot_services_t *b = grub_efi_system_table->boot_services;
-
-  if (argc < 1)
-    return grub_error (GRUB_ERR_BAD_ARGUMENT,
-                       N_("device name expected"));
-  disk = grub_disk_open (args[0]);
-  if (argc > 1)
-    filename = args[1];
-  else
-    filename = EFI_REMOVABLE_MEDIA_FILE_NAME;
-  if (disk)
-    dev_handle = grub_efidisk_get_device_handle (disk);
-  if (dev_handle)
-    dp = grub_efi_get_device_path (dev_handle);
-  if (!dp)
-    goto fail;
-  image_handle = grub_efi_bootdisk (dp, filename);
-  if (! image_handle)
-    goto fail;
-
-  grub_script_execute_sourcecode ("terminal_output console");
-  status = efi_call_3 (b->start_image, image_handle, 0, NULL);
-  grub_printf ("StartImage returned 0x%lx\n", (unsigned long) status);
-  status = efi_call_1 (b->unload_image, image_handle);
-fail:
-  if (disk)
-    grub_disk_close (disk);
-  return GRUB_ERR_NONE;
-}
-
-static grub_extcmd_t cmd_elt;
-
-#endif
-
 static grub_extcmd_t cmd_dp;
 
 static int
@@ -285,10 +257,7 @@ GRUB_MOD_INIT(dp)
 {
   cmd_dp = grub_register_extcmd ("dp", grub_cmd_dp, 0, N_("DEVICE"),
                   N_("DevicePath."), 0);
-#if defined (__i386__) || defined (__x86_64__)
-  cmd_elt = grub_register_extcmd ("cdboot", grub_cmd_elt, 0, N_("DEVICE [FILE]"),
-                  N_("Eltorito BOOT."), 0);
-#endif
+
   if (grub_lua_global_state)
   {
     lua_gc (grub_lua_global_state, LUA_GCSTOP, 0);
@@ -300,7 +269,4 @@ GRUB_MOD_INIT(dp)
 GRUB_MOD_FINI(dp)
 {
   grub_unregister_extcmd (cmd_dp);
-#if defined (__i386__) || defined (__x86_64__)
-  grub_unregister_extcmd (cmd_elt);
-#endif
 }

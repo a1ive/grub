@@ -67,12 +67,12 @@ grub_efivdisk_install (struct grub_efivdisk_data *disk,
   disk->vdisk.media.io_align = 16;
   disk->vdisk.media.block_size = bs;
   disk->vdisk.media.last_block =
-              grub_divmod64 (disk->vdisk.file->size + bs - 1, bs, 0) - 1;
+              grub_divmod64 (disk->vdisk.size + bs - 1, bs, 0) - 1;
   /* info */
   grub_dprintf ("map", "VDISK file=%s type=%d\n",
                 disk->vdisk.file->name, disk->type);
   grub_dprintf ("map", "VDISK size=%lld\n",
-                (unsigned long long)disk->vdisk.file->size);
+                (unsigned long long)disk->vdisk.size);
   grub_dprintf ("map", "VDISK blksize=%d lastblk=%lld\n",
                 disk->vdisk.media.block_size,
                 (unsigned long long)disk->vdisk.media.last_block);

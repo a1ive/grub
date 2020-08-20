@@ -65,6 +65,7 @@ typedef struct
 {
   /* efi data */
   grub_efi_uint64_t addr;
+  grub_efi_uint64_t size;
   grub_efi_handle_t handle;
   grub_efi_device_path_t *dp;
   block_io_protocol_t block_io;
