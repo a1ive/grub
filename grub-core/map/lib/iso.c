@@ -19,6 +19,7 @@
 
 #include <grub/misc.h>
 #include <grub/file.h>
+#include <grub/fat.h>
 #include <grub/eltorito.h>
 
 #include <guid.h>
@@ -30,6 +31,28 @@
 
 #define EFI_PARTITION   0xef
 
+static grub_off_t
+fat_bpb_get_size (grub_file_t iso, grub_off_t offset)
+{
+  grub_off_t ret = 0;
+  struct grub_fat_bpb bpb;
+  file_read (iso, &bpb, sizeof (bpb), offset);
+
+  if ((grub_memcmp ((const char *) bpb.version_specific.fat12_or_fat16.fstype,
+                   "FAT12", 5) == 0) ||
+      (grub_memcmp ((const char *) bpb.version_specific.fat12_or_fat16.fstype,
+                   "FAT16", 5) == 0) ||
+      (grub_memcmp ((const char *) bpb.version_specific.fat32.fstype,
+                   "FAT32", 5) == 0))
+  {
+    if (bpb.num_total_sectors_32)
+      ret = bpb.bytes_per_sector * (grub_uint64_t) bpb.num_total_sectors_32;
+    else
+      ret = bpb.bytes_per_sector * bpb.num_total_sectors_16;
+  }
+  return ret;
+}
+
 int
 grub_iso_get_eltorito (grub_file_t iso, grub_off_t *offset, grub_off_t *len)
 {
@@ -39,6 +62,7 @@ grub_iso_get_eltorito (grub_file_t iso, grub_off_t *offset, grub_off_t *len)
   grub_uint16_t dbr_img_buf;
   int boot_entry = 0;
   grub_size_t i;
+  grub_off_t fat;
 
   vol = grub_zalloc (CD_BLOCK_SIZE);
   if (!vol)
@@ -78,6 +102,12 @@ grub_iso_get_eltorito (grub_file_t iso, grub_off_t *offset, grub_off_t *len)
     }
   }
 
+  fat = fat_bpb_get_size (iso, *offset);
+  if (fat > *len)
+  {
+    grub_printf ("FAT fs size: %"PRIuGRUB_UINT64_T"\n", fat);
+    *len = fat;
+  }
   if (*len + *offset > iso->size)
     *len = iso->size - *offset;
 fail:
