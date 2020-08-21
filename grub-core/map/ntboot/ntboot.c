@@ -62,6 +62,9 @@ static const struct grub_arg_option options_ntboot[] =
   {"sos", 0, 0, N_("Display driver names."), N_("yes|no"), ARG_TYPE_STRING},
   {"novesa", 0, 0, N_("Avoid VESA BIOS calls."), N_("yes|no"), ARG_TYPE_STRING},
   {"novga", 0, 0, N_("Disables VGA modes."), N_("yes|no"), ARG_TYPE_STRING},
+  {"loadoptions", 0, 0, N_("Set LoadOptionsString."), N_("STRING"), ARG_TYPE_STRING},
+  {"winload", 0, 0, N_("Set path of winload."), N_("WIN32_PATH"), ARG_TYPE_STRING},
+  {"sysroot", 0, 0, N_("Set system root."), N_("WIN32_PATH"), ARG_TYPE_STRING},
   {0, 0, 0, 0, 0, 0}
 };
 
@@ -87,6 +90,9 @@ enum options_ntboot
   NTBOOT_SOS,      // bool
   NTBOOT_NOVESA,   // bool
   NTBOOT_NOVGA,    // bool
+  NTBOOT_CMDLINE,  // string
+  NTBOOT_WINLOAD,  // string
+  NTBOOT_SYSROOT,  // string
 };
 
 static grub_err_t
@@ -174,6 +180,12 @@ grub_cmd_ntboot (grub_extcmd_context_t ctxt,
     ntcmd.novesa = state[NTBOOT_NOVESA].arg;
   if (state[NTBOOT_NOVGA].set)
     ntcmd.novga = state[NTBOOT_NOVGA].arg;
+  if (state[NTBOOT_CMDLINE].set)
+    ntcmd.cmdline = state[NTBOOT_CMDLINE].arg;
+  if (state[NTBOOT_WINLOAD].set)
+    ntcmd.winload = state[NTBOOT_WINLOAD].arg;
+  if (state[NTBOOT_SYSROOT].set)
+    ntcmd.sysroot = state[NTBOOT_SYSROOT].arg;
   grub_patch_bcd (&ntcmd);
 
   struct wimboot_cmdline wimboot_cmd =
