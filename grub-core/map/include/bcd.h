@@ -35,11 +35,8 @@
 #define BCD_REG_HKEY L"Elements"
 #define BCD_REG_HVAL L"Element"
 
-#define BCDOPT_WINLOAD  L"12000002"
-#define BCDOPT_CMDLINE  L"12000030"
 #define BCDOPT_TESTMODE L"16000049"
 #define BCDOPT_HIGHEST  L"16000054"
-#define BCDOPT_SYSROOT  L"22000002"
 #define BCDOPT_TIMEOUT  L"25000004" // {bootmgr}
 #define BCDOPT_NX       L"25000020"
 #define BCDOPT_PAE      L"25000021"
@@ -68,10 +65,6 @@
 #define BCD_SEARCH_EXT  L".efi"
 #define BCD_REPLACE_EXT L".exe"
 #endif
-
-#define BCD_DEFAULT_CMDLINE "DDISABLE_INTEGRITY_CHECKS"
-#define BCD_DEFAULT_WINLOAD "\\Windows\\System32\\boot\\winload.efi"
-#define BCD_DEFAULT_SYSROOT "\\Windows"
 
 enum bcd_type
 {
@@ -108,9 +101,6 @@ struct bcd_patch_data
   const char *sos;
   const char *novesa;
   const char *novga;
-  const char *cmdline;
-  const char *winload;
-  const char *sysroot;
 };
 
 extern grub_uint8_t grub_bcd_data[];

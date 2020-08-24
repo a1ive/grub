@@ -260,23 +260,6 @@ bcd_parse_u64 (grub_reg_hive_t *hive, const wchar_t *keyname, const char *s)
   bcd_patch_hive (hive, keyname, &val);
 }
 
-static void
-bcd_parse_str (grub_reg_hive_t *hive, const wchar_t *keyname, const char *s)
-{
-  HKEY root, objects, osloader, elements, key;
-  grub_uint16_t *data = NULL;
-  grub_uint32_t data_len = 0, type;
-  hive->find_root (hive, &root);
-  hive->find_key (hive, root, BCD_REG_ROOT, &objects);
-  hive->find_key (hive, objects, GUID_OSENTRY, &osloader);
-  hive->find_key (hive, osloader, BCD_REG_HKEY, &elements);
-  hive->find_key (hive, elements, keyname, &key);
-  hive->query_value_no_copy (hive, key, BCD_REG_HVAL,
-                             (void **)&data, &data_len, &type);
-  grub_memset (data, 0, data_len);
-  grub_utf8_to_utf16 (data, data_len, (grub_uint8_t *)s, -1, NULL);
-}
-
 grub_err_t
 grub_patch_bcd (struct bcd_patch_data *cmd)
 {
@@ -344,18 +327,6 @@ grub_patch_bcd (struct bcd_patch_data *cmd)
     bcd_parse_bool (hive, BCDOPT_NOVESA, cmd->novesa);
   if (cmd->novga)
     bcd_parse_bool (hive, BCDOPT_NOVGA, cmd->novga);
-  if (cmd->cmdline)
-    bcd_parse_str (hive, BCDOPT_CMDLINE, cmd->cmdline);
-  else
-    bcd_parse_str (hive, BCDOPT_CMDLINE, BCD_DEFAULT_CMDLINE);
-  if (cmd->winload)
-    bcd_parse_str (hive, BCDOPT_WINLOAD, cmd->winload);
-  else
-    bcd_parse_str (hive, BCDOPT_WINLOAD, BCD_DEFAULT_WINLOAD);
-  if (cmd->sysroot)
-    bcd_parse_str (hive, BCDOPT_SYSROOT, cmd->sysroot);
-  else
-    bcd_parse_str (hive, BCDOPT_SYSROOT, BCD_DEFAULT_SYSROOT);
 
   /* write to bcd */
   hive->steal_data (hive, &data, &bcd_len);
