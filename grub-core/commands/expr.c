@@ -28,40 +28,71 @@
 GRUB_MOD_LICENSE ("GPLv3+");
 
 static const struct grub_arg_option options[] =
-  {
-    {"set", 's', 0, N_("Store the result in a variable."), N_("VARNAME"), ARG_TYPE_STRING},
-    {0, 0, 0, 0, 0, 0}
-  };
-
-int parse_nbr(char **ps);
-int eval_expr_0(char **ps);
-int eval_expr_1(char **ps);
-
-static int do_op(int lhs, int rhs, char op)
 {
-    if (op == '+')
-        return (lhs + rhs);
-    else if (op == '-')
-        return (lhs - rhs);
-    else if (op == '*')
-        return (lhs * rhs);
-    else if (op == '/')
-        return (lhs / rhs);
-    else if (op == '%')
-        return (lhs % rhs);
-    else
-        return (0);
+  {"set", 's', 0, N_("Store the result in a variable."),
+    N_("VARNAME"), ARG_TYPE_STRING},
+  {0, 0, 0, 0, 0, 0}
+};
+
+int64_t eval_expr_0 (char **ps);
+
+static int64_t parse_sgn (int32_t sign, int64_t num)
+{
+  if (sign > 0)
+    return num;
+  else
+    return (0 - num);
 }
 
-static char *suppr_spaces(char *str)
+static int64_t div64s (int64_t n, int64_t d)
 {
-  int i;
-  int j;
-  char *str2;
+  if (!d)
+  {
+    grub_printf ("ERROR: division by zero.\n");
+    return 1;
+  }
+  return grub_divmod64s (n, d, NULL);
+}
+
+static int64_t mod64s (int64_t n, int64_t d)
+{
+  int64_t r;
+  if (!d)
+  {
+    grub_printf ("ERROR: division by zero.\n");
+    return 1;
+  }
+  grub_divmod64s (n, d, &r);
+  return r;
+}
+
+static int64_t do_op (int64_t lhs, int64_t rhs, char op)
+{
+  if (op == '+')
+    return (lhs + rhs);
+  else if (op == '-')
+    return (lhs - rhs);
+  else if (op == '*')
+    return (lhs * rhs);
+  else if (op == '/')
+    return div64s (lhs, rhs);
+  else if (op == '%')
+    return mod64s (lhs, rhs);
+  else
+    return 0;
+}
+
+static char *suppr_spaces (char *str)
+{
+  int64_t i;
+  int64_t j;
+  char *str2 = NULL;
 
   i = 0;
   j = 0;
-  str2 = malloc(sizeof(str) + 1);
+  str2 = malloc (sizeof (str) + 1);
+  if (!str2)
+    return NULL;
   while (str[i] != '\0')
   {
     if (str[i] != ' ')
@@ -75,10 +106,10 @@ static char *suppr_spaces(char *str)
   return (str2);
 }
 
-int parse_nbr(char **ps)
+static int64_t parse_nbr (char **ps)
 {
-  int nbr;
-  int sign;
+  int64_t nbr;
+  int32_t sign;
 
   nbr = 0;
   sign = 1;
@@ -91,23 +122,40 @@ int parse_nbr(char **ps)
   if ((*ps)[0] == '(')
   {
     *ps = *ps + 1;
-    nbr = eval_expr_0(ps);
+    nbr = eval_expr_0 (ps);
     if ((*ps)[0] == ')')
       *ps = *ps + 1;
-    return (sign * nbr);
+    return parse_sgn (sign, nbr);
   }
   while ('0' <= (*ps)[0] && (*ps)[0] <= '9')
   {
     nbr = (nbr * 10) + (*ps)[0] - '0';
     *ps = *ps + 1;
   }
-  return (sign * nbr);
+  return parse_sgn (sign, nbr);
 }
 
-int eval_expr_0(char **ps)
+static int64_t eval_expr_1 (char **ps)
 {
-  int lhs;
-  int rhs;
+  int64_t lhs;
+  int64_t rhs;
+  char op;
+
+  lhs = parse_nbr (ps);
+  while ((*ps)[0] == '*' || (*ps)[0] == '/' || (*ps)[0] == '%')
+  {
+    op = (*ps)[0];
+    *ps = *ps + 1;
+    rhs = parse_nbr (ps);
+    lhs = do_op (lhs, rhs, op);
+  }
+  return (lhs);
+}
+
+int64_t eval_expr_0 (char **ps)
+{
+  int64_t lhs;
+  int64_t rhs;
   char op;
 
   lhs = parse_nbr(ps);
@@ -116,57 +164,45 @@ int eval_expr_0(char **ps)
     op = (*ps)[0];
     *ps = *ps + 1;
     if (op == '+' || op == '-')
-      rhs = eval_expr_1(ps);
+      rhs = eval_expr_1 (ps);
     else
-      rhs = parse_nbr(ps);
-    lhs = do_op(lhs, rhs, op);
+      rhs = parse_nbr (ps);
+    lhs = do_op (lhs, rhs, op);
   }
   return (lhs);
 }
 
-int eval_expr_1(char **ps)
+static int64_t eval_expr (char *str)
 {
-  int lhs;
-  int rhs;
-  char op;
-
-  lhs = parse_nbr(ps);
-  while ((*ps)[0] == '*' || (*ps)[0] == '/' || (*ps)[0] == '%')
-  {
-    op = (*ps)[0];
-    *ps = *ps + 1;
-    rhs = parse_nbr(ps);
-    lhs = do_op(lhs, rhs, op);
-  }
-  return (lhs);
+  int64_t ret;
+  char *str2 = NULL;
+  str2 = suppr_spaces (str);
+  if (!str2)
+    return 0;
+  str = str2;
+  ret = eval_expr_0 (&str);
+  grub_free (str2);
+  return ret;
 }
 
-static int eval_expr(char *str)
-{
-  str = suppr_spaces(str);
-  if (str[0] == '\0')
-    return (0);
-  return (eval_expr_0(&str));
-}
-  
 static grub_err_t
 grub_cmd_expr (grub_extcmd_context_t ctxt, int argc, char **args)
 {
   struct grub_arg_list *state = ctxt->state;
-  int result;
-  char str[10];
-  
+  int64_t result;
+  char str[32];
+
   if (argc < 1)
   return grub_error (GRUB_ERR_BAD_ARGUMENT, N_("expression expected"));
-  result = eval_expr(args[0]);
-  
+  result = eval_expr (args[0]);
+
   if (state[0].set)
   {
-    grub_snprintf (str, 10, "%d", result);
+    grub_snprintf (str, 32, "%lld", (long long)result);
     grub_env_set (state[0].arg, str);
   }
   else
-    grub_printf ("%d\n", result);
+    grub_printf ("%lld\n", (long long)result);
 
   return 0;
 }
@@ -176,8 +212,9 @@ static grub_extcmd_t cmd;
 GRUB_MOD_INIT(expr)
 {
   cmd = grub_register_extcmd ("expr", grub_cmd_expr, 0,
-			      N_("EXPRESSION"), N_("Evaluate math expressions."),
-			      options);
+                              N_("[OPTIONS] EXPRESSION"),
+                              N_("Evaluate math expressions."),
+                              options);
 }
 
 GRUB_MOD_FINI(expr)
