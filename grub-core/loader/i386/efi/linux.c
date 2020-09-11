@@ -164,13 +164,6 @@ grub_cmd_linux (grub_command_t cmd __attribute__ ((unused)),
       goto fail;
     }
 
-  if (! grub_linuxefi_secure_validate (kernel, filelen))
-    {
-      grub_error (GRUB_ERR_INVALID_COMMAND, N_("%s has invalid signature"),
-		  argv[0]);
-      goto fail;
-    }
-
   params = grub_efi_allocate_pages_max (0x3fffffff, BYTES_TO_PAGES(16384));
 
   if (! params)
@@ -206,6 +199,23 @@ grub_cmd_linux (grub_command_t cmd __attribute__ ((unused)),
       grub_error (GRUB_ERR_BAD_OS, N_("kernel doesn't support EFI handover"));
       goto fail;
     }
+
+#if defined(__x86_64__) || defined(__aarch64__)
+  if (!(lh.xloadflags & LINUX_XLF_KERNEL_64))
+    {
+      grub_error (GRUB_ERR_BAD_OS, N_("kernel doesn't support 64-bit CPUs"));
+      goto fail;
+    }
+#endif
+
+#if defined(__i386__)
+  if ((lh.xloadflags & LINUX_XLF_KERNEL_64) &&
+      !(lh.xloadflags & LINUX_XLF_EFI_HANDOVER_32))
+    {
+      grub_error (GRUB_ERR_BAD_OS, N_("kernel doesn't support 32-bit handover"));
+      goto fail;
+    }
+#endif
 
   linux_cmdline = grub_efi_allocate_pages_max(0x3fffffff,
 					 BYTES_TO_PAGES(lh.cmdline_size + 1));

@@ -29,12 +29,6 @@
 #pragma GCC diagnostic ignored "-Wcast-align"
 #endif
 
-grub_efi_boolean_t
-grub_linuxefi_secure_validate (void *data __attribute__ ((unused)), grub_uint32_t size __attribute__ ((unused)))
-{
-  return 1;
-}
-
 typedef void (*handover_func) (void *, grub_efi_system_table_t *, void *);
 
 grub_err_t
