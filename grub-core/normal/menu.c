@@ -872,7 +872,9 @@ run_menu (grub_menu_t menu, int nested, int *auto_boot)
   while (1)
     {
       int c;
-      const char* disable_esc;
+      const char *disable_esc = NULL;
+      const char *disable_console = NULL;
+      const char *disable_edit = NULL;
       timeout = grub_menu_get_timeout ();
 
       if (grub_normal_exit_level)
@@ -1036,7 +1038,7 @@ run_menu (grub_menu_t menu, int nested, int *auto_boot)
 
 	    case GRUB_TERM_ESC:
 	      disable_esc = grub_env_get ("grub_disable_esc");
-	      if (! disable_esc)
+	      if (! disable_esc || disable_esc[0] == '0')
 	        {
 	        if (nested)
 		  {
@@ -1049,10 +1051,12 @@ run_menu (grub_menu_t menu, int nested, int *auto_boot)
 		  }
 	        break;
 	        }
-		  else
-		    goto refresh;
+          goto hotkey;
 
 	    case 'c':
+		  disable_console = grub_env_get ("grub_disable_console");
+	      if (! disable_console || disable_console[0] == '0')
+	        {
 	      menu_fini ();
 #if defined (__i386__) || defined (__x86_64__)
           if (sound_open)
@@ -1060,8 +1064,13 @@ run_menu (grub_menu_t menu, int nested, int *auto_boot)
 #endif
 	      grub_cmdline_run (1, 0);
 	      goto refresh;
+			}
+        goto hotkey;
 
 	    case 'e':
+		  disable_edit = grub_env_get ("grub_disable_edit");
+	      if (! disable_edit  || disable_edit[0] == '0')
+	        {
 	      menu_fini ();
 #if defined (__i386__) || defined (__x86_64__)
           if (sound_open)
@@ -1073,8 +1082,11 @@ run_menu (grub_menu_t menu, int nested, int *auto_boot)
 		    grub_menu_entry_run (e);
 		}
 	      goto refresh;
+			}
+        goto hotkey;
 
 	    default:
+hotkey:
 	      {
 		int entry;
 
