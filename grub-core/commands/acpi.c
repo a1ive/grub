@@ -1342,6 +1342,35 @@ grub_cmd_acpi (struct grub_extcmd_context *ctxt, int argc, char **args)
 
 static grub_extcmd_t cmd;
 
+static char *
+get_acpi_rsdp (grub_size_t *sz)
+{
+  *sz = 0;
+  char *ret = NULL;
+  void *rsdp = NULL;
+  rsdp = grub_acpi_get_rsdpv2 ();
+  if (rsdp)
+    *sz = sizeof (struct grub_acpi_rsdp_v20);
+  else
+  {
+    rsdp = grub_acpi_get_rsdpv2 ();
+    if (!rsdp)
+      return NULL;
+    *sz = sizeof (struct grub_acpi_rsdp_v10);
+  }
+  ret = grub_malloc (*sz);
+  if (!ret)
+    return NULL;
+  grub_memcpy (ret, rsdp, *sz);
+  return ret;
+}
+
+struct grub_procfs_entry proc_acpi_rsdp =
+{
+  .name = "acpi_rsdp",
+  .get_contents = get_acpi_rsdp,
+};
+
 GRUB_MOD_INIT(acpi)
 {
   cmd = grub_register_extcmd ("acpi", grub_cmd_acpi, 0,
@@ -1354,6 +1383,7 @@ GRUB_MOD_INIT(acpi)
 #ifdef GRUB_MACHINE_EFI
   grub_procfs_register ("bgrt.bmp", &proc_bgrt_bmp);
 #endif
+  grub_procfs_register ("acpi_rsdp", &proc_acpi_rsdp);
 }
 
 GRUB_MOD_FINI(acpi)
@@ -1362,4 +1392,5 @@ GRUB_MOD_FINI(acpi)
 #ifdef GRUB_MACHINE_EFI
   grub_procfs_unregister (&proc_bgrt_bmp);
 #endif
+  grub_procfs_unregister (&proc_acpi_rsdp);
 }
