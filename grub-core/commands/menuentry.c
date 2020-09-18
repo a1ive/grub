@@ -92,6 +92,7 @@ grub_normal_add_menu_entry (int argc, const char **args,
   char *menu_sourcecode = NULL;
   char *menu_id = NULL;
   struct grub_menu_entry_class *menu_classes = NULL;
+  const char *enable_hotkey = NULL;
 
   grub_menu_t menu;
   grub_menu_entry_t *last;
@@ -150,7 +151,11 @@ grub_normal_add_menu_entry (int argc, const char **args,
       goto fail;
     }
 
-  menu_title = grub_strdup (args[0]);
+  enable_hotkey = grub_env_get ("grub_enable_menu_hotkey");
+  if (enable_hotkey && enable_hotkey[0] == '1' && hotkey)
+    menu_title = grub_xasprintf ("[%s] %s", hotkey, args[0]);
+  else
+    menu_title = grub_strdup (args[0]);
   if (! menu_title)
     goto fail;
 
