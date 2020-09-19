@@ -27,12 +27,12 @@
 #include <grub/mm.h>
 #include <grub/memory.h>
 #include <grub/i18n.h>
+#include <grub/procfs.h>
 
 #ifdef GRUB_MACHINE_EFI
 #include <grub/efi/efi.h>
 #include <grub/efi/api.h>
 #include <grub/efi/graphics_output.h>
-#include <grub/procfs.h>
 #include <grub/video.h>
 #endif
 
