@@ -1353,7 +1353,7 @@ get_acpi_rsdp (grub_size_t *sz)
     *sz = sizeof (struct grub_acpi_rsdp_v20);
   else
   {
-    rsdp = grub_acpi_get_rsdpv2 ();
+    rsdp = grub_acpi_get_rsdpv1 ();
     if (!rsdp)
       return NULL;
     *sz = sizeof (struct grub_acpi_rsdp_v10);
