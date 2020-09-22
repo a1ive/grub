@@ -144,6 +144,8 @@ grub_normal_add_menu_entry (int argc, const char **args, char **classes,
 			    const char *prefix, const char *sourcecode,
 			    int submenu, int hidden, int *index, struct bls_entry *bls);
 
+void grub_normal_clear_menu (void);
+
 grub_err_t
 grub_normal_set_password (const char *user, const char *password);
 

@@ -588,10 +588,7 @@ grub_lua_add_menu (lua_State *state)
 static int
 grub_lua_clear_menu (lua_State *state __attribute__ ((unused)))
 {
-  grub_menu_t menu = grub_env_get_menu();
-
-  menu->entry_list = NULL;
-  menu->size=0;
+  grub_normal_clear_menu ();
   return 0;
 }
 

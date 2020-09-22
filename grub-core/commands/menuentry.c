@@ -237,6 +237,52 @@ grub_normal_add_menu_entry (int argc, const char **args,
   return grub_errno;
 }
 
+void
+grub_normal_clear_menu (void)
+{
+  int i, j;
+  grub_menu_t menu = grub_env_get_menu ();
+  grub_menu_entry_t e, entry;
+
+  if (!menu || !menu->entry_list)
+    return;
+  entry = menu->entry_list;
+
+  for (i = 0; entry; i++)
+  {
+    e = entry;
+    entry = e->next;
+    if (e->title)
+      grub_free ((void *)e->title);
+    if (e->id)
+      grub_free ((void *)e->id);
+    if (e->users)
+      grub_free ((void *)e->users);
+    if (e->classes)
+    {
+      /* FIXME: should be e->classes[j].name */
+      for (j = 0; e->classes[j].next; j++)
+      {
+        if (e->classes[j].name)
+          grub_free (e->classes[j].name);
+      }
+      grub_free (e->classes);
+    }
+    if (e->sourcecode)
+      grub_free ((void *)e->sourcecode);
+    if (e->args)
+    {
+      for (j = 0; e->args[j]; j++)
+        grub_free (e->args[j]);
+      grub_free (e->args);
+    }
+    grub_free (e);
+  }
+
+  menu->entry_list = NULL;
+  menu->size=0;
+}
+
 static char *
 setparams_prefix (int argc, char **args)
 {
@@ -366,17 +412,14 @@ static grub_err_t
 grub_cmd_submenu_exit (grub_extcmd_context_t ctxt __attribute__ ((unused)), int argc __attribute__ ((unused)), char **args __attribute__ ((unused)))
 {
   grub_normal_exit_level = -1;
-  return 0;
+  return GRUB_ERR_NONE;
 }
 
 static grub_err_t
 grub_cmd_clear_menu (grub_extcmd_context_t ctxt __attribute__ ((unused)), int argc __attribute__ ((unused)), char **args __attribute__ ((unused)))
 {
-  grub_menu_t menu = grub_env_get_menu();
-  // grub_free(menu->entry_list); // TODO: recursively?
-  menu->entry_list = NULL;
-  menu->size=0;
-  return 0;
+  grub_normal_clear_menu ();
+  return GRUB_ERR_NONE;
 }
 
 static grub_extcmd_t cmd, cmd_sub, cmd_hidden, cmd_pop, cmd_sub_exit, cmd_clear_menu;
