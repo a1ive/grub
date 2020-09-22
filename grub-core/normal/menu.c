@@ -43,7 +43,7 @@
 #define DEFAULT_ENTRY_ERROR_DELAY_MS  2500
 
 grub_err_t (*grub_gfxmenu_try_hook) (int entry, grub_menu_t menu,
-				     int nested) = NULL;
+                     int nested) = NULL;
 
 #define MENU_INCLUDE_HIDDEN 0x10000
 
@@ -76,7 +76,7 @@ grub_wait_after_message (void)
   endtime = grub_get_time_ms () + 10000;
 
   while (grub_get_time_ms () < endtime
-	 && grub_getkey_noblock () == GRUB_TERM_NO_KEY);
+     && grub_getkey_noblock () == GRUB_TERM_NO_KEY);
 
   grub_xputs ("\n");
 }
@@ -116,6 +116,28 @@ get_entry_index_by_hotkey (grub_menu_t menu, int hotkey)
        i++, entry = entry->next)
     if (entry->hotkey == hotkey)
       return i | MENU_INCLUDE_HIDDEN;
+
+  return -1;
+}
+
+static int
+get_next_entry_by_first_char (grub_menu_t menu, int key, int cur)
+{
+  grub_menu_entry_t entry;
+  int i;
+
+  for (i = cur + 1, entry = grub_menu_get_entry (menu, cur + 1); entry;
+       i++, entry = entry->next)
+  {
+    if (!entry->hidden && key == grub_tolower (entry->title[0]))
+      return i;
+  }
+  for (i = 0, entry = menu->entry_list; (i < cur) && entry;
+       i++, entry = entry->next)
+  {
+    if (!entry->hidden && key == grub_tolower (entry->title[0]))
+      return i;
+  }
 
   return -1;
 }
@@ -191,15 +213,15 @@ menuentry_eq (const char *id, const char *spec)
   while (1)
     {
       if (*ptr2 == '>' && ptr2[1] != '>' && *ptr1 == 0)
-	return ptr2 - spec;
+    return ptr2 - spec;
       if (*ptr2 == '>' && ptr2[1] != '>')
-	return 0;
+    return 0;
       if (*ptr2 == '>')
-	ptr2++;
+    ptr2++;
       if (*ptr1 != *ptr2)
-	return 0;
+    return 0;
       if (*ptr1 == 0)
-	return ptr1 - id;
+    return ptr1 - id;
       ptr1++;
       ptr2++;
     }
@@ -232,34 +254,34 @@ get_and_remove_first_entry_number (grub_menu_t menu, const char *name)
       int i;
 
       for (i = 0; e; i++)
-	{
-	  sz = menuentry_eq (e->title, val);
-	  if (sz < 1)
-	    sz = menuentry_eq (e->id, val);
+    {
+      sz = menuentry_eq (e->title, val);
+      if (sz < 1)
+        sz = menuentry_eq (e->id, val);
 
-	  if (sz >= 1)
-	    {
-	      entry = i;
-	      break;
-	    }
-	  e = e->next;
-	}
+      if (sz >= 1)
+        {
+          entry = i;
+          break;
+        }
+      e = e->next;
+    }
 
       if (sz > 0)
-	grub_errno = GRUB_ERR_NONE;
+    grub_errno = GRUB_ERR_NONE;
 
       if (! e)
-	entry = -1;
+    entry = -1;
     }
 
   if (grub_errno == GRUB_ERR_NONE)
     {
       if (sz > 0)
-	tail += sz;
+    tail += sz;
 
       /* Skip whitespace to find the next entry.  */
       while (*tail && grub_isspace (*tail))
-	tail++;
+    tail++;
       grub_env_set (name, tail);
     }
   else
@@ -305,10 +327,10 @@ grub_menu_execute_entry(grub_menu_entry_t entry, int auto_boot)
       grub_env_context_open ();
       menu = grub_zalloc (sizeof (*menu));
       if (! menu)
-	return err;
+    return err;
       grub_env_set_menu (menu);
       if (auto_boot)
-	grub_env_set ("timeout", "0");
+    grub_env_set ("timeout", "0");
     }
 
   for (ptr = entry->id; *ptr; ptr++)
@@ -317,13 +339,13 @@ grub_menu_execute_entry(grub_menu_entry_t entry, int auto_boot)
     {
       oldchosen = grub_strdup (chosen);
       if (!oldchosen)
-	grub_print_error ();
+    grub_print_error ();
     }
   if (def)
     {
       olddefault = grub_strdup (def);
       if (!olddefault)
-	grub_print_error ();
+    grub_print_error ();
     }
   sz++;
   if (chosen)
@@ -336,16 +358,16 @@ grub_menu_execute_entry(grub_menu_entry_t entry, int auto_boot)
     {
       optr = buf;
       if (chosen)
-	{
-	  optr = grub_stpcpy (optr, chosen);
-	  *optr++ = '>';
-	}
+    {
+      optr = grub_stpcpy (optr, chosen);
+      *optr++ = '>';
+    }
       for (ptr = entry->id; *ptr; ptr++)
-	{
-	  if (*ptr == '>')
-	    *optr++ = '>';
-	  *optr++ = *ptr;
-	}
+    {
+      if (*ptr == '>')
+        *optr++ = '>';
+      *optr++ = *ptr;
+    }
       *optr = 0;
       grub_env_set ("chosen", buf);
       grub_env_export ("chosen");
@@ -355,12 +377,12 @@ grub_menu_execute_entry(grub_menu_entry_t entry, int auto_boot)
   for (ptr = def; ptr && *ptr; ptr++)
     {
       if (ptr[0] == '>' && ptr[1] == '>')
-	{
-	  ptr++;
-	  continue;
-	}
+    {
+      ptr++;
+      continue;
+    }
       if (ptr[0] == '>')
-	break;
+    break;
     }
 
   if (ptr && ptr[0] && ptr[1])
@@ -383,10 +405,10 @@ grub_menu_execute_entry(grub_menu_entry_t entry, int auto_boot)
   if (entry->submenu)
     {
       if (menu && menu->size)
-	{
-	  grub_show_menu (menu, 1, auto_boot);
-	  grub_normal_free_menu (menu);
-	}
+    {
+      grub_show_menu (menu, 1, auto_boot);
+      grub_normal_free_menu (menu);
+    }
       grub_env_context_close ();
     }
   if (oldchosen)
@@ -408,10 +430,10 @@ grub_menu_execute_entry(grub_menu_entry_t entry, int auto_boot)
    caller provide feedback to the user.  */
 static void
 grub_menu_execute_with_fallback (grub_menu_t menu,
-				 grub_menu_entry_t entry,
-				 int autobooted,
-				 grub_menu_execute_callback_t callback,
-				 void *callback_data)
+                 grub_menu_entry_t entry,
+                 int autobooted,
+                 grub_menu_execute_callback_t callback,
+                 void *callback_data)
 {
   int fallback_entry;
   grub_err_t err;
@@ -424,7 +446,7 @@ grub_menu_execute_with_fallback (grub_menu_t menu,
 
   /* Deal with fallback entries.  */
   while ((fallback_entry = get_and_remove_first_entry_number (menu, "fallback"))
-	 >= 0)
+     >= 0)
     {
       grub_print_error ();
       grub_errno = GRUB_ERR_NONE;
@@ -570,33 +592,33 @@ menu_init (int entry, grub_menu_t menu, int nested, grub_uint64_t *frame_speed, 
   FOR_ACTIVE_TERM_OUTPUTS(term)
     if (term->fullscreen)
       {
-	if (grub_env_get ("theme"))
-	  {
-	    if (!grub_gfxmenu_try_hook)
-	      {
-		grub_dl_load ("gfxmenu");
-		grub_print_error ();
-	      }
-	    if (grub_gfxmenu_try_hook)
-	      {
-		grub_err_t err;
-		err = grub_gfxmenu_try_hook (entry, menu, nested);
-		if(!err)
-		  {
-		    gfxmenu = 1;
-		    break;
-		  }
-	      }
-	    else
-	      grub_error (GRUB_ERR_BAD_MODULE,
-			  N_("module `%s' isn't loaded"),
-			  "gfxmenu");
-	    grub_print_error ();
-	    grub_wait_after_message ();
-	  }
-	grub_errno = GRUB_ERR_NONE;
-	term->fullscreen ();
-	break;
+    if (grub_env_get ("theme"))
+      {
+        if (!grub_gfxmenu_try_hook)
+          {
+        grub_dl_load ("gfxmenu");
+        grub_print_error ();
+          }
+        if (grub_gfxmenu_try_hook)
+          {
+        grub_err_t err;
+        err = grub_gfxmenu_try_hook (entry, menu, nested);
+        if(!err)
+          {
+            gfxmenu = 1;
+            break;
+          }
+          }
+        else
+          grub_error (GRUB_ERR_BAD_MODULE,
+              N_("module `%s' isn't loaded"),
+              "gfxmenu");
+        grub_print_error ();
+        grub_wait_after_message ();
+      }
+    grub_errno = GRUB_ERR_NONE;
+    term->fullscreen ();
+    break;
       }
 
   FOR_ACTIVE_TERM_OUTPUTS(term)
@@ -605,12 +627,12 @@ menu_init (int entry, grub_menu_t menu, int nested, grub_uint64_t *frame_speed, 
 
     if (grub_strcmp (term->name, "gfxterm") == 0 && gfxmenu)
       {
-		  if (*frame_speed)
-			{
-			  *egn_refresh = 1;
-			}
-		  continue;
-		}
+          if (*frame_speed)
+            {
+              *egn_refresh = 1;
+            }
+          continue;
+        }
 
     err = grub_menu_try_text (term, entry, menu, nested);
     if(!err)
@@ -659,26 +681,26 @@ get_entry_number (grub_menu_t menu, const char *name)
       /* Skip hidden entries */
       while (e && e->hidden)
        e = e->next;
-   
+
       grub_errno = GRUB_ERR_NONE;
 
       for (i = 0; e; i++)
-	{
-	  if (menuentry_eq (e->title, val)
-	      || menuentry_eq (e->id, val))
-	    {
-	      entry = i;
-	      break;
-	    }
-	  e = e->next;
-      
+    {
+      if (menuentry_eq (e->title, val)
+          || menuentry_eq (e->id, val))
+        {
+          entry = i;
+          break;
+        }
+      e = e->next;
+
       /* Skip hidden entries */
       while (e && e->hidden)
         e = e->next;
-	}
+    }
 
       if (! e)
-	entry = -1;
+    entry = -1;
     }
 
   if (grub_errno != GRUB_ERR_NONE)
@@ -734,11 +756,11 @@ run_menu (grub_menu_t menu, int nested, int *auto_boot)
   int default_entry, current_entry;
   int timeout;
   enum timeout_style timeout_style;
-  
+
   /* Mark the beginning of the engine.  */
   int animation_open = 0;
   int egn_refresh = 0;
-  
+
 #if defined (__i386__) || defined (__x86_64__)
   int sound_open = 0;
   int cur_sound = ENGINE_START_SOUND;
@@ -771,67 +793,67 @@ run_menu (grub_menu_t menu, int nested, int *auto_boot)
 
   if (timeout_style == TIMEOUT_STYLE_COUNTDOWN
       || timeout_style == TIMEOUT_STYLE_HIDDEN)
+  {
+    static struct grub_term_coordinate *pos;
+    int entry = -1;
+
+    if (timeout_style == TIMEOUT_STYLE_COUNTDOWN && timeout)
     {
-      static struct grub_term_coordinate *pos;
-      int entry = -1;
-
-      if (timeout_style == TIMEOUT_STYLE_COUNTDOWN && timeout)
-	{
-	  pos = grub_term_save_pos ();
-	  print_countdown (pos, timeout);
-	}
-
-      /* Enter interruptible sleep until Escape or a menu hotkey is pressed,
-         or the timeout expires.  */
-      saved_time = grub_get_time_ms ();
-      while (1)
-	{
-	  int key;
-
-	  key = grub_getkey_noblock ();
-	  if (key != GRUB_TERM_NO_KEY)
-	    {
-	      entry = get_entry_index_by_hotkey (menu, key);
-	      if (entry >= 0)
-		break;
-	    }
-	  if (grub_key_is_interrupt (key))
-	    {
-	      timeout = -1;
-	      break;
-	    }
-
-	  if (timeout > 0 && has_second_elapsed (&saved_time))
-	    {
-	      timeout--;
-	      if (timeout_style == TIMEOUT_STYLE_COUNTDOWN)
-		print_countdown (pos, timeout);
-	    }
-
-	  if (timeout == 0)
-	    /* We will fall through to auto-booting the default entry.  */
-	    break;
-	}
-
-      grub_env_unset ("timeout");
-      grub_env_unset ("timeout_style");
-      if (entry >= 0)
-	{
-	  *auto_boot = 0;
-	  return entry;
-	}
+      pos = grub_term_save_pos ();
+      print_countdown (pos, timeout);
     }
+
+    /* Enter interruptible sleep until Escape or a menu hotkey is pressed,
+        or the timeout expires.  */
+    saved_time = grub_get_time_ms ();
+    while (1)
+    {
+      int key;
+
+      key = grub_getkey_noblock ();
+      if (key != GRUB_TERM_NO_KEY)
+      {
+        entry = get_entry_index_by_hotkey (menu, key);
+        if (entry >= 0)
+          break;
+      }
+      if (grub_key_is_interrupt (key))
+      {
+        timeout = -1;
+        break;
+      }
+
+      if (timeout > 0 && has_second_elapsed (&saved_time))
+      {
+        timeout--;
+        if (timeout_style == TIMEOUT_STYLE_COUNTDOWN)
+          print_countdown (pos, timeout);
+      }
+
+      if (timeout == 0)
+        /* We will fall through to auto-booting the default entry.  */
+        break;
+    }
+
+    grub_env_unset ("timeout");
+    grub_env_unset ("timeout_style");
+    if (entry >= 0)
+    {
+      *auto_boot = 0;
+      return entry;
+    }
+  }
 
   /* If timeout is 0, drawing is pointless (and ugly).  */
   if (timeout == 0)
-    {
-      *auto_boot = 1;
-      return default_entry;
-    }
+  {
+    *auto_boot = 1;
+    return default_entry;
+  }
 
   current_entry = default_entry;
 
- refresh:
+refresh:
   menu_init (current_entry, menu, nested, &frame_speed, &egn_refresh);
 
   /* Initialize the time.  */
@@ -848,264 +870,269 @@ run_menu (grub_menu_t menu, int nested, int *auto_boot)
   s1_time = grub_get_time_ms ();
 
   if (!animation_open && egn_refresh)
-    {
-      menu_set_animation_state (egn_refresh);
-      animation_open = 1;
-    }
+  {
+    menu_set_animation_state (egn_refresh);
+    animation_open = 1;
+  }
 
   /* Initialize the sound engine.  */
 #if defined (__i386__) || defined (__x86_64__)
   s2_time = grub_get_time_ms ();
 
   if (!sound_open && sound_speed)
+  {
+    grub_err_t err;
+    err = engine_need_sound ();
+    if (err == GRUB_ERR_NONE)
     {
-      grub_err_t err;
-      err = engine_need_sound ();
-      if (err == GRUB_ERR_NONE)
-	{
-	  menu_refresh_sound_player (current_entry, cur_sound);
-	  sound_open = 1;
-	}
+      menu_refresh_sound_player (current_entry, cur_sound);
+      sound_open = 1;
     }
+  }
 #endif
-    
+
   while (1)
+  {
+    int c;
+    const char *disable_esc = NULL;
+    const char *disable_console = NULL;
+    const char *disable_edit = NULL;
+    timeout = grub_menu_get_timeout ();
+
+    if (grub_normal_exit_level)
+      return -1;
+
+    if (timeout > 0 && has_second_elapsed (&saved_time))
     {
-      int c;
-      const char *disable_esc = NULL;
-      const char *disable_console = NULL;
-      const char *disable_edit = NULL;
-      timeout = grub_menu_get_timeout ();
+      timeout--;
+      grub_menu_set_timeout (timeout);
+      menu_print_timeout (timeout);
+    }
 
-      if (grub_normal_exit_level)
-	return -1;
-
-      if (timeout > 0 && has_second_elapsed (&saved_time))
-	{
-	  timeout--;
-	  grub_menu_set_timeout (timeout);
-	  menu_print_timeout (timeout);
-	}
-
-      if (timeout == 0)
-	{
-	  grub_env_unset ("timeout");
-          *auto_boot = 1;
-	  menu_fini ();
+    if (timeout == 0)
+    {
+      grub_env_unset ("timeout");
+      *auto_boot = 1;
+      menu_fini ();
 #if defined (__i386__) || defined (__x86_64__)
       if (sound_open)
-	    player_fini ();
+        player_fini ();
 #endif
-	  return default_entry;
-	}
+      return default_entry;
+    }
 
-      grub_uint64_t cur_time = grub_get_time_ms ();
+    grub_uint64_t cur_time = grub_get_time_ms ();
 
-      /* Refresh the animation.  */
-      if (animation_open && (cur_time - s1_time >= frame_speed))
-	{
-	  s1_time = cur_time;
-	  menu_set_animation_state (egn_refresh);
-	}
+    /* Refresh the animation.  */
+    if (animation_open && (cur_time - s1_time >= frame_speed))
+    {
+      s1_time = cur_time;
+      menu_set_animation_state (egn_refresh);
+    }
 
 #if defined (__i386__) || defined (__x86_64__)
-      /* Refresh the sound.  */
-      if (sound_open && (cur_time - s2_time >= sound_speed))
-	{
-	  s2_time = cur_time;
-	  menu_refresh_sound_player (current_entry, cur_sound);
-	}
+    /* Refresh the sound.  */
+    if (sound_open && (cur_time - s2_time >= sound_speed))
+    {
+      s2_time = cur_time;
+      menu_refresh_sound_player (current_entry, cur_sound);
+    }
 #endif
-    
-      c = grub_getkey_noblock ();
 
-      /* Negative values are returned on error. */
-      if ((c != GRUB_TERM_NO_KEY) && (c > 0))
-	{
-	  if (timeout >= 0)
-	    {
-	      grub_env_unset ("timeout");
-	      grub_env_unset ("fallback");
-	      clear_timeout ();
-	    }
+    c = grub_getkey_noblock ();
+
+    /* Negative values are returned on error. */
+    if ((c != GRUB_TERM_NO_KEY) && (c > 0))
+    {
+      if (timeout >= 0)
+      {
+        grub_env_unset ("timeout");
+        grub_env_unset ("fallback");
+        clear_timeout ();
+      }
 
 #if defined (__i386__) || defined (__x86_64__)
       cur_sound = ENGINE_SELECT_SOUND;
 #endif
-	  switch (c)
-	    {
-	    case GRUB_TERM_KEY_HOME:
-	    case GRUB_TERM_CTRL | 'a':
-	      current_entry = 0;
-	      menu_set_chosen_entry (current_entry);
+      switch (c)
+      {
+        case GRUB_TERM_KEY_HOME:
+        case GRUB_TERM_CTRL | 'a':
+          current_entry = 0;
+          menu_set_chosen_entry (current_entry);
 #if defined (__i386__) || defined (__x86_64__)
           if (sound_open)
-		{
-		  menu_refresh_sound_player (current_entry, cur_sound);
-		}
-#endif
-	      break;
-
-	    case GRUB_TERM_KEY_END:
-	    case GRUB_TERM_CTRL | 'e':
-	      current_entry = menu->size - 1;
-	      menu_set_chosen_entry (current_entry);
-#if defined (__i386__) || defined (__x86_64__)
-          if (sound_open)
-		{
-		  menu_refresh_sound_player (current_entry, cur_sound);
-		}
+            menu_refresh_sound_player (current_entry, cur_sound);
 #endif
           break;
 
-	    case GRUB_TERM_KEY_UP:
+        case GRUB_TERM_KEY_END:
+        case GRUB_TERM_CTRL | 'e':
+          current_entry = menu->size - 1;
+          menu_set_chosen_entry (current_entry);
+#if defined (__i386__) || defined (__x86_64__)
+          if (sound_open)
+            menu_refresh_sound_player (current_entry, cur_sound);
+#endif
+          break;
+
+        case GRUB_TERM_KEY_UP:
         case GRUB_TERM_KEY_LEFT:
-	    case GRUB_TERM_CTRL | 'p':
-	    case '^':
-	      if (current_entry > 0)
-		current_entry--;
-	      menu_set_chosen_entry (current_entry);
+        case GRUB_TERM_CTRL | 'p':
+        case '^':
+          if (current_entry > 0)
+            current_entry--;
+          menu_set_chosen_entry (current_entry);
 #if defined (__i386__) || defined (__x86_64__)
           if (sound_open)
-		{
-		  menu_refresh_sound_player (current_entry, cur_sound);
-		}
+            menu_refresh_sound_player (current_entry, cur_sound);
 #endif
           break;
 
-	    case GRUB_TERM_CTRL | 'n':
+        case GRUB_TERM_CTRL | 'n':
         case GRUB_TERM_KEY_RIGHT:
-	    case GRUB_TERM_KEY_DOWN:
-	    case 'v':
-	      if (current_entry < menu->size - 1)
-		current_entry++;
-	      menu_set_chosen_entry (current_entry);
+        case GRUB_TERM_KEY_DOWN:
+          if (current_entry < menu->size - 1)
+            current_entry++;
+          menu_set_chosen_entry (current_entry);
 #if defined (__i386__) || defined (__x86_64__)
           if (sound_open)
-		{
-		  menu_refresh_sound_player (current_entry, cur_sound);
-		}
+            menu_refresh_sound_player (current_entry, cur_sound);
 #endif
-	      break;
+          break;
 
-	    case GRUB_TERM_CTRL | 'g':
-	    case GRUB_TERM_KEY_PPAGE:
-	      if (current_entry < GRUB_MENU_PAGE_SIZE)
-		current_entry = 0;
-	      else
-		current_entry -= GRUB_MENU_PAGE_SIZE;
-	      menu_set_chosen_entry (current_entry);
+        case GRUB_TERM_CTRL | 'g':
+        case GRUB_TERM_KEY_PPAGE:
+          if (current_entry < GRUB_MENU_PAGE_SIZE)
+            current_entry = 0;
+          else
+            current_entry -= GRUB_MENU_PAGE_SIZE;
+          menu_set_chosen_entry (current_entry);
 #if defined (__i386__) || defined (__x86_64__)
           if (sound_open)
-		{
-		  menu_refresh_sound_player (current_entry, cur_sound);
-		}
+            menu_refresh_sound_player (current_entry, cur_sound);
 #endif
-	      break;
+          break;
 
-	    case GRUB_TERM_CTRL | 'c':
-	    case GRUB_TERM_KEY_NPAGE:
-	      if (current_entry + GRUB_MENU_PAGE_SIZE < menu->size)
-		current_entry += GRUB_MENU_PAGE_SIZE;
-	      else
-		current_entry = menu->size - 1;
-	      menu_set_chosen_entry (current_entry);
+        case GRUB_TERM_CTRL | 'c':
+        case GRUB_TERM_KEY_NPAGE:
+          if (current_entry + GRUB_MENU_PAGE_SIZE < menu->size)
+            current_entry += GRUB_MENU_PAGE_SIZE;
+          else
+            current_entry = menu->size - 1;
+          menu_set_chosen_entry (current_entry);
 #if defined (__i386__) || defined (__x86_64__)
           if (sound_open)
-		{
-		  menu_refresh_sound_player (current_entry, cur_sound);
-		}
+            menu_refresh_sound_player (current_entry, cur_sound);
 #endif
-	      break;
+          break;
 
-	    case GRUB_TERM_CTRL | 'l':
-	      menu_scroll_chosen_entry (1);
-	      break;
-	    case GRUB_TERM_CTRL | 'r':
-	      menu_scroll_chosen_entry (-1);
-	      break;
-	    case '\n':
-	    case '\r':
-	    //case GRUB_TERM_KEY_RIGHT:
-	    case GRUB_TERM_CTRL | 'f':
-	      menu_fini ();
+        case GRUB_TERM_CTRL | 'l':
+          menu_scroll_chosen_entry (1);
+          break;
+        case GRUB_TERM_CTRL | 'r':
+          menu_scroll_chosen_entry (-1);
+          break;
+        case '\n':
+        case '\r':
+        //case GRUB_TERM_KEY_RIGHT:
+        case GRUB_TERM_CTRL | 'f':
+          menu_fini ();
 #if defined (__i386__) || defined (__x86_64__)
           if (sound_open)
-	        player_fini ();
+            player_fini ();
 #endif
-              *auto_boot = 0;
-	      return current_entry;
+          *auto_boot = 0;
+          return current_entry;
 
-	    case GRUB_TERM_ESC:
-	      disable_esc = grub_env_get ("grub_disable_esc");
-	      if (! disable_esc || disable_esc[0] == '0')
-	        {
-	        if (nested)
-		  {
-		    menu_fini ();
+        case GRUB_TERM_ESC:
+          disable_esc = grub_env_get ("grub_disable_esc");
+          if (! disable_esc || disable_esc[0] == '0')
+          {
+            if (nested)
+            {
+              menu_fini ();
 #if defined (__i386__) || defined (__x86_64__)
-		    if (sound_open)
-		      player_fini ();
+              if (sound_open)
+                player_fini ();
 #endif
-		    return -1;
-		  }
-	        break;
-	        }
+              return -1;
+            }
+            break;
+          }
           goto hotkey;
 
-	    case 'c':
-		  disable_console = grub_env_get ("grub_disable_console");
-	      if (! disable_console || disable_console[0] == '0')
-	        {
-	      menu_fini ();
-#if defined (__i386__) || defined (__x86_64__)
-          if (sound_open)
-	        player_fini ();
-#endif
-	      grub_cmdline_run (1, 0);
-	      goto refresh;
-			}
-        goto hotkey;
-
-	    case 'e':
-		  disable_edit = grub_env_get ("grub_disable_edit");
-	      if (! disable_edit  || disable_edit[0] == '0')
-	        {
-	      menu_fini ();
-#if defined (__i386__) || defined (__x86_64__)
-          if (sound_open)
-	        player_fini ();
-#endif
-        {
-          grub_menu_entry_t e = grub_menu_get_entry (menu, current_entry);
-		  if (e)
-		    grub_menu_entry_run (e);
-		}
-	      goto refresh;
-			}
-        goto hotkey;
-
-	    default:
-hotkey:
-	      {
-		int entry;
-
-		entry = get_entry_index_by_hotkey (menu, c);
-		if (entry >= 0)
-		  {
-		    menu_fini ();
+        case 'c':
+          disable_console = grub_env_get ("grub_disable_console");
+          if (! disable_console || disable_console[0] == '0')
+          {
+            menu_fini ();
 #if defined (__i386__) || defined (__x86_64__)
             if (sound_open)
-		      player_fini ();
+              player_fini ();
 #endif
-		    *auto_boot = 0;
-		    return entry;
-		  }
-	      }
-	      break;
-	    }
-	}
+            grub_cmdline_run (1, 0);
+            goto refresh;
+          }
+          goto hotkey;
+
+        case 'e':
+          disable_edit = grub_env_get ("grub_disable_edit");
+          if (! disable_edit || disable_edit[0] == '0')
+          {
+            menu_fini ();
+#if defined (__i386__) || defined (__x86_64__)
+            if (sound_open)
+              player_fini ();
+#endif
+            {
+              grub_menu_entry_t e = grub_menu_get_entry (menu, current_entry);
+              if (e)
+                grub_menu_entry_run (e);
+            }
+            goto refresh;
+          }
+          goto hotkey;
+
+        default:
+hotkey:
+          {
+            int entry;
+
+            entry = get_entry_index_by_hotkey (menu, c);
+            if (entry >= 0)
+            {
+              menu_fini ();
+#if defined (__i386__) || defined (__x86_64__)
+              if (sound_open)
+                player_fini ();
+#endif
+              *auto_boot = 0;
+              return entry;
+            }
+          }
+          /* jump to first-character menu */
+          {
+            int entry;
+            int key = grub_tolower (c);
+            const char *enable_jump = NULL;
+            enable_jump = grub_env_get ("grub_enable_menu_jump");
+            if (enable_jump && enable_jump[0] == '1'
+                && (key >= 'a' && key <= 'z'))
+            {
+              entry = get_next_entry_by_first_char (menu, key, current_entry);
+              if (entry >= 0)
+              {
+                current_entry = entry;
+                menu_set_chosen_entry (entry);
+                break;
+              }
+            }
+          }
+          break;
+      }
     }
+  }
 
   /* Never reach here.  */
 }
@@ -1113,7 +1140,7 @@ hotkey:
 /* Callback invoked immediately before a menu entry is executed.  */
 static void
 notify_booting (grub_menu_entry_t entry,
-		void *userdata __attribute__((unused)))
+        void *userdata __attribute__((unused)))
 {
   grub_dprintf ("menu", "Booting %s\n", entry->title);
 }
@@ -1123,7 +1150,7 @@ notify_booting (grub_menu_entry_t entry,
    entry, ENTRY.  */
 static void
 notify_fallback (grub_menu_entry_t entry,
-		 void *userdata __attribute__((unused)))
+         void *userdata __attribute__((unused)))
 {
   grub_printf ("\n   ");
   grub_printf_ (N_("Falling back to `%s'"), entry->title);
@@ -1166,21 +1193,21 @@ show_menu (grub_menu_t menu, int nested, int autobooted)
 
       boot_entry = run_menu (menu, nested, &auto_boot);
       if (boot_entry < 0)
-	break;
+    break;
 
       e = grub_menu_get_entry (menu, boot_entry);
       if (! e)
-	continue; /* Menu is empty.  */
+    continue; /* Menu is empty.  */
 
       grub_cls ();
 
       if (auto_boot)
-	grub_menu_execute_with_fallback (menu, e, autobooted,
-					 &execution_callback, 0);
+    grub_menu_execute_with_fallback (menu, e, autobooted,
+                     &execution_callback, 0);
       else
-	grub_menu_execute_entry (e, 0);
+    grub_menu_execute_entry (e, 0);
       if (autobooted)
-	break;
+    break;
     }
 
   return GRUB_ERR_NONE;
@@ -1198,19 +1225,19 @@ grub_show_menu (grub_menu_t menu, int nested, int autoboot)
       grub_print_error ();
 
       if (grub_normal_exit_level)
-	break;
+    break;
 
       err2 = grub_auth_check_authentication (NULL);
       if (err2)
-	{
-	  grub_print_error ();
-	  grub_errno = GRUB_ERR_NONE;
-	  continue;
-	}
+    {
+      grub_print_error ();
+      grub_errno = GRUB_ERR_NONE;
+      continue;
+    }
 
       break;
     }
-    
+
   if (nested && grub_normal_exit_level == -1)
     {
       menu_fini();
