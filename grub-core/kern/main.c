@@ -29,6 +29,7 @@
 #include <grub/command.h>
 #include <grub/reader.h>
 #include <grub/parser.h>
+#include <grub/verify.h>
 
 #ifdef GRUB_MACHINE_PCBIOS
 #include <grub/machine/memory.h>
@@ -304,6 +305,9 @@ grub_main (void)
   grub_machine_init ();
 
   grub_boot_time ("After machine init.");
+
+  /* Init verifiers API. */
+  grub_verifiers_init ();
 
   grub_load_config ();
 
