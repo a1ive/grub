@@ -40,30 +40,36 @@ static const struct grub_arg_option options_setenv[] = {
   {"type", 't', GRUB_ARG_OPTION_OPTIONAL,
    N_("Parse EFI_VAR as specific type (hex, uint8, string). Default: hex."),
    N_("TYPE"), ARG_TYPE_STRING},
+  {"nv", 'n', 0, N_("Set non-volatile EFI_VAR."), 0, 0},
   {0, 0, 0, 0, 0, 0}
 };
 
 enum options_setenv
 {
-  SETENV_VAR_GUID,
-  SETENV_VAR_TYPE
+  SETENV_GUID,
+  SETENV_TYPE,
+  SETENV_NV,
 };
 
 enum efi_var_type
 {
   EFI_VAR_STRING = 0,
   EFI_VAR_HEX,
+  EFI_VAR_UINT8,
   EFI_VAR_INVALID = -1
 };
 
 static enum efi_var_type
 parse_efi_var_type (const char *type)
 {
-  if (!grub_strncmp (type, "string", sizeof("string")))
+  if (grub_strcasecmp (type, "string") == 0)
     return EFI_VAR_STRING;
 
-  if (!grub_strncmp (type, "hex", sizeof("hex")))
+  if (grub_strcasecmp (type, "hex") == 0)
     return EFI_VAR_HEX;
+
+  if (grub_strcasecmp (type, "uint8") == 0)
+    return EFI_VAR_UINT8;
 
   return EFI_VAR_INVALID;
 }
@@ -100,72 +106,70 @@ grub_cmd_setenv (grub_extcmd_context_t ctxt, int argc, char **args)
   struct grub_arg_list *state = ctxt->state;
   char *var = NULL, *guid = NULL, *data = NULL, *val = NULL;
   grub_size_t datasize = 0;
+  grub_efi_status_t status;
+  grub_uint8_t num;
   grub_efi_guid_t efi_var_guid;
   enum efi_var_type efi_type = EFI_VAR_HEX;
   grub_efi_guid_t global = GRUB_EFI_GLOBAL_VARIABLE_GUID;
+  grub_efi_uint32_t attr = GRUB_EFI_VARIABLE_BOOTSERVICE_ACCESS
+                           | GRUB_EFI_VARIABLE_RUNTIME_ACCESS;
 
-  if (state[SETENV_VAR_TYPE].set)
-    efi_type = parse_efi_var_type (state[SETENV_VAR_TYPE].arg);
+  if (state[SETENV_TYPE].set)
+    efi_type = parse_efi_var_type (state[SETENV_TYPE].arg);
+
+  if (state[SETENV_NV].set)
+    attr = attr | GRUB_EFI_VARIABLE_NON_VOLATILE;
 
   if (efi_type == EFI_VAR_INVALID)
     return grub_error (GRUB_ERR_BAD_ARGUMENT, N_("invalid EFI variable type"));
 
   if (argc != 2)
-    {
-      grub_error (GRUB_ERR_BAD_ARGUMENT, N_("unexpected arguments"));
-      goto done;
-    }
+  {
+    grub_error (GRUB_ERR_BAD_ARGUMENT, N_("unexpected arguments"));
+    goto done;
+  }
 
   var = args[0];
   val = args[1];
-  
-  if (state[SETENV_VAR_GUID].set)
-    {
-      guid = state[SETENV_VAR_GUID].arg;
 
-      if (grub_strlen(guid) != 36 ||
+  if (state[SETENV_GUID].set)
+  {
+    guid = state[SETENV_GUID].arg;
+
+    if (grub_strlen(guid) != 36 ||
         guid[8] != '-' ||
         guid[13] != '-' ||
         guid[18] != '-' ||
         guid[23] != '-')
-      {
-        grub_error (GRUB_ERR_BAD_ARGUMENT, N_("invalid GUID"));
-        goto done;
-      }
-
-      guid[8] = 0;
-      efi_var_guid.data1 = grub_strtoul(guid, NULL, 16);
-      guid[13] = 0;
-      efi_var_guid.data2 = grub_strtoul(guid + 9, NULL, 16);
-      guid[18] = 0;
-      efi_var_guid.data3 = grub_strtoul(guid + 14, NULL, 16);
-      efi_var_guid.data4[7] = grub_strtoul(guid + 34, NULL, 16);
-      guid[34] = 0;
-      efi_var_guid.data4[6] = grub_strtoul(guid + 32, NULL, 16);
-      guid[32] = 0;
-      efi_var_guid.data4[5] = grub_strtoul(guid + 30, NULL, 16);
-      guid[30] = 0;
-      efi_var_guid.data4[4] = grub_strtoul(guid + 28, NULL, 16);
-      guid[28] = 0;
-      efi_var_guid.data4[3] = grub_strtoul(guid + 26, NULL, 16);
-      guid[26] = 0;
-      efi_var_guid.data4[2] = grub_strtoul(guid + 24, NULL, 16);
-      guid[23] = 0;
-      efi_var_guid.data4[1] = grub_strtoul(guid + 21, NULL, 16);
-      guid[21] = 0;
-      efi_var_guid.data4[0] = grub_strtoul(guid + 19, NULL, 16);
-    }
-  else
-    efi_var_guid = global;
-  
-  data = grub_efi_get_variable(var, &efi_var_guid, &datasize);
-  
-
-  if (!data || !datasize)
     {
-      grub_error (GRUB_ERR_FILE_NOT_FOUND, N_("No such variable"));
+      grub_error (GRUB_ERR_BAD_ARGUMENT, N_("invalid GUID"));
       goto done;
     }
+
+    guid[8] = 0;
+    efi_var_guid.data1 = grub_strtoul(guid, NULL, 16);
+    guid[13] = 0;
+    efi_var_guid.data2 = grub_strtoul(guid + 9, NULL, 16);
+    guid[18] = 0;
+    efi_var_guid.data3 = grub_strtoul(guid + 14, NULL, 16);
+    efi_var_guid.data4[7] = grub_strtoul(guid + 34, NULL, 16);
+    guid[34] = 0;
+    efi_var_guid.data4[6] = grub_strtoul(guid + 32, NULL, 16);
+    guid[32] = 0;
+    efi_var_guid.data4[5] = grub_strtoul(guid + 30, NULL, 16);
+    guid[30] = 0;
+    efi_var_guid.data4[4] = grub_strtoul(guid + 28, NULL, 16);
+    guid[28] = 0;
+    efi_var_guid.data4[3] = grub_strtoul(guid + 26, NULL, 16);
+    guid[26] = 0;
+    efi_var_guid.data4[2] = grub_strtoul(guid + 24, NULL, 16);
+    guid[23] = 0;
+    efi_var_guid.data4[1] = grub_strtoul(guid + 21, NULL, 16);
+    guid[21] = 0;
+    efi_var_guid.data4[0] = grub_strtoul(guid + 19, NULL, 16);
+  }
+  else
+    efi_var_guid = global;
 
   switch (efi_type)
   {
@@ -173,10 +177,10 @@ grub_cmd_setenv (grub_extcmd_context_t ctxt, int argc, char **args)
       datasize = grub_strlen(val) + 1;
       data = grub_malloc (datasize);
       if (!data)
-        {
-          grub_error (GRUB_ERR_OUT_OF_MEMORY, N_("out of memory"));
-          break;
-        }
+      {
+        grub_error (GRUB_ERR_OUT_OF_MEMORY, N_("out of memory"));
+        break;
+      }
       grub_memcpy(data, val, datasize - 1);
       data[datasize-1] = '\0';
       break;
@@ -185,20 +189,37 @@ grub_cmd_setenv (grub_extcmd_context_t ctxt, int argc, char **args)
       datasize = grub_strlen(val) / 2;
       data = grub_malloc (datasize);
       if (!data)
-        {
-          grub_error (GRUB_ERR_OUT_OF_MEMORY, N_("out of memory"));
-          break;
-        }
+      {
+        grub_error (GRUB_ERR_OUT_OF_MEMORY, N_("out of memory"));
+        break;
+      }
       strtobyte (val, data);
+      break;
+
+    case EFI_VAR_UINT8:
+      datasize = sizeof (num);
+      data = grub_malloc (datasize);
+      if (!data)
+      {
+        grub_error (GRUB_ERR_OUT_OF_MEMORY, N_("out of memory"));
+        break;
+      }
+      num = grub_strtoul (val, NULL, 0);
+      grub_memcpy (data, &num, sizeof (num));
       break;
 
     default:
       grub_error (GRUB_ERR_BUG, N_("should not happen (bug in module?)"));
   }
-  
-  grub_efi_set_variable (var, &efi_var_guid, data, datasize);
 
-  grub_errno = GRUB_ERR_NONE;
+  status = grub_efi_set_var_attr (var, &efi_var_guid, data, datasize, attr);
+
+  if (status == GRUB_EFI_SUCCESS)
+    grub_errno = GRUB_ERR_NONE;
+  else if (status == GRUB_EFI_NOT_FOUND)
+    grub_error (GRUB_ERR_IO, "EFI variable `%s' not found", var);
+  else
+    grub_error (GRUB_ERR_IO, "could not set EFI variable `%s'", var);
 
 done:
   grub_free(data);
