@@ -84,6 +84,9 @@ grubfm_clear_menu (void);
 void
 grubfm_add_menu (const char *title, const char *icon,
                  const char *hotkey, const char *src, int hidden);
+void
+grubfm_add_file_menu (const char *title, const char *icon,
+                      const char *file, const char *src);
 grub_video_color_t
 grubfm_get_color (grub_uint8_t red, grub_uint8_t green, grub_uint8_t blue);
 void

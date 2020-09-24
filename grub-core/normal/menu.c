@@ -129,13 +129,13 @@ get_next_entry_by_first_char (grub_menu_t menu, int key, int cur)
   for (i = cur + 1, entry = grub_menu_get_entry (menu, cur + 1); entry;
        i++, entry = entry->next)
   {
-    if (!entry->hidden && key == grub_tolower (entry->title[0]))
+    if (!entry->hidden && key == grub_tolower (entry->id[0]))
       return i;
   }
   for (i = 0, entry = menu->entry_list; (i < cur) && entry;
        i++, entry = entry->next)
   {
-    if (!entry->hidden && key == grub_tolower (entry->title[0]))
+    if (!entry->hidden && key == grub_tolower (entry->id[0]))
       return i;
   }
 

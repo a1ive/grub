@@ -179,8 +179,8 @@ grubfm_clear_menu (void)
   grub_normal_clear_menu ();
 }
 
-void
-grubfm_add_menu (const char *title, const char *icon,
+static void
+add_menu (const char *title, const char *icon, const char *id,
                  const char *hotkey, const char *src, int hidden)
 {
   const char **args = NULL;
@@ -196,7 +196,7 @@ grubfm_add_menu (const char *title, const char *icon,
       return;
     class[0] = grub_strdup (icon);
     class[1] = NULL;
-    grub_normal_add_menu_entry (1, args, class, NULL, NULL, hotkey,
+    grub_normal_add_menu_entry (1, args, class, id, NULL, hotkey,
                                 NULL, src, 0, hidden, NULL, NULL);
     if (class[0])
       grub_free (class[0]);
@@ -204,10 +204,24 @@ grubfm_add_menu (const char *title, const char *icon,
       grub_free (class);
   }
   else
-    grub_normal_add_menu_entry (1, args, NULL, NULL, NULL, hotkey,
+    grub_normal_add_menu_entry (1, args, NULL, id, NULL, hotkey,
                                 NULL, src, 0, hidden, NULL, NULL);
   if (args)
     grub_free (args);
+}
+
+void
+grubfm_add_menu (const char *title, const char *icon,
+                 const char *hotkey, const char *src, int hidden)
+{
+  add_menu (title, icon, NULL, hotkey, src, hidden);
+}
+
+void
+grubfm_add_file_menu (const char *title, const char *icon,
+                      const char *file, const char *src)
+{
+  add_menu (title, icon, file, NULL, src, 0);
 }
 
 int
