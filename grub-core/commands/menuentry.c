@@ -136,13 +136,18 @@ grub_normal_add_menu_entry (int argc, const char **args,
     {
       unsigned i;
       for (i = 0; i < ARRAY_SIZE (hotkey_aliases); i++)
-	if (grub_strcmp (hotkey, hotkey_aliases[i].name) == 0)
-	  {
-	    menu_hotkey = hotkey_aliases[i].key;
-	    break;
-	  }
+        if (grub_strcmp (hotkey, hotkey_aliases[i].name) == 0)
+        {
+          menu_hotkey = hotkey_aliases[i].key;
+          break;
+        }
       if (i == ARRAY_SIZE (hotkey_aliases))
-	menu_hotkey = hotkey[0];
+      {
+        if (grub_strlen (hotkey) >= 3 && hotkey[0] == '0' && hotkey[1] == 'x')
+          menu_hotkey = (int) grub_strtoul (hotkey, NULL, 16);
+        else
+          menu_hotkey = hotkey[0];
+      }
     }
 
   if (! argc)
