@@ -156,6 +156,7 @@ widthspec.bin
 /grub-fstest
 /grub-fstest.exe
 /grub-get-kernel-settings
+/grub-get-kernel-settings.*
 /grub-glue-efi
 /grub-glue-efi.exe
 /grub-install

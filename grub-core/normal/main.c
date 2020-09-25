@@ -215,17 +215,21 @@ grub_normal_init_page (struct grub_term_output *term,
   char *msg_formatted;
   grub_uint32_t *unicode_msg;
   grub_uint32_t *last_position;
- 
+  const char *env_msg = NULL;
+
   grub_term_cls (term);
 
-  msg_formatted = grub_xasprintf (_("GNU GRUB  v%s"), GRUB_VERSION);
+  if ((env_msg = grub_env_get ("grub_normal_menu_title")) && grub_strlen (env_msg))
+    msg_formatted = grub_strdup (env_msg);
+  else
+    msg_formatted = grub_xasprintf (_("GNU GRUB  v%s"), GRUB_VERSION);
   if (!msg_formatted)
     return;
- 
+
   msg_len = grub_utf8_to_ucs4_alloc (msg_formatted,
   				     &unicode_msg, &last_position);
   grub_free (msg_formatted);
- 
+
   if (msg_len < 0)
     {
       return;
