@@ -840,6 +840,11 @@ module = {
 };
 
 module = {
+  name = alias;
+  common = commands/alias.c;
+};
+
+module = {
   name = blocklist;
   common = commands/blocklist.c;
 };
