@@ -43,9 +43,6 @@ my_cmd (grub_command_t cmd, int argc, char **argv)
   int my_argc, i;
   char **my_argv;
   grub_command_t func;
-  for (i = 0; i < argc; i++)
-    grub_printf ("[%d] %s\n", i, argv[i]);
-  grub_printf ("call %s -> %s\n", cmd->name, cmd->description);
   if (grub_parser_split_cmdline (cmd->description, NULL, NULL, &my_argc, &my_argv)
       || my_argc < 0)
     return grub_errno;
@@ -70,8 +67,6 @@ my_cmd (grub_command_t cmd, int argc, char **argv)
   }
   for (i = 0; i < argc; i++)
     my_argv[i + my_argc] = argv[i];
-  for (i = 0; i < my_argc + argc; i++)
-    grub_printf ("[%d] %s\n", i, my_argv[i]);
   (func->func) (func, my_argc + argc - 1, &my_argv[1]);
 quit:
   if (my_argv[0])
