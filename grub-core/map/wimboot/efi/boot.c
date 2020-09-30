@@ -104,16 +104,13 @@ grub_wimboot_boot (struct wimboot_cmdline *cmd)
   }
   data = ((void *)(intptr_t) phys);
 
-  /* Fuck SecureBoot */
-  grub_efi_fucksb_install (1);
-  grub_efi_fucksb_disable ();
   /* Read image */
   file->read (file, data, 0, file->len);
   printf ("Read %s\n", file->name);
 
   /* DevicePath */
   path = grub_efi_file_device_path (grub_efi_get_device_path (wimboot_part.handle),
-                                    EFI_REMOVABLE_MEDIA_FILE_NAME);
+                                    EFI_VFAT_BOOTMGFW_FILE_NAME);
   /* Load image */
   status = efi_call_6 (b->load_image, FALSE, grub_efi_image_handle,
                          path, data, file->len, &handle);
