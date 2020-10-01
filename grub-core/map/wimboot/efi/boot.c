@@ -92,6 +92,7 @@ grub_wimboot_boot (struct wimboot_cmdline *cmd)
   grub_efi_status_t status;
   grub_efi_loaded_image_t *loaded = NULL;
   struct vfat_file *file = cmd->bootmgfw;
+  char *efi_filename;
 
   gui = cmd->gui;
   /* Allocate memory */
@@ -109,8 +110,11 @@ grub_wimboot_boot (struct wimboot_cmdline *cmd)
   printf ("Read %s\n", file->name);
 
   /* DevicePath */
+  efi_filename = grub_xasprintf ("/efi/boot/%s", file->name);
   path = grub_efi_file_device_path (grub_efi_get_device_path (wimboot_part.handle),
-                                    EFI_VFAT_BOOTMGFW_FILE_NAME);
+                                    efi_filename);
+  grub_free (efi_filename);
+
   /* Load image */
   status = efi_call_6 (b->load_image, FALSE, grub_efi_image_handle,
                          path, data, file->len, &handle);
