@@ -245,45 +245,9 @@ grub_normal_add_menu_entry (int argc, const char **args,
 void
 grub_normal_clear_menu (void)
 {
-  int i, j;
   grub_menu_t menu = grub_env_get_menu ();
-  grub_menu_entry_t e, entry;
-
-  if (!menu || !menu->entry_list)
+  if (!menu)
     return;
-  entry = menu->entry_list;
-
-  for (i = 0; entry; i++)
-  {
-    e = entry;
-    entry = e->next;
-    if (e->title)
-      grub_free ((void *)e->title);
-    if (e->id)
-      grub_free ((void *)e->id);
-    if (e->users)
-      grub_free ((void *)e->users);
-    if (e->classes)
-    {
-      /* FIXME: should be e->classes[j].name */
-      for (j = 0; e->classes[j].next; j++)
-      {
-        if (e->classes[j].name)
-          grub_free (e->classes[j].name);
-      }
-      grub_free (e->classes);
-    }
-    if (e->sourcecode)
-      grub_free ((void *)e->sourcecode);
-    if (e->args)
-    {
-      for (j = 0; e->args[j]; j++)
-        grub_free (e->args[j]);
-      grub_free (e->args);
-    }
-    grub_free (e);
-  }
-
   menu->entry_list = NULL;
   menu->size=0;
 }
