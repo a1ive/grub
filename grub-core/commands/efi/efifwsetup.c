@@ -17,6 +17,42 @@
  *  along with GRUB.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <grub/types.h>
+#include <grub/mm.h>
+#include <grub/misc.h>
+#include <grub/efi/api.h>
+#include <grub/efi/efi.h>
+#include <grub/command.h>
+#include <grub/i18n.h>
 #include <grub/dl.h>
 
 GRUB_MOD_LICENSE ("GPLv3+");
+
+static grub_err_t
+grub_cmd_fwsetup (grub_command_t cmd __attribute__ ((unused)),
+                  int argc __attribute__ ((unused)),
+                  char **args __attribute__ ((unused)))
+{
+  grub_err_t status;
+  status = grub_efi_fwsetup_setvar ();
+  if (status != GRUB_ERR_NONE)
+    return status;
+  grub_reboot ();
+  return GRUB_ERR_BUG;
+}
+
+static grub_command_t cmd = NULL;
+
+GRUB_MOD_INIT (efifwsetup)
+{
+  if (grub_efi_fwsetup_is_supported ())
+    cmd = grub_register_command ("fwsetup", grub_cmd_fwsetup, NULL,
+                    N_("Reboot into firmware setup menu."));
+
+}
+
+GRUB_MOD_FINI (efifwsetup)
+{
+  if (cmd)
+    grub_unregister_command (cmd);
+}
