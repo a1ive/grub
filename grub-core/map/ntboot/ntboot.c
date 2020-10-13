@@ -49,6 +49,7 @@ static const struct grub_arg_option options_ntboot[] =
   {"ramvhd", 'r', 0, N_("Boot NT6+ RAM VHD/VHDX."), 0, 0},
   {"efi", 'e', 0, N_("Specify the bootmgfw.efi file."), N_("FILE"), ARG_TYPE_FILE},
   {"sdi", 's', 0, N_("Specify the boot.sdi file."), N_("FILE"), ARG_TYPE_FILE},
+  {"dll", 'd', 0, N_("Specify the bootvhd.dll file."), N_("FILE"), ARG_TYPE_FILE},
 
   {"testmode", 0, 0, N_("Test Mode (testsigning)."), N_("yes|no"), ARG_TYPE_STRING},
   {"highest", 0, 0, N_("Force Highest Resolution."), N_("yes|no"), ARG_TYPE_STRING},
@@ -78,6 +79,7 @@ enum options_ntboot
   NTBOOT_RAMVHD,
   NTBOOT_EFI,
   NTBOOT_SDI,
+  NTBOOT_DLL,
   /* bcd boot options */
   NTBOOT_TESTMODE, // bool
   NTBOOT_HIGHEST,  // bool
@@ -193,6 +195,7 @@ grub_cmd_ntboot (grub_extcmd_context_t ctxt,
   grub_file_t bootmgr = 0;
   grub_file_t bootsdi = 0;
   grub_file_t bcd = 0;
+  grub_file_t vhd_dll = 0;
 
   if (state[NTBOOT_GUI].set)
     wimboot_cmd.gui = 1;
@@ -201,6 +204,12 @@ grub_cmd_ntboot (grub_extcmd_context_t ctxt,
 
   bcd = file_open ("(proc)/bcd", 0, 0, 0);
   vfat_add_file ("bcd", bcd, bcd->size, vfat_read_wrapper);
+
+  if (state[NTBOOT_DLL].set)
+  {
+    vhd_dll = file_open (state[NTBOOT_DLL].arg, 0, 0, 0);
+    vfat_add_file ("bootvhd.dll", vhd_dll, vhd_dll->size, vfat_read_wrapper);
+  }
 
   if (state[NTBOOT_EFI].set)
     bootmgr = file_open (state[NTBOOT_EFI].arg, 0, 0, 0);
@@ -231,6 +240,8 @@ grub_cmd_ntboot (grub_extcmd_context_t ctxt,
   if (wimboot_cmd.pause)
     grub_getkey ();
   grub_wimboot_boot (&wimboot_cmd);
+  if (vhd_dll)
+    grub_file_close (vhd_dll);
   if (bootmgr)
     grub_file_close (bootmgr);
   if (bootsdi)
