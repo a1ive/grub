@@ -2871,6 +2871,12 @@ module = {
 };
 
 module = {
+  name = bcfg;
+  common = commands/efi/bcfg.c;
+  enable = efi;
+};
+
+module = {
   name = setenv;
   common = commands/efi/setenv.c;
   enable = efi;
