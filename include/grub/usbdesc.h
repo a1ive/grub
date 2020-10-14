@@ -38,6 +38,15 @@ struct grub_usb_desc
   grub_uint8_t type;
 } GRUB_PACKED;
 
+struct grub_usb_dev_request
+{
+  grub_uint8_t type;
+  grub_uint8_t request;
+  grub_uint16_t value;
+  grub_uint16_t index;
+  grub_uint16_t length;
+} GRUB_PACKED;
+
 struct grub_usb_desc_device
 {
   grub_uint8_t length;

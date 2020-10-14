@@ -96,7 +96,7 @@ grub_efi_driver_load (grub_size_t size, void *boot_image, int connect)
     goto fail;
   }
   grub_dprintf ("efiload", "Registering loaded image\n");
-  status = efi_call_3 (b->handle_protocol, driver_handle, 
+  status = efi_call_3 (b->handle_protocol, driver_handle,
                        &loaded_image_protocol_guid, (void **)&loaded_image);
   if (status != GRUB_EFI_SUCCESS)
   {

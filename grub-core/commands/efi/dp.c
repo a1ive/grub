@@ -34,8 +34,95 @@
 #include <grub/types.h>
 #include <grub/term.h>
 #include <grub/lua.h>
+#include <grub/usbdesc.h>
 
 GRUB_MOD_LICENSE ("GPLv3+");
+
+typedef enum
+{
+  GRUB_EFI_USB_DATA_IN,
+  GRUB_EFI_USB_DATA_OUT,
+  GRUB_EFI_USB_NO_DATA,
+} grub_efi_usb_data_direction;
+
+typedef grub_efi_status_t (EFIAPI *grub_efi_async_usb_transfer_callback)
+    (void *data, grub_efi_uintn_t len, void *context, grub_efi_uint32_t status);
+
+struct grub_efi_usb_io
+{
+  // IO transfer
+  grub_efi_status_t (*control_transfer) (struct grub_efi_usb_io *this,
+                                         struct grub_usb_dev_request *request,
+                                         grub_efi_usb_data_direction direction,
+                                         grub_efi_uint32_t timeout,
+                                         void *data,
+                                         grub_efi_uintn_t len,
+                                         grub_efi_uint32_t *status);
+
+  grub_efi_status_t (*bulk_transfer) (struct grub_efi_usb_io *this,
+                                      grub_efi_uint8_t dev_endpoint,
+                                      void *data,
+                                      grub_efi_uintn_t len,
+                                      grub_efi_uint32_t timeout,
+                                      grub_efi_uint32_t *status);
+
+  grub_efi_status_t (*async_interrupt_transfer) (struct grub_efi_usb_io *this,
+                        grub_efi_uint8_t dev_endpoint,
+                        grub_efi_boolean_t is_new_transfer,
+                        grub_efi_uintn_t polling_interval,
+                        grub_efi_uintn_t len,
+                        grub_efi_async_usb_transfer_callback interrupt_call_back,
+                        void *context);
+
+  grub_efi_status_t (*sync_interrupt_transfer) (struct grub_efi_usb_io *this,
+                                                grub_efi_uint8_t dev_endpoint,
+                                                void *data,
+                                                grub_efi_uintn_t *len,
+                                                grub_efi_uintn_t timeout,
+                                                grub_efi_uint32_t *status);
+
+  grub_efi_status_t (*isochronous_transfer) (struct grub_efi_usb_io *this,
+                                             grub_efi_uint8_t dev_endpoint,
+                                             void *data,
+                                             grub_efi_uintn_t len,
+                                             grub_efi_uint32_t *status);
+
+  grub_efi_status_t (*async_isochronous_transfer) (struct grub_efi_usb_io *this,
+                        grub_efi_uint8_t dev_endpoint,
+                        void *data,
+                        grub_efi_uintn_t len,
+                        grub_efi_async_usb_transfer_callback isochronous_call_back,
+                        void *context);
+
+  // Common device request
+  grub_efi_status_t (*get_device_desc) (struct grub_efi_usb_io *this,
+                                        struct grub_usb_desc_device *device_desc);
+
+  grub_efi_status_t (*get_config_desc) (struct grub_efi_usb_io *this,
+                                        struct grub_usb_desc_config *config_desc);
+
+  grub_efi_status_t (*get_if_desc) (struct grub_efi_usb_io *this,
+                                    struct grub_usb_desc_if *if_desc);
+
+  grub_efi_status_t (*get_endp_desc) (struct grub_efi_usb_io *this,
+                                      grub_efi_uint8_t endpoint_index,
+                                      struct grub_usb_desc_endp *endp_desc);
+
+  grub_efi_status_t (*get_str_desc) (struct grub_efi_usb_io *this,
+                                     grub_efi_uint16_t lang_id,
+                                     grub_efi_uint8_t string_id,
+                                     grub_efi_char16_t **string);
+
+  grub_efi_status_t (*get_supported_lang) (struct grub_efi_usb_io *this,
+                                           grub_efi_uint16_t **lang_id_table,
+                                           grub_efi_uint16_t *table_size);
+
+  // Reset controller's parent port
+  grub_efi_status_t (*port_reset) (struct grub_efi_usb_io *this);
+};
+typedef struct grub_efi_usb_io grub_efi_usb_io_t;
+
+#define LANG_ID_ENGLISH 0x0409
 
 grub_efi_handle_t
 grub_efi_bootpart (grub_efi_device_path_t *dp, const char *filename)
@@ -125,16 +212,19 @@ grub_cmd_dp (grub_extcmd_context_t ctxt __attribute__ ((unused)),
   if (args[0][0] == '(' && args[0][namelen - 1] == ')')
   {
     args[0][namelen - 1] = 0;
-    devname = &args[0][1];
+    dev = grub_device_open (&args[0][1]);
   }
   else if (args[0][0] != '(' && args[0][0] != '/')
-    devname = args[0];
+    dev = grub_device_open (args[0]);
   else
   {
     filename = args[0];
-    devname = grub_file_get_device_name (filename);
+    devname = grub_file_get_device_name (args[0]);
+    dev = grub_device_open (devname);
+    if (devname)
+      grub_free (devname);
   }
-  dev = grub_device_open (devname);
+
   if (dev->disk)
     dev_handle = grub_efidisk_get_device_handle (dev->disk);
   else if (dev->net && dev->net->server)
@@ -175,7 +265,115 @@ out:
   return 0;
 }
 
-static grub_extcmd_t cmd_dp;
+static grub_size_t
+wcslen (const grub_efi_char16_t *str)
+{
+  grub_size_t len = 0;
+  while (*(str++))
+    len++;
+  return len;
+}
+
+static char *
+wcstostr (const grub_efi_char16_t *str)
+{
+  char *ret = NULL;
+  grub_size_t len = wcslen (str), i;
+  ret = grub_zalloc (len + 1);
+  if (!ret)
+    return NULL;
+  for (i = 0; i < len; i++)
+    ret[i] = str[i];
+  return ret;
+}
+
+static grub_err_t
+grub_cmd_usb (grub_extcmd_context_t ctxt __attribute__ ((unused)),
+              int argc, char **args)
+{
+  if (argc != 1)
+    return GRUB_ERR_BAD_ARGUMENT;
+  char *devname = NULL;
+  grub_device_t dev = 0;
+  grub_efi_handle_t dev_handle = 0;
+  grub_efi_status_t status;
+  int namelen = grub_strlen (args[0]);
+  grub_efi_guid_t usb_guid = GRUB_EFI_USB_IO_PROTOCOL_GUID;
+  grub_efi_boot_services_t *b = grub_efi_system_table->boot_services;
+  grub_efi_usb_io_t *usb_io;
+  struct grub_usb_desc_device dev_desc;
+  grub_efi_char16_t *str16;
+  char *str;
+  if (args[0][0] == '(' && args[0][namelen - 1] == ')')
+  {
+    args[0][namelen - 1] = 0;
+    devname = &args[0][1];
+  }
+  else
+    devname = args[0];
+
+  dev = grub_device_open (devname);
+  if (dev->disk)
+    dev_handle = grub_efidisk_get_device_handle (dev->disk);
+  if (dev)
+    grub_device_close (dev);
+
+  if (!dev_handle)
+    return grub_error (GRUB_ERR_BAD_OS, "device handle not found");
+
+  status = efi_call_3 (b->handle_protocol,
+                       dev_handle, &usb_guid, (void **)&usb_io);
+  if (status != GRUB_EFI_SUCCESS)
+    return grub_error (GRUB_ERR_BAD_OS, "usb i/o protocol not found");
+  grub_printf ("found usb i/o protocol: %p\n", usb_io);
+
+  status = efi_call_2 (usb_io->get_device_desc, usb_io, &dev_desc);
+  if (status != GRUB_EFI_SUCCESS)
+    return grub_error (GRUB_ERR_BAD_OS, "failed to get device descriptor");
+
+  grub_printf ("Vendor ID = %04X\nProduct ID = %04X\n",
+               dev_desc.vendorid, dev_desc.prodid);
+
+  status = efi_call_4 (usb_io->get_str_desc, usb_io,
+                       LANG_ID_ENGLISH, dev_desc.strvendor, &str16);
+  if (status != GRUB_EFI_SUCCESS)
+    grub_printf ("Manufacturer : (null)\n");
+  else
+  {
+    str = wcstostr (str16);
+    grub_printf ("Manufacturer : %s\n", str);
+    grub_free (str);
+    efi_call_1 (b->free_pool, str16);
+  }
+
+  status = efi_call_4 (usb_io->get_str_desc, usb_io,
+                       LANG_ID_ENGLISH, dev_desc.strprod, &str16);
+  if (status != GRUB_EFI_SUCCESS)
+    grub_printf ("Product : (null)\n");
+  else
+  {
+    str = wcstostr (str16);
+    grub_printf ("Product : %s\n", str);
+    grub_free (str);
+    efi_call_1 (b->free_pool, str16);
+  }
+
+  status = efi_call_4 (usb_io->get_str_desc, usb_io,
+                       LANG_ID_ENGLISH, dev_desc.strserial, &str16);
+  if (status != GRUB_EFI_SUCCESS)
+    grub_printf ("Serial Number : (null)\n");
+  else
+  {
+    str = wcstostr (str16);
+    grub_printf ("Serial Number : %s\n", str);
+    grub_free (str);
+    efi_call_1 (b->free_pool, str16);
+  }
+
+  return GRUB_ERR_NONE;
+}
+
+static grub_extcmd_t cmd_dp, cmd_usb;
 
 static int
 lua_efi_vendor (lua_State *state)
@@ -257,6 +455,8 @@ GRUB_MOD_INIT(dp)
 {
   cmd_dp = grub_register_extcmd ("dp", grub_cmd_dp, 0, N_("DEVICE"),
                   N_("DevicePath."), 0);
+  cmd_usb = grub_register_extcmd ("efiusb", grub_cmd_usb, 0, N_("DEVICE"),
+                                  N_("USB info."), 0);
 
   if (grub_lua_global_state)
   {
@@ -269,4 +469,5 @@ GRUB_MOD_INIT(dp)
 GRUB_MOD_FINI(dp)
 {
   grub_unregister_extcmd (cmd_dp);
+  grub_unregister_extcmd (cmd_usb);
 }
