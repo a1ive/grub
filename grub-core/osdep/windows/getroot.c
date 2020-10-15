@@ -49,6 +49,8 @@
 #include <windows.h>
 #include <winioctl.h>
 
+int use_relative_path_on_btrfs = 0;
+
 TCHAR *
 grub_get_mount_point (const TCHAR *path)
 {

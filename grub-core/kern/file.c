@@ -79,7 +79,8 @@ static grub_file_t grub_memfile_open(const char *name)
     return 0;
 
   file->name = grub_strdup(name);
-  file->data = (void *)grub_strtoul(name + grub_strlen(GRUB_MEMFILE_MEM), NULL, 0);
+  file->data = (void *) (grub_addr_t) grub_strtoul(name
+        + grub_strlen(GRUB_MEMFILE_MEM), NULL, 0);
 
   size = grub_strstr(name, GRUB_MEMFILE_SIZE);
   file->size = (grub_off_t) grub_strtoul(size + grub_strlen(GRUB_MEMFILE_SIZE),

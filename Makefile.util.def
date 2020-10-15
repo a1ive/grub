@@ -1440,4 +1440,5 @@ program = {
   installdir = sbin;
   mansection = 1;
   common = util/grub-set-bootflag.c;
+  condition = COND_HOST_LINUX;
 };

@@ -2,6 +2,8 @@
 mkdir -p PKG/lib/grub/fonts
 cp -r makepkg/* PKG/lib/grub/
 cp PKG/share/grub/*.pf2 PKG/lib/grub/fonts/
+cp PKG/bin/*.exe PKG/lib/grub/
+cp PKG/sbin/*.exe PKG/lib/grub/
 cd PKG/lib/
 
 for x in $(ls grub/locale/*.po)

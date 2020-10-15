@@ -359,17 +359,19 @@ void
 grub_util_mkdir (const char *dir)
 {
   LPTSTR windows_name;
-      
+
   windows_name = grub_util_get_windows_path (dir);
   CreateDirectory (windows_name, NULL);
   free (windows_name);
 }
 
+#if 0
 ssize_t
 grub_util_readlink (const char *name, char *buf, size_t bufsize)
 {
   return readlink(name, buf, bufsize);
 }
+#endif
 
 int
 grub_util_rename (const char *from, const char *to)

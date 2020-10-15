@@ -25,6 +25,11 @@
 #include <grub/charset.h>
 #include <grub/gpt_partition.h>
 
+#if __GNUC__ >= 9
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Waddress-of-packed-member"
+#endif
+
 #define GRUB_EFI_GLOBAL_VARIABLE_GUID_WINDOWS_STR L"{8be4df61-93ca-11d2-aa0d-00e098032b8c}"
 
 static enum { PLAT_UNK, PLAT_BIOS, PLAT_EFI } platform;
@@ -424,3 +429,7 @@ grub_install_sgi_setup (const char *install_device,
 {
   grub_util_error ("%s", _("no SGI routines are available for your platform"));
 }
+
+#if __GNUC__ >= 9
+#pragma GCC diagnostic pop
+#endif

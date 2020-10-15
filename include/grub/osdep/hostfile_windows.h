@@ -41,8 +41,10 @@ typedef struct grub_util_fd_dir *grub_util_fd_dir_t;
 
 int
 grub_util_rename (const char *from, const char *to);
+#if 0
 ssize_t
 grub_util_readlink (const char *name, char *buf, size_t bufsize);
+#endif
 int
 grub_util_unlink (const char *name);
 void
