@@ -2987,6 +2987,11 @@ module = {
 };
 
 module = {
+  name = nttools;
+  common = commands/nttools.c;
+};
+
+module = {
   name = setkey;
   common = term/setkey.c;
 };
