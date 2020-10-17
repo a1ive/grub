@@ -131,6 +131,26 @@ grub_fs_probe (grub_device_t device)
 }
 
 /* Block list support routines.  */
+static grub_uint64_t
+strtosector (const char * str, const char ** const end)
+{
+  grub_uint64_t ret = 0;
+  if (*str != '[')
+  {
+    ret = grub_strtoull (str, &str, 0);
+    ret <<= GRUB_DISK_SECTOR_BITS;
+  }
+  if (*str == '[')
+  {
+    str++;
+    ret += grub_strtoull (str, &str, 0);
+  }
+  if (*str == ']')
+    str++;
+  if (end)
+    *end = (char *) str;
+  return ret;
+}
 
 static grub_err_t
 grub_fs_blocklist_open (grub_file_t file, const char *name)
@@ -161,14 +181,14 @@ grub_fs_blocklist_open (grub_file_t file, const char *name)
   if (! *p)
   {
     blocks[0].offset = 0;
-    blocks[0].length = disk->total_sectors << 9;
+    blocks[0].length = disk->total_sectors << GRUB_DISK_SECTOR_BITS;
     file->size = blocks[0].length;
   }
   else for (i = 0; i < num; i++)
   {
     if (*p != '+')
     {
-      blocks[i].offset = grub_strtoull (p, &p, 0);
+      blocks[i].offset = strtosector (p, &p);
       if (grub_errno != GRUB_ERR_NONE || *p != '+')
       {
         grub_error (GRUB_ERR_BAD_FILENAME, N_("invalid file name `%s'"), name);
@@ -177,7 +197,7 @@ grub_fs_blocklist_open (grub_file_t file, const char *name)
     }
 
     p++;
-    blocks[i].length = grub_strtoul (p, &p, 0);
+    blocks[i].length = strtosector (p, &p);
     if (grub_errno != GRUB_ERR_NONE
         || blocks[i].length == 0
         || (*p && *p != ',' && ! grub_isspace (*p)))
@@ -186,14 +206,13 @@ grub_fs_blocklist_open (grub_file_t file, const char *name)
       goto fail;
     }
 
-    if (disk->total_sectors < blocks[i].offset + blocks[i].length)
+    if (disk->total_sectors << GRUB_DISK_SECTOR_BITS <
+        blocks[i].offset + blocks[i].length)
     {
       grub_error (GRUB_ERR_BAD_FILENAME, "beyond the total sectors");
       goto fail;
     }
 
-    blocks[i].offset <<= GRUB_DISK_SECTOR_BITS;
-    blocks[i].length <<= GRUB_DISK_SECTOR_BITS;
     file->size += blocks[i].length;
     p++;
   }

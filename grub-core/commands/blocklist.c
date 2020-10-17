@@ -32,23 +32,31 @@ GRUB_MOD_LICENSE ("GPLv3+");
 static grub_size_t
 blocklist_to_str (grub_file_t file, int num, char *text, grub_disk_addr_t start)
 {
-  char str[255];
+  char str[255], tmp1[10], tmp2[10];
   int i;
   struct grub_fs_block *p;
-  grub_size_t len = 0;
+  grub_size_t str_len = 0;
   p = file->data;
   for (i = 0; i < num; i++, p++)
   {
-    grub_snprintf (str, 255, "%llu+%llu", (unsigned long long)
-                   ((p->offset >> GRUB_DISK_SECTOR_BITS) + start),
-                   (unsigned long long) (p->length >> GRUB_DISK_SECTOR_BITS));
+    unsigned int ofs_m = 0, len_m = 0;
+    unsigned long long ofs = 0, len = 0;
+    ofs = p->offset >> GRUB_DISK_SECTOR_BITS;
+    len = p->length >> GRUB_DISK_SECTOR_BITS;
+    ofs_m = p->offset - (ofs << GRUB_DISK_SECTOR_BITS);
+    len_m = p->length - (len << GRUB_DISK_SECTOR_BITS);
+    ofs += start;
+    grub_snprintf (tmp1, 10, "[%u]", ofs_m);
+    grub_snprintf (tmp2, 10, "[%u]", len_m);
+    grub_snprintf (str, 255, "%llu%s+%llu%s",
+                   ofs, ofs_m ? tmp1 : "", len, len_m ? tmp2 : "");
     if (text)
-      grub_sprintf (text + len, "%s,", str);
-    len += grub_strlen (str) + 1;
+      grub_sprintf (text + str_len, "%s,", str);
+    str_len += grub_strlen (str) + 1;
   }
-  if (text && len)
-    text[len - 1] = '\0';
-  return len;
+  if (text && str_len)
+    text[str_len - 1] = '\0';
+  return str_len;
 }
 
 static const struct grub_arg_option options[] =
