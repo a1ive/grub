@@ -2180,6 +2180,12 @@ module = {
 };
 
 module = {
+  name = ps2mouse;
+  common = term/ps2mouse.c;
+  enable = x86;
+};
+
+module = {
   name = gfxterm;
   common = term/gfxterm.c;
   enable = videomodules;
