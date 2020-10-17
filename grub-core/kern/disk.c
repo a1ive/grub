@@ -221,15 +221,29 @@ grub_disk_open (const char *name)
   if (! disk->name)
     goto fail;
 
-  for (dev = grub_disk_dev_list; dev; dev = dev->next)
+  if (grub_strcmp (disk->name, "mem") == 0)
+  {
+    if (p)
+    {
+      grub_error (GRUB_ERR_UNKNOWN_DEVICE, N_("no such partition"));
+      goto fail;
+    }
+    dev = &grub_mem_disk_dev;
+    if ((dev->disk_open) (raw, disk) != GRUB_ERR_NONE)
+      goto fail;
+  }
+  else
+  {
+    for (dev = grub_disk_dev_list; dev; dev = dev->next)
     {
       if ((dev->disk_open) (raw, disk) == GRUB_ERR_NONE)
-	break;
+        break;
       else if (grub_errno == GRUB_ERR_UNKNOWN_DEVICE)
-	grub_errno = GRUB_ERR_NONE;
+        grub_errno = GRUB_ERR_NONE;
       else
-	goto fail;
+        goto fail;
     }
+  }
 
   if (! dev)
     {
@@ -249,16 +263,16 @@ grub_disk_open (const char *name)
   disk->dev = dev;
 
   if (p)
+  {
+    disk->partition = grub_partition_probe (disk, p + 1);
+    if (! disk->partition)
     {
-      disk->partition = grub_partition_probe (disk, p + 1);
-      if (! disk->partition)
-	{
-	  /* TRANSLATORS: It means that the specified partition e.g.
-	     hd0,msdos1=/dev/sda1 doesn't exist.  */
-	  grub_error (GRUB_ERR_UNKNOWN_DEVICE, N_("no such partition"));
-	  goto fail;
-	}
+      /* TRANSLATORS: It means that the specified partition e.g.
+         hd0,msdos1=/dev/sda1 doesn't exist.  */
+      grub_error (GRUB_ERR_UNKNOWN_DEVICE, N_("no such partition"));
+      goto fail;
     }
+  }
 
   /* The cache will be invalidated about 2 seconds after a device was
      closed.  */
@@ -619,3 +633,60 @@ grub_disk_get_size (grub_disk_t disk)
   else
     return GRUB_DISK_SIZE_UNKNOWN;
 }
+
+static int
+memdisk_iterate (grub_disk_dev_iterate_hook_t hook, void *hook_data,
+                 grub_disk_pull_t pull)
+{
+  if (pull != GRUB_DISK_PULL_NONE)
+    return 0;
+  return hook ("mem", hook_data);
+}
+
+static grub_err_t
+memdisk_open (const char *name, grub_disk_t disk)
+{
+  if (grub_strcmp (name, "mem"))
+      return grub_error (GRUB_ERR_UNKNOWN_DEVICE, "not mem disk");
+
+  disk->total_sectors = GRUB_ULONG_MAX >> GRUB_DISK_SECTOR_BITS;
+  disk->max_agglomerate = GRUB_DISK_MAX_MAX_AGGLOMERATE;
+  disk->id = 0;
+
+  return GRUB_ERR_NONE;
+}
+
+static void
+memdisk_close (grub_disk_t disk __attribute((unused)))
+{
+}
+
+static grub_err_t
+memdisk_read (grub_disk_t disk __attribute((unused)), grub_disk_addr_t sector,
+              grub_size_t size, char *buf)
+{
+  grub_memcpy (buf, (void *) (grub_addr_t) (sector << GRUB_DISK_SECTOR_BITS),
+               size << GRUB_DISK_SECTOR_BITS);
+  return 0;
+}
+
+static grub_err_t
+memdisk_write (grub_disk_t disk __attribute((unused)), grub_disk_addr_t sector,
+               grub_size_t size, const char *buf)
+{
+  grub_memcpy ((void *) (grub_addr_t) (sector << GRUB_DISK_SECTOR_BITS), buf,
+               size << GRUB_DISK_SECTOR_BITS);
+  return 0;
+}
+
+struct grub_disk_dev grub_mem_disk_dev =
+{
+  .name = "mem",
+  .id = GRUB_DISK_DEVICE_MEM_ID,
+  .disk_iterate = memdisk_iterate,
+  .disk_open = memdisk_open,
+  .disk_close = memdisk_close,
+  .disk_read = memdisk_read,
+  .disk_write = memdisk_write,
+  .next = 0
+};

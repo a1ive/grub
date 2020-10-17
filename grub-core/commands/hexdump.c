@@ -43,7 +43,6 @@ grub_cmd_hexdump (grub_extcmd_context_t ctxt, int argc, char **args)
   char buf[GRUB_DISK_SECTOR_SIZE * 4];
   grub_ssize_t size, length;
   grub_disk_addr_t skip;
-  int namelen;
   grub_size_t var_len;
   char *var_name = NULL;
   char *var_buf = NULL;
@@ -52,115 +51,67 @@ grub_cmd_hexdump (grub_extcmd_context_t ctxt, int argc, char **args)
   if (argc < 1 || argc > 2)
     return grub_error (GRUB_ERR_BAD_ARGUMENT, N_("filename expected"));
 
-  namelen = grub_strlen (args[0]);
   skip = (state[0].set) ? grub_strtoull (state[0].arg, 0, 0) : 0;
   length = (state[1].set) ? grub_strtoul (state[1].arg, 0, 0) : 256;
 
   if (argc == 2)
+  {
+    var_len = length + 1;
+    var_buf = (char *) grub_malloc (var_len);
+    if (var_buf)
     {
-      var_len = length + 1;
+      var_name = args[1];
+      p = var_buf;
+    }
+  }
 
-      var_buf = (char *) grub_malloc (var_len);
-      if (var_buf)
-        {
-          var_name = args[1];
-          p = var_buf;
-	    }
+  grub_file_t file;
+
+  file = grub_file_open (args[0], GRUB_FILE_TYPE_HEXCAT);
+  if (! file)
+    return 0;
+
+  file->offset = skip;
+
+  while ((size = grub_file_read (file, buf, sizeof (buf))) > 0)
+  {
+    unsigned long len;
+
+    len = ((length) && (size > length)) ? length : size;
+    if (! state[2].set)
+      hexdump (skip, buf, len);
+
+    if (var_name)
+    {
+      grub_memcpy (p, buf, len);
+      p += len;
     }
 
-  if (!grub_strcmp (args[0], "(mem)"))
-    hexdump (skip, (char *) (grub_addr_t) skip, length);
-  else if ((args[0][0] == '(') && (args[0][namelen - 1] == ')'))
+    skip += len;
+    if (length)
     {
-      grub_disk_t disk;
-      grub_disk_addr_t sector;
-      grub_size_t ofs;
-
-      args[0][namelen - 1] = 0;
-      disk = grub_disk_open (&args[0][1]);
-      if (! disk)
-        return 0;
-
-      sector = (skip >> (GRUB_DISK_SECTOR_BITS + 2)) * 4;
-      ofs = skip & (GRUB_DISK_SECTOR_SIZE * 4 - 1);
-      while (length)
-        {
-          grub_size_t len;
-
-          len = length;
-          if (len > sizeof (buf))
-            len = sizeof (buf);
-
-          if (grub_disk_read (disk, sector, ofs, len, buf))
-            break;
-
-          if (! state[2].set)
-            hexdump (skip, buf, len);
-
-          if (var_name)
-          {
-            grub_memcpy (p, buf, len);
-            p += len;
-          }
-
-          ofs = 0;
-          skip += len;
-          length -= len;
-          sector += 4;
-        }
-
-      grub_disk_close (disk);
+      length -= len;
+      if (!length)
+        break;
     }
-  else
-    {
-      grub_file_t file;
+  }
 
-      file = grub_file_open (args[0], GRUB_FILE_TYPE_HEXCAT);
-      if (! file)
-	return 0;
+  grub_file_close (file);
 
-      file->offset = skip;
-
-      while ((size = grub_file_read (file, buf, sizeof (buf))) > 0)
-	{
-	  unsigned long len;
-
-	  len = ((length) && (size > length)) ? length : size;
-	  if (! state[2].set)
-	    hexdump (skip, buf, len);
-	  
-	  if (var_name)
-	    {
-              grub_memcpy (p, buf, len);
-              p += len;
-	    }
-
-	  skip += len;
-	  if (length)
-	    {
-	      length -= len;
-	      if (!length)
-		break;
-	    }
-	}
-
-      grub_file_close (file);
-    }
-    
   if (var_name)
-    {
-      char *str = grub_zalloc (4 * var_len);
-      grub_size_t i;
+  {
+    char *str = grub_zalloc (4 * var_len);
+    grub_size_t i;
 
-      for (i = 0; i < var_len - 1; i++)
-        grub_snprintf (str + 4 * i, 5, "\\x%02x", (unsigned char)var_buf[i]);
+    for (i = 0; i < var_len - 1; i++)
+      grub_snprintf (str + 4 * i, 5, "\\x%02x", (unsigned char)var_buf[i]);
 
-      grub_env_set(var_name, str);
-      if (var_buf)
-        grub_free (var_buf);
-      if (str)
-        grub_free (str);
-    }
+    grub_env_set(var_name, str);
+    if (var_buf)
+      grub_free (var_buf);
+    if (str)
+      grub_free (str);
+  }
 
   return 0;
 }
@@ -170,9 +121,9 @@ static grub_extcmd_t cmd;
 GRUB_MOD_INIT (hexdump)
 {
   cmd = grub_register_extcmd ("hexdump", grub_cmd_hexdump, 0,
-			      N_("[OPTIONS] FILE_OR_DEVICE [VARIABLE]"),
-			      N_("Show raw contents of a file or memory."),
-			      options);
+                  N_("[OPTIONS] FILE_OR_DEVICE [VARIABLE]"),
+                  N_("Show raw contents of a file or memory."),
+                  options);
 }
 
 GRUB_MOD_FINI (hexdump)

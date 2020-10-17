@@ -54,6 +54,7 @@ enum grub_disk_dev_id
     GRUB_DISK_DEVICE_VFAT_ID,
     GRUB_DISK_DEVICE_EFIVDISK_ID,
     GRUB_DISK_DEVICE_INITRD_ID,
+    GRUB_DISK_DEVICE_MEM_ID,
   };
 
 struct grub_disk;
@@ -107,6 +108,8 @@ struct grub_disk_dev
   struct grub_disk_dev *next;
 };
 typedef struct grub_disk_dev *grub_disk_dev_t;
+
+extern struct grub_disk_dev grub_mem_disk_dev;
 
 extern grub_disk_dev_t EXPORT_VAR (grub_disk_dev_list);
 
