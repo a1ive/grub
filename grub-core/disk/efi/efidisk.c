@@ -814,12 +814,10 @@ grub_efidisk_get_device_name_iter (grub_disk_t disk,
 }
 
 char *
-grub_efidisk_get_device_name (grub_efi_handle_t *handle)
+grub_efidisk_get_device_name_from_dp (grub_efi_device_path_t *dp)
 {
-  grub_efi_device_path_t *dp, *ldp;
+  grub_efi_device_path_t *ldp;
   char device_name[NEEDED_BUFLEN];
-
-  dp = grub_efi_get_device_path (handle);
   if (! dp)
     return 0;
 
@@ -909,4 +907,12 @@ grub_efidisk_get_device_name (grub_efi_handle_t *handle)
   if (!get_diskname_from_path (dp, device_name))
     return 0;
   return grub_strdup (device_name);
+}
+
+char *
+grub_efidisk_get_device_name (grub_efi_handle_t *handle)
+{
+  grub_efi_device_path_t *dp;
+  dp = grub_efi_get_device_path (handle);
+  return grub_efidisk_get_device_name_from_dp (dp);
 }

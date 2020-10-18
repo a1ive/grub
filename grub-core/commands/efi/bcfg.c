@@ -31,7 +31,6 @@
 #include <grub/misc.h>
 #include <grub/mm.h>
 #include <grub/net.h>
-#include <grub/term.h>
 #include <grub/types.h>
 
 GRUB_MOD_LICENSE ("GPLv3+");
@@ -210,6 +209,96 @@ out:
   return file_dp;
 }
 
+static char *dp_to_str (grub_efi_device_path_t *dp)
+{
+  grub_efi_device_path_t *p = dp;
+  char *file = grub_efi_get_filename (dp);
+  char *disk, *str;
+  if (file)
+  {
+    while (p)
+    {
+      grub_efi_uint8_t type = GRUB_EFI_DEVICE_PATH_TYPE (p);
+      grub_efi_uint8_t subtype = GRUB_EFI_DEVICE_PATH_SUBTYPE (p);
+      if (type == GRUB_EFI_END_DEVICE_PATH_TYPE)
+        break;
+      if (type == GRUB_EFI_MEDIA_DEVICE_PATH_TYPE &&
+          subtype == GRUB_EFI_FILE_PATH_DEVICE_PATH_SUBTYPE)
+      {
+        p->type = GRUB_EFI_END_DEVICE_PATH_TYPE;
+        p->subtype = GRUB_EFI_END_ENTIRE_DEVICE_PATH_SUBTYPE;
+        p->length = sizeof (grub_efi_device_path_protocol_t);
+        break;
+      }
+      p = GRUB_EFI_NEXT_DEVICE_PATH (p);
+    }
+  }
+  disk = grub_efidisk_get_device_name_from_dp (dp);
+  str = grub_xasprintf ("(%s)%s", disk ? disk : "unknown", file ? file : "");
+  if (disk)
+    grub_free (disk);
+  if (file)
+    grub_free (file);
+  return str;
+}
+
+static inline void efi_free_pool (void *data)
+{
+  efi_call_1 (grub_efi_system_table->boot_services->free_pool, data);
+  data = NULL;
+}
+
+static void *efi_get_env (const char *var, grub_size_t *datasize_out)
+{
+  grub_efi_status_t status;
+  grub_efi_uintn_t datasize = 0;
+  grub_efi_runtime_services_t *r = grub_efi_system_table->runtime_services;
+  grub_efi_boot_services_t *b = grub_efi_system_table->boot_services;
+  grub_efi_char16_t *var16;
+  grub_efi_guid_t guid = GRUB_EFI_GLOBAL_VARIABLE_GUID;
+  void *data;
+  grub_size_t len, len16;
+
+  *datasize_out = 0;
+
+  len = grub_strlen (var);
+  len16 = len * GRUB_MAX_UTF16_PER_UTF8;
+  var16 = grub_calloc (len16 + 1, sizeof (var16[0]));
+  if (!var16)
+    return NULL;
+  len16 = grub_utf8_to_utf16 (var16, len16, (grub_uint8_t *) var, len, NULL);
+  var16[len16] = 0;
+
+  status = efi_call_5 (r->get_variable, var16, &guid, NULL, &datasize, NULL);
+
+  if (status != GRUB_EFI_BUFFER_TOO_SMALL || !datasize)
+  {
+    grub_free (var16);
+    return NULL;
+  }
+
+  status = efi_call_3 (b->allocate_pool, GRUB_EFI_BOOT_SERVICES_DATA,
+                       datasize, (void **) &data);
+  if (status != GRUB_EFI_SUCCESS)
+  {
+    grub_free (var16);
+    return NULL;
+  }
+  grub_memset (data, 0, datasize);
+
+  status = efi_call_5 (r->get_variable, var16, &guid, NULL, &datasize, data);
+  grub_free (var16);
+
+  if (status == GRUB_EFI_SUCCESS)
+  {
+    *datasize_out = datasize;
+    return data;
+  }
+
+  efi_call_1 (b->free_pool, data);
+  return NULL;
+}
+
 static grub_err_t bcfg_help (void)
 {
   grub_printf ("bcfg\n  Manage the boot options that are stored in NVRAM.\n");
@@ -296,7 +385,7 @@ static char *loadopt_dump (bcfg_loadopt loadopt, bcfg_loadopt_data_type type)
       break;
     case BCFG_LOADOPT_DATA_FILE:
       if (loadopt->dp)
-        ret = grub_efi_device_path_to_str (loadopt->dp);
+        ret = dp_to_str (loadopt->dp);
       break;
     case BCFG_LOADOPT_DATA_ATTR:
       ret = grub_xasprintf ("%s%s%s%s%s%s",
@@ -308,16 +397,16 @@ static char *loadopt_dump (bcfg_loadopt loadopt, bcfg_loadopt_data_type type)
                 (loadopt->attr & LOAD_OPTION_CATEGORY_APP) ? "CA+" : "");
       break;
     case BCFG_LOADOPT_DATA_ALL:
-      grub_printf ("Description: %s\nAttributes: %s%s%s%s%s%s\nPath: ",
+      ret = dp_to_str (loadopt->dp);
+      grub_printf ("Description: %s\nAttributes: %s%s%s%s%s%s\nPath: %s\n",
               loadopt->desc ? loadopt->desc : "(null)",
               (loadopt->attr & LOAD_OPTION_ACTIVE) ? "AC+" : "",
               (loadopt->attr & LOAD_OPTION_FORCE_RECONNECT) ? "FR+" : "",
               (loadopt->attr & LOAD_OPTION_HIDDEN) ? "HI+" : "",
               (loadopt->attr & LOAD_OPTION_CATEGORY) ? "CT+" : "",
               (loadopt->attr & LOAD_OPTION_CATEGORY_BOOT) ? "CB+" : "",
-              (loadopt->attr & LOAD_OPTION_CATEGORY_APP) ? "CA+" : "");
-      grub_efi_print_device_path (loadopt->dp);
-      grub_printf ("\n");
+              (loadopt->attr & LOAD_OPTION_CATEGORY_APP) ? "CA+" : "",
+              ret ? ret : "(null)");
       break;
     default:
       grub_error (GRUB_ERR_BAD_OS, "unknown data type");
@@ -400,15 +489,14 @@ static grub_err_t bcfg_env_get (const char *env,
 {
   efi_loadopt data = NULL;
   grub_size_t size = 0, data_ofs;
-  grub_efi_guid_t guid = GRUB_EFI_GLOBAL_VARIABLE_GUID;
 
-  data = grub_efi_get_variable (env, &guid, &size);
+  data = efi_get_env (env, &size);
   if (!data)
     return grub_error (GRUB_ERR_FILE_NOT_FOUND, N_("No such variable"));
   if (size < sizeof (grub_uint16_t) + sizeof (grub_uint32_t) ||
       size < data->dp_len + 2 * sizeof (grub_uint16_t) + sizeof (grub_uint32_t))
   {
-    grub_free (data);
+    efi_free_pool (data);
     return grub_error (GRUB_ERR_BAD_OS, "invalid bootopt");
   }
   size = size - (sizeof (grub_uint16_t) + sizeof (grub_uint32_t));
@@ -420,20 +508,19 @@ static grub_err_t bcfg_env_get (const char *env,
   loadopt->desc = grub_zalloc (data_ofs);
   if (!loadopt->desc)
   {
-    grub_free (data);
+    efi_free_pool (data);
     return grub_error (GRUB_ERR_OUT_OF_MEMORY, "out of memory");
   }
   grub_utf16_to_utf8 ((void *)loadopt->desc, (void *)data->data, data_ofs);
 
-  loadopt->dp = grub_malloc (data->dp_len);
+  loadopt->dp = grub_efi_duplicate_device_path ((void *)(data->data + data_ofs));
   if (!loadopt->dp)
   {
-    grub_free (data);
+    efi_free_pool (data);
     loadopt_free (loadopt);
     return grub_error (GRUB_ERR_OUT_OF_MEMORY, "out of memory");
   }
 
-  grub_memcpy (loadopt->dp, data->data + data_ofs, data->dp_len);
   data_ofs += data->dp_len;
   if (data_ofs < size)
   {
@@ -441,14 +528,14 @@ static grub_err_t bcfg_env_get (const char *env,
     loadopt->data = grub_malloc (loadopt->data_len);
     if (!loadopt->data)
     {
-      grub_free (data);
+      efi_free_pool (data);
       loadopt_free (loadopt);
       return grub_error (GRUB_ERR_OUT_OF_MEMORY, "out of memory");
     }
     grub_memcpy (loadopt->data, data->data + data_ofs,
                  loadopt->data_len);
   }
-  grub_free (data);
+  efi_free_pool (data);
   return GRUB_ERR_NONE;
 }
 
@@ -566,9 +653,8 @@ static const char *bcfg_u16_get (const char *env)
   static char ret[5];
   grub_uint16_t *data = NULL;
   grub_size_t size = 0;
-  grub_efi_guid_t guid = GRUB_EFI_GLOBAL_VARIABLE_GUID;
 
-  data = grub_efi_get_variable (env, &guid, &size);
+  data = efi_get_env (env, &size);
   if (!data)
   {
     grub_error (GRUB_ERR_FILE_NOT_FOUND, N_("No such variable"));
@@ -577,11 +663,11 @@ static const char *bcfg_u16_get (const char *env)
   if (size != sizeof (grub_uint16_t))
   {
     grub_error (GRUB_ERR_BAD_OS, "invalid env size");
-    grub_free (data);
+    efi_free_pool (data);
     return NULL;
   }
   grub_snprintf (ret, 5, "%04X", *data);
-  grub_free (data);
+  efi_free_pool (data);
   return ret;
 }
 
@@ -705,25 +791,25 @@ bcfg_order_get (const char *env, bcfg_order_list order)
 {
   grub_uint16_t *data = NULL;
   grub_size_t size = 0;
-  grub_efi_guid_t guid = GRUB_EFI_GLOBAL_VARIABLE_GUID;
   if (!env)
     return grub_error (GRUB_ERR_BAD_ARGUMENT, "bad argument");
 
   order->count = 0;
   order->entry = NULL;
 
-  data = grub_efi_get_variable (env, &guid, &size);
+  data = efi_get_env (env, &size);
   if (!data)
     return GRUB_ERR_NONE;
 
   order->entry = grub_zalloc (size);
   if (!order->entry)
   {
-    grub_free (data);
+    efi_free_pool (data);
     return grub_error (GRUB_ERR_OUT_OF_MEMORY, "out of memory");
   }
   grub_memcpy (order->entry, data, size);
   order->count = size / sizeof (grub_uint16_t);
+  efi_free_pool (data);
   return GRUB_ERR_NONE;
 }
 
