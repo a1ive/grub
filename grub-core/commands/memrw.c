@@ -24,7 +24,12 @@
 #include <grub/i18n.h>
 #include <grub/lua.h>
 #include <grub/file.h>
+#ifdef GRUB_MACHINE_EFI
+#include <grub/efi/api.h>
+#include <grub/efi/efi.h>
+#else
 #include <grub/relocator.h>
+#endif
 
 GRUB_MOD_LICENSE ("GPLv3+");
 
@@ -198,6 +203,11 @@ grub_cmd_loadfile (grub_extcmd_context_t ctxt, int argc, char** argv)
 
   if (state[LOAD_ADDR].set)
   {
+#ifdef GRUB_MACHINE_EFI
+    data = grub_efi_allocate_fixed ((grub_efi_physical_address_t)
+              grub_strtoull (state[LOAD_ADDR].arg, 0, 0),
+              ((grub_efi_uintn_t) len + ((1 << 12) - 1)) >> 12);
+#else
     struct grub_relocator *rel = NULL;
     grub_relocator_chunk_t ch;
     rel = grub_relocator_new ();
@@ -210,6 +220,7 @@ grub_cmd_loadfile (grub_extcmd_context_t ctxt, int argc, char** argv)
       goto fail;
     }
     data = get_virtual_current_address (ch);
+#endif
   }
   else
     data = grub_malloc (len);
