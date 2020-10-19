@@ -1424,38 +1424,6 @@ module = {
 };
 
 module = {
-  name = efiemu;
-  common = efiemu/main.c;
-  common = efiemu/i386/loadcore32.c;
-  common = efiemu/i386/loadcore64.c;
-  i386_pc = efiemu/i386/pc/cfgtables.c;
-  i386_coreboot = efiemu/i386/pc/cfgtables.c;
-  i386_multiboot = efiemu/i386/pc/cfgtables.c;
-  i386_ieee1275 = efiemu/i386/nocfgtables.c;
-  i386_qemu = efiemu/i386/nocfgtables.c;
-  common = efiemu/mm.c;
-  common = efiemu/loadcore_common.c;
-  common = efiemu/symbols.c;
-  common = efiemu/loadcore32.c;
-  common = efiemu/loadcore64.c;
-  common = efiemu/prepare32.c;
-  common = efiemu/prepare64.c;
-  common = efiemu/pnvram.c;
-  common = efiemu/i386/coredetect.c;
-
-  extra_dist = efiemu/prepare.c;
-  extra_dist = efiemu/loadcore.c;
-  extra_dist = efiemu/runtime/efiemu.S;
-  extra_dist = efiemu/runtime/efiemu.c;
-
-  enable = i386_pc;
-  enable = i386_coreboot;
-  enable = i386_ieee1275;
-  enable = i386_multiboot;
-  enable = i386_qemu;
-};
-
-module = {
   name = font;
   common = font/font.c;
   common = font/font_cmd.c;
@@ -1976,24 +1944,6 @@ module = {
   efi = loader/efi/fdt.c;
   common = lib/fdt.c;
   enable = fdt;
-};
-
-module = {
-  name = xnu;
-  x86 = loader/xnu_resume.c;
-  x86 = loader/i386/xnu.c;
-  x86 = loader/xnu.c;
-
-  /* Code is pretty generic but relies on RNG which
-     is available only on few platforms. It's not a
-     big deal as xnu needs ACPI anyway and we have
-     RNG on all platforms with ACPI.
-   */
-  enable = i386_multiboot;
-  enable = i386_coreboot;
-  enable = i386_pc;
-  enable = i386_efi;
-  enable = x86_64_efi;
 };
 
 module = {

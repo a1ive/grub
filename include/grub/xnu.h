@@ -80,40 +80,4 @@ struct grub_xnu_extheader
   grub_uint32_t namesize;
 } GRUB_PACKED;
 
-struct grub_xnu_devtree_key *grub_xnu_create_key (struct grub_xnu_devtree_key **parent,
-						  const char *name);
-
-extern struct grub_xnu_devtree_key *grub_xnu_devtree_root;
-
-void grub_xnu_free_devtree (struct grub_xnu_devtree_key *cur);
-
-grub_err_t grub_xnu_writetree_toheap (grub_addr_t *target, grub_size_t *size);
-struct grub_xnu_devtree_key *grub_xnu_create_value (struct grub_xnu_devtree_key **parent,
-						    const char *name);
-
-void grub_xnu_lock (void);
-void grub_xnu_unlock (void);
-grub_err_t grub_xnu_resume (char *imagename);
-grub_err_t grub_xnu_boot_resume (void);
-struct grub_xnu_devtree_key *grub_xnu_find_key (struct grub_xnu_devtree_key *parent,
-						const char *name);
-grub_err_t grub_xnu_align_heap (int align);
-grub_err_t grub_xnu_scan_dir_for_kexts (char *dirname,
-					const char *osbundlerequired,
-					int maxrecursion);
-grub_err_t grub_xnu_load_kext_from_dir (char *dirname,
-					const char *osbundlerequired,
-					int maxrecursion);
-grub_err_t grub_xnu_heap_malloc (int size, void **src, grub_addr_t *target);
-grub_err_t grub_xnu_fill_devicetree (void);
-extern struct grub_relocator *grub_xnu_relocator;
-
-extern grub_size_t grub_xnu_heap_size;
-extern struct grub_video_bitmap *grub_xnu_bitmap;
-typedef enum {GRUB_XNU_BITMAP_CENTER, GRUB_XNU_BITMAP_STRETCH}
-  grub_xnu_bitmap_mode_t;
-extern grub_xnu_bitmap_mode_t grub_xnu_bitmap_mode;
-extern int grub_xnu_is_64bit;
-extern grub_addr_t grub_xnu_heap_target_start;
-extern int grub_xnu_darwin_version;
 #endif
