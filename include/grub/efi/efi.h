@@ -219,14 +219,4 @@ grub_efi_bootpart (grub_efi_device_path_t *dp, const char *filename);
 grub_efi_handle_t
 grub_efi_bootdisk (grub_efi_device_path_t *dp, const char *filename);
 
-int grub_efi_fucksb_status (void);
-void grub_efi_fucksb_install (int hook);
-void grub_efi_fucksb_disable (void);
-void grub_efi_fucksb_enable (void);
-
-grub_efi_boolean_t
-grub_efi_fwsetup_is_supported (void);
-grub_err_t
-grub_efi_fwsetup_setvar (void);
-
 #endif /* ! GRUB_EFI_EFI_HEADER */

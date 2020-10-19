@@ -316,13 +316,13 @@ efi_exit_bs_wrapper (grub_efi_handle_t image_handle,
 }
 
 
-int
+static int
 grub_efi_fucksb_status (void)
 {
   return orig_get_variable ? 1:0;
 }
 
-void
+static void
 grub_efi_fucksb_install (int hook)
 {
   if (grub_efi_fucksb_status ())
@@ -342,13 +342,13 @@ grub_efi_fucksb_install (int hook)
   *(exit_bs *)&b->exit_boot_services = efi_exit_bs_wrapper;
 }
 
-void
+static void
 grub_efi_fucksb_disable (void)
 {
   secureboot_status = 0;
 }
 
-void
+static void
 grub_efi_fucksb_enable (void)
 {
   secureboot_status = 1;

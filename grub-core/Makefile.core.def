@@ -834,12 +834,6 @@ module = {
 };
 
 module = {
-  name = efifwsetup;
-  efi = commands/efi/efifwsetup.c;
-  enable = efi;
-};
-
-module = {
   name = alias;
   common = commands/alias.c;
 };
