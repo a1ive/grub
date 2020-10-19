@@ -23,6 +23,8 @@
 #include <grub/env.h>
 #include <grub/i18n.h>
 #include <grub/lua.h>
+#include <grub/file.h>
+#include <grub/relocator.h>
 
 GRUB_MOD_LICENSE ("GPLv3+");
 
@@ -141,6 +143,99 @@ grub_cmd_write_bytes (grub_command_t cmd __attribute__ ((unused)),
   return 0;
 }
 
+static const struct grub_arg_option options_load[] =
+{
+  {"skip", 'k', 0, N_("Skip N bytes from file."), "N", ARG_TYPE_INT},
+  {"length", 'l', 0, N_("Read only N bytes."), "N", ARG_TYPE_INT},
+  {"addr", 'a', 0, N_("Specify memory address."), "ADDR", ARG_TYPE_INT},
+  {"nodecompress", 'n', 0, N_("Don't decompress the file."), 0, 0},
+  {"set", 's', 0, N_("Store the file name in a variable."),
+    "VARNAME", ARG_TYPE_STRING},
+  {0, 0, 0, 0, 0, 0}
+};
+
+enum options_load
+{
+  LOAD_SKIP,
+  LOAD_LEN,
+  LOAD_ADDR,
+  LOAD_NODECOMP,
+  LOAD_SET,
+};
+
+static grub_err_t
+grub_cmd_loadfile (grub_extcmd_context_t ctxt, int argc, char** argv)
+{
+  struct grub_arg_list* state = ctxt->state;
+  grub_file_t file;
+  unsigned long long skip = 0, size, len;
+  enum grub_file_type type = GRUB_FILE_TYPE_LOOPBACK;
+  void *data = NULL;
+  char path[64];
+
+  if(argc != 1)
+    return grub_error(GRUB_ERR_BAD_ARGUMENT, "file name required");
+
+  if (state[LOAD_SKIP].set)
+    skip = grub_strtoull (state[LOAD_SKIP].arg, NULL, 0);
+  if (state[LOAD_NODECOMP].set)
+    type |= GRUB_FILE_TYPE_NO_DECOMPRESS;
+
+  file = grub_file_open (argv[0], type);
+  if (!file)
+    return grub_errno;
+
+  size = grub_file_size (file);
+  if (skip >= size)
+    return grub_error(GRUB_ERR_BAD_ARGUMENT, "skip >= file_size");
+  if (state[LOAD_LEN].set)
+    len = grub_strtoull (state[LOAD_LEN].arg, NULL, 0);
+  else
+    len = size;
+
+  if (skip + len > size)
+    len = size - skip;
+
+  if (state[LOAD_ADDR].set)
+  {
+    struct grub_relocator *rel = NULL;
+    grub_relocator_chunk_t ch;
+    rel = grub_relocator_new ();
+    if (!rel)
+      goto fail;
+    if (grub_relocator_alloc_chunk_addr (rel, &ch, (grub_phys_addr_t)
+              grub_strtoull (state[LOAD_ADDR].arg, 0, 0), len))
+    {
+      grub_relocator_unload (rel);
+      goto fail;
+    }
+    data = get_virtual_current_address (ch);
+  }
+  else
+    data = grub_malloc (len);
+  if (!data)
+  {
+    grub_error (GRUB_ERR_OUT_OF_MEMORY, "out of memory");
+    goto fail;
+  }
+
+  grub_file_seek (file, skip);
+
+  grub_file_read (file, data, len);
+  grub_snprintf (path, 64, "(mem)[%p]+[%llu]", data, len);
+  if (state[LOAD_SET].set)
+    grub_env_set (state[LOAD_SET].arg, path);
+  else
+    grub_printf ("File: %s\n", path);
+
+fail:
+  if (file)
+    grub_file_close (file);
+  return grub_errno;
+}
+
+static grub_extcmd_t cmd_load;
+
 static int
 lua_read_byte (lua_State *state)
 {
@@ -236,6 +331,9 @@ GRUB_MOD_INIT(memrw)
     grub_register_command ("write_bytes", grub_cmd_write_bytes,
 			   N_("ADDR VALUE1 [VALUE2 [VALUE3 ...]]"),
 			   N_("Write sequences of 8-bit VALUES to ADDR."));
+  cmd_load = grub_register_extcmd ("loadfile", grub_cmd_loadfile, 0,
+                                   N_("[OPTIONS] FILE"),
+                                   N_("Load a file to memory."), options_load);
   if (grub_lua_global_state)
   {
     lua_gc (grub_lua_global_state, LUA_GCSTOP, 0);
@@ -253,4 +351,5 @@ GRUB_MOD_FINI(memrw)
   grub_unregister_command (cmd_write_word);
   grub_unregister_command (cmd_write_dword);
   grub_unregister_command (cmd_write_bytes);
+  grub_unregister_extcmd (cmd_load);
 }
