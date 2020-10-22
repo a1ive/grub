@@ -276,6 +276,7 @@ grub_linux_setup_video (struct linux_kernel_params *params)
 	case GRUB_VIDEO_DRIVER_RADEON_YEELOONG3A:
 	case GRUB_VIDEO_DRIVER_IEEE1275:
 	case GRUB_VIDEO_DRIVER_COREBOOT:
+	case GRUB_VIDEO_DRIVER_MULTIBOOT:
 	  /* Make gcc happy. */
 	case GRUB_VIDEO_DRIVER_XEN:
 	case GRUB_VIDEO_DRIVER_SDL:

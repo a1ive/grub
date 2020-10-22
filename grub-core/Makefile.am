@@ -138,6 +138,11 @@ endif
 if COND_i386_multiboot
 KERNEL_HEADER_FILES += $(top_builddir)/include/grub/machine/kernel.h
 KERNEL_HEADER_FILES += $(top_srcdir)/include/grub/i386/tsc.h
+KERNEL_HEADER_FILES += $(top_srcdir)/include/grub/video.h
+KERNEL_HEADER_FILES += $(top_srcdir)/include/grub/video_fb.h
+KERNEL_HEADER_FILES += $(top_srcdir)/include/grub/gfxterm.h
+KERNEL_HEADER_FILES += $(top_srcdir)/include/grub/font.h
+KERNEL_HEADER_FILES += $(top_srcdir)/include/grub/bufio.h
 KERNEL_HEADER_FILES += $(top_srcdir)/include/grub/acpi.h
 endif
 

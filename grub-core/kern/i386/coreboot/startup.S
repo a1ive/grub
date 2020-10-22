@@ -31,33 +31,45 @@
  *       with "ret $N" where N is ((the number of arguments) - 3) * 4.
  */
 
-	.file	"startup.S"
-	.text
-	.globl	start, _start
+    .file    "startup.S"
+    .text
+    .globl   start, _start
 start:
 _start:
 #ifdef GRUB_MACHINE_MULTIBOOT
-	cmpl	$MULTIBOOT_BOOTLOADER_MAGIC, %eax
-	jne 0f
-	movl	%ebx, EXT_C(startup_multiboot_info)
+    cmpl    $MULTIBOOT_BOOTLOADER_MAGIC, %eax
+    jne     0f
+    movl    %ebx, EXT_C(grub_multiboot_info)
 0:
 #endif
 
-	/* initialize the stack */
-	movl $GRUB_MEMORY_MACHINE_PROT_STACK, %esp
+    /* initialize the stack */
+    movl  $GRUB_MEMORY_MACHINE_PROT_STACK, %esp
 
-	/* jump to the main body of C code */
-	jmp EXT_C(grub_main)
+    /* jump to the main body of C code */
+    jmp   EXT_C(grub_main)
 
 /*
  *  Support for booting GRUB from a Multiboot boot loader (e.g. GRUB itself).
  */
-	.p2align	2	/* force 4-byte alignment */
+#define MULTIBOOT_FLAGS (MULTIBOOT_MEMORY_INFO | \
+                         MULTIBOOT_VIDEO_MODE)
+    .p2align  2 /* force 4-byte alignment */
 multiboot_header:
-	/* magic */
-	.long	0x1BADB002
-	/* flags */
-	.long	MULTIBOOT_MEMORY_INFO
-	/* checksum */
-	.long	-0x1BADB002 - MULTIBOOT_MEMORY_INFO
+    /* magic */
+    .long   MULTIBOOT_HEADER_MAGIC
+    /* flags */
+    .long   MULTIBOOT_FLAGS
+    /* checksum */
+    .long   -(MULTIBOOT_HEADER_MAGIC+MULTIBOOT_FLAGS) /* checksum */
+    .long   0
+    .long   0
+    .long   0
+    .long   0
+    .long   0
+
+    .long   0 /* mode_type */
+    .long   1024 /* cols */
+    .long   768 /* rows */
+    .long   0 /* color depth */
 

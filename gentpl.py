@@ -70,7 +70,7 @@ GROUPS["pci"]      = GROUPS["x86"] + ["mips_loongson"]
 GROUPS["usb"]      = GROUPS["pci"] + ["arm_coreboot"]
 
 # If gfxterm is main output console integrate it into kernel
-GROUPS["videoinkernel"] = ["mips_loongson", "i386_coreboot", "arm_coreboot" ]
+GROUPS["videoinkernel"] = ["mips_loongson", "i386_coreboot", "arm_coreboot", "i386_multiboot" ]
 GROUPS["videomodules"]   = GRUB_PLATFORMS[:];
 for i in GROUPS["videoinkernel"]: GROUPS["videomodules"].remove(i)
 
