@@ -204,8 +204,8 @@ kernel = {
   efi = term/efi/console.c;
   efi = kern/acpi.c;
   efi = kern/efi/acpi.c;
-  i386_coreboot = kern/i386/pc/acpi.c;
-  i386_multiboot = kern/i386/pc/acpi.c;
+  i386_coreboot = kern/i386/coreboot/acpi.c;
+  i386_multiboot = kern/i386/coreboot/acpi.c;
   i386_coreboot = kern/acpi.c;
   i386_multiboot = kern/acpi.c;
 
@@ -1230,8 +1230,8 @@ module = {
   common = commands/smbios.c;
   efi = commands/efi/smbios.c;
   i386_pc = commands/i386/pc/smbios.c;
-  i386_coreboot = commands/i386/pc/smbios.c;
-  i386_multiboot = commands/i386/pc/smbios.c;
+  i386_coreboot = commands/i386/coreboot/smbios.c;
+  i386_multiboot = commands/i386/coreboot/smbios.c;
 
   enable = efi;
   enable = i386_pc;
@@ -2946,4 +2946,10 @@ module = {
 module = {
   name = setkey;
   common = term/setkey.c;
+};
+
+module = {
+  name = mbinfo;
+  common = commands/i386/multiboot/mbinfo.c;
+  enable = i386_multiboot;
 };

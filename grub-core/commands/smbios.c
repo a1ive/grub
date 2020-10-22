@@ -1,7 +1,7 @@
 /* smbios.c - retrieve smbios information. */
 /*
  *  GRUB  --  GRand Unified Bootloader
- *  Copyright (C) 2013,2014,2015,2019  Free Software Foundation, Inc.
+ *  Copyright (C) 2013,2014,2015,2019,2020  Free Software Foundation, Inc.
  *
  *  GRUB is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -24,6 +24,7 @@
 #include <grub/misc.h>
 #include <grub/mm.h>
 #include <grub/smbios.h>
+#include <grub/procfs.h>
 
 GRUB_MOD_LICENSE ("GPLv3+");
 
@@ -367,6 +368,54 @@ grub_cmd_smbios (grub_extcmd_context_t ctxt,
   return GRUB_ERR_NONE;
 }
 
+static char *
+get_smbios (grub_size_t *sz)
+{
+  *sz = 0;
+  char *ret = NULL;
+  struct grub_smbios_eps *eps = NULL;
+  eps = grub_smbios_get_eps ();
+  if (eps)
+    *sz = sizeof (struct grub_smbios_eps);
+  else
+    return NULL;
+  ret = grub_malloc (*sz);
+  if (!ret)
+    return NULL;
+  grub_memcpy (ret, eps, *sz);
+  return ret;
+}
+
+struct grub_procfs_entry proc_smbios =
+{
+  .name = "smbios",
+  .get_contents = get_smbios,
+};
+
+static char *
+get_smbios3 (grub_size_t *sz)
+{
+  *sz = 0;
+  char *ret = NULL;
+  struct grub_smbios_eps3 *eps3 = NULL;
+  eps3 = grub_smbios_get_eps3 ();
+  if (eps3)
+    *sz = sizeof (struct grub_smbios_eps3);
+  else
+    return NULL;
+  ret = grub_malloc (*sz);
+  if (!ret)
+    return NULL;
+  grub_memcpy (ret, eps3, *sz);
+  return ret;
+}
+
+struct grub_procfs_entry proc_smbios3 =
+{
+  .name = "smbios3",
+  .get_contents = get_smbios3,
+};
+
 GRUB_MOD_INIT(smbios)
 {
   struct grub_smbios_eps3 *eps3;
@@ -390,9 +439,13 @@ GRUB_MOD_INIT(smbios)
                                  "(-b|-w|-d|-q|-s|-u) offset "
                                  "[--set variable]"),
                               N_("Retrieve SMBIOS information."), options);
+  grub_procfs_register ("smbios", &proc_smbios);
+  grub_procfs_register ("smbios3", &proc_smbios3);
 }
 
 GRUB_MOD_FINI(smbios)
 {
   grub_unregister_extcmd (cmd);
+  grub_procfs_unregister (&proc_smbios);
+  grub_procfs_unregister (&proc_smbios3);
 }
