@@ -257,6 +257,56 @@ grub_gfxmenu_clear_timeout (void *data)
     redraw_timeouts (view);
 }
 
+struct grub_gfxmenu_help_message_notify *grub_gfxmenu_help_message_notifications;
+
+
+void
+grub_gfxmenu_print_help_message (const char * help_message, void *data)
+{
+  struct grub_gfxmenu_help_message_notify *cur;
+  struct grub_gfxmenu_view *view = data;
+
+  for (cur = grub_gfxmenu_help_message_notifications; cur; cur = cur->next)
+    {
+      if(cur->self->ops->set_property)
+        {
+          cur->self->ops->set_property(cur->self, "visible", "true");
+          cur->self->ops->set_property(cur->self, "text", help_message ? help_message , "");
+        }
+      if(cur->self->ops->paint && cur->self->ops->get_bounds) 
+        {
+          grub_video_rect_t bounds;
+          cur->self->ops->get_bounds (cur->self, &bounds);
+          grub_video_set_area_status (GRUB_VIDEO_AREA_ENABLED);
+          cur->self->ops->paint(cur->self, &bounds);
+          grub_gfxmenu_view_redraw (view, &bounds);
+        }
+    }
+}
+
+void
+grub_gfxmenu_clear_help_message (void *data)
+{
+  struct grub_gfxmenu_help_message_notify *cur;
+  struct grub_gfxmenu_view *view = data;
+
+  for (cur = grub_gfxmenu_help_message_notifications; cur; cur = cur->next)
+    {
+      if(cur->self->ops->set_property)
+        {
+          cur->self->ops->set_property(cur->self, "visible", "false");
+        }
+      if(cur->self->ops->paint && cur->self->ops->get_bounds) 
+        {
+          grub_video_rect_t bounds;
+          cur->self->ops->get_bounds (cur->self, &bounds);
+          grub_video_set_area_status (GRUB_VIDEO_AREA_ENABLED);
+          cur->self->ops->paint(cur->self, &bounds);
+          grub_gfxmenu_view_redraw (view, &bounds);
+        }
+    }
+}
+
 static void
 update_menu_visit (grub_gui_component_t component,
                    void *userdata)

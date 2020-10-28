@@ -142,6 +142,7 @@ grub_normal_add_menu_entry (int argc, const char **args, char **classes,
 			    const char *id,
 			    const char *users, const char *hotkey,
 			    const char *prefix, const char *sourcecode,
+                            const char *help_message,
 			    int submenu, int hidden, int *index, struct bls_entry *bls);
 
 void grub_normal_clear_menu (void);

@@ -76,6 +76,8 @@ struct grub_menu_entry
   
   int hidden;
 
+  const char *help_message;
+
   /* The next element.  */
   struct grub_menu_entry *next;
 
