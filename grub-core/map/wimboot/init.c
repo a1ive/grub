@@ -112,20 +112,26 @@ iswim (const char *name)
 static void
 add_orig (struct vfat_file *wimfile, struct wimboot_cmdline *cmd)
 {
-  unsigned int i;
+  unsigned int i, cnt;
   struct vfat_file *file;
+  char inject_path[256];
   char path[WIM_MAX_PATH];
   wchar_t wpath[WIM_MAX_PATH];
   char name[VDISK_NAME_LEN + 1];
   wchar_t wname[VDISK_NAME_LEN + 1];
-  wcstombs (path, cmd->inject, 256);
+  wcstombs (inject_path, cmd->inject, 256);
 
-  for (i = 0 ;i < VDISK_MAX_FILES; i++ )
+  for (cnt = 0 ;cnt < VDISK_MAX_FILES; cnt++ )
   {
-    file = &vfat_files[i];
+    file = &vfat_files[cnt];
     if (!file->opaque)
       break;
-    grub_snprintf (path, WIM_MAX_PATH, "%s\\%s", path, file->name);
+  }
+
+  for (i = 0 ;i < cnt; i++ )
+  {
+    file = &vfat_files[i];
+    grub_snprintf (path, WIM_MAX_PATH, "%s\\%s", inject_path, file->name);
     mbstowcs (wpath, path, WIM_MAX_PATH);
     grub_snprintf (name, VDISK_NAME_LEN + 1, "orig_%s", file->name);
     mbstowcs (wname, name, VDISK_NAME_LEN + 1);

@@ -197,6 +197,14 @@ static int wim_inject_file ( struct vfat_file *vfile ) {
   if ( ! vfile->read )
     return 0;
 
+  /* Ignore bootmgr files */
+  if ( strcasecmp ( vfile->name, "bootmgr" ) == 0 )
+    return 0;
+
+  /* Ignore bootmgr.exe files */
+  if ( strcasecmp ( vfile->name, "bootmgr.exe" ) == 0 )
+    return 0;
+
   /* Ignore BCD files */
   if ( strcasecmp ( vfile->name, "BCD" ) == 0 )
     return 0;
@@ -211,6 +219,10 @@ static int wim_inject_file ( struct vfat_file *vfile ) {
 
   /* Ignore .sdi files */
   if ( strcasecmp ( ext, ".sdi" ) == 0 )
+    return 0;
+
+  /* Ignore .efi files */
+  if ( strcasecmp ( ext, ".efi" ) == 0 )
     return 0;
 
   return 1;
