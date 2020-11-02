@@ -2726,7 +2726,7 @@ module = {
 
 module = {
   name = vhd;
-  common = disk/vhd.c;
+  common = io/vhdio.c;
 };
 
 module = {

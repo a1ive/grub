@@ -1,7 +1,6 @@
-/* vhd.c - command to add vhd devices.  */
 /*
  *  GRUB  --  GRand Unified Bootloader
- *  Copyright (C) 2019  Free Software Foundation, Inc.
+ *  Copyright (C) 2019,2020  Free Software Foundation, Inc.
  *
  *  GRUB is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -53,9 +52,7 @@
 #include <grub/dl.h>
 #include <grub/misc.h>
 #include <grub/file.h>
-#include <grub/disk.h>
 #include <grub/mm.h>
-#include <grub/extcmd.h>
 
 /* begin of common VHD code, better to put this to a separate file */
 
@@ -268,11 +265,8 @@ typedef const PDMMEDIAGEOMETRY *PCPDMMEDIAGEOMETRY;
  */
 typedef struct VHDIMAGE
 {
-    /** Base image name. */
-    const char      *pszFilename;
-
     /** Descriptor file if applicable. */
-    grub_file_t          File;    
+    grub_file_t          File;
 
     /** Open flags passed by VBoxHD layer. not used in BIOS */
     grub_uint32_t        uOpenFlags;
@@ -303,18 +297,18 @@ typedef struct VHDIMAGE
     /** Total Number of entries in the table. */
     grub_uint32_t        cBlockAllocationTableEntries;
 
-	/** the start block entry in the table, loaded from vhd file, this 0 or 512 multiples. */
-	grub_uint32_t		 cBlockAllocationTableStartEntry;
+    /** the start block entry in the table, loaded from vhd file, this 0 or 512 multiples. */
+    grub_uint32_t         cBlockAllocationTableStartEntry;
 
-	/** Number of entries in the table, loaded from vhd file, 
-	    we use 512 entries, so the table takes 2K in RAM, covers 1G disk for 2M block */
-	grub_uint32_t		 cBlockAllocationTableEntriesInCache;
+    /** Number of entries in the table, loaded from vhd file, 
+        we use 512 entries, so the table takes 2K in RAM, covers 1G disk for 2M block */
+    grub_uint32_t         cBlockAllocationTableEntriesInCache;
 
     /** Size of one data block. */
     grub_uint32_t        cbDataBlock;
     /** Sectors per data block. */
     grub_uint32_t        cSectorsPerDataBlock;
-	grub_uint32_t        cSectorsPerDataBlockShift;
+    grub_uint32_t        cSectorsPerDataBlockShift;
     /** Length of the sector bitmap in bytes. */
     grub_uint32_t        cbDataBlockBitmap;
     /** A copy of the disk footer. */
@@ -371,15 +365,15 @@ static int vhdLoadDynamicDisk(PVHDIMAGE pImage, grub_uint64_t uDynamicDiskHeader
  */
 DECLINLINE(bool) is_power_of_2(grub_uint32_t n)
 {
-	return (n != 0 && ((n & (n - 1)) == 0));
+    return (n != 0 && ((n & (n - 1)) == 0));
 }
 
 DECLINLINE(grub_uint32_t) _log2(grub_uint32_t x)
 {
-	int targetlevel = 0; 
-	while (x >>= 1) ++targetlevel; 
+    int targetlevel = 0; 
+    while (x >>= 1) ++targetlevel; 
 
-	return targetlevel;
+    return targetlevel;
 }
 
 /**
@@ -400,41 +394,14 @@ DECLINLINE(bool) ASMBitTest(const volatile void *pvBitmap, grub_uint32_t iBit)
    return (((((grub_uint32_t *)pvBitmap)[(iBit) / 32]) >> ((iBit) % 32)) & 0x1);
 }
 
-static int vhdFileOpen(PVHDIMAGE pImage)
-{
-    int rc = GRUB_ERR_NONE;
-    
-    pImage->File = grub_file_open(pImage->pszFilename, GRUB_FILE_TYPE_LOOPBACK);
-	if (pImage->File == NULL)
-		rc = grub_errno;
-
-    return rc;
-}
-
-static int vhdFileClose(PVHDIMAGE pImage)
-{
-    int rc = GRUB_ERR_NONE;
-
-    if (pImage->File != NIL_RTFILE)
-        rc = grub_file_close(pImage->File);
-
-    pImage->File = 0;
-
-    return rc;
-}
-
 static grub_uint64_t vhdGetSize(void *pBackendData)
 {
     PVHDIMAGE pImage = (PVHDIMAGE)pBackendData;
 
     if (pImage)
-    {       
         return pImage->cbSize;
-    }
     else
-	{
-		return 0;
-	}
+        return 0;
 }
 
 static int vhdFileGetSize(PVHDIMAGE pImage, grub_uint64_t *pcbSize)
@@ -450,15 +417,15 @@ static int vhdFileReadSync(PVHDIMAGE pImage, grub_uint64_t off, void *pvBuf, gru
 {
     int rc = GRUB_ERR_NONE;
 
-	grub_file_seek(pImage->File, off);
+    grub_file_seek(pImage->File, off);
 
     grub_ssize_t bytesRead = grub_file_read(pImage->File, pvBuf, cbRead);
 
-	if (pcbRead)
-	{
-		*pcbRead = bytesRead;
-	}
-	
+    if (pcbRead)
+    {
+        *pcbRead = bytesRead;
+    }
+
     return rc;
 }
 
@@ -470,31 +437,25 @@ static int vhdOpenImage(PVHDIMAGE pImage)
     /*
      * Open the image.
      */
-    int rc = vhdFileOpen(pImage);
-    if (RT_FAILURE(rc))
-    {
-        /* Do NOT signal an appropriate error here, as the VD layer has the
-         * choice of retrying the open if it failed. */
-        return rc;
-    }
+    int rc = 0;
 
     rc = vhdFileGetSize(pImage, &FileSize);
     pImage->FileSize = FileSize;
     pImage->uCurrentEndOfFile = FileSize - sizeof(VHDFooter);
-		
-	// often the time, grub2 has problems reading last sector, so we try the copy of the footer, huihong Luo
-	rc = vhdFileReadSync(pImage, 0, &vhdFooter, sizeof(VHDFooter), 0);	
-	//grub_printf("reading vhd footer from front.., Cookie=%s, rc=%d, sizeof(VHDFooter)=%d\n", vhdFooter.Cookie, rc, sizeof(VHDFooter));
+
+    // often the time, grub2 has problems reading last sector, so we try the copy of the footer, huihong Luo
+    rc = vhdFileReadSync(pImage, 0, &vhdFooter, sizeof(VHDFooter), 0);
+    //grub_printf("reading vhd footer from front.., Cookie=%s, rc=%d, sizeof(VHDFooter)=%d\n", vhdFooter.Cookie, rc, sizeof(VHDFooter));
     if (grub_memcmp(vhdFooter.Cookie, VHD_FOOTER_COOKIE, VHD_FOOTER_COOKIE_SIZE) != 0)
-	{		
-		rc = vhdFileReadSync(pImage, pImage->uCurrentEndOfFile, &vhdFooter, sizeof(VHDFooter), 0);	
-		//grub_printf("reading vhd footer from end.., Cookie=%s, rc=%d\n", vhdFooter.Cookie, rc);
-		if (grub_memcmp(vhdFooter.Cookie, VHD_FOOTER_COOKIE, VHD_FOOTER_COOKIE_SIZE) != 0)
-		{
-			// often the time, grub2 has problems reading last sector, so we try the copy of the footer, huihong Luo
-			return GRUB_VD_VHD_INVALID_HEADER;
-		}
-	}
+    {
+        rc = vhdFileReadSync(pImage, pImage->uCurrentEndOfFile, &vhdFooter, sizeof(VHDFooter), 0);
+        //grub_printf("reading vhd footer from end.., Cookie=%s, rc=%d\n", vhdFooter.Cookie, rc);
+        if (grub_memcmp(vhdFooter.Cookie, VHD_FOOTER_COOKIE, VHD_FOOTER_COOKIE_SIZE) != 0)
+        {
+            // often the time, grub2 has problems reading last sector, so we try the copy of the footer, huihong Luo
+            return GRUB_VD_VHD_INVALID_HEADER;
+        }
+    }
 
     switch (RT_BE2H_U32(vhdFooter.DiskType))
     {
@@ -546,27 +507,6 @@ static int vhdOpenImage(PVHDIMAGE pImage)
     return rc;
 }
 
-static int vhdOpen(const char *pszFilename, void **ppvBackendData)
-{
-    int rc = GRUB_ERR_NONE;
-    PVHDIMAGE pImage;   
-
-    pImage = (PVHDIMAGE)grub_zalloc(sizeof(VHDIMAGE));
-    if (!pImage)
-    {
-        rc = GRUB_ERR_OUT_OF_MEMORY;
-        return rc;
-    }
-    pImage->pszFilename = pszFilename;
-
-    pImage->File = NIL_RTFILE;
-
-    rc = vhdOpenImage(pImage);
-    if (RT_SUCCESS(rc))
-        *ppvBackendData = pImage;
-    return rc;
-}
-
 /**
  * Internal: Allocates the block bitmap rounding up to the next 32bit or 64bit boundary.
  *           Can be freed with RTMemFree. The memory is zeroed.
@@ -580,58 +520,58 @@ DECLINLINE(grub_uint8_t *) vhdBlockBitmapAllocate(PVHDIMAGE pImage)
 
 // read the allocation table starting from the specified block start entry
 static int vhdLoadAllocationTable(PVHDIMAGE pImage, grub_uint32_t cBlockAllocationTableEntry)
-{    
+{
     int rc = GRUB_ERR_NONE;
-	grub_uint32_t numEntries;
+    grub_uint32_t numEntries;
     grub_uint32_t *pBlockAllocationTable;
     unsigned i = 0;
 
-	numEntries = RT_MIN(pImage->cBlockAllocationTableEntries, VHD_ALLOCATION_TABLE_ENTRIES);
-	//grub_printf("vhdLoadAllocationTable(numEntries=%d, cBlockAllocationTableEntry=%d)\n", numEntries, cBlockAllocationTableEntry);
+    numEntries = RT_MIN(pImage->cBlockAllocationTableEntries, VHD_ALLOCATION_TABLE_ENTRIES);
+    //grub_printf("vhdLoadAllocationTable(numEntries=%d, cBlockAllocationTableEntry=%d)\n", numEntries, cBlockAllocationTableEntry);
 
-	pBlockAllocationTable = (grub_uint32_t *)grub_zalloc(numEntries * sizeof(grub_uint32_t));
+    pBlockAllocationTable = (grub_uint32_t *)grub_zalloc(numEntries * sizeof(grub_uint32_t));
     if (!pBlockAllocationTable)
         return GRUB_ERR_OUT_OF_MEMORY;
 
-	//pBlockAllocationTable = g_block_table_cache;
+    //pBlockAllocationTable = g_block_table_cache;
     pImage->cBlockAllocationTableEntriesInCache = numEntries;
 
     /*
      * Read the table.
      */
-	cBlockAllocationTableEntry -= (cBlockAllocationTableEntry % 512);
-	
+    cBlockAllocationTableEntry -= (cBlockAllocationTableEntry % 512);
+
     rc = vhdFileReadSync(pImage, pImage->uBlockAllocationTableOffset + cBlockAllocationTableEntry * sizeof(grub_uint32_t), 
-			pBlockAllocationTable, pImage->cBlockAllocationTableEntriesInCache * sizeof(grub_uint32_t), 0);
+            pBlockAllocationTable, pImage->cBlockAllocationTableEntriesInCache * sizeof(grub_uint32_t), 0);
 
     /*
      * Because the offset entries inside the allocation table are stored big endian
      * we need to convert them into host endian.
      */
-	if (pImage->pBlockAllocationTable == NULL)
-	{
-		pImage->pBlockAllocationTable = (grub_uint32_t *)grub_zalloc(pImage->cBlockAllocationTableEntriesInCache * sizeof(grub_uint32_t));
-		if (!pImage->pBlockAllocationTable)
-			return GRUB_ERR_OUT_OF_MEMORY;
-	}
+    if (pImage->pBlockAllocationTable == NULL)
+    {
+        pImage->pBlockAllocationTable = (grub_uint32_t *)grub_zalloc(pImage->cBlockAllocationTableEntriesInCache * sizeof(grub_uint32_t));
+        if (!pImage->pBlockAllocationTable)
+            return GRUB_ERR_OUT_OF_MEMORY;
+    }
 
     for (i = 0; i < pImage->cBlockAllocationTableEntriesInCache; i++)
         pImage->pBlockAllocationTable[i] = RT_BE2H_U32(pBlockAllocationTable[i]);
 
     grub_free(pBlockAllocationTable);
 
-	pImage->cBlockAllocationTableStartEntry = cBlockAllocationTableEntry;
+    pImage->cBlockAllocationTableStartEntry = cBlockAllocationTableEntry;
 
-	return rc;
+    return rc;
 }
 
 static int vhdLoadDynamicDisk(PVHDIMAGE pImage, grub_uint64_t uDynamicDiskHeaderOffset)
 {
     VHDDynamicDiskHeader vhdDynamicDiskHeader;
-    int rc = GRUB_ERR_NONE;    
+    int rc = GRUB_ERR_NONE;
     grub_uint64_t uBlockAllocationTableOffset;
 
-	//grub_printf("vhdLoadDynamicDisk()\n");
+    //grub_printf("vhdLoadDynamicDisk()\n");
 
     /*
      * Read the dynamic disk header.
@@ -649,14 +589,14 @@ static int vhdLoadDynamicDisk(PVHDIMAGE pImage, grub_uint64_t uDynamicDiskHeader
     pImage->cSectorsPerDataBlock = pImage->cbDataBlock / VHD_SECTOR_SIZE;
     //LogFlowFunc(("SectorsPerDataBlock=%u\n", pImage->cSectorsPerDataBlock));
 
-	/*
-	Block Size
-	A block is a unit of expansion for dynamic and differencing hard disks. 
-	It is stored in bytes. This size does not include the size of the block bitmap. 
-	It is only the size of the data section of the block. The sectors per block must always be a power of two. 
-	The default value is 0x00200000 (indicating a block size of 2 MB).
-	*/
-	pImage->cSectorsPerDataBlockShift = _log2(pImage->cSectorsPerDataBlock); 
+    /*
+    Block Size
+    A block is a unit of expansion for dynamic and differencing hard disks. 
+    It is stored in bytes. This size does not include the size of the block bitmap. 
+    It is only the size of the data section of the block. The sectors per block must always be a power of two. 
+    The default value is 0x00200000 (indicating a block size of 2 MB).
+    */
+    pImage->cSectorsPerDataBlockShift = _log2(pImage->cSectorsPerDataBlock); 
 
     /*
      * Every block starts with a bitmap indicating which sectors are valid and which are not.
@@ -676,8 +616,8 @@ static int vhdLoadDynamicDisk(PVHDIMAGE pImage, grub_uint64_t uDynamicDiskHeader
     uBlockAllocationTableOffset = RT_BE2H_U64(vhdDynamicDiskHeader.TableOffset);
     //LogFlowFunc(("uBlockAllocationTableOffset=%llu\n", uBlockAllocationTableOffset));
     pImage->uBlockAllocationTableOffset = uBlockAllocationTableOffset;
-    
-	pImage->uDataBlockStart = uBlockAllocationTableOffset + pImage->cBlockAllocationTableEntries * sizeof(grub_uint32_t);
+
+    pImage->uDataBlockStart = uBlockAllocationTableOffset + pImage->cBlockAllocationTableEntries * sizeof(grub_uint32_t);
     //LogFlowFunc(("uDataBlockStart=%llu\n", pImage->uDataBlockStart));
 
     rc = vhdLoadAllocationTable(pImage, 0);
@@ -725,24 +665,24 @@ static int vhdRead(void *pBackendData, grub_uint64_t uOffset, void *pvBuf, grub_
     {
         /*
          * Get the data block first.
-         */		
-		grub_uint32_t cBlockAllocationTableEntry = uOffset >> (VHD_SECTOR_SIZE_SHIFT + pImage->cSectorsPerDataBlockShift);
-		//grub_uint32_t cBATEntryIndex = (uOffset >> VHD_SECTOR_SIZE_SHIFT) % pImage->cSectorsPerDataBlock;
-		grub_uint64_t cBATEntryIndex;
-		grub_divmod64(uOffset >> VHD_SECTOR_SIZE_SHIFT, pImage->cSectorsPerDataBlock, &cBATEntryIndex);
+         */
+        grub_uint32_t cBlockAllocationTableEntry = uOffset >> (VHD_SECTOR_SIZE_SHIFT + pImage->cSectorsPerDataBlockShift);
+        //grub_uint32_t cBATEntryIndex = (uOffset >> VHD_SECTOR_SIZE_SHIFT) % pImage->cSectorsPerDataBlock;
+        grub_uint64_t cBATEntryIndex;
+        grub_divmod64(uOffset >> VHD_SECTOR_SIZE_SHIFT, pImage->cSectorsPerDataBlock, &cBATEntryIndex);
 
-		grub_uint32_t idx;
+        grub_uint32_t idx;
         grub_uint64_t uVhdOffset;
 
-		/* load the corresponding portion of the allocation table if not in cache */
-		if ((cBlockAllocationTableEntry < pImage->cBlockAllocationTableStartEntry) || 
-			(cBlockAllocationTableEntry >= pImage->cBlockAllocationTableStartEntry + pImage->cBlockAllocationTableEntriesInCache))
-		{
-			rc = vhdLoadAllocationTable(pImage, cBlockAllocationTableEntry);
-		}
+        /* load the corresponding portion of the allocation table if not in cache */
+        if ((cBlockAllocationTableEntry < pImage->cBlockAllocationTableStartEntry) ||
+            (cBlockAllocationTableEntry >= pImage->cBlockAllocationTableStartEntry + pImage->cBlockAllocationTableEntriesInCache))
+        {
+            rc = vhdLoadAllocationTable(pImage, cBlockAllocationTableEntry);
+        }
 
-		// index to the allocation table in cache
-		idx = cBlockAllocationTableEntry - pImage->cBlockAllocationTableStartEntry;
+        // index to the allocation table in cache
+        idx = cBlockAllocationTableEntry - pImage->cBlockAllocationTableStartEntry;
 
         //LogFlowFunc(("cBlockAllocationTableEntry=%u cBatEntryIndex=%u\n", cBlockAllocationTableEntry, cBATEntryIndex));
         //LogFlowFunc(("BlockAllocationEntry=%u\n", pImage->pBlockAllocationTable[idx]));
@@ -757,13 +697,13 @@ static int vhdRead(void *pBackendData, grub_uint64_t uOffset, void *pvBuf, grub_
             return GRUB_VD_BLOCK_FREE;
         }
 
-		// use the following when compile with gcc
+        // use the following when compile with gcc
 #if defined(__GNUC__)
         uVhdOffset = ((grub_uint64_t)pImage->pBlockAllocationTable[idx] + pImage->cDataBlockBitmapSectors + cBATEntryIndex) << VHD_SECTOR_SIZE_SHIFT;
 #else
-		uVhdOffset.LowPart = pImage->pBlockAllocationTable[idx];
-		uVhdOffset.HighPart = 0;
-		uVhdOffset = (uVhdOffset + pImage->cDataBlockBitmapSectors + cBATEntryIndex) << VHD_SECTOR_SIZE_SHIFT;
+        uVhdOffset.LowPart = pImage->pBlockAllocationTable[idx];
+        uVhdOffset.HighPart = 0;
+        uVhdOffset = (uVhdOffset + pImage->cDataBlockBitmapSectors + cBATEntryIndex) << VHD_SECTOR_SIZE_SHIFT;
 #endif
 
         //LogFlowFunc(("uVhdOffset=%llu cbRead=%u\n", uVhdOffset, cbRead));
@@ -773,14 +713,14 @@ static int vhdRead(void *pBackendData, grub_uint64_t uOffset, void *pvBuf, grub_
          */
         cbRead = RT_MIN(cbRead, (pImage->cbDataBlock - (cBATEntryIndex * VHD_SECTOR_SIZE)));
 
-		grub_uint64_t uVhdBitmapOffset;
+        grub_uint64_t uVhdBitmapOffset;
 
 #if defined(__GNUC__)
-		uVhdBitmapOffset = ((grub_uint64_t)pImage->pBlockAllocationTable[idx]) * VHD_SECTOR_SIZE;
+        uVhdBitmapOffset = ((grub_uint64_t)pImage->pBlockAllocationTable[idx]) * VHD_SECTOR_SIZE;
 #else
-		uVhdBitmapOffset.LowPart = pImage->pBlockAllocationTable[idx];
-		uVhdBitmapOffset.HighPart = 0;
-		uVhdBitmapOffset = uVhdBitmapOffset << VHD_SECTOR_SIZE_SHIFT;
+        uVhdBitmapOffset.LowPart = pImage->pBlockAllocationTable[idx];
+        uVhdBitmapOffset.HighPart = 0;
+        uVhdBitmapOffset = uVhdBitmapOffset << VHD_SECTOR_SIZE_SHIFT;
 #endif
 
         /* Read in the block's bitmap. */
@@ -839,9 +779,9 @@ static int vhdRead(void *pBackendData, grub_uint64_t uOffset, void *pvBuf, grub_
             }
         }
         else
-		{
+        {
             //AssertMsgFailed(("Reading block bitmap failed rc=%Rrc\n", rc));
-		}
+        }
     }
     else
     {
@@ -887,10 +827,9 @@ static int vhdFreeImage(PVHDIMAGE pImage)
     if (pImage)
     {
         //vhdFlush(pImage);
-        vhdFileClose(pImage);
         vhdFreeImageMemory(pImage);
     }
-    
+
     return rc;
 }
 
@@ -902,252 +841,138 @@ static int vhdClose(void *pBackendData)
     /* Freeing a never allocated image (e.g. because the open failed) is
      * not signalled as an error. After all nothing bad happens. */
     if (pImage)
-    {        
-		rc = vhdFreeImage(pImage);
+    {
+        rc = vhdFreeImage(pImage);
     }
-    
+
+    return rc;
+}
+
+static int vhdOpen(grub_file_t file, void **ppvBackendData)
+{
+    int rc = GRUB_ERR_NONE;
+    PVHDIMAGE pImage;
+
+    pImage = (PVHDIMAGE)grub_zalloc(sizeof(VHDIMAGE));
+    if (!pImage)
+    {
+        rc = GRUB_ERR_OUT_OF_MEMORY;
+        return rc;
+    }
+
+    if (file)
+      pImage->File = file;
+    else
+      pImage->File = NIL_RTFILE;
+
+    rc = vhdOpenImage(pImage);
+    if (RT_SUCCESS(rc))
+        *ppvBackendData = pImage;
     return rc;
 }
 /* end of common VHD code */
 
-struct grub_vhd
+struct grub_vhdio
 {
-  char *devname;
-  char *filename;
-  int has_partitions;
-  struct grub_vhd *next;
-};
-
-static struct grub_vhd *vhd_list;
-
-static const struct grub_arg_option options[] =
-  {
-    {"delete", 'd', 0, "delete the vhd device entry", 0, 0},
-    {"partitions", 'p', 0, "simulate a hard drive with partitions", 0, 0},
-    {0, 0, 0, 0, 0, 0}
-  };
-
-/* Delete the vhd device NAME.  */
-static grub_err_t
-delete_vhd (const char *name)
-{
-  struct grub_vhd *dev;
-  struct grub_vhd **prev;
-
-  /* Search for the device.  */
-  for (dev = vhd_list, prev = &vhd_list;
-       dev;
-       prev = &dev->next, dev = dev->next)
-    if (grub_strcmp (dev->devname, name) == 0)
-      break;
-
-  if (! dev)
-    return grub_error (GRUB_ERR_BAD_DEVICE, "Device not found");
-
-  /* Remove the device from the list.  */
-  *prev = dev->next;
-
-  grub_free (dev->devname);
-  grub_free (dev->filename);
-  grub_free (dev);
-
-  return 0;
-}
-
-/* The command to add and remove vhd devices.  */
-static grub_err_t
-grub_cmd_vhd (grub_extcmd_context_t ctxt, int argc, char **args)
-{
-  struct grub_arg_list *state = state = ctxt->state;
   grub_file_t file;
-  struct grub_vhd *newdev;
-
-  if (argc < 1)
-    return grub_error (GRUB_ERR_BAD_ARGUMENT, "device name required");
-
-  /* Check if `-d' was used.  */
-  if (state[0].set)
-      return delete_vhd (args[0]);
-
-  if (argc < 2)
-    return grub_error (GRUB_ERR_BAD_ARGUMENT, "file name required");
-
-  file = grub_file_open (args[1], GRUB_FILE_TYPE_LOOPBACK);
-  if (! file)
-    return grub_errno;
-
-  /* Close the file, the only reason for opening it is validation.  */
-  grub_file_close (file);
-
-  /* First try to replace the old device.  */
-  for (newdev = vhd_list; newdev; newdev = newdev->next)
-    if (grub_strcmp (newdev->devname, args[0]) == 0)
-      break;
-
-  if (newdev)
-    {
-      char *newname = grub_strdup (args[1]);
-      if (! newname)
-	return grub_errno;
-
-      grub_free (newdev->filename);
-      newdev->filename = newname;
-
-      /* Set has_partitions when `--partitions' was used.  */
-      newdev->has_partitions = state[1].set;
-
-      return 0;
-    }
-
-  /* Unable to replace it, make a new entry.  */
-  newdev = grub_malloc (sizeof (struct grub_vhd));
-  if (! newdev)
-    return grub_errno;
-
-  newdev->devname = grub_strdup (args[0]);
-  if (! newdev->devname)
-    {
-      grub_free (newdev);
-      return grub_errno;
-    }
-
-  newdev->filename = grub_strdup (args[1]);
-  if (! newdev->filename)
-    {
-      grub_free (newdev->devname);
-      grub_free (newdev);
-      return grub_errno;
-    }
-
-  /* Set has_partitions when `--partitions' was used.  */
-  newdev->has_partitions = state[1].set;
-
-  /* Add the new entry to the list.  */
-  newdev->next = vhd_list;
-  vhd_list = newdev;
-
-  return 0;
-}
-
-
-static int
-grub_vhd_iterate (grub_disk_dev_iterate_hook_t hook, void *hook_data,
-          grub_disk_pull_t pull)
-{
-  struct grub_vhd *d;
-  if (pull != GRUB_DISK_PULL_NONE)
-    return 0;
-  for (d = vhd_list; d; d = d->next)
-    {
-      if (hook (d->devname, hook_data))
-	return 1;
-    }
-  return 0;
-}
-
-static grub_err_t
-grub_vhd_open (const char *name, grub_disk_t disk)
-{
   void *vhd_file;
-  struct grub_vhd *dev;
-  int rc;
+};
+typedef struct grub_vhdio *grub_vhdio_t;
 
-  for (dev = vhd_list; dev; dev = dev->next)
-    if (grub_strcmp (dev->devname, name) == 0)
-      break;
+static struct grub_fs grub_vhdio_fs;
 
-  if (! dev)
-    return grub_error (GRUB_ERR_UNKNOWN_DEVICE, "Can't open device");
- 
-  rc = vhdOpen (dev->filename, &vhd_file);
-  //grub_printf("vhdOpen(name=%s, dev->filename=%s), rc=%d\n", name, dev->filename, rc);
-  if (rc != GRUB_ERR_NONE)
-    return rc;
+static grub_file_t
+grub_vhdio_open (grub_file_t io, enum grub_file_type type)
+{
+  grub_file_t file;
+  grub_vhdio_t vhdio;
 
-  /* Use the filesize for the disk size, round up to a complete sector.  */
-  disk->total_sectors = ((vhdGetSize(vhd_file) + GRUB_DISK_SECTOR_SIZE - 1)
-			 / GRUB_DISK_SECTOR_SIZE);
-  disk->id = (unsigned long) dev;
-  
-  //disk->has_partitions = dev->has_partitions;
-  disk->data = vhd_file;
+  if (type & GRUB_FILE_TYPE_NO_DECOMPRESS)
+    return io;
 
-  //grub_printf("grub_vhd_open(), capacity=0x%llx\n", vhdGetSize(vhd_file));
+  file = (grub_file_t) grub_zalloc (sizeof (*file));
+  if (!file)
+    return 0;
 
-  return 0;
+  vhdio = grub_zalloc (sizeof (*vhdio));
+  if (!vhdio)
+  {
+    grub_free (file);
+    return 0;
+  }
+
+  vhdio->file = io;
+
+  file->device = io->device;
+  file->data = vhdio;
+  file->fs = &grub_vhdio_fs;
+  file->size = GRUB_FILE_SIZE_UNKNOWN;
+  file->not_easily_seekable = io->not_easily_seekable;
+
+  if (grub_file_tell (vhdio->file) != 0)
+    grub_file_seek (vhdio->file, 0);
+
+  if (vhdOpen (io, &vhdio->vhd_file))
+  {
+    grub_errno = GRUB_ERR_NONE;
+    vhdClose (vhdio->vhd_file);
+    grub_file_seek (io, 0);
+    grub_free (vhdio);
+    grub_free (file);
+    return io;
+  }
+
+  file->size = vhdGetSize (vhdio->vhd_file);
+
+  return file;
 }
 
-static void
-grub_vhd_close (grub_disk_t disk)
+static grub_ssize_t
+grub_vhdio_read (grub_file_t file, char *buf, grub_size_t len)
 {
-  void *vhd_file = disk->data;
-
-  vhdClose(vhd_file);
-}
-
-static grub_err_t
-grub_vhd_read (grub_disk_t disk, grub_disk_addr_t sector,
-		    grub_size_t size, char *buf)
-{
-  void *vhd_file = disk->data;
+  grub_vhdio_t vhdio = file->data;
+  void *vhd_file = vhdio->vhd_file;
   grub_size_t actuallyRead;
   int rc;
-  grub_off_t pos;
-
-  //grub_printf("grub_vhd_read(sector=0x%llx, size=%d)\n", sector, size);
 
   actuallyRead = 0;
-  rc = vhdRead(vhd_file, sector << GRUB_DISK_SECTOR_BITS, buf, size << GRUB_DISK_SECTOR_BITS, &actuallyRead);	
+  rc = vhdRead (vhd_file, grub_file_tell (file), buf, len, &actuallyRead);
   if (rc != GRUB_ERR_NONE)
-    return rc;
+    return -1;
 
-  /* In case there is more data read than there is available, in case
-     of files that are not a multiple of GRUB_DISK_SECTOR_SIZE, fill
-     the rest with zeros.  */
-  pos = (sector + size) << GRUB_DISK_SECTOR_BITS;
-  if (pos > vhdGetSize(vhd_file))
-    {
-      grub_size_t amount = pos - vhdGetSize(vhd_file);
-      grub_memset (buf + (size << GRUB_DISK_SECTOR_BITS) - amount, 0, amount);
-    }
-
-  return 0;
+  return (grub_ssize_t) actuallyRead;
 }
 
 static grub_err_t
-grub_vhd_write (grub_disk_t disk __attribute ((unused)),
-		     grub_disk_addr_t sector __attribute ((unused)),
-		     grub_size_t size __attribute ((unused)),
-		     const char *buf __attribute ((unused)))
+grub_vhdio_close (grub_file_t file)
 {
-  return GRUB_ERR_NOT_IMPLEMENTED_YET;
+  grub_vhdio_t vhdio = file->data;
+  void *vhd_file = vhdio->vhd_file;
+
+  vhdClose (vhd_file);
+  grub_file_close (vhdio->file);
+  grub_free (vhdio);
+  file->device = 0;
+  file->name = 0;
+  return grub_errno;
 }
 
-static struct grub_disk_dev grub_vhd_dev =
-  {
-    .name = "vhd",
-    .id = GRUB_DISK_DEVICE_VHD_ID,
-    .disk_iterate = grub_vhd_iterate,
-    .disk_open = grub_vhd_open,
-    .disk_close = grub_vhd_close,
-    .disk_read = grub_vhd_read,
-    .disk_write = grub_vhd_write,
-    .next = 0
-  };
-
-static grub_extcmd_t cmd;
+static struct grub_fs grub_vhdio_fs = {
+  .name = "vhdio",
+  .fs_dir = 0,
+  .fs_open = 0,
+  .fs_read = grub_vhdio_read,
+  .fs_close = grub_vhdio_close,
+  .fs_label = 0,
+  .next = 0
+};
 
 GRUB_MOD_INIT(vhd)
 {
-  cmd = grub_register_extcmd ("vhd", grub_cmd_vhd,
-			      0,
-			      "[-d|-p] DEVICENAME FILE",
-			      "Make a device of a file.", options);
-  grub_disk_dev_register (&grub_vhd_dev);
+  grub_file_filter_register (GRUB_FILE_FILTER_VHDIO, grub_vhdio_open);
 }
 
 GRUB_MOD_FINI(vhd)
 {
-  grub_unregister_extcmd (cmd);
-  grub_disk_dev_unregister (&grub_vhd_dev);
+  grub_file_filter_unregister (GRUB_FILE_FILTER_VHDIO);
 }
