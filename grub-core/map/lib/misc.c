@@ -134,10 +134,16 @@ file_open (const char *name, int mem, int bl, int rt)
     void *addr = NULL;
     char newname[100];
 #ifdef GRUB_MACHINE_EFI
-    grub_efi_allocate_pool (rt ? GRUB_EFI_RUNTIME_SERVICES_DATA :
-                            GRUB_EFI_BOOT_SERVICES_DATA, size, &addr);
+    grub_efi_physical_address_t address = 0;
+    grub_efi_boot_services_t *b = grub_efi_system_table->boot_services;
+    grub_efi_uintn_t pages =
+            (((grub_efi_uintn_t) size + ((1 << 12) - 1)) >> 12);
+    efi_call_4 (b->allocate_pages, GRUB_EFI_ALLOCATE_ANY_PAGES,
+                rt ? GRUB_EFI_RUNTIME_SERVICES_DATA : GRUB_EFI_BOOT_SERVICES_DATA,
+                pages, &address);
+    addr = (void *) (grub_addr_t) address;
 #else
-    (void)rt;
+    (void) rt;
     addr = grub_malloc (size);
 #endif
     if (!addr)
@@ -185,7 +191,11 @@ file_close (grub_file_t file)
   if (grub_ismemfile (file->name))
   {
 #ifdef GRUB_MACHINE_EFI
-    grub_efi_free_pool (file->data);
+    grub_efi_physical_address_t address = (grub_addr_t) file->data;
+    grub_efi_boot_services_t *b = grub_efi_system_table->boot_services;
+    grub_efi_uintn_t pages =
+            (((grub_efi_uintn_t) file->size + ((1 << 12) - 1)) >> 12);
+    efi_call_2 (b->free_pages, address, pages);
 #else
     grub_free (file->data);
 #endif

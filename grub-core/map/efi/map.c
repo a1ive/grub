@@ -240,6 +240,39 @@ mount_eltorito (struct grub_efivdisk_data *src, const char *name)
   return GRUB_ERR_NONE;
 }
 
+struct grub_efi_mapinfo
+{
+  char magic[8]; /* "GNU GRUB" */
+  grub_uint8_t type;
+  grub_uint64_t addr;
+  grub_uint64_t size;
+  char path[0];
+} GRUB_PACKED;
+
+#define GRUB_EFI_MAP_GUID \
+  { 0x19260817, 0xAAAA, 0xBBBB, { 0x47, 0x4E, 0x55, 0x20, 0x47, 0x52, 0x55, 0x42 }}
+
+static void
+set_map_info (grub_efivdisk_t *vdisk)
+{
+  grub_err_t err;
+  struct grub_efi_mapinfo info;
+  grub_efi_guid_t guid = GRUB_EFI_MAP_GUID;
+  grub_memcpy (info.magic, "GNU GRUB", 8);
+  if (grub_ismemfile (vdisk->file->name))
+    info.addr = (grub_addr_t) vdisk->file->data;
+  else
+    info.addr = 0;
+  info.size = vdisk->size;
+  err = grub_efi_set_var_attr ("GrubDisk", &guid, &info, sizeof (info),
+                               GRUB_EFI_VARIABLE_BOOTSERVICE_ACCESS |
+                               GRUB_EFI_VARIABLE_RUNTIME_ACCESS);
+  if (err)
+    grub_printf ("can't set EFI variable.\n");
+  //else
+  //  grub_printf ("map addr 0x%lx size %lu.\n", info.addr, info.size);
+}
+
 static const struct grub_arg_option options_map[] =
 {
   {"mem", 'm', 0, N_("Copy to RAM."), 0, 0},
@@ -312,6 +345,8 @@ grub_cmd_map (grub_extcmd_context_t ctxt, int argc, char **args)
 
   if (disk->type == CD && state[MAP_ELT].set)
     mount_eltorito (disk, state[MAP_ELT].arg);
+
+  set_map_info (&disk->vdisk);
 
   if (state[MAP_NB].set)
     return grub_errno;
