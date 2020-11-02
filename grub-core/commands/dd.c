@@ -74,12 +74,10 @@ grub_cmd_dd (grub_extcmd_context_t ctxt, int argc __attribute__ ((unused)),
   /* input */
   char *str = NULL;
   char *hexstr = NULL;
-  void *in_file = NULL;
-  int in_type = 0;
+  grub_file_t in_file = NULL;
   grub_off_t in_size = 0;
   /* output */
-  void *out_file = NULL;
-  int out_type = 0;
+  grub_file_t out_file = NULL;
   grub_off_t out_size = 0;
   /* block size */
   int bs = 1;
@@ -91,28 +89,13 @@ grub_cmd_dd (grub_extcmd_context_t ctxt, int argc __attribute__ ((unused)),
 
   if (state[DD_IF].set)
   {
-    int namelen = grub_strlen (state[DD_IF].arg);
-    /* disk */
-    if ((state[DD_IF].arg[0] == '(') && (state[DD_IF].arg[namelen - 1] == ')'))
-    {
-      in_type = 0;
-      state[DD_IF].arg[namelen - 1] = 0;
-      in_file = grub_disk_open (&state[DD_IF].arg[1]);
-      if (! in_file)
-        return grub_error (GRUB_ERR_BAD_DEVICE, N_("failed to open %s"),
-                           &state[DD_IF].arg[1]);
-      in_size = grub_disk_get_size (in_file) << GRUB_DISK_SECTOR_BITS;
-    }
-    /* file */
-    else
-    {
-      in_type = 1;
-      in_file = grub_file_open (state[DD_IF].arg, GRUB_FILE_TYPE_HEXCAT);
-      if (! in_file)
-        return grub_error (GRUB_ERR_BAD_FILENAME, N_("failed to open %s"),
-                           state[DD_IF].arg);
-      in_size = grub_file_size (in_file);
-    }
+    in_file = grub_file_open (state[DD_IF].arg,
+                              GRUB_FILE_TYPE_HEXCAT |
+                              GRUB_FILE_TYPE_NO_DECOMPRESS);
+    if (! in_file)
+      return grub_error (GRUB_ERR_BAD_FILENAME, N_("failed to open %s"),
+                         state[DD_IF].arg);
+    in_size = grub_file_size (in_file);
   }
 
   if (state[DD_STR].set)
@@ -157,29 +140,14 @@ grub_cmd_dd (grub_extcmd_context_t ctxt, int argc __attribute__ ((unused)),
 
   if (state[DD_OF].set)
   {
-    int namelen = grub_strlen (state[DD_OF].arg);
-    /* disk */
-    if ((state[DD_OF].arg[0] == '(') && (state[DD_OF].arg[namelen - 1] == ')'))
-    {
-      out_type = 0;
-      state[DD_OF].arg[namelen - 1] = 0;
-      out_file = grub_disk_open (&state[DD_OF].arg[1]);
-      if (! out_file)
-        return grub_error (GRUB_ERR_BAD_DEVICE, N_("failed to open %s"),
-                           &state[DD_OF].arg[1]);
-      out_size = grub_disk_get_size (out_file) << GRUB_DISK_SECTOR_BITS;
-    }
-    /* file */
-    else
-    {
-      out_type = 1;
-      out_file = grub_file_open (state[DD_OF].arg, GRUB_FILE_TYPE_HEXCAT);
-      if (! out_file)
-        return grub_error (GRUB_ERR_BAD_FILENAME, N_("failed to open %s"),
-                           state[DD_OF].arg);
-      out_size = grub_file_size (out_file);
-      grub_blocklist_convert (out_file);
-    }
+    out_file = grub_file_open (state[DD_OF].arg,
+                               GRUB_FILE_TYPE_HEXCAT |
+                               GRUB_FILE_TYPE_NO_DECOMPRESS);
+    if (! out_file)
+      return grub_error (GRUB_ERR_BAD_FILENAME, N_("failed to open %s"),
+                         state[DD_OF].arg);
+    out_size = grub_file_size (out_file);
+    grub_blocklist_convert (out_file);
   }
 
   if (((! in_file) && (! str)) || (! out_file))
@@ -237,15 +205,8 @@ grub_cmd_dd (grub_extcmd_context_t ctxt, int argc __attribute__ ((unused)),
     /* read */
     if (in_file)
     {
-      if (in_type)
-      {
-        grub_file_seek (in_file, skip);
-        grub_file_read (in_file, data, copy_bs);
-      }
-      else
-      {
-        grub_disk_read (in_file, 0, skip, copy_bs, data);
-      }
+      grub_file_seek (in_file, skip);
+      grub_file_read (in_file, data, copy_bs);
       if (grub_errno)
         break;
     }
@@ -254,15 +215,8 @@ grub_cmd_dd (grub_extcmd_context_t ctxt, int argc __attribute__ ((unused)),
       grub_memcpy (data, str + skip, copy_bs);
     }
     /* write */
-    if (out_type)
-    {
-      grub_file_seek (out_file, seek);
-      grub_blocklist_write (out_file, (char *)data, copy_bs);
-    }
-    else
-    {
-      grub_disk_write (out_file, 0, seek, copy_bs, data);
-    }
+    grub_file_seek (out_file, seek);
+    grub_blocklist_write (out_file, (char *)data, copy_bs);
     if (grub_errno)
       break;
 
@@ -275,19 +229,9 @@ fail:
   if (hexstr)
     grub_free (hexstr);
   if (in_file)
-  {
-    if (in_type)
-      grub_file_close (in_file);
-    else
-      grub_disk_close (in_file);
-  }
+    grub_file_close (in_file);
   if (out_file)
-  {
-    if (out_type)
-      grub_file_close (out_file);
-    else
-      grub_disk_close (out_file);
-  }
+    grub_file_close (out_file);
   return grub_errno;
 }
 

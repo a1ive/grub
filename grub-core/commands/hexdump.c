@@ -33,6 +33,7 @@ static const struct grub_arg_option options[] = {
    ARG_TYPE_INT},
   {"length", 'n', 0, N_("Read only LENGTH bytes."), 0, ARG_TYPE_INT},
   {"quiet", 'q', 0, N_("Don't print error."), 0, 0},
+  {"decompress", 'd', 0, N_("Decompress the file."), 0, 0},
   {0, 0, 0, 0, 0, 0}
 };
 
@@ -47,12 +48,15 @@ grub_cmd_hexdump (grub_extcmd_context_t ctxt, int argc, char **args)
   char *var_name = NULL;
   char *var_buf = NULL;
   char *p = NULL;
+  enum grub_file_type type = GRUB_FILE_TYPE_HEXCAT;
 
   if (argc < 1 || argc > 2)
     return grub_error (GRUB_ERR_BAD_ARGUMENT, N_("filename expected"));
 
   skip = (state[0].set) ? grub_strtoull (state[0].arg, 0, 0) : 0;
   length = (state[1].set) ? grub_strtoul (state[1].arg, 0, 0) : 256;
+  if (!state[3].set)
+    type |= GRUB_FILE_TYPE_NO_DECOMPRESS;
 
   if (argc == 2)
   {
@@ -67,7 +71,7 @@ grub_cmd_hexdump (grub_extcmd_context_t ctxt, int argc, char **args)
 
   grub_file_t file;
 
-  file = grub_file_open (args[0], GRUB_FILE_TYPE_HEXCAT);
+  file = grub_file_open (args[0], type);
   if (! file)
     return 0;
 
