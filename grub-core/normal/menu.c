@@ -483,25 +483,11 @@ menu_set_chosen_entry (grub_menu_t menu, int entry)
 {
   struct grub_menu_viewer *cur;
   grub_menu_entry_t e;
-  grub_dprintf (  "menu", "menu_set_chosen_entry %p %d\n", menu, entry );
-  for (cur = viewers; cur; cur = cur->next)
-   {
-     if(cur->print_help_message)
-       cur->print_help_message (help_message, cur->data);
-   }
-}
-
-
-static void
-menu_set_chosen_entry (grub_menu_t menu, int entry)
-{
-  struct grub_menu_viewer *cur;
-  grub_menu_entry_t e;
   for (cur = viewers; cur; cur = cur->next)
     cur->set_chosen_entry (entry, cur->data);
 
   e = grub_menu_get_entry (menu, entry);
-  grub_dprintf (   "menu", "grub_menu_get_entry %p %d return %p\n", menu,
+  grub_dprintf ("menu", "grub_menu_get_entry %p %d return %p\n", menu,
                    entry , e);
   if(e) {
     menu_print_help_message(e->help_message);
