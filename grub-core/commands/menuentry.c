@@ -45,6 +45,7 @@ static const struct grub_arg_option options[] =
        anyone can boot it.  */
     {"unrestricted", 0, 0, N_("This entry can be booted by any user."),
      0, ARG_TYPE_NONE},
+    {"help", 0, GRUB_ARG_OPTION_OPTIONAL,  N_("Menu entry help message."), N_("STRING"), ARG_TYPE_STRING},
     {0, 0, 0, 0, 0, 0}
   };
 
@@ -82,7 +83,7 @@ grub_err_t
 grub_normal_add_menu_entry (int argc, const char **args,
 			    char **classes, const char *id,
 			    const char *users, const char *hotkey,
-			    const char *prefix, const char *sourcecode,
+			    const char *prefix, const char *sourcecode, const char * help_message,
 			    int submenu, int hidden, int *index, struct bls_entry *bls)
 {
   int menu_hotkey = 0;
@@ -91,6 +92,7 @@ grub_normal_add_menu_entry (int argc, const char **args,
   char *menu_title = NULL;
   char *menu_sourcecode = NULL;
   char *menu_id = NULL;
+  char *menu_help_message = NULL;
   struct grub_menu_entry_class *menu_classes = NULL;
   const char *enable_hotkey = NULL;
 
@@ -148,6 +150,13 @@ grub_normal_add_menu_entry (int argc, const char **args,
         else
           menu_hotkey = hotkey[0];
       }
+    }
+
+  if(help_message) 
+    {
+      menu_help_message = grub_strdup(help_message);
+      if(!menu_help_message)
+         goto fail;
     }
 
   if (! argc)
@@ -212,6 +221,7 @@ grub_normal_add_menu_entry (int argc, const char **args,
   (*last)->submenu = submenu;
   (*last)->hidden = hidden;
   (*last)->bls = bls;
+  (*last)->help_message = menu_help_message;
 
   if (!hidden)
     menu->size++;
@@ -235,7 +245,7 @@ grub_normal_add_menu_entry (int argc, const char **args,
       grub_free (menu_args[i]);
     grub_free (menu_args);
   }
-
+  grub_free (menu_help_message);
   grub_free (menu_users);
   grub_free (menu_title);
   grub_free (menu_id);
@@ -323,6 +333,7 @@ grub_cmd_menuentry (grub_extcmd_context_t ctxt, int argc, char **args)
 				       users,
 				       ctxt->state[2].arg, 0,
 				       ctxt->state[3].arg,
+                                       (ctxt->state[6].set ? ctxt->state[6].arg : NULL),
 				       ctxt->extcmd->cmd->name[0] == 's',
                        ctxt->extcmd->cmd->name[0] == 'h', NULL, NULL);
 
@@ -341,6 +352,7 @@ grub_cmd_menuentry (grub_extcmd_context_t ctxt, int argc, char **args)
 				  ctxt->state[0].args, ctxt->state[4].arg,
 				  users,
 				  ctxt->state[2].arg, prefix, src + 1,
+                                  (ctxt->state[6].set ? ctxt->state[6].arg : NULL),
 				  ctxt->extcmd->cmd->name[0] == 's',
                   ctxt->extcmd->cmd->name[0] == 'h', NULL, NULL);
 

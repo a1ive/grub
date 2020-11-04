@@ -59,6 +59,12 @@ void
 grub_gfxmenu_clear_timeout (void *data);
 void 
 grub_gfxmenu_print_timeout (int timeout, void *data);
+
+void
+grub_gfxmenu_clear_help_message (void *data);
+void
+grub_gfxmenu_print_help_message (const char * help_message, void *data);
+
 void
 grub_gfxmenu_set_chosen_entry (int entry, void *data);
 void

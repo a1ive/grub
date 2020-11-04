@@ -257,6 +257,51 @@ grub_gfxmenu_clear_timeout (void *data)
     redraw_timeouts (view);
 }
 
+struct grub_gfxmenu_help_message_notify *grub_gfxmenu_help_message_notifications;
+
+static void
+redraw_help_message (struct grub_gfxmenu_view *view, int show, const char * help_message)
+{
+  struct grub_gfxmenu_help_message_notify *cur;
+
+  for (cur = grub_gfxmenu_help_message_notifications; cur; cur = cur->next)
+    {
+      grub_video_rect_t bounds;
+	  if(cur->self->ops->set_property) {
+		cur->self->ops->set_property(cur->self, "visible", show ? "true" : "false");
+		cur->self->ops->set_property(cur->self, "text", help_message ? help_message : "");
+      }
+      cur->self->ops->get_bounds (cur->self, &bounds);
+      grub_video_set_area_status (GRUB_VIDEO_AREA_ENABLED);
+      grub_gfxmenu_view_redraw (view, &bounds);
+    }
+}
+
+void
+grub_gfxmenu_print_help_message (const char * help_message, void *data)
+{
+  struct grub_gfxmenu_view *view = data;
+
+  grub_dprintf ( "gfxmenu", "grub_gfxmenu_print_help_message %s\n",
+                 help_message ? help_message : "<NULL>" );
+  
+  redraw_help_message(view, 1, help_message);
+  grub_video_swap_buffers ();
+  if (view->double_repaint)
+    redraw_help_message (view, 1, help_message);
+}
+
+void
+grub_gfxmenu_clear_help_message (void *data)
+{
+  struct grub_gfxmenu_view *view = data;
+  
+  redraw_help_message(view, 0, NULL);
+  grub_video_swap_buffers ();
+  if (view->double_repaint)
+    redraw_help_message (view, 0, NULL);
+}
+
 static void
 update_menu_visit (grub_gui_component_t component,
                    void *userdata)
