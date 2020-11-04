@@ -280,7 +280,6 @@ redraw_help_message (struct grub_gfxmenu_view *view, int show, const char * help
 void
 grub_gfxmenu_print_help_message (const char * help_message, void *data)
 {
-  struct grub_gfxmenu_help_message_notify *cur;
   struct grub_gfxmenu_view *view = data;
 
   grub_dprintf ( "gfxmenu", "grub_gfxmenu_print_help_message %s\n",
@@ -295,9 +294,8 @@ grub_gfxmenu_print_help_message (const char * help_message, void *data)
 void
 grub_gfxmenu_clear_help_message (void *data)
 {
-  struct grub_gfxmenu_help_message_notify *cur;
   struct grub_gfxmenu_view *view = data;
-
+  
   redraw_help_message(view, 0, NULL);
   grub_video_swap_buffers ();
   if (view->double_repaint)
