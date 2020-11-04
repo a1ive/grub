@@ -206,6 +206,11 @@ vfat_directory_entry (union vfat_directory_entry *dirent, const char *name,
   dos->dos.size = len;
   dos->dos.cluster_high = (cluster >> 16);
   dos->dos.cluster_low = (cluster & 0xffff);
+  dos->dos.created_date = 0x2821;
+  dos->dos.created_time = 0x0000;
+  dos->dos.created_deciseconds = 0;
+  dos->dos.modified_date = 0x2821;
+  dos->dos.modified_time = 0x0000;
 
   /* Calculate checksum of 8.3 filename */
   checksum = 0;
