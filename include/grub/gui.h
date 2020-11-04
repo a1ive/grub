@@ -31,6 +31,8 @@
    status changes.  */
 #define GRUB_GFXMENU_TIMEOUT_COMPONENT_ID "__timeout__"
 
+#define GRUB_GFXMENU_HELP_MESSAGE_COMPONENT_ID  "__help__"
+
 typedef struct grub_gui_component *grub_gui_component_t;
 typedef struct grub_gui_container *grub_gui_container_t;
 typedef struct grub_gui_list *grub_gui_list_t;
@@ -117,6 +119,45 @@ grub_gfxmenu_timeout_unregister (grub_gui_component_t self)
 	break;
       }
 }
+
+struct grub_gfxmenu_help_message_notify
+{
+  struct grub_gfxmenu_help_message_notify *next;
+  grub_gfxmenu_set_state_t set_state;
+  grub_gui_component_t self;
+};
+
+extern struct grub_gfxmenu_help_message_notify *grub_gfxmenu_help_message_notifications;
+
+static inline grub_err_t
+grub_gfxmenu_help_message_register (grub_gui_component_t self,
+                               grub_gfxmenu_set_state_t set_state)
+{
+  struct grub_gfxmenu_help_message_notify *ne = grub_malloc (sizeof (*ne));
+  if (!ne)
+    return grub_errno;
+  ne->set_state = set_state;
+  ne->self = self;
+  ne->next = grub_gfxmenu_help_message_notifications;
+  grub_gfxmenu_help_message_notifications = ne;
+  return GRUB_ERR_NONE;
+}
+
+static inline void
+grub_gfxmenu_help_message_unregister (grub_gui_component_t self)
+{
+  struct grub_gfxmenu_help_message_notify **p, *q;
+
+  for (p = &grub_gfxmenu_help_message_notifications, q = *p;
+       q; p = &(q->next), q = q->next)
+    if (q->self == self)
+      {
+        *p = q->next;
+        grub_free (q);
+        break;
+      }
+}
+
 
 typedef signed grub_fixed_signed_t;
 #define GRUB_FIXED_1 0x10000
