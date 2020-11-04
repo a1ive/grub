@@ -63,6 +63,7 @@ label_destroy (void *vself)
 {
   grub_gui_label_t self = vself;
   grub_gfxmenu_timeout_unregister ((grub_gui_component_t) self);
+  grub_gfxmenu_help_message_unregister((grub_gui_component_t) self);
   grub_free (self->text);
   grub_free (self->template);
   grub_free (self);
@@ -255,6 +256,9 @@ label_set_property (void *vself, const char *name, const char *value)
       == 0)
     grub_gfxmenu_timeout_register ((grub_gui_component_t) self,
                        label_set_state);
+      if(self->id && grub_strcmp (self->id, GRUB_GFXMENU_HELP_MESSAGE_COMPONENT_ID)
+     == 0)
+   grub_gfxmenu_help_message_register((grub_gui_component_t) self, label_set_state);
     }
   return GRUB_ERR_NONE;
 }
