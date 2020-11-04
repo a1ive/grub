@@ -45,7 +45,7 @@ static const struct grub_arg_option options[] =
        anyone can boot it.  */
     {"unrestricted", 0, 0, N_("This entry can be booted by any user."),
      0, ARG_TYPE_NONE},
-    {"help", 0, GRUB_ARG_OPTION_OPTIONAL,  N_("Menu entry help message."), N_("STRING"), ARG_TYPE_STRING},
+    {"help-msg", 0, GRUB_ARG_OPTION_OPTIONAL,  N_("Menu entry help message."), N_("STRING"), ARG_TYPE_STRING},
     {0, 0, 0, 0, 0, 0}
   };
 
