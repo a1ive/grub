@@ -60,6 +60,7 @@ enum options_map
   MAP_ELT,
   MAP_NB,
   MAP_UNMAP,
+  MAP_FIRST,
 };
 
 enum grub_efivdisk_type
