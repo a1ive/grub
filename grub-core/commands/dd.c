@@ -80,12 +80,12 @@ grub_cmd_dd (grub_extcmd_context_t ctxt, int argc __attribute__ ((unused)),
   grub_file_t out_file = NULL;
   grub_off_t out_size = 0;
   /* block size */
-  int bs = 1;
+  grub_uint32_t bs = 1;
   /* skip & seek */
   grub_off_t skip = 0;
   grub_off_t seek = 0;
   /* count */
-  int count = -1;
+  grub_off_t count = 0;
 
   if (state[DD_IF].set)
   {
@@ -162,7 +162,7 @@ grub_cmd_dd (grub_extcmd_context_t ctxt, int argc __attribute__ ((unused)),
 
   if (state[DD_COUNT].set)
   {
-    count = grub_strtoul (state[DD_COUNT].arg, 0, 0);
+    count = grub_strtoull (state[DD_COUNT].arg, 0, 0);
     if (! count)
       return grub_error (GRUB_ERR_BAD_ARGUMENT, "invalid count");
   }
@@ -181,7 +181,7 @@ grub_cmd_dd (grub_extcmd_context_t ctxt, int argc __attribute__ ((unused)),
     goto fail;
   }
 
-  if (count < 0)
+  if (!count)
     count = in_size - skip;
 
   if (skip + count > in_size)
@@ -196,12 +196,10 @@ grub_cmd_dd (grub_extcmd_context_t ctxt, int argc __attribute__ ((unused)),
     count = out_size - seek;
   }
 
-  while (count > 0)
+  while (count)
   {
-    int copy_bs;
+    grub_uint32_t copy_bs;
     copy_bs = (bs > count) ? count : bs;
-    grub_dprintf ("dd", "skip=%ld, seek=%ld, bs=%d, count=%d, copy_bs=%d\n",
-                 (unsigned long)skip, (unsigned long)seek, bs, count, copy_bs);
     /* read */
     if (in_file)
     {
