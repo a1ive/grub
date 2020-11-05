@@ -1083,7 +1083,7 @@ refresh:
         case '\n':
         case '\r':
         //case GRUB_TERM_KEY_RIGHT:
-        case GRUB_TERM_CTRL | 'f':
+        //case GRUB_TERM_CTRL | 'f':
           menu_fini ();
 #if defined (__i386__) || defined (__x86_64__)
           if (sound_open)
