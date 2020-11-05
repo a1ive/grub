@@ -86,6 +86,8 @@ grub_efi_dprintf_dp (grub_efi_device_path_t *dp)
   grub_free (text_dp);
 }
 
+void grub_efi_set_first_disk (grub_efi_handle_t handle);
+
 #endif
 
 wchar_t *grub_wstrstr (const wchar_t *str, const wchar_t *search_str);

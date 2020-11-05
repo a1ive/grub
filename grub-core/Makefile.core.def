@@ -2768,6 +2768,7 @@ module = {
   efi = map/efi/blockio.c;
   efi = map/efi/vdisk.c;
   efi = map/efi/vpart.c;
+  efi = map/efi/handle.c;
 
   i386_pc = map/pc/map.c;
   i386_pc = map/pc/drivemap_int13h.S;
