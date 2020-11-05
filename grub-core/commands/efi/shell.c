@@ -33,6 +33,7 @@
 #include <grub/term.h>
 #include <grub/i386/efi/shell.h>
 #include <grub/i386/efi/shell_efi.h>
+#include <grub/procfs.h>
 
 GRUB_MOD_LICENSE ("GPLv3+");
 
@@ -77,69 +78,67 @@ grub_efi_shell_chain (int argc, char *argv[], grub_efi_device_path_t *dp)
   grub_efi_uintn_t pages;
   grub_efi_physical_address_t address;
   void *shell_image = 0;
-  
+
   b = grub_efi_system_table->boot_services;
-  
+
   pages = (((grub_efi_uintn_t) shell_efi_len + ((1 << 12) - 1)) >> 12);
   status = efi_call_4 (b->allocate_pages, GRUB_EFI_ALLOCATE_ANY_PAGES,
-				  GRUB_EFI_LOADER_CODE,
-				  pages, &address);
+                       GRUB_EFI_LOADER_CODE, pages, &address);
   if (status != GRUB_EFI_SUCCESS)
-    {
-      grub_error (GRUB_ERR_OUT_OF_MEMORY, N_("out of memory"));
-      goto fail;
-    }
+  {
+    grub_error (GRUB_ERR_OUT_OF_MEMORY, N_("out of memory"));
+    goto fail;
+  }
   grub_script_execute_sourcecode ("terminal_output console");
 
   shell_image = (void *) ((grub_addr_t) address);
   grub_memcpy (shell_image, shell_efi, shell_efi_len); 
 
   status = efi_call_6 (b->load_image, 0, grub_efi_image_handle, dp,
-			   shell_image, shell_efi_len, &image_handle);
+                       shell_image, shell_efi_len, &image_handle);
   if (status != GRUB_EFI_SUCCESS)
-    {
-      if (status == GRUB_EFI_OUT_OF_RESOURCES)
-	grub_error (GRUB_ERR_OUT_OF_MEMORY, "out of resources");
-      else
-	grub_error (GRUB_ERR_BAD_OS, "cannot load image");
-
-      goto fail;
-    }
+  {
+    if (status == GRUB_EFI_OUT_OF_RESOURCES)
+      grub_error (GRUB_ERR_OUT_OF_MEMORY, "out of resources");
+    else
+      grub_error (GRUB_ERR_BAD_OS, "cannot load image");
+    goto fail;
+  }
   loaded_image = grub_efi_get_loaded_image (image_handle);
   if (! loaded_image)
-    {
-      grub_error (GRUB_ERR_BAD_OS, "no loaded image available");
-      goto fail;
-    }
+  {
+    grub_error (GRUB_ERR_BAD_OS, "no loaded image available");
+    goto fail;
+  }
 
   if (argc > 1)
+  {
+    int i, len;
+    grub_efi_char16_t *p16;
+
+    for (i = 1, len = 0; i < argc; i++)
+      len += grub_strlen (argv[i]) + 1;
+
+    len *= sizeof (grub_efi_char16_t);
+    cmdline = p16 = grub_malloc (len);
+    if (! cmdline)
+      goto fail;
+
+    for (i = 1; i < argc; i++)
     {
-      int i, len;
-      grub_efi_char16_t *p16;
+      char *p8;
+      grub_printf ("arg[%d] : %s\n", i, argv[i]);
+      p8 = argv[i];
+      while (*p8)
+        *(p16++) = *(p8++);
 
-      for (i = 1, len = 0; i < argc; i++)
-        len += grub_strlen (argv[i]) + 1;
-
-      len *= sizeof (grub_efi_char16_t);
-      cmdline = p16 = grub_malloc (len);
-      if (! cmdline)
-        goto fail;
-
-      for (i = 1; i < argc; i++)
-        {
-          char *p8;
-          grub_printf ("arg[%d] : %s\n", i, argv[i]);
-          p8 = argv[i];
-          while (*p8)
-            *(p16++) = *(p8++);
-
-          *(p16++) = ' ';
-        }
-      *(--p16) = 0;
-
-      loaded_image->load_options = cmdline;
-      loaded_image->load_options_size = len;
+      *(p16++) = ' ';
     }
+    *(--p16) = 0;
+
+    loaded_image->load_options = cmdline;
+    loaded_image->load_options_size = len;
+  }
   efi_call_3 (b->start_image, image_handle, NULL, NULL);
 
   status = efi_call_1 (b->unload_image, image_handle);
@@ -165,7 +164,7 @@ grub_cmd_shell (grub_extcmd_context_t ctxt, int argc, char **args)
     goto fail;
   }
   shell_args[0] = (char *) "\\shell.efi";
-  
+
   if (state[SHELL_NOSTARTUP].set)
   {
     shell_args[i] = (char *)"-nostartup";
@@ -229,7 +228,8 @@ grub_cmd_shell (grub_extcmd_context_t ctxt, int argc, char **args)
   if (state[SHELL_DEVICE].set)
   {
     int namelen = grub_strlen (state[SHELL_DEVICE].arg);
-    if ((state[SHELL_DEVICE].arg[0] == '(') && (state[SHELL_DEVICE].arg[namelen - 1] == ')'))
+    if ((state[SHELL_DEVICE].arg[0] == '(')
+         && (state[SHELL_DEVICE].arg[namelen - 1] == ')'))
     {
       state[SHELL_DEVICE].arg[namelen - 1] = 0;
       dev = grub_device_open (&state[SHELL_DEVICE].arg[1]);
@@ -271,15 +271,35 @@ fail:
 
 static grub_extcmd_t cmd_shell;
 
+static char *
+get_shell (grub_size_t *sz)
+{
+  *sz = shell_efi_len;
+  char *ret = NULL;
+  ret = grub_malloc (*sz);
+  if (!ret)
+    return NULL;
+  grub_memcpy (ret, shell_efi, *sz);
+  return ret;
+}
+
+struct grub_procfs_entry proc_shell =
+{
+  .name = "shell.efi",
+  .get_contents = get_shell,
+};
+
 GRUB_MOD_INIT(shell)
 {
   cmd_shell = grub_register_extcmd ("shell", grub_cmd_shell,
                   GRUB_COMMAND_ACCEPT_DASH | GRUB_COMMAND_OPTIONS_AT_START, 
                   N_("PARAM"),
                   N_("Load UEFI shell."), options_shell);
+  grub_procfs_register ("shell.efi", &proc_shell);
 }
 
 GRUB_MOD_FINI(shell)
 {
   grub_unregister_extcmd (cmd_shell);
+  grub_procfs_unregister (&proc_shell);
 }
