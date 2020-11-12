@@ -205,8 +205,8 @@ list_mappings (void)
   return GRUB_ERR_NONE;
 }
 
-grub_err_t
-grub_pcbios_drivemap_cmd (struct grub_extcmd_context *ctxt, int argc, char **args)
+static grub_err_t
+grub_cmd_drivemap (struct grub_extcmd_context *ctxt, int argc, char **args)
 {
   if (ctxt->state[OPTIDX_LIST].set)
     {
@@ -404,14 +404,18 @@ grub_get_root_biosnumber_drivemap (void)
   return ret;
 }
 
-static grub_extcmd_t cmd;
+static grub_extcmd_t cmd, cmd1;
 static int (*grub_get_root_biosnumber_saved) (void);
 
 GRUB_MOD_INIT (map)
 {
   grub_get_root_biosnumber_saved = grub_get_root_biosnumber;
   grub_get_root_biosnumber = grub_get_root_biosnumber_drivemap;
-  cmd = grub_register_extcmd ("map", grub_pcbios_drivemap_cmd, 0,
+  cmd = grub_register_extcmd ("map", grub_cmd_drivemap, 0,
+			      N_("-l | -r | [-s] grubdev osdisk."),
+			      N_("Manage the BIOS drive mappings."),
+			      options);
+  cmd1 = grub_register_extcmd ("drivemap", grub_cmd_drivemap, 0,
 			      N_("-l | -r | [-s] grubdev osdisk."),
 			      N_("Manage the BIOS drive mappings."),
 			      options);
@@ -427,4 +431,5 @@ GRUB_MOD_FINI (map)
   grub_loader_unregister_preboot_hook (drivemap_hook);
   drivemap_hook = 0;
   grub_unregister_extcmd (cmd);
+  grub_unregister_extcmd (cmd1);
 }

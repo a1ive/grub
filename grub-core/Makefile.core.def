@@ -2780,12 +2780,6 @@ module = {
 };
 
 module = {
-  name = drivemap;
-  i386_pc = map/pc/drivemap.c;
-  enable = i386_pc;
-};
-
-module = {
   name = wimboot;
   common = map/wimboot/init.c;
   efi = map/wimboot/efi/boot.c;
