@@ -1046,7 +1046,9 @@ module = {
 
 module = {
   name = loadbios;
-  common = commands/efi/loadbios.c;
+  common = csm/loadbios.c;
+  common = csm/display.c;
+  common = csm/legacy_write.c;
   enable = i386_efi;
   enable = x86_64_efi;
 };
