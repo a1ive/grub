@@ -22,6 +22,8 @@
 #include <grub/file.h>
 #include <grub/err.h>
 #include <grub/script_sh.h>
+#include <grub/i386/linux.h>
+#include <grub/i386/relocator.h>
 
 #include <misc.h>
 #include <vfat.h>
@@ -37,6 +39,8 @@
 
 #pragma GCC diagnostic ignored "-Wcast-align"
 
+#define BOOTAPP_MAX_MEM_REGION 32
+
 /** Boot application descriptor set */
 static struct win32_bootapps
 {
@@ -45,7 +49,7 @@ static struct win32_bootapps
   /** Boot application memory descriptor */
   struct bootapp_memory_descriptor memory;
   /** Boot application memory descriptor regions */
-  struct bootapp_memory_region regions[32];
+  struct bootapp_memory_region regions[BOOTAPP_MAX_MEM_REGION];
   /** Boot application entry descriptor */
   struct bootapp_entry_descriptor entry;
   struct bootapp_entry_wtf1_descriptor wtf1;
@@ -74,7 +78,7 @@ static struct win32_bootapps
   {
     .version = BOOTAPP_MEMORY_VERSION,
     .len = sizeof (bootapps.memory),
-    .num_regions = 32,
+    .num_regions = 0,
     .region_len = sizeof (bootapps.regions[0]),
     .reserved_len = sizeof (bootapps.regions[0].reserved),
   },
@@ -115,12 +119,40 @@ static struct win32_bootapps
   },
 };
 
+static void
+add_bootapp_mem_region (void *start, void *end)
+{
+  uint32_t i = bootapps.memory.num_regions;
+  if (i >= BOOTAPP_MAX_MEM_REGION)
+  {
+    grub_printf ("Boot application memory regions full.\n");
+    return;
+  }
+  bootapps.regions[i].start_page = page_start (start);
+  bootapps.regions[i].num_pages = page_len (start, end);
+  bootapps.memory.num_regions++;
+  grub_printf ("Add memory region %u %p - %p.\n", i, start, end);
+}
+
 void grub_wimboot_boot (struct wimboot_cmdline *cmd)
 {
   void *raw_pe = NULL;
+  grub_relocator_chunk_t ch;
+  struct grub_relocator *rel = NULL;
   struct loaded_pe pe;
   /* Read bootmgr.exe into memory */
-  raw_pe = grub_malloc (cmd->bootmgfw->len);
+  rel = grub_relocator_new ();
+  if (!rel)
+    grub_pause_fatal ("FATAL: grub_relocator_new failed\n");
+  if (grub_relocator_alloc_chunk_align (rel, &ch, 0x1000000,
+                                      GRUB_LINUX_INITRD_MAX_ADDRESS,
+                                      ALIGN_UP (cmd->bootmgfw->len, 4096),
+                                      4096, GRUB_RELOCATOR_PREFERENCE_HIGH, 0))
+  {
+    grub_relocator_unload (rel);
+    grub_pause_fatal ("FATAL: grub_relocator_alloc_chunk_align failed\n");
+  }
+  raw_pe = get_virtual_current_address (ch);
   if (!raw_pe)
     grub_pause_fatal ("FATAL: out of memory\n");
   cmd->bootmgfw->read (cmd->bootmgfw, raw_pe, 0, cmd->bootmgfw->len);
@@ -131,15 +163,9 @@ void grub_wimboot_boot (struct wimboot_cmdline *cmd)
   bootapps.bootapp.pe_base = pe.base;
   bootapps.bootapp.pe_len = pe.len;
   /* Memory regions */
-  bootapps.regions[0].start_page = page_start ((void *)0x8000);
-  bootapps.regions[0].num_pages = page_len ((void *)0x8000, (void *)0x80000);
-  bootapps.regions[1].start_page = page_start (pe.base);
-  bootapps.regions[1].num_pages = page_len (pe.base,
-                                            ((uint8_t *) pe.base + pe.len));
-  bootapps.regions[2].start_page = page_start ((void *)0x100000);
-  bootapps.regions[2].num_pages = page_len ((void *)0x100000, (void *)0x800000);
-  /* Memory discriptor */
-  bootapps.memory.num_regions = 3;
+  add_bootapp_mem_region (pe.base, (uint8_t *) pe.base + pe.len);
+  add_bootapp_mem_region ((void *)0x8000, (void *)0x80000);
+  add_bootapp_mem_region ((void *)0x100000, (void *)0x800000);
   /* Jump to PE image */
   printf ("Entering bootmgr.exe with parameters at %p\n", &bootapps);
   if (cmd->pause)
