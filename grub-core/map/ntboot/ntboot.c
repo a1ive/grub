@@ -236,7 +236,7 @@ grub_cmd_ntboot (grub_extcmd_context_t ctxt,
     }
     vfat_add_file ("boot.sdi", bootsdi, bootsdi->size, vfat_read_wrapper);
   }
-  grub_wimboot_install ();
+  grub_wimboot_install (&wimboot_cmd);
   if (wimboot_cmd.pause)
     grub_getkey ();
   grub_wimboot_boot (&wimboot_cmd);

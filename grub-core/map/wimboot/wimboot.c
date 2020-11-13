@@ -166,7 +166,7 @@ grub_cmd_wimboot (grub_extcmd_context_t ctxt, int argc, char *argv[])
     grub_file_t bootsdi = file_open ("(proc)/boot.sdi", 0, 0, 0);
     vfat_add_file ("boot.sdi", bootsdi, bootsdi->size, vfat_read_wrapper);
   }
-  grub_wimboot_install ();
+  grub_wimboot_install (&wimboot_cmd);
   grub_wimboot_boot (&wimboot_cmd);
 
   grub_pause_fatal ("failed to boot.\n");

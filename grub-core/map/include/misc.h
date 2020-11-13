@@ -46,6 +46,43 @@
 #define MBR_TYPE_PCAT 0x01
 #define SIGNATURE_TYPE_MBR 0x01
 
+/**
+ * Calculate start page number
+ *
+ * @v address   Address
+ * @ret page    Start page number
+ */
+static inline unsigned int
+page_start (const void *address)
+{
+  return (((intptr_t) address) / PAGE_SIZE);
+}
+
+/**
+ * Calculate end page number
+ *
+ * @v address   Address
+ * @ret page    End page number
+ */
+static inline unsigned int
+page_end (const void *address)
+{
+  return ((((intptr_t) address) + PAGE_SIZE - 1) / PAGE_SIZE);
+}
+
+/**
+ * Calculate page length
+ *
+ * @v start   Start address
+ * @v end     End address
+ * @ret num_pages	Number of pages
+ */
+static inline unsigned int
+page_len (const void *start, const void *end)
+{
+  return (page_end (end) - page_start (start));
+}
+
 #ifdef GRUB_MACHINE_EFI
 
 extern block_io_protocol_t blockio_template;

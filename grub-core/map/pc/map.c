@@ -29,8 +29,6 @@
 #include <grub/memory.h>
 #include <grub/machine/memory.h>
 
-#include "drivemap.h"
-
 GRUB_MOD_LICENSE ("GPLv3+");
 
 /* Real mode IVT slot (seg:off far pointer) for interrupt 0x13.  */

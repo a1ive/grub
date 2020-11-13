@@ -40,7 +40,7 @@ static const grub_packed_guid_t WIMBOOT_GUID =
 grub_efivdisk_t wimboot_disk, wimboot_part;
 
 grub_err_t
-grub_wimboot_install (void)
+grub_wimboot_install (struct wimboot_cmdline *cmd __attribute__ ((unused)))
 {
   grub_efi_boot_services_t *b;
   b = grub_efi_system_table->boot_services;

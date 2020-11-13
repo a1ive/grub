@@ -46,12 +46,14 @@ struct wimboot_cmdline
 
 #ifdef GRUB_MACHINE_EFI
 extern grub_efivdisk_t wimboot_disk, wimboot_part;
+#else
+extern struct bootapp_callback callback;
 #endif
 
 void grub_wimboot_extract (struct wimboot_cmdline *cmd);
 void grub_wimboot_init (int argc, char *argv[]);
 
-grub_err_t grub_wimboot_install (void);
+grub_err_t grub_wimboot_install (struct wimboot_cmdline *cmd);
 void grub_wimboot_boot (struct wimboot_cmdline *cmd);
 
 #endif
