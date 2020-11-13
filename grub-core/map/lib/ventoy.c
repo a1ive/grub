@@ -226,7 +226,7 @@ grub_ventoy_set_osparam (const char *filename)
     relocator = grub_relocator_new ();
     if (!relocator)
       goto fail;
-    if (!grub_relocator_alloc_chunk_align (relocator, &ch, 0x80000, 0xA0000,
+    if (grub_relocator_alloc_chunk_align (relocator, &ch, 0x80000, 0xA0000,
                 sizeof (param), 1, GRUB_RELOCATOR_PREFERENCE_LOW, 0))
     {
       grub_relocator_unload (relocator);
