@@ -163,6 +163,20 @@ void grub_wimboot_boot (struct wimboot_cmdline *cmd)
   bootapps.bootapp.pe_base = pe.base;
   bootapps.bootapp.pe_len = pe.len;
   /* Memory regions */
+  /* GRUB2 i386-pc memory map
+   * Start        End         Usage
+   * 0          0x1000-1    BIOS and real mode interrupts
+   * 0x07BE     0x07FF      Partition table passed to another boot loader
+   * ?          0x2000-1    Real mode stack
+   * 0x7C00     0x7D00-1    Boot sector
+   * 0x8000     ?           GRUB kernel
+   * 0x68000    0x71000-1   Disk buffer
+   * ?          0x80000-1   Protected mode stack
+   * ?          0xA0000-1   Extended BIOS Data Area
+   * 0xA0000    0xC0000-1   Video RAM
+   * 0xC0000    0x100000-1  BIOS
+   * 0x100000   ?           Heap and module code
+   */
   add_bootapp_mem_region (pe.base, (uint8_t *) pe.base + pe.len);
   add_bootapp_mem_region ((void *)0x8000, (void *)0x80000);
   add_bootapp_mem_region ((void *)0x100000, (void *)0x800000);
