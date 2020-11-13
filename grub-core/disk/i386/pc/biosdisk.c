@@ -28,6 +28,7 @@
 #include <grub/err.h>
 #include <grub/term.h>
 #include <grub/i18n.h>
+#include <grub/env.h>
 
 GRUB_MOD_LICENSE ("GPLv3+");
 
@@ -38,7 +39,10 @@ static int grub_biosdisk_get_num_floppies (void)
 {
   struct grub_bios_int_registers regs;
   int drive;
-
+  const char *detect_floppies = NULL;
+  detect_floppies = grub_env_get ("grub_detect_floppies");
+  if (! detect_floppies || detect_floppies[0] == '0')
+    return 0;
   /* reset the disk system first */
   regs.eax = 0;
   regs.edx = 0;
