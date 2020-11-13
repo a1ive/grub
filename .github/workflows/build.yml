@@ -54,6 +54,15 @@ jobs:
     - name: i386-pc clean
       run: make clean
 
+    - name: i386-multiboot configure
+      run: ./configure --prefix=/ --target=i386 --with-platform=multiboot
+    - name: i386-multiboot make
+      run: |
+        make
+        make install DESTDIR=$PWD/PKG
+    - name: i386-multiboot clean
+      run: make clean
+
     - name: i386-coreboot configure
       run: ./configure --prefix=/ --target=i386 --with-platform=coreboot
     - name: i386-coreboot make

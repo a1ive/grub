@@ -12,6 +12,7 @@ do
     msgfmt "$x" -o "$po.mo"
 done
 
+rm -rf grub/i386-none
 rm -f grub/locale/*.po
 rm -f grub/*/*.module
 rm -f grub/*/*.image
