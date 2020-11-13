@@ -93,10 +93,13 @@ static grub_command_t cmd;
 GRUB_MOD_INIT(version)
 {
   cmd = grub_register_command ("version", grub_cmd_version, NULL,
-			       N_("Print version and build information."));
+                               N_("Print version and build information."));
   grub_env_set ("grub_version", GRUB_VERSION);
   grub_env_export ("grub_version");
-  
+  grub_env_set ("grub_pkg_version", PACKAGE_VERSION);
+  grub_env_export ("grub_pkg_version");
+  grub_env_set ("grub_build_date", GRUB_BUILD_DATE);
+  grub_env_export ("grub_build_date");
 #ifdef GRUB_MACHINE_EFI
   grub_get_uefi_version ();
   grub_env_set ("grub_uefi_version", uefi_ver);
