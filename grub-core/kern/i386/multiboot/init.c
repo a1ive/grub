@@ -41,8 +41,6 @@ extern grub_uint8_t _start[];
 extern grub_uint8_t _end[];
 extern grub_uint8_t _edata[];
 
-struct multiboot_info *grub_multiboot_info = 0;
-
 void  __attribute__ ((noreturn))
 grub_exit (int rc __attribute__((unused)))
 {

@@ -38,7 +38,7 @@ start:
 _start:
     cmpl    $MULTIBOOT_BOOTLOADER_MAGIC, %eax
     jne     0f
-    movl    %ebx, EXT_C(grub_multiboot_info)
+    movl    %ebx, EXT_C(kern_multiboot_info)
 0:
 
     /* initialize the stack */
