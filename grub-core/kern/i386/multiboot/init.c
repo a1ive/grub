@@ -41,6 +41,8 @@ extern grub_uint8_t _start[];
 extern grub_uint8_t _end[];
 extern grub_uint8_t _edata[];
 
+struct multiboot_info *grub_multiboot_info = 0;
+
 void  __attribute__ ((noreturn))
 grub_exit (int rc __attribute__((unused)))
 {
@@ -94,15 +96,14 @@ grub_machine_init (void)
 {
   modend = grub_modules_get_end ();
 
-  grub_video_coreboot_fb_early_init ();
+  grub_video_multiboot_fb_early_init ();
 
   grub_vga_text_init ();
 
+  grub_machine_mmap_init ();
   grub_machine_mmap_iterate (heap_init, NULL);
-  if (!have_memory)
-    grub_fatal ("No memory found");
 
-  grub_video_coreboot_fb_late_init ();
+  grub_video_multiboot_fb_late_init ();
 
   grub_font_init ();
   grub_gfxterm_init ();
