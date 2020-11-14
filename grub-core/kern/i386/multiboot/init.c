@@ -96,14 +96,12 @@ grub_machine_init (void)
 {
   modend = grub_modules_get_end ();
 
-  grub_video_multiboot_fb_early_init ();
-
   grub_vga_text_init ();
 
   grub_machine_mmap_init ();
   grub_machine_mmap_iterate (heap_init, NULL);
 
-  grub_video_multiboot_fb_late_init ();
+  grub_video_multiboot_fb_init ();
 
   grub_font_init ();
   grub_gfxterm_init ();
@@ -122,5 +120,6 @@ grub_machine_fini (int flags)
 {
   if (flags & GRUB_LOADER_FLAG_NORETURN)
     grub_vga_text_fini ();
+  grub_video_multiboot_fb_fini ();
   grub_stop_floppy ();
 }

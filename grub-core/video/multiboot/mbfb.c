@@ -157,7 +157,7 @@ static struct grub_video_adapter grub_video_mbfb_adapter =
   .name = "Multiboot video driver",
 
   .prio = GRUB_VIDEO_ADAPTER_PRIO_FIRMWARE_DIRTY,
-  .id = GRUB_VIDEO_DRIVER_COREBOOT,
+  .id = GRUB_VIDEO_DRIVER_MULTIBOOT,
 
   .init = grub_video_mbfb_init,
   .fini = grub_video_fb_fini,
@@ -190,19 +190,15 @@ static struct grub_video_adapter grub_video_mbfb_adapter =
 };
 
 void
-grub_video_multiboot_fb_early_init (void)
+grub_video_multiboot_fb_init (void)
 {
   if ((grub_multiboot_info->flags & MULTIBOOT_INFO_FRAMEBUFFER_INFO)
       && grub_multiboot_info->framebuffer_type
          != MULTIBOOT_FRAMEBUFFER_TYPE_EGA_TEXT)
+  {
     mbi = grub_multiboot_info;
-}
-
-void
-grub_video_multiboot_fb_late_init (void)
-{
-  if (mbi)
     grub_video_register (&grub_video_mbfb_adapter);
+  }
 }
 
 void
