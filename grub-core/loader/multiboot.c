@@ -298,24 +298,38 @@ grub_cmd_multiboot (grub_command_t cmd __attribute__ ((unused)),
   int option_found = 0;
 
   do
+  {
+    option_found = 0;
+    if (argc != 0 && grub_strcmp (argv[0], "--quirk-bad-kludge") == 0)
     {
-      option_found = 0;
-      if (argc != 0 && grub_strcmp (argv[0], "--quirk-bad-kludge") == 0)
-	{
-	  argc--;
-	  argv++;
-	  option_found = 1;
-	  grub_multiboot_quirks |= GRUB_MULTIBOOT_QUIRK_BAD_KLUDGE;
-	}
+      argc--;
+      argv++;
+      option_found = 1;
+      grub_multiboot_quirks |= GRUB_MULTIBOOT_QUIRK_BAD_KLUDGE;
+    }
 
-      if (argc != 0 && grub_strcmp (argv[0], "--quirk-modules-after-kernel") == 0)
-	{
-	  argc--;
-	  argv++;
-	  option_found = 1;
-	  grub_multiboot_quirks |= GRUB_MULTIBOOT_QUIRK_MODULES_AFTER_KERNEL;
-	}
-    } while (option_found);
+    if (argc != 0 && grub_strcmp (argv[0], "--quirk-modules-after-kernel") == 0)
+    {
+      argc--;
+      argv++;
+      option_found = 1;
+      grub_multiboot_quirks |= GRUB_MULTIBOOT_QUIRK_MODULES_AFTER_KERNEL;
+    }
+#ifdef GRUB_MACHINE_EFI
+#if defined (__i386__) || defined (__x86_64__)
+    if (argc != 0 && grub_strcmp (argv[0], "--fake-bios") == 0)
+    {
+      argc--;
+      argv++;
+      option_found = 1;
+      grub_efi_unlock_rom_area ();
+      grub_efi_fake_bios_data (1);
+      grub_efi_lock_rom_area ();
+    }
+#endif
+#endif
+  } while (option_found);
+
 #endif
 
   if (argc == 0)

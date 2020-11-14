@@ -40,20 +40,11 @@ static grub_efi_guid_t smbios3_guid = GRUB_EFI_SMBIOS3_TABLE_GUID;
 #define VBIOS_ADDR	0xc0000
 #define SBIOS_ADDR	0xf0000
 
-static int
-enable_rom_area (void)
+void
+grub_efi_unlock_rom_area (void)
 {
   grub_pci_address_t addr;
-  grub_uint32_t *rom_ptr;
   grub_pci_device_t dev = { .bus = 0, .device = 0, .function = 0};
-
-  rom_ptr = (grub_uint32_t *) VBIOS_ADDR;
-  if (*rom_ptr != BLANK_MEM)
-    {
-      grub_puts_ (N_("ROM image is present."));
-      return 0;
-    }
-
   /* FIXME: should be macroified.  */
   addr = grub_pci_make_address (dev, 144);
   grub_pci_write_byte (addr++, 0x30);
@@ -64,6 +55,21 @@ enable_rom_area (void)
   grub_pci_write_byte (addr++, 0x33);
   grub_pci_write_byte (addr++, 0x33);
   grub_pci_write_byte (addr, 0);
+}
+
+static int
+grub_efi_enable_rom_area (void)
+{
+  grub_uint32_t *rom_ptr;
+
+  rom_ptr = (grub_uint32_t *) VBIOS_ADDR;
+  if (*rom_ptr != BLANK_MEM)
+    {
+      grub_puts_ (N_("ROM image is present."));
+      return 0;
+    }
+
+  grub_efi_unlock_rom_area ();
 
   *rom_ptr = 0;
   if (*rom_ptr != 0)
@@ -75,8 +81,8 @@ enable_rom_area (void)
   return 1;
 }
 
-static void
-lock_rom_area (void)
+void
+grub_efi_lock_rom_area (void)
 {
   grub_pci_address_t addr;
   grub_pci_device_t dev = { .bus = 0, .device = 0, .function = 0};
@@ -90,8 +96,8 @@ lock_rom_area (void)
   grub_pci_write_byte (addr, 0x11);
 }
 
-static void
-fake_bios_data (int use_rom)
+void
+grub_efi_fake_bios_data (int use_rom)
 {
   unsigned i;
   void *acpi, *smbios, *smbios3;
@@ -158,13 +164,13 @@ grub_cmd_fakebios (struct grub_command *cmd __attribute__ ((unused)),
 		   int argc __attribute__ ((unused)),
 		   char *argv[] __attribute__ ((unused)))
 {
-  if (enable_rom_area ())
+  if (grub_efi_enable_rom_area ())
     {
-      fake_bios_data (1);
-      lock_rom_area ();
+      grub_efi_fake_bios_data (1);
+      grub_efi_lock_rom_area ();
     }
   else
-    fake_bios_data (0);
+    grub_efi_fake_bios_data (0);
 
   return 0;
 }
@@ -202,11 +208,11 @@ grub_cmd_loadbios (grub_command_t cmd __attribute__ ((unused)),
   size = file->size;
   if ((size < 0x10000) || (size > 0x40000))
     grub_error (GRUB_ERR_BAD_ARGUMENT, "invalid bios dump size");
-  else if (enable_rom_area ())
+  else if (grub_efi_enable_rom_area ())
     {
       grub_file_read (file, (void *) VBIOS_ADDR, size);
-      fake_bios_data (size <= 0x40000);
-      lock_rom_area ();
+      grub_efi_fake_bios_data (size <= 0x40000);
+      grub_efi_lock_rom_area ();
     }
 
   grub_file_close (file);

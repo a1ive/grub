@@ -219,4 +219,13 @@ grub_efi_bootpart (grub_efi_device_path_t *dp, const char *filename);
 grub_efi_handle_t
 grub_efi_bootdisk (grub_efi_device_path_t *dp, const char *filename);
 
+void
+grub_efi_unlock_rom_area (void);
+
+void
+grub_efi_lock_rom_area (void);
+
+void
+grub_efi_fake_bios_data (int use_rom);
+
 #endif /* ! GRUB_EFI_EFI_HEADER */
