@@ -31,6 +31,8 @@
 #include <grub/i386/memory.h>
 #include <grub/i386/memory_raw.h>
 
+#define GRUB_MEMORY_MACHINE_BIOS_DATA_AREA_ADDR 0x400
+
 #ifndef ASM_FILE
 
 /* See http://heim.ifi.uio.no/~stanisls/helppc/bios_data_area.html for a

@@ -23,8 +23,9 @@ void grub_vga_text_init (void);
 void grub_vga_text_fini (void);
 
 void grub_video_multiboot_fb_init (void);
-void grub_video_multiboot_fb_early_init (void);
-void grub_video_multiboot_fb_late_init (void);
 void grub_video_multiboot_fb_fini (void);
+
+void grub_console_pcbios_init (void);
+void grub_console_pcbios_fini (void);
 
 #endif /* ! GRUB_MACHINE_CONSOLE_HEADER */

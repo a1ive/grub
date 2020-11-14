@@ -94,6 +94,7 @@ grub_machine_init (void)
 {
   modend = grub_modules_get_end ();
 
+  grub_console_pcbios_init ();
   grub_vga_text_init ();
 
   grub_machine_mmap_init ();
@@ -120,4 +121,5 @@ grub_machine_fini (int flags)
     grub_vga_text_fini ();
   grub_video_multiboot_fb_fini ();
   grub_stop_floppy ();
+  grub_console_pcbios_fini ();
 }

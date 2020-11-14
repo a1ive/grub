@@ -17,6 +17,7 @@
  */
 
 #include <grub/machine/memory.h>
+#include <grub/machine/kernel.h>
 #include <grub/machine/console.h>
 #include <grub/term.h>
 #include <grub/types.h>
@@ -296,15 +297,37 @@ static struct grub_term_output grub_console_term_output =
   };
 
 void
+#ifdef GRUB_MACHINE_MULTIBOOT
+grub_console_pcbios_init (void)
+#else
 grub_console_init (void)
+#endif
 {
-  grub_term_register_output ("console", &grub_console_term_output);
-  grub_term_register_input ("console", &grub_console_term_input);
+#ifdef GRUB_MACHINE_MULTIBOOT
+  if (grub_mb_check_bios_int (0x10) && grub_mb_check_bios_int (0x16))
+  {
+#endif
+    grub_term_register_output ("console", &grub_console_term_output);
+    grub_term_register_input ("console", &grub_console_term_input);
+#ifdef GRUB_MACHINE_MULTIBOOT
+  }
+#endif
 }
 
 void
+#ifdef GRUB_MACHINE_MULTIBOOT
+grub_console_pcbios_fini (void)
+#else
 grub_console_fini (void)
+#endif
 {
-  grub_term_unregister_input (&grub_console_term_input);
-  grub_term_unregister_output (&grub_console_term_output);
+#ifdef GRUB_MACHINE_MULTIBOOT
+  if (grub_mb_check_bios_int (0x10) && grub_mb_check_bios_int (0x16))
+  {
+#endif
+    grub_term_unregister_input (&grub_console_term_input);
+    grub_term_unregister_output (&grub_console_term_output);
+#ifdef GRUB_MACHINE_MULTIBOOT
+  }
+#endif
 }
