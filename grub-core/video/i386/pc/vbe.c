@@ -20,6 +20,7 @@
 
 #include <grub/err.h>
 #include <grub/machine/memory.h>
+#include <grub/machine/kernel.h>
 #include <grub/i386/pc/vbe.h>
 #include <grub/video_fb.h>
 #include <grub/types.h>
@@ -30,6 +31,7 @@
 #include <grub/i386/pc/int.h>
 #include <grub/i18n.h>
 #include <grub/cpu/cpuid.h>
+#include <multiboot.h>
 
 GRUB_MOD_LICENSE ("GPLv3+");
 
@@ -1241,10 +1243,18 @@ static struct grub_video_adapter grub_video_vbe_adapter =
 
 GRUB_MOD_INIT(video_i386_pc_vbe)
 {
-  grub_video_register (&grub_video_vbe_adapter);
+#ifdef GRUB_MACHINE_MULTIBOOT
+  if (grub_mb_check_bios_int (0x10) &&
+      (grub_multiboot_info->flags & MULTIBOOT_INFO_VBE_INFO))
+#endif
+    grub_video_register (&grub_video_vbe_adapter);
 }
 
 GRUB_MOD_FINI(video_i386_pc_vbe)
 {
-  grub_video_unregister (&grub_video_vbe_adapter);
+#ifdef GRUB_MACHINE_MULTIBOOT
+  if (grub_mb_check_bios_int (0x10) &&
+      (grub_multiboot_info->flags & MULTIBOOT_INFO_VBE_INFO))
+#endif
+    grub_video_unregister (&grub_video_vbe_adapter);
 }
