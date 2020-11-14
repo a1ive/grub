@@ -144,6 +144,7 @@ KERNEL_HEADER_FILES += $(top_srcdir)/include/grub/gfxterm.h
 KERNEL_HEADER_FILES += $(top_srcdir)/include/grub/font.h
 KERNEL_HEADER_FILES += $(top_srcdir)/include/grub/bufio.h
 KERNEL_HEADER_FILES += $(top_srcdir)/include/grub/acpi.h
+KERNEL_HEADER_FILES += $(top_builddir)/include/grub/machine/int.h
 endif
 
 if COND_i386_qemu

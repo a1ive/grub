@@ -1403,8 +1403,9 @@ module = {
 
 module = {
   name = biosdisk;
-  i386_pc = disk/i386/pc/biosdisk.c;
+  common = disk/i386/pc/biosdisk.c;
   enable = i386_pc;
+  enable = i386_multiboot;
 };
 
 module = {

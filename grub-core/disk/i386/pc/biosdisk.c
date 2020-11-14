@@ -230,6 +230,7 @@ grub_biosdisk_get_diskinfo_real (int drive, void *drp, grub_uint16_t ax)
   return 0;
 }
 
+#ifndef GRUB_MACHINE_MULTIBOOT
 /*
  *   Return the cdrom information of DRIVE in CDRP. If an error occurs,
  *   then return non-zero, otherwise zero.
@@ -239,6 +240,7 @@ grub_biosdisk_get_cdinfo_int13_extensions (int drive, void *cdrp)
 {
   return grub_biosdisk_get_diskinfo_real (drive, cdrp, 0x4b01);
 }
+#endif
 
 /*
  *   Return the geometry of DRIVE in a drive parameters, DRP. If an error
@@ -657,9 +659,14 @@ grub_disk_biosdisk_fini (void)
 
 GRUB_MOD_INIT(biosdisk)
 {
+#ifndef GRUB_MACHINE_MULTIBOOT
   struct grub_biosdisk_cdrp *cdrp
     = (struct grub_biosdisk_cdrp *) GRUB_MEMORY_MACHINE_SCRATCH_ADDR;
   grub_uint8_t boot_drive;
+#else
+  if (!grub_mb_check_bios_int (0x13))
+    return;
+#endif
 
   if (grub_disk_firmware_is_tainted)
     {
@@ -669,6 +676,7 @@ GRUB_MOD_INIT(biosdisk)
     }
   grub_disk_firmware_fini = grub_disk_biosdisk_fini;
 
+#ifndef GRUB_MACHINE_MULTIBOOT
   grub_memset (cdrp, 0, sizeof (*cdrp));
   cdrp->size = sizeof (*cdrp);
   cdrp->media_type = 0xFF;
@@ -682,11 +690,15 @@ GRUB_MOD_INIT(biosdisk)
    */
   if (boot_drive >= 0x90)
     cd_drive = boot_drive;
+#endif
 
   grub_disk_dev_register (&grub_biosdisk_dev);
 }
 
 GRUB_MOD_FINI(biosdisk)
 {
-  grub_disk_biosdisk_fini ();
+#ifdef GRUB_MACHINE_MULTIBOOT
+  if (grub_mb_check_bios_int (0x13))
+#endif
+    grub_disk_biosdisk_fini ();
 }

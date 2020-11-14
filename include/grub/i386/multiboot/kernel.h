@@ -28,4 +28,10 @@
 
 extern struct multiboot_info *EXPORT_VAR(grub_multiboot_info);
 
+static inline grub_uint32_t grub_mb_check_bios_int (grub_uint8_t intno)
+{
+  grub_uint32_t *ivt = 0x00;
+  return ivt[intno];
+}
+
 #endif
