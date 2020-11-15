@@ -35,6 +35,7 @@
 #include <grub/term.h>
 #include <grub/lua.h>
 #include <grub/usbdesc.h>
+#include <grub/procfs.h>
 
 GRUB_MOD_LICENSE ("GPLv3+");
 
@@ -451,6 +452,35 @@ static luaL_Reg efilib[] =
   {0, 0}
 };
 
+struct systab_info
+{
+  char magic[8];
+  char arch[8];
+  grub_uint64_t systab;
+  grub_uint64_t handle;
+};
+
+static char *
+get_systab (grub_size_t *sz)
+{
+  struct systab_info *ret = NULL;
+  *sz = sizeof (struct systab_info);
+  ret = grub_zalloc (*sz);
+  if (!ret)
+    return NULL;
+  grub_strncpy (ret->magic, "GRUB EFI", 8);
+  grub_strncpy (ret->arch, GRUB_TARGET_CPU, 8);
+  ret->systab = (grub_addr_t) grub_efi_system_table;
+  ret->handle = (grub_addr_t) grub_efi_image_handle;
+  return (char *) ret;
+}
+
+struct grub_procfs_entry proc_systab =
+{
+  .name = "systab",
+  .get_contents = get_systab,
+};
+
 GRUB_MOD_INIT(dp)
 {
   cmd_dp = grub_register_extcmd ("dp", grub_cmd_dp, 0, N_("DEVICE"),
@@ -464,10 +494,12 @@ GRUB_MOD_INIT(dp)
     luaL_register (grub_lua_global_state, "efi", efilib);
     lua_gc (grub_lua_global_state, LUA_GCRESTART, 0);
   }
+  grub_procfs_register ("systab", &proc_systab);
 }
 
 GRUB_MOD_FINI(dp)
 {
   grub_unregister_extcmd (cmd_dp);
   grub_unregister_extcmd (cmd_usb);
+  grub_procfs_unregister (&proc_systab);
 }

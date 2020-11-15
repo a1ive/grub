@@ -107,6 +107,6 @@ grub_multiboot_load_elf (mbi_load_data_t *mld);
 extern grub_size_t grub_multiboot_pure_size;
 extern grub_size_t grub_multiboot_alloc_mbi;
 extern grub_uint32_t grub_multiboot_payload_eip;
-
+extern int grub_multiboot_no_exit;
 
 #endif /* ! GRUB_MULTIBOOT_HEADER */

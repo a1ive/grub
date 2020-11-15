@@ -145,7 +145,6 @@ efi_boot (struct grub_relocator *rel,
 #endif
   state_efi.MULTIBOOT_EFI_ENTRY_REGISTER = GRUB_MULTIBOOT (payload_eip);
   state_efi.MULTIBOOT_EFI_MBI_REGISTER = target;
-
   grub_relocator_efi_boot (rel, state_efi);
 }
 #else
@@ -188,7 +187,11 @@ grub_multiboot_boot (void)
   if (err)
     return err;
 
+#if defined (GRUB_MACHINE_EFI) && ! defined (GRUB_USE_MULTIBOOT2)
+  if (grub_multiboot_no_exit || grub_efi_is_finished)
+#else
   if (grub_efi_is_finished)
+#endif
     normal_boot (GRUB_MULTIBOOT (relocator), state);
   else
     efi_boot (GRUB_MULTIBOOT (relocator), state.MULTIBOOT_MBI_REGISTER);
@@ -327,6 +330,13 @@ grub_cmd_multiboot (grub_command_t cmd __attribute__ ((unused)),
       grub_efi_lock_rom_area ();
     }
 #endif
+    if (argc != 0 && grub_strcmp (argv[0], "--no-exit") == 0)
+    {
+      argc--;
+      argv++;
+      option_found = 1;
+      grub_multiboot_no_exit = 1;
+    }
 #endif
   } while (option_found);
 

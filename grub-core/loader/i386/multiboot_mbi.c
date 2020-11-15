@@ -64,6 +64,7 @@ static grub_size_t elf_sec_num, elf_sec_entsize;
 static unsigned elf_sec_shstrndx;
 static void *elf_sections;
 grub_multiboot_quirks_t grub_multiboot_quirks;
+int grub_multiboot_no_exit = 0;
 
 static grub_err_t
 load_kernel (grub_file_t file, const char *filename,
@@ -613,7 +614,8 @@ grub_multiboot_make_mbi (grub_uint32_t *target)
 #endif
 
 #ifdef GRUB_MACHINE_EFI
-  err = grub_efi_finish_boot_services (NULL, NULL, NULL, NULL, NULL);
+  if (!grub_multiboot_no_exit)
+    err = grub_efi_finish_boot_services (NULL, NULL, NULL, NULL, NULL);
   if (err)
     return err;
 #endif
