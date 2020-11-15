@@ -859,6 +859,7 @@ module = {
   name = boot;
   common = commands/boot.c;
   i386_pc = lib/i386/pc/biosnum.c;
+  i386_multiboot = lib/i386/pc/biosnum.c;
   enable = x86;
   enable = emu;
   enable = sparc64_ieee1275;

@@ -66,13 +66,10 @@ multiboot_header:
     .long   0
     .long   0
 
-    .long   0 /* mode_type */
+    .long   1 /* mode_type */
     .long   1024 /* cols */
     .long   768 /* rows */
     .long   0 /* color depth */
 
 #include "../realmode.S"
 #include "../int.S"
-
-VARIABLE(grub_realidt)
-    .long   0
