@@ -33,6 +33,9 @@
 
 #define GRUB_MEMORY_MACHINE_BIOS_DATA_AREA_ADDR 0x400
 
+#define GRUB_MEMORY_MACHINE_PART_TABLE_ADDR     0x7be
+#define GRUB_MEMORY_MACHINE_BOOT_LOADER_ADDR    0x7c00
+
 #ifndef ASM_FILE
 
 /* See http://heim.ifi.uio.no/~stanisls/helppc/bios_data_area.html for a

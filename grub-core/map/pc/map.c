@@ -28,6 +28,7 @@
 #include <grub/i18n.h>
 #include <grub/memory.h>
 #include <grub/machine/memory.h>
+#include <grub/machine/kernel.h>
 
 GRUB_MOD_LICENSE ("GPLv3+");
 
@@ -407,6 +408,10 @@ static int (*grub_get_root_biosnumber_saved) (void);
 
 GRUB_MOD_INIT (map)
 {
+#ifdef GRUB_MACHINE_MULTIBOOT
+  if (!grub_mb_check_bios_int (0x13))
+    return;
+#endif
   grub_get_root_biosnumber_saved = grub_get_root_biosnumber;
   grub_get_root_biosnumber = grub_get_root_biosnumber_drivemap;
   cmd = grub_register_extcmd ("map", grub_cmd_drivemap, 0,
@@ -425,6 +430,10 @@ GRUB_MOD_INIT (map)
 
 GRUB_MOD_FINI (map)
 {
+#ifdef GRUB_MACHINE_MULTIBOOT
+  if (!grub_mb_check_bios_int (0x13))
+    return;
+#endif
   grub_get_root_biosnumber = grub_get_root_biosnumber_saved;
   grub_loader_unregister_preboot_hook (drivemap_hook);
   drivemap_hook = 0;

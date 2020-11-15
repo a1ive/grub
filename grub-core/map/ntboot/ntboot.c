@@ -29,8 +29,11 @@
 #include <grub/types.h>
 #include <grub/term.h>
 #include <grub/partition.h>
-#include <xz.h>
+#ifdef GRUB_MACHINE_MULTIBOOT
+#include <grub/machine/kernel.h>
+#endif
 
+#include <xz.h>
 #include <misc.h>
 #include <wimboot.h>
 #include <bcd.h>
@@ -257,6 +260,10 @@ static grub_extcmd_t cmd_ntboot;
 
 GRUB_MOD_INIT(ntboot)
 {
+#ifdef GRUB_MACHINE_MULTIBOOT
+  if (!grub_mb_check_bios_int (0x13))
+    return;
+#endif
   cmd_ntboot = grub_register_extcmd ("ntboot", grub_cmd_ntboot, 0,
                     N_("[-v|-w] [--efi=FILE] FILE"),
                     N_("Boot NT6+ VHD/VHDX/WIM"), options_ntboot);
@@ -264,5 +271,9 @@ GRUB_MOD_INIT(ntboot)
 
 GRUB_MOD_FINI(ntboot)
 {
+#ifdef GRUB_MACHINE_MULTIBOOT
+  if (!grub_mb_check_bios_int (0x13))
+    return;
+#endif
   grub_unregister_extcmd (cmd_ntboot);
 }

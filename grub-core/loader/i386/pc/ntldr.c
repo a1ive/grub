@@ -33,6 +33,7 @@
 #include <grub/mm.h>
 #include <grub/cpu/relocator.h>
 #include <grub/machine/chainloader.h>
+#include <grub/machine/kernel.h>
 
 GRUB_MOD_LICENSE ("GPLv3+");
 
@@ -151,6 +152,10 @@ static grub_command_t cmd;
 
 GRUB_MOD_INIT(ntldr)
 {
+#ifdef GRUB_MACHINE_MULTIBOOT
+  if (!grub_mb_check_bios_int (0x13))
+    return;
+#endif
   cmd = grub_register_command ("ntldr", grub_cmd_ntldr,
 			       0, N_("Load NTLDR or BootMGR."));
   my_mod = mod;
@@ -158,5 +163,9 @@ GRUB_MOD_INIT(ntldr)
 
 GRUB_MOD_FINI(ntldr)
 {
+#ifdef GRUB_MACHINE_MULTIBOOT
+  if (!grub_mb_check_bios_int (0x13))
+    return;
+#endif
   grub_unregister_command (cmd);
 }

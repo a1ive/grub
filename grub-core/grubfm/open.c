@@ -27,6 +27,9 @@
 #include <grub/normal.h>
 #include <grub/command.h>
 #include <grub/script_sh.h>
+#ifdef GRUB_MACHINE_MULTIBOOT
+#include <grub/machine/kernel.h>
+#endif
 
 #include "fm.h"
 
@@ -84,6 +87,10 @@ grubfm_add_ini_menu (ini_t *ini, const char *dev)
     char platform = 'e';
 #elif defined (GRUB_MACHINE_PCBIOS)
     char platform = 'b';
+#elif defined (GRUB_MACHINE_MULTIBOOT)
+    char platform = 'u';
+    if (grub_mb_check_bios_int (0x13))
+      platform = 'b';
 #else
     char platform = 'u';
 #endif

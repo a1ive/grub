@@ -1865,8 +1865,9 @@ module = {
 
 module = {
   name = ntldr;
-  i386_pc = loader/i386/pc/ntldr.c;
+  common = loader/i386/pc/ntldr.c;
   enable = i386_pc;
+  enable = i386_multiboot;
 };
 
 
@@ -1989,9 +1990,11 @@ module = {
   name = chain;
   efi = loader/efi/chainloader.c;
   i386_pc = loader/i386/pc/chainloader.c;
+  i386_multiboot = loader/i386/pc/chainloader.c;
   i386_coreboot = loader/i386/coreboot/chainloader.c;
   enable = i386_pc;
   enable = i386_coreboot;
+  enable = i386_multiboot;
   enable = efi;
 };
 
@@ -2775,12 +2778,15 @@ module = {
   efi = map/efi/handle.c;
 
   i386_pc = map/pc/map.c;
+  i386_multiboot = map/pc/map.c;
   i386_pc = map/pc/drivemap_int13h.S;
+  i386_multiboot = map/pc/drivemap_int13h.S;
 
   cflags = '-Wno-strict-aliasing -fshort-wchar';
   cppflags = '-I$(srcdir)/map/include';
   enable = efi;
   enable = i386_pc;
+  enable = i386_multiboot;
 };
 
 module = {
@@ -2789,7 +2795,9 @@ module = {
   efi = map/wimboot/efi/boot.c;
   efi = map/wimboot/efi/install.c;
   i386_pc = map/wimboot/pc/boot.c;
+  i386_multiboot = map/wimboot/pc/boot.c;
   i386_pc = map/wimboot/pc/install.c;
+  i386_multiboot = map/wimboot/pc/install.c;
   common = map/lib/reg.c;
   common = map/lib/bcd.c;
   common = map/lib/xz.c;
@@ -2808,6 +2816,7 @@ module = {
   cppflags = '-I$(srcdir)/map/include';
   enable = efi;
   enable = i386_pc;
+  enable = i386_multiboot;
 };
 
 module = {
@@ -2819,6 +2828,7 @@ module = {
   enable = i386_efi;
   enable = x86_64_efi;
   enable = i386_pc;
+  enable = i386_multiboot;
 };
 
 module = {
@@ -2904,6 +2914,7 @@ module = {
   cppflags = '-I$(srcdir)/script/ini';
   enable = efi;
   enable = i386_pc;
+  enable = i386_multiboot;
 };
 
 module = {

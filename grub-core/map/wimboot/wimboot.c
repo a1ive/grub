@@ -30,6 +30,9 @@
 #include <grub/term.h>
 #include <grub/wimtools.h>
 #include <grub/lua.h>
+#ifdef GRUB_MACHINE_MULTIBOOT
+#include <grub/machine/kernel.h>
+#endif
 
 #include <misc.h>
 #include <wimboot.h>
@@ -339,6 +342,10 @@ static luaL_Reg wimlib[] =
 
 GRUB_MOD_INIT(wimboot)
 {
+#ifdef GRUB_MACHINE_MULTIBOOT
+  if (!grub_mb_check_bios_int (0x13))
+    return;
+#endif
   grub_load_bcd ();
   grub_load_bootsdi ();
   cmd_wimboot = grub_register_extcmd ("wimboot", grub_cmd_wimboot, 0,
@@ -357,6 +364,10 @@ GRUB_MOD_INIT(wimboot)
 
 GRUB_MOD_FINI(wimboot)
 {
+#ifdef GRUB_MACHINE_MULTIBOOT
+  if (!grub_mb_check_bios_int (0x13))
+    return;
+#endif
   grub_unload_bcd ();
   grub_unload_bootsdi ();
   grub_unregister_extcmd (cmd_wimboot);
