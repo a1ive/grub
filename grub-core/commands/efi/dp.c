@@ -201,7 +201,26 @@ grub_cmd_dp (grub_extcmd_context_t ctxt __attribute__ ((unused)),
              int argc, char **args)
 {
   if (argc != 1)
-    return 0;
+  {
+    grub_efi_status_t status;
+    grub_efi_guid_t guid = GRUB_EFI_LOADED_IMAGE_GUID;
+    grub_efi_guid_t dp_guid = GRUB_EFI_DEVICE_PATH_GUID;
+    grub_efi_boot_services_t *b = grub_efi_system_table->boot_services;
+    grub_efi_loaded_image_t *img = NULL;
+    grub_efi_device_path_protocol_t *dev = NULL;
+    status = efi_call_3 (b->handle_protocol, grub_efi_image_handle, &guid, &img);
+    if (status != GRUB_EFI_SUCCESS)
+      return grub_error (GRUB_ERR_BAD_OS, "loaded image protocol not found");
+    status = efi_call_3 (b->handle_protocol, img->device_handle, &dp_guid, &dev);
+    if (status != GRUB_EFI_SUCCESS)
+      return grub_error (GRUB_ERR_BAD_OS, "device path protocol not found");
+    grub_printf ("DevicePath: ");
+    grub_efi_print_device_path (dev);
+    grub_printf ("\n");
+    grub_efi_print_device_path (img->file_path);
+    grub_printf ("\n");
+    return GRUB_ERR_NONE;
+  }
   char *text_dp = NULL;
   char *filename = NULL;
   char *devname = NULL;
