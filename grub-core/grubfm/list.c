@@ -128,14 +128,14 @@ free_f:
 }
 
 static int
-grubfm_enum_device_iter (const char *name,
-                         void *data __attribute__ ((unused)))
+grubfm_enum_device_iter (const char *name, void *data)
 {
   if (grub_strcmp (name, "memdisk") == 0 ||
       grub_strcmp (name, "proc") == 0 ||
       grub_strcmp (name, "python") == 0)
     return 0;
   grub_device_t dev;
+  int *found = data;
 
   dev = grub_device_open (name);
   if (dev)
@@ -175,6 +175,7 @@ grubfm_enum_device_iter (const char *name,
         grubfm_add_menu (title, "iso", NULL, src, 0);
       else
         grubfm_add_menu (title, "hdd", NULL, src, 0);
+      *found = 1;
       grub_free (title);
       grub_free (src);
       if (label)
@@ -195,7 +196,10 @@ grubfm_enum_device_iter (const char *name,
 int
 grubfm_enum_device (void)
 {
-  grub_device_iterate (grubfm_enum_device_iter, NULL);
+  int found = 0;
+  grub_device_iterate (grubfm_enum_device_iter, &found);
+  if (!found)
+    grubfm_add_menu ("NO DISK", "cancel", NULL, "echo", 0);
   return 0;
 }
 
