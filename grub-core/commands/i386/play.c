@@ -183,7 +183,7 @@ grub_cmd_play (grub_command_t cmd __attribute__ ((unused)),
 }
 
 static grub_command_t cmd;
-
+
 GRUB_MOD_INIT(play)
 {
   cmd = grub_register_command ("play", grub_cmd_play,

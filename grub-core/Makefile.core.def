@@ -1147,7 +1147,7 @@ module = {
 
 module = {
   name = play;
-  x86 = commands/i386/pc/play.c;
+  x86 = commands/i386/play.c;
   enable = x86;
 };
 
@@ -2163,8 +2163,9 @@ module = {
 
 module = {
   name = sendkey;
-  i386_pc = commands/i386/pc/sendkey.c;
+  common = commands/i386/pc/sendkey.c;
   enable = i386_pc;
+  enable = i386_multiboot;
 };
 
 module = {
@@ -2543,6 +2544,7 @@ module = {
   name = lsapm;
   common = commands/i386/pc/lsapm.c;
   enable = i386_pc;
+  enable = i386_multiboot;
 };
 
 module = {

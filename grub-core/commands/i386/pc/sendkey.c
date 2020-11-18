@@ -27,6 +27,7 @@
 #include <grub/cpu/io.h>
 #include <grub/loader.h>
 #include <grub/i18n.h>
+#include <grub/machine/kernel.h>
 
 GRUB_MOD_LICENSE ("GPLv2+");
 
@@ -368,6 +369,10 @@ static struct grub_preboot *preboot_hook;
 
 GRUB_MOD_INIT (sendkey)
 {
+#ifdef GRUB_MACHINE_MULTIBOOT
+  if (!grub_mb_check_bios_int (0x16))
+    return;
+#endif
   cmd = grub_register_extcmd ("sendkey", grub_cmd_sendkey, 0,
 			      N_("[KEYSTROKE1] [KEYSTROKE2] ..."),
 			      /* TRANSLATORS: It can emulate multiple
@@ -382,6 +387,10 @@ GRUB_MOD_INIT (sendkey)
 
 GRUB_MOD_FINI (sendkey)
 {
+#ifdef GRUB_MACHINE_MULTIBOOT
+  if (!grub_mb_check_bios_int (0x16))
+    return;
+#endif
   grub_unregister_extcmd (cmd);
   grub_loader_unregister_preboot_hook (preboot_hook);
 }

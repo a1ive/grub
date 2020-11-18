@@ -21,6 +21,7 @@
 #include <grub/dl.h>
 #include <grub/command.h>
 #include <grub/i18n.h>
+#include <grub/machine/kernel.h>
 
 GRUB_MOD_LICENSE ("GPLv3+");
 
@@ -34,7 +35,7 @@ grub_apm_get_info (struct grub_apm_info *info)
   regs.ebx = 0;
   regs.flags = GRUB_CPU_INT_FLAGS_DEFAULT;
   grub_bios_interrupt (0x15, &regs);
-  
+
   if (regs.flags & GRUB_CPU_INT_FLAGS_CARRY)
     return 0;
   info->version = regs.eax & 0xffff;
@@ -103,13 +104,19 @@ static grub_command_t cmd;
 
 GRUB_MOD_INIT(lsapm)
 {
-  cmd = grub_register_command ("lsapm", grub_cmd_lsapm, 0,
-			      N_("Show APM information."));
+#ifdef GRUB_MACHINE_MULTIBOOT
+  if (grub_mb_check_bios_int (0x15))
+#endif
+    cmd = grub_register_command ("lsapm", grub_cmd_lsapm, 0,
+                                 N_("Show APM information."));
 }
 
 GRUB_MOD_FINI(lsapm)
 {
-  grub_unregister_command (cmd);
+#ifdef GRUB_MACHINE_MULTIBOOT
+  if (grub_mb_check_bios_int (0x15))
+#endif
+    grub_unregister_command (cmd);
 }
 
 

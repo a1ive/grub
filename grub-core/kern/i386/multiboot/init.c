@@ -41,6 +41,8 @@ extern grub_uint8_t _start[];
 extern grub_uint8_t _end[];
 extern grub_uint8_t _edata[];
 
+grub_uint32_t grub_boot_device = 0;
+
 void  __attribute__ ((noreturn))
 grub_exit (int rc __attribute__((unused)))
 {
@@ -106,6 +108,9 @@ grub_machine_init (void)
   grub_gfxterm_init ();
 
   grub_tsc_init ();
+
+  if (grub_mb_check_bios_int (0x13))
+    grub_boot_device = grub_multiboot_info->boot_device;
 }
 
 void
