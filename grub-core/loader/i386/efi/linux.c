@@ -239,12 +239,13 @@ grub_cmd_linux (grub_command_t cmd __attribute__ ((unused)),
   start = (lh.setup_sects + 1) * 512;
   len = grub_file_size(file) - start;
 
+  kernel_size = lh.init_size;
   kernel_mem = grub_efi_allocate_fixed(lh.pref_address,
-				       BYTES_TO_PAGES(lh.init_size));
+				       BYTES_TO_PAGES(kernel_size));
 
   if (!kernel_mem)
     kernel_mem = grub_efi_allocate_pages_max(0x3fffffff,
-					     BYTES_TO_PAGES(lh.init_size));
+					     BYTES_TO_PAGES(kernel_size));
 
   if (!kernel_mem)
     {
