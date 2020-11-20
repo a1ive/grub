@@ -73,8 +73,8 @@ grub_err_t grub_multiboot_set_video_mode (void);
 #define GRUB_MACHINE_HAS_ACPI 0
 #endif
 
-#define GRUB_MULTIBOOT_CONSOLE_EGA_TEXT 1
-#define GRUB_MULTIBOOT_CONSOLE_FRAMEBUFFER 2 
+#define GRUB_MULTIBOOT_CONSOLE_EGA_TEXT    1
+#define GRUB_MULTIBOOT_CONSOLE_FRAMEBUFFER 2
 
 grub_err_t
 grub_multiboot_set_console (int console_type, int accepted_consoles,
