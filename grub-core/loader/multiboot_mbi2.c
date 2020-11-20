@@ -79,7 +79,7 @@ static grub_uint32_t load_base_addr;
 
 void
 grub_multiboot2_add_elfsyms (grub_size_t num, grub_size_t entsize,
-			    unsigned shndx, void *data)
+                unsigned shndx, void *data)
 {
   elf_sec_num = num;
   elf_sec_shstrndx = shndx;
@@ -98,10 +98,10 @@ find_header (grub_properly_aligned_t *buffer, grub_ssize_t len)
        header = (struct multiboot2_header *) ((grub_uint32_t *) header + MULTIBOOT2_HEADER_ALIGN / 4))
     {
       if (header->magic == MULTIBOOT2_HEADER_MAGIC
-	  && !(header->magic + header->architecture
-	       + header->header_length + header->checksum)
-	  && header->architecture == MULTIBOOT2_ARCHITECTURE_CURRENT)
-	return header;
+      && !(header->magic + header->architecture
+           + header->header_length + header->checksum)
+      && header->architecture == MULTIBOOT2_ARCHITECTURE_CURRENT)
+    return header;
     }
   return NULL;
 }
@@ -152,198 +152,204 @@ grub_multiboot2_load (grub_file_t file, const char *filename)
 
   for (tag = (struct multiboot2_header_tag *) (header + 1);
        tag->type != MULTIBOOT2_TAG_TYPE_END;
-       tag = (struct multiboot2_header_tag *) ((grub_uint32_t *) tag + ALIGN_UP (tag->size, MULTIBOOT2_TAG_ALIGN) / 4))
+       tag = (struct multiboot2_header_tag *)
+        ((grub_uint32_t *) tag + ALIGN_UP (tag->size, MULTIBOOT2_TAG_ALIGN) / 4))
+  {
+    grub_dprintf ("multiboot_loader", "tag %u size: %u\n", tag->type, tag->size);
     switch (tag->type)
-      {
+    {
       case MULTIBOOT2_HEADER_TAG_INFORMATION_REQUEST:
-	{
-	  unsigned i;
-	  struct multiboot2_header_tag_information_request *request_tag
-	    = (struct multiboot2_header_tag_information_request *) tag;
-	  if (request_tag->flags & MULTIBOOT2_HEADER_TAG_OPTIONAL)
-	    break;
-	  for (i = 0; i < (request_tag->size - sizeof (*request_tag))
-		 / sizeof (request_tag->requests[0]); i++)
-	    switch (request_tag->requests[i])
-	      {
-	      case MULTIBOOT2_TAG_TYPE_END:
-	      case MULTIBOOT2_TAG_TYPE_CMDLINE:
-	      case MULTIBOOT2_TAG_TYPE_BOOT_LOADER_NAME:
-	      case MULTIBOOT2_TAG_TYPE_MODULE:
-	      case MULTIBOOT2_TAG_TYPE_BASIC_MEMINFO:
-	      case MULTIBOOT2_TAG_TYPE_BOOTDEV:
-	      case MULTIBOOT2_TAG_TYPE_MMAP:
-	      case MULTIBOOT2_TAG_TYPE_FRAMEBUFFER:
-	      case MULTIBOOT2_TAG_TYPE_VBE:
-	      case MULTIBOOT2_TAG_TYPE_ELF_SECTIONS:
-	      case MULTIBOOT2_TAG_TYPE_APM:
-	      case MULTIBOOT2_TAG_TYPE_EFI32:
-	      case MULTIBOOT2_TAG_TYPE_EFI64:
-	      case MULTIBOOT2_TAG_TYPE_ACPI_OLD:
-	      case MULTIBOOT2_TAG_TYPE_ACPI_NEW:
-	      case MULTIBOOT2_TAG_TYPE_NETWORK:
-	      case MULTIBOOT2_TAG_TYPE_EFI_MMAP:
-	      case MULTIBOOT2_TAG_TYPE_EFI_BS:
-	      case MULTIBOOT2_TAG_TYPE_EFI32_IH:
-	      case MULTIBOOT2_TAG_TYPE_EFI64_IH:
-	      case MULTIBOOT2_TAG_TYPE_LOAD_BASE_ADDR:
-		break;
+      {
+        unsigned i;
+        struct multiboot2_header_tag_information_request *request_tag
+          = (struct multiboot2_header_tag_information_request *) tag;
+        if (request_tag->flags & MULTIBOOT2_HEADER_TAG_OPTIONAL)
+          break;
+        for (i = 0; i < (request_tag->size - sizeof (*request_tag))
+          / sizeof (request_tag->requests[0]); i++)
+        {
+          switch (request_tag->requests[i])
+          {
+            case MULTIBOOT2_TAG_TYPE_END:
+            case MULTIBOOT2_TAG_TYPE_CMDLINE:
+            case MULTIBOOT2_TAG_TYPE_BOOT_LOADER_NAME:
+            case MULTIBOOT2_TAG_TYPE_MODULE:
+            case MULTIBOOT2_TAG_TYPE_BASIC_MEMINFO:
+            case MULTIBOOT2_TAG_TYPE_BOOTDEV:
+            case MULTIBOOT2_TAG_TYPE_MMAP:
+            case MULTIBOOT2_TAG_TYPE_FRAMEBUFFER:
+            case MULTIBOOT2_TAG_TYPE_VBE:
+            case MULTIBOOT2_TAG_TYPE_ELF_SECTIONS:
+            case MULTIBOOT2_TAG_TYPE_APM:
+            case MULTIBOOT2_TAG_TYPE_EFI32:
+            case MULTIBOOT2_TAG_TYPE_EFI64:
+            case MULTIBOOT2_TAG_TYPE_ACPI_OLD:
+            case MULTIBOOT2_TAG_TYPE_ACPI_NEW:
+            case MULTIBOOT2_TAG_TYPE_NETWORK:
+            case MULTIBOOT2_TAG_TYPE_EFI_MMAP:
+            case MULTIBOOT2_TAG_TYPE_EFI_BS:
+            case MULTIBOOT2_TAG_TYPE_EFI32_IH:
+            case MULTIBOOT2_TAG_TYPE_EFI64_IH:
+            case MULTIBOOT2_TAG_TYPE_LOAD_BASE_ADDR:
+              break;
 
-	      default:
-		grub_free (mld.buffer);
-		return grub_error (GRUB_ERR_UNKNOWN_OS,
-				   "unsupported information tag: 0x%x",
-				   request_tag->requests[i]);
-	      }
-	  break;
-	}
-	       
+            default:
+              grub_free (mld.buffer);
+              return grub_error (GRUB_ERR_UNKNOWN_OS,
+                    "unsupported information tag: 0x%x",
+                    request_tag->requests[i]);
+          }
+        }
+        break;
+      }
+
       case MULTIBOOT2_HEADER_TAG_ADDRESS:
-	addr_tag = (struct multiboot2_header_tag_address *) tag;
-	break;
+        addr_tag = (struct multiboot2_header_tag_address *) tag;
+        break;
 
       case MULTIBOOT2_HEADER_TAG_ENTRY_ADDRESS:
-	entry_specified = 1;
-	entry = ((struct multiboot2_header_tag_entry_address *) tag)->entry_addr;
-	break;
+        entry_specified = 1;
+        entry = ((struct multiboot2_header_tag_entry_address *) tag)->entry_addr;
+        break;
 
       case MULTIBOOT2_HEADER_TAG_ENTRY_ADDRESS_EFI64:
 #if defined (GRUB_MACHINE_EFI) && defined (__x86_64__)
-	efi_entry_specified = 1;
-	efi_entry = ((struct multiboot2_header_tag_entry_address *) tag)->entry_addr;
+        efi_entry_specified = 1;
+        efi_entry = ((struct multiboot2_header_tag_entry_address *)tag)->entry_addr;
 #endif
-	break;
+        break;
 
       case MULTIBOOT2_HEADER_TAG_CONSOLE_FLAGS:
-	if (!(((struct multiboot2_header_tag_console_flags *) tag)->console_flags
-	    & MULTIBOOT2_CONSOLE_FLAGS_EGA_TEXT_SUPPORTED))
-	  accepted_consoles &= ~GRUB_MULTIBOOT2_CONSOLE_EGA_TEXT;
-	if (((struct multiboot2_header_tag_console_flags *) tag)->console_flags
-	    & MULTIBOOT2_CONSOLE_FLAGS_CONSOLE_REQUIRED)
-	  console_required = 1;
-	break;
+        if (!(((struct multiboot2_header_tag_console_flags *) tag)->console_flags
+            & MULTIBOOT2_CONSOLE_FLAGS_EGA_TEXT_SUPPORTED))
+          accepted_consoles &= ~GRUB_MULTIBOOT2_CONSOLE_EGA_TEXT;
+        if (((struct multiboot2_header_tag_console_flags *) tag)->console_flags
+            & MULTIBOOT2_CONSOLE_FLAGS_CONSOLE_REQUIRED)
+          console_required = 1;
+        break;
 
       case MULTIBOOT2_HEADER_TAG_FRAMEBUFFER:
-	fbtag = (struct multiboot2_header_tag_framebuffer *) tag;
-	accepted_consoles |= GRUB_MULTIBOOT2_CONSOLE_FRAMEBUFFER;
-	break;
+        fbtag = (struct multiboot2_header_tag_framebuffer *) tag;
+        accepted_consoles |= GRUB_MULTIBOOT2_CONSOLE_FRAMEBUFFER;
+        break;
 
       case MULTIBOOT2_HEADER_TAG_RELOCATABLE:
-	mld.relocatable = 1;
-	rel_tag = (struct multiboot2_header_tag_relocatable *) tag;
-	mld.min_addr = rel_tag->min_addr;
-	mld.max_addr = rel_tag->max_addr;
-	mld.align = rel_tag->align;
-	switch (rel_tag->preference)
-	  {
-	  case MULTIBOOT2_LOAD_PREFERENCE_LOW:
-	    mld.preference = GRUB_RELOCATOR_PREFERENCE_LOW;
-	    break;
+        mld.relocatable = 1;
+        rel_tag = (struct multiboot2_header_tag_relocatable *) tag;
+        mld.min_addr = rel_tag->min_addr;
+        mld.max_addr = rel_tag->max_addr;
+        mld.align = rel_tag->align;
+        switch (rel_tag->preference)
+        {
+          case MULTIBOOT2_LOAD_PREFERENCE_LOW:
+            mld.preference = GRUB_RELOCATOR_PREFERENCE_LOW;
+            break;
 
-	  case MULTIBOOT2_LOAD_PREFERENCE_HIGH:
-	    mld.preference = GRUB_RELOCATOR_PREFERENCE_HIGH;
-	    break;
+          case MULTIBOOT2_LOAD_PREFERENCE_HIGH:
+            mld.preference = GRUB_RELOCATOR_PREFERENCE_HIGH;
+            break;
 
-	  default:
-	    mld.preference = GRUB_RELOCATOR_PREFERENCE_NONE;
-	  }
-	break;
+          default:
+            mld.preference = GRUB_RELOCATOR_PREFERENCE_NONE;
+        }
+        break;
 
-	/* GRUB always page-aligns modules.  */
+    /* GRUB always page-aligns modules.  */
       case MULTIBOOT2_HEADER_TAG_MODULE_ALIGN:
-	break;
+        break;
 
       case MULTIBOOT2_HEADER_TAG_EFI_BS:
 #ifdef GRUB_MACHINE_EFI
-	keep_bs = 1;
+        keep_bs = 1;
 #endif
-	break;
+      break;
 
       default:
-	if (! (tag->flags & MULTIBOOT2_HEADER_TAG_OPTIONAL))
-	  {
-	    grub_free (mld.buffer);
-	    return grub_error (GRUB_ERR_UNKNOWN_OS,
-			       "unsupported tag: 0x%x", tag->type);
-	  }
-	break;
-      }
+        if (! (tag->flags & MULTIBOOT2_HEADER_TAG_OPTIONAL))
+        {
+          grub_free (mld.buffer);
+          return grub_error (GRUB_ERR_UNKNOWN_OS,
+                   "unsupported tag: 0x%x", tag->type);
+        }
+        break;
+    }
+  }
 
   if (addr_tag && !entry_specified && !(keep_bs && efi_entry_specified))
     {
       grub_free (mld.buffer);
       return grub_error (GRUB_ERR_UNKNOWN_OS,
-			 "load address tag without entry address tag");
+             "load address tag without entry address tag");
     }
  
   if (addr_tag)
     {
       grub_uint64_t load_addr = (addr_tag->load_addr + 1)
-	? addr_tag->load_addr : (addr_tag->header_addr
-				 - ((char *) header - (char *) mld.buffer));
+    ? addr_tag->load_addr : (addr_tag->header_addr
+                 - ((char *) header - (char *) mld.buffer));
       int offset = ((char *) header - (char *) mld.buffer -
-	   (addr_tag->header_addr - load_addr));
+       (addr_tag->header_addr - load_addr));
       int load_size = ((addr_tag->load_end_addr == 0) ? file->size - offset :
-		       addr_tag->load_end_addr - addr_tag->load_addr);
+               addr_tag->load_end_addr - addr_tag->load_addr);
       grub_size_t code_size;
       void *source;
       grub_relocator_chunk_t ch;
 
       if (addr_tag->bss_end_addr)
-	code_size = (addr_tag->bss_end_addr - load_addr);
+    code_size = (addr_tag->bss_end_addr - load_addr);
       else
-	code_size = load_size;
+    code_size = load_size;
 
       if (mld.relocatable)
-	{
-	  if (code_size > mld.max_addr || mld.min_addr > mld.max_addr - code_size)
-	    {
-	      grub_free (mld.buffer);
-	      return grub_error (GRUB_ERR_BAD_OS, "invalid min/max address and/or load size");
-	    }
+    {
+      if (code_size > mld.max_addr || mld.min_addr > mld.max_addr - code_size)
+        {
+          grub_free (mld.buffer);
+          return grub_error (GRUB_ERR_BAD_OS, "invalid min/max address and/or load size");
+        }
 
-	  err = grub_relocator_alloc_chunk_align_safe (grub_multiboot2_relocator, &ch,
-						       mld.min_addr, mld.max_addr,
-						       code_size, mld.align ? mld.align : 1,
-						       mld.preference, keep_bs);
-	}
+      err = grub_relocator_alloc_chunk_align_safe (grub_multiboot2_relocator, &ch,
+                               mld.min_addr, mld.max_addr,
+                               code_size, mld.align ? mld.align : 1,
+                               mld.preference, keep_bs);
+    }
       else
-	err = grub_relocator_alloc_chunk_addr (grub_multiboot2_relocator,
-					       &ch, load_addr, code_size);
+    err = grub_relocator_alloc_chunk_addr (grub_multiboot2_relocator,
+                           &ch, load_addr, code_size);
       if (err)
-	{
-	  grub_dprintf ("multiboot_loader", "Error loading aout kludge\n");
-	  grub_free (mld.buffer);
-	  return err;
-	}
+    {
+      grub_dprintf ("multiboot_loader", "Error loading aout kludge\n");
+      grub_free (mld.buffer);
+      return err;
+    }
       mld.link_base_addr = load_addr;
       mld.load_base_addr = get_physical_target_address (ch);
       source = get_virtual_current_address (ch);
 
       grub_dprintf ("multiboot_loader", "link_base_addr=0x%x, load_base_addr=0x%x, "
-		    "load_size=0x%lx, relocatable=%d\n", mld.link_base_addr,
-		    mld.load_base_addr, (long) code_size, mld.relocatable);
+            "load_size=0x%lx, relocatable=%d\n", mld.link_base_addr,
+            mld.load_base_addr, (long) code_size, mld.relocatable);
 
       if (mld.relocatable)
-	grub_dprintf ("multiboot_loader", "align=0x%lx, preference=0x%x, avoid_efi_boot_services=%d\n",
-		      (long) mld.align, mld.preference, keep_bs);
+    grub_dprintf ("multiboot_loader", "align=0x%lx, preference=0x%x, avoid_efi_boot_services=%d\n",
+              (long) mld.align, mld.preference, keep_bs);
 
       if ((grub_file_seek (file, offset)) == (grub_off_t) -1)
-	{
-	  grub_free (mld.buffer);
-	  return grub_errno;
-	}
+    {
+      grub_free (mld.buffer);
+      return grub_errno;
+    }
 
       grub_file_read (file, source, load_size);
       if (grub_errno)
-	{
-	  grub_free (mld.buffer);
-	  return grub_errno;
-	}
+    {
+      grub_free (mld.buffer);
+      return grub_errno;
+    }
 
       if (addr_tag->bss_end_addr)
-	grub_memset ((grub_uint8_t *) source + load_size, 0,
-		     addr_tag->bss_end_addr - load_addr - load_size);
+    grub_memset ((grub_uint8_t *) source + load_size, 0,
+             addr_tag->bss_end_addr - load_addr - load_size);
     }
   else
     {
@@ -352,10 +358,10 @@ grub_multiboot2_load (grub_file_t file, const char *filename)
       mld.avoid_efi_boot_services = keep_bs;
       err = grub_multiboot2_load_elf (&mld);
       if (err)
-	{
-	  grub_free (mld.buffer);
-	  return err;
-	}
+    {
+      grub_free (mld.buffer);
+      return err;
+    }
     }
 
   load_base_addr = mld.load_base_addr;
@@ -377,20 +383,20 @@ grub_multiboot2_load (grub_file_t file, const char *filename)
        * 64-bit int here.
        */
       if (mld.load_base_addr >= mld.link_base_addr)
-	grub_multiboot2_payload_eip += mld.load_base_addr - mld.link_base_addr;
+    grub_multiboot2_payload_eip += mld.load_base_addr - mld.link_base_addr;
       else
-	grub_multiboot2_payload_eip -= mld.link_base_addr - mld.load_base_addr;
+    grub_multiboot2_payload_eip -= mld.link_base_addr - mld.load_base_addr;
     }
 
   if (fbtag)
     err = grub_multiboot2_set_console (GRUB_MULTIBOOT2_CONSOLE_FRAMEBUFFER,
-				       accepted_consoles,
-				       fbtag->width, fbtag->height,
-				       fbtag->depth, console_required);
+                       accepted_consoles,
+                       fbtag->width, fbtag->height,
+                       fbtag->depth, console_required);
   else
     err = grub_multiboot2_set_console (GRUB_MULTIBOOT2_CONSOLE_EGA_TEXT,
-				       accepted_consoles,
-				       0, 0, 0, console_required);
+                       accepted_consoles,
+                       0, 0, 0, console_required);
   return err;
 }
 
@@ -404,7 +410,7 @@ acpiv2_size (void)
     return 0;
 
   return ALIGN_UP (sizeof (struct multiboot2_tag_old_acpi)
-		   + p->length, MULTIBOOT2_TAG_ALIGN);
+           + p->length, MULTIBOOT2_TAG_ALIGN);
 #else
   return 0;
 #endif
@@ -425,7 +431,7 @@ net_size (void)
   FOR_NET_NETWORK_LEVEL_INTERFACES(net)
     if (net->dhcp_ack)
       ret += ALIGN_UP (sizeof (struct multiboot2_tag_network) + net->dhcp_acklen,
-		       MULTIBOOT2_TAG_ALIGN);
+               MULTIBOOT2_TAG_ALIGN);
   return ret;
 }
 
@@ -444,16 +450,16 @@ grub_multiboot2_get_mbi_size (void)
        + ALIGN_UP (sizeof (PACKAGE_STRING), MULTIBOOT2_TAG_ALIGN))
     + (modcnt * sizeof (struct multiboot2_tag_module) + total_modcmd)
     + ALIGN_UP (sizeof (struct multiboot2_tag_basic_meminfo),
-		MULTIBOOT2_TAG_ALIGN)
+        MULTIBOOT2_TAG_ALIGN)
     + ALIGN_UP (sizeof (struct multiboot2_tag_bootdev), MULTIBOOT2_TAG_ALIGN)
     + ALIGN_UP (sizeof (struct multiboot2_tag_elf_sections), MULTIBOOT2_TAG_ALIGN)
     + ALIGN_UP (elf_sec_entsize * elf_sec_num, MULTIBOOT2_TAG_ALIGN)
     + ALIGN_UP ((sizeof (struct multiboot2_tag_mmap)
-		 + grub_multiboot2_get_mmap_count ()
-		 * sizeof (struct multiboot2_mmap_entry)), MULTIBOOT2_TAG_ALIGN)
+         + grub_multiboot2_get_mmap_count ()
+         * sizeof (struct multiboot2_mmap_entry)), MULTIBOOT2_TAG_ALIGN)
     + ALIGN_UP (sizeof (struct multiboot2_tag_framebuffer), MULTIBOOT2_TAG_ALIGN)
     + ALIGN_UP (sizeof (struct multiboot2_tag_old_acpi)
-		+ sizeof (struct grub_acpi_rsdp_v10), MULTIBOOT2_TAG_ALIGN)
+        + sizeof (struct grub_acpi_rsdp_v10), MULTIBOOT2_TAG_ALIGN)
     + ALIGN_UP (sizeof (struct multiboot2_tag_load_base_addr), MULTIBOOT2_TAG_ALIGN)
     + acpiv2_size ()
     + net_size ()
@@ -463,7 +469,7 @@ grub_multiboot2_get_mbi_size (void)
     + ALIGN_UP (sizeof (struct multiboot2_tag_efi64), MULTIBOOT2_TAG_ALIGN)
     + ALIGN_UP (sizeof (struct multiboot2_tag_efi64_ih), MULTIBOOT2_TAG_ALIGN)
     + ALIGN_UP (sizeof (struct multiboot2_tag_efi_mmap)
-		+ efi_mmap_size, MULTIBOOT2_TAG_ALIGN)
+        + efi_mmap_size, MULTIBOOT2_TAG_ALIGN)
 #endif
     + sizeof (struct multiboot2_tag_vbe) + MULTIBOOT2_TAG_ALIGN - 1
     + sizeof (struct multiboot2_tag_apm) + MULTIBOOT2_TAG_ALIGN - 1;
@@ -472,7 +478,7 @@ grub_multiboot2_get_mbi_size (void)
 /* Helper for grub_fill_multiboot2_mmap.  */
 static int
 grub_fill_multiboot2_mmap_iter (grub_uint64_t addr, grub_uint64_t size,
-			       grub_memory_type_t type, void *data)
+                   grub_memory_type_t type, void *data)
 {
   struct multiboot2_mmap_entry **mmap_entry = data;
 
@@ -515,7 +521,7 @@ fill_vbe_tag (struct multiboot2_tag_vbe *tag)
     return;
   
   grub_memcpy (&tag->vbe_control_info, scratch,
-	       sizeof (struct grub_vbe_info_block));
+           sizeof (struct grub_vbe_info_block));
   
   status = grub_vbe_bios_get_mode (scratch);
   tag->vbe_mode = *(grub_uint32_t *) scratch;
@@ -527,7 +533,7 @@ fill_vbe_tag (struct multiboot2_tag_vbe *tag)
     {
       struct grub_vbe_mode_info_block *mode_info = (void *) &tag->vbe_mode_info;
       grub_memset (mode_info, 0,
-		   sizeof (struct grub_vbe_mode_info_block));
+           sizeof (struct grub_vbe_mode_info_block));
       mode_info->memory_model = GRUB_VBE_MEMORY_MODEL_TEXT;
       mode_info->x_resolution = 80;
       mode_info->y_resolution = 25;
@@ -536,13 +542,13 @@ fill_vbe_tag (struct multiboot2_tag_vbe *tag)
     {
       status = grub_vbe_bios_get_mode_info (tag->vbe_mode, scratch);
       if (status != GRUB_VBE_STATUS_OK)
-	return;
+    return;
       grub_memcpy (&tag->vbe_mode_info, scratch,
-		   sizeof (struct grub_vbe_mode_info_block));
+           sizeof (struct grub_vbe_mode_info_block));
     }      
   grub_vbe_bios_get_pm_interface (&tag->vbe_interface_seg,
-				  &tag->vbe_interface_off,
-				  &tag->vbe_interface_len);
+                  &tag->vbe_interface_off,
+                  &tag->vbe_interface_len);
 
   tag->size = sizeof (*tag);
 }
@@ -577,12 +583,12 @@ retrieve_video_parameters (grub_properly_aligned_t **ptrorig)
 
 #if defined (GRUB_MACHINE_PCBIOS)
       {
-	grub_vbe_status_t status;
-	void *scratch = (void *) GRUB_MEMORY_MACHINE_SCRATCH_ADDR;
-	status = grub_vbe_bios_get_mode (scratch);
-	vbe_mode = *(grub_uint32_t *) scratch;
-	if (status != GRUB_VBE_STATUS_OK)
-	  return GRUB_ERR_NONE;
+    grub_vbe_status_t status;
+    void *scratch = (void *) GRUB_MEMORY_MACHINE_SCRATCH_ADDR;
+    status = grub_vbe_bios_get_mode (scratch);
+    vbe_mode = *(grub_uint32_t *) scratch;
+    if (status != GRUB_VBE_STATUS_OK)
+      return GRUB_ERR_NONE;
       }
 #else
       vbe_mode = 3;
@@ -590,46 +596,46 @@ retrieve_video_parameters (grub_properly_aligned_t **ptrorig)
 
       /* get_mode_info isn't available for mode 3.  */
       if (vbe_mode == 3)
-	{
-	  grub_memset (&vbe_mode_info, 0,
-		       sizeof (struct grub_vbe_mode_info_block));
-	  vbe_mode_info.memory_model = GRUB_VBE_MEMORY_MODEL_TEXT;
-	  vbe_mode_info.x_resolution = 80;
-	  vbe_mode_info.y_resolution = 25;
-	}
+    {
+      grub_memset (&vbe_mode_info, 0,
+               sizeof (struct grub_vbe_mode_info_block));
+      vbe_mode_info.memory_model = GRUB_VBE_MEMORY_MODEL_TEXT;
+      vbe_mode_info.x_resolution = 80;
+      vbe_mode_info.y_resolution = 25;
+    }
 #if defined (GRUB_MACHINE_PCBIOS)
       else
-	{
-	  grub_vbe_status_t status;
-	  void *scratch = (void *) GRUB_MEMORY_MACHINE_SCRATCH_ADDR;
-	  status = grub_vbe_bios_get_mode_info (vbe_mode, scratch);
-	  if (status != GRUB_VBE_STATUS_OK)
-	    return GRUB_ERR_NONE;
-	  grub_memcpy (&vbe_mode_info, scratch,
-		       sizeof (struct grub_vbe_mode_info_block));
-	}
+    {
+      grub_vbe_status_t status;
+      void *scratch = (void *) GRUB_MEMORY_MACHINE_SCRATCH_ADDR;
+      status = grub_vbe_bios_get_mode_info (vbe_mode, scratch);
+      if (status != GRUB_VBE_STATUS_OK)
+        return GRUB_ERR_NONE;
+      grub_memcpy (&vbe_mode_info, scratch,
+               sizeof (struct grub_vbe_mode_info_block));
+    }
 #endif
 
       if (vbe_mode_info.memory_model == GRUB_VBE_MEMORY_MODEL_TEXT)
-	{
-	  tag = (struct multiboot2_tag_framebuffer *) *ptrorig;
-	  tag->common.type = MULTIBOOT2_TAG_TYPE_FRAMEBUFFER;
-	  tag->common.size = 0;
+    {
+      tag = (struct multiboot2_tag_framebuffer *) *ptrorig;
+      tag->common.type = MULTIBOOT2_TAG_TYPE_FRAMEBUFFER;
+      tag->common.size = 0;
 
-	  tag->common.framebuffer_addr = 0xb8000;
-	  
-	  tag->common.framebuffer_pitch = 2 * vbe_mode_info.x_resolution;	
-	  tag->common.framebuffer_width = vbe_mode_info.x_resolution;
-	  tag->common.framebuffer_height = vbe_mode_info.y_resolution;
+      tag->common.framebuffer_addr = 0xb8000;
+      
+      tag->common.framebuffer_pitch = 2 * vbe_mode_info.x_resolution;    
+      tag->common.framebuffer_width = vbe_mode_info.x_resolution;
+      tag->common.framebuffer_height = vbe_mode_info.y_resolution;
 
-	  tag->common.framebuffer_bpp = 16;
-	  
-	  tag->common.framebuffer_type = MULTIBOOT2_FRAMEBUFFER_TYPE_EGA_TEXT;
-	  tag->common.size = sizeof (tag->common);
-	  tag->common.reserved = 0;
-	  *ptrorig += ALIGN_UP (tag->common.size, MULTIBOOT2_TAG_ALIGN)
-	    / sizeof (grub_properly_aligned_t);
-	}
+      tag->common.framebuffer_bpp = 16;
+      
+      tag->common.framebuffer_type = MULTIBOOT2_FRAMEBUFFER_TYPE_EGA_TEXT;
+      tag->common.size = sizeof (tag->common);
+      tag->common.reserved = 0;
+      *ptrorig += ALIGN_UP (tag->common.size, MULTIBOOT2_TAG_ALIGN)
+        / sizeof (grub_properly_aligned_t);
+    }
       return GRUB_ERR_NONE;
     }
 #else
@@ -672,16 +678,16 @@ retrieve_video_parameters (grub_properly_aligned_t **ptrorig)
       tag->common.framebuffer_type = MULTIBOOT2_FRAMEBUFFER_TYPE_INDEXED;
       tag->framebuffer_palette_num_colors = mode_info.number_of_colors;
       if (tag->framebuffer_palette_num_colors > ARRAY_SIZE (palette))
-	tag->framebuffer_palette_num_colors = ARRAY_SIZE (palette);
+    tag->framebuffer_palette_num_colors = ARRAY_SIZE (palette);
       tag->common.size = sizeof (struct multiboot2_tag_framebuffer_common)
-	+ sizeof (multiboot2_uint16_t) + tag->framebuffer_palette_num_colors
-	* sizeof (struct multiboot2_color);
+    + sizeof (multiboot2_uint16_t) + tag->framebuffer_palette_num_colors
+    * sizeof (struct multiboot2_color);
       for (i = 0; i < tag->framebuffer_palette_num_colors; i++)
-	{
-	  tag->framebuffer_palette[i].red = palette[i].r;
-	  tag->framebuffer_palette[i].green = palette[i].g;
-	  tag->framebuffer_palette[i].blue = palette[i].b;
-	}
+    {
+      tag->framebuffer_palette[i].red = palette[i].r;
+      tag->framebuffer_palette[i].green = palette[i].g;
+      tag->framebuffer_palette[i].blue = palette[i].b;
+    }
     }
   else
     {
@@ -715,9 +721,9 @@ grub_multiboot2_make_mbi (grub_uint32_t *target)
   COMPILE_TIME_ASSERT (MULTIBOOT2_TAG_ALIGN % sizeof (grub_properly_aligned_t) == 0);
 
   err = grub_relocator_alloc_chunk_align (grub_multiboot2_relocator, &ch,
-					  MBI_MIN_ADDR, UP_TO_TOP32 (bufsize),
-					  bufsize, MULTIBOOT2_TAG_ALIGN,
-					  GRUB_RELOCATOR_PREFERENCE_NONE, 1);
+                      MBI_MIN_ADDR, UP_TO_TOP32 (bufsize),
+                      bufsize, MULTIBOOT2_TAG_ALIGN,
+                      GRUB_RELOCATOR_PREFERENCE_NONE, 1);
   if (err)
     return err;
 
@@ -732,9 +738,9 @@ grub_multiboot2_make_mbi (grub_uint32_t *target)
 
   mbistart = ptrorig;
   COMPILE_TIME_ASSERT ((2 * sizeof (grub_uint32_t))
-		       % sizeof (grub_properly_aligned_t) == 0);
+               % sizeof (grub_properly_aligned_t) == 0);
   COMPILE_TIME_ASSERT (MULTIBOOT2_TAG_ALIGN
-		       % sizeof (grub_properly_aligned_t) == 0);
+               % sizeof (grub_properly_aligned_t) == 0);
   ptrorig += (2 * sizeof (grub_uint32_t)) / sizeof (grub_properly_aligned_t);
 
   {
@@ -769,23 +775,23 @@ grub_multiboot2_make_mbi (grub_uint32_t *target)
     struct grub_apm_info info;
     if (grub_apm_get_info (&info))
       {
-	struct multiboot2_tag_apm *tag = (struct multiboot2_tag_apm *) ptrorig;
+    struct multiboot2_tag_apm *tag = (struct multiboot2_tag_apm *) ptrorig;
 
-	tag->type = MULTIBOOT2_TAG_TYPE_APM;
-	tag->size = sizeof (struct multiboot2_tag_apm); 
+    tag->type = MULTIBOOT2_TAG_TYPE_APM;
+    tag->size = sizeof (struct multiboot2_tag_apm); 
 
-	tag->cseg = info.cseg;
-	tag->offset = info.offset;
-	tag->cseg_16 = info.cseg_16;
-	tag->dseg = info.dseg;
-	tag->flags = info.flags;
-	tag->cseg_len = info.cseg_len;
-	tag->dseg_len = info.dseg_len;
-	tag->cseg_16_len = info.cseg_16_len;
-	tag->version = info.version;
+    tag->cseg = info.cseg;
+    tag->offset = info.offset;
+    tag->cseg_16 = info.cseg_16;
+    tag->dseg = info.dseg;
+    tag->flags = info.flags;
+    tag->cseg_len = info.cseg_len;
+    tag->dseg_len = info.dseg_len;
+    tag->cseg_16_len = info.cseg_16_len;
+    tag->version = info.version;
 
-	ptrorig += ALIGN_UP (tag->size, MULTIBOOT2_TAG_ALIGN)
-	  / sizeof (grub_properly_aligned_t);
+    ptrorig += ALIGN_UP (tag->size, MULTIBOOT2_TAG_ALIGN)
+      / sizeof (grub_properly_aligned_t);
       }
   }
 #endif
@@ -796,15 +802,15 @@ grub_multiboot2_make_mbi (grub_uint32_t *target)
 
     for (i = 0, cur = modules; i < modcnt; i++, cur = cur->next)
       {
-	struct multiboot2_tag_module *tag
-	  = (struct multiboot2_tag_module *) ptrorig;
-	tag->type = MULTIBOOT2_TAG_TYPE_MODULE;
-	tag->size = sizeof (struct multiboot2_tag_module) + cur->cmdline_size;
-	tag->mod_start = cur->start;
-	tag->mod_end = tag->mod_start + cur->size;
-	grub_memcpy (tag->cmdline, cur->cmdline, cur->cmdline_size);
-	ptrorig += ALIGN_UP (tag->size, MULTIBOOT2_TAG_ALIGN)
-	  / sizeof (grub_properly_aligned_t);
+    struct multiboot2_tag_module *tag
+      = (struct multiboot2_tag_module *) ptrorig;
+    tag->type = MULTIBOOT2_TAG_TYPE_MODULE;
+    tag->size = sizeof (struct multiboot2_tag_module) + cur->cmdline_size;
+    tag->mod_start = cur->start;
+    tag->mod_end = tag->mod_start + cur->size;
+    grub_memcpy (tag->cmdline, cur->cmdline, cur->cmdline_size);
+    ptrorig += ALIGN_UP (tag->size, MULTIBOOT2_TAG_ALIGN)
+      / sizeof (grub_properly_aligned_t);
       }
   }
 
@@ -813,7 +819,7 @@ grub_multiboot2_make_mbi (grub_uint32_t *target)
       struct multiboot2_tag_mmap *tag = (struct multiboot2_tag_mmap *) ptrorig;
       grub_fill_multiboot2_mmap (tag);
       ptrorig += ALIGN_UP (tag->size, MULTIBOOT2_TAG_ALIGN)
-	/ sizeof (grub_properly_aligned_t);
+    / sizeof (grub_properly_aligned_t);
     }
 
   {
@@ -833,7 +839,7 @@ grub_multiboot2_make_mbi (grub_uint32_t *target)
   if (!keep_bs)
     {
       struct multiboot2_tag_basic_meminfo *tag
-	= (struct multiboot2_tag_basic_meminfo *) ptrorig;
+    = (struct multiboot2_tag_basic_meminfo *) ptrorig;
       tag->type = MULTIBOOT2_TAG_TYPE_BASIC_MEMINFO;
       tag->size = sizeof (struct multiboot2_tag_basic_meminfo);
 
@@ -841,7 +847,7 @@ grub_multiboot2_make_mbi (grub_uint32_t *target)
       tag->mem_lower = grub_mmap_get_lower () / 1024;
       tag->mem_upper = grub_mmap_get_upper () / 1024;
       ptrorig += ALIGN_UP (tag->size, MULTIBOOT2_TAG_ALIGN)
-	/ sizeof (grub_properly_aligned_t);
+    / sizeof (grub_properly_aligned_t);
     }
 
   {
@@ -849,21 +855,21 @@ grub_multiboot2_make_mbi (grub_uint32_t *target)
 
     FOR_NET_NETWORK_LEVEL_INTERFACES(net)
       if (net->dhcp_ack)
-	{
-	  struct multiboot2_tag_network *tag
-	    = (struct multiboot2_tag_network *) ptrorig;
-	  tag->type = MULTIBOOT2_TAG_TYPE_NETWORK;
-	  tag->size = sizeof (struct multiboot2_tag_network) + net->dhcp_acklen;
-	  grub_memcpy (tag->dhcpack, net->dhcp_ack, net->dhcp_acklen);
-	  ptrorig += ALIGN_UP (tag->size, MULTIBOOT2_TAG_ALIGN)
-	    / sizeof (grub_properly_aligned_t);
-	}
+    {
+      struct multiboot2_tag_network *tag
+        = (struct multiboot2_tag_network *) ptrorig;
+      tag->type = MULTIBOOT2_TAG_TYPE_NETWORK;
+      tag->size = sizeof (struct multiboot2_tag_network) + net->dhcp_acklen;
+      grub_memcpy (tag->dhcpack, net->dhcp_ack, net->dhcp_acklen);
+      ptrorig += ALIGN_UP (tag->size, MULTIBOOT2_TAG_ALIGN)
+        / sizeof (grub_properly_aligned_t);
+    }
   }
 
   if (bootdev_set)
     {
       struct multiboot2_tag_bootdev *tag
-	= (struct multiboot2_tag_bootdev *) ptrorig;
+    = (struct multiboot2_tag_bootdev *) ptrorig;
       tag->type = MULTIBOOT2_TAG_TYPE_BOOTDEV;
       tag->size = sizeof (struct multiboot2_tag_bootdev); 
 
@@ -871,15 +877,15 @@ grub_multiboot2_make_mbi (grub_uint32_t *target)
       tag->slice = slice;
       tag->part = part;
       ptrorig += ALIGN_UP (tag->size, MULTIBOOT2_TAG_ALIGN)
-	/ sizeof (grub_properly_aligned_t);
+    / sizeof (grub_properly_aligned_t);
     }
 
   {
     err = retrieve_video_parameters (&ptrorig);
     if (err)
       {
-	grub_print_error ();
-	grub_errno = GRUB_ERR_NONE;
+    grub_print_error ();
+    grub_errno = GRUB_ERR_NONE;
       }
   }
 
@@ -912,11 +918,11 @@ grub_multiboot2_make_mbi (grub_uint32_t *target)
     struct grub_acpi_rsdp_v10 *a = grub_acpi_get_rsdpv1 ();
     if (a)
       {
-	tag->type = MULTIBOOT2_TAG_TYPE_ACPI_OLD;
-	tag->size = sizeof (*tag) + sizeof (*a);
-	grub_memcpy (tag->rsdp, a, sizeof (*a));
-	ptrorig += ALIGN_UP (tag->size, MULTIBOOT2_TAG_ALIGN)
-	  / sizeof (grub_properly_aligned_t);
+    tag->type = MULTIBOOT2_TAG_TYPE_ACPI_OLD;
+    tag->size = sizeof (*tag) + sizeof (*a);
+    grub_memcpy (tag->rsdp, a, sizeof (*a));
+    ptrorig += ALIGN_UP (tag->size, MULTIBOOT2_TAG_ALIGN)
+      / sizeof (grub_properly_aligned_t);
       }
   }
 
@@ -926,11 +932,11 @@ grub_multiboot2_make_mbi (grub_uint32_t *target)
     struct grub_acpi_rsdp_v20 *a = grub_acpi_get_rsdpv2 ();
     if (a)
       {
-	tag->type = MULTIBOOT2_TAG_TYPE_ACPI_NEW;
-	tag->size = sizeof (*tag) + a->length;
-	grub_memcpy (tag->rsdp, a, a->length);
-	ptrorig += ALIGN_UP (tag->size, MULTIBOOT2_TAG_ALIGN)
-	  / sizeof (grub_properly_aligned_t);
+    tag->type = MULTIBOOT2_TAG_TYPE_ACPI_NEW;
+    tag->size = sizeof (*tag) + a->length;
+    grub_memcpy (tag->rsdp, a, a->length);
+    ptrorig += ALIGN_UP (tag->size, MULTIBOOT2_TAG_ALIGN)
+      / sizeof (grub_properly_aligned_t);
       }
   }
 #endif
@@ -943,53 +949,53 @@ grub_multiboot2_make_mbi (grub_uint32_t *target)
 
     if (!keep_bs)
       {
-	tag->type = MULTIBOOT2_TAG_TYPE_EFI_MMAP;
-	tag->size = sizeof (*tag) + efi_mmap_size;
+    tag->type = MULTIBOOT2_TAG_TYPE_EFI_MMAP;
+    tag->size = sizeof (*tag) + efi_mmap_size;
 
-	err = grub_efi_finish_boot_services (&efi_mmap_size, tag->efi_mmap, NULL,
-					     &efi_desc_size, &efi_desc_version);
+    err = grub_efi_finish_boot_services (&efi_mmap_size, tag->efi_mmap, NULL,
+                         &efi_desc_size, &efi_desc_version);
 
-	if (err)
-	  return err;
+    if (err)
+      return err;
 
-	tag->descr_size = efi_desc_size;
-	tag->descr_vers = efi_desc_version;
-	tag->size = sizeof (*tag) + efi_mmap_size;
+    tag->descr_size = efi_desc_size;
+    tag->descr_vers = efi_desc_version;
+    tag->size = sizeof (*tag) + efi_mmap_size;
 
-	ptrorig += ALIGN_UP (tag->size, MULTIBOOT2_TAG_ALIGN)
-	  / sizeof (grub_properly_aligned_t);
+    ptrorig += ALIGN_UP (tag->size, MULTIBOOT2_TAG_ALIGN)
+      / sizeof (grub_properly_aligned_t);
       }
   }
 
   if (keep_bs)
     {
       {
-	struct multiboot2_tag *tag = (struct multiboot2_tag *) ptrorig;
-	tag->type = MULTIBOOT2_TAG_TYPE_EFI_BS;
-	tag->size = sizeof (struct multiboot2_tag);
-	ptrorig += ALIGN_UP (tag->size, MULTIBOOT2_TAG_ALIGN)
-	  / sizeof (grub_properly_aligned_t);
+    struct multiboot2_tag *tag = (struct multiboot2_tag *) ptrorig;
+    tag->type = MULTIBOOT2_TAG_TYPE_EFI_BS;
+    tag->size = sizeof (struct multiboot2_tag);
+    ptrorig += ALIGN_UP (tag->size, MULTIBOOT2_TAG_ALIGN)
+      / sizeof (grub_properly_aligned_t);
       }
 
 #ifdef __i386__
       {
-	struct multiboot2_tag_efi32_ih *tag = (struct multiboot2_tag_efi32_ih *) ptrorig;
-	tag->type = MULTIBOOT2_TAG_TYPE_EFI32_IH;
-	tag->size = sizeof (struct multiboot2_tag_efi32_ih);
-	tag->pointer = (grub_addr_t) grub_efi_image_handle;
-	ptrorig += ALIGN_UP (tag->size, MULTIBOOT2_TAG_ALIGN)
-	  / sizeof (grub_properly_aligned_t);
+    struct multiboot2_tag_efi32_ih *tag = (struct multiboot2_tag_efi32_ih *) ptrorig;
+    tag->type = MULTIBOOT2_TAG_TYPE_EFI32_IH;
+    tag->size = sizeof (struct multiboot2_tag_efi32_ih);
+    tag->pointer = (grub_addr_t) grub_efi_image_handle;
+    ptrorig += ALIGN_UP (tag->size, MULTIBOOT2_TAG_ALIGN)
+      / sizeof (grub_properly_aligned_t);
       }
 #endif
 
 #ifdef __x86_64__
       {
-	struct multiboot2_tag_efi64_ih *tag = (struct multiboot2_tag_efi64_ih *) ptrorig;
-	tag->type = MULTIBOOT2_TAG_TYPE_EFI64_IH;
-	tag->size = sizeof (struct multiboot2_tag_efi64_ih);
-	tag->pointer = (grub_addr_t) grub_efi_image_handle;
-	ptrorig += ALIGN_UP (tag->size, MULTIBOOT2_TAG_ALIGN)
-	  / sizeof (grub_properly_aligned_t);
+    struct multiboot2_tag_efi64_ih *tag = (struct multiboot2_tag_efi64_ih *) ptrorig;
+    tag->type = MULTIBOOT2_TAG_TYPE_EFI64_IH;
+    tag->size = sizeof (struct multiboot2_tag_efi64_ih);
+    tag->pointer = (grub_addr_t) grub_efi_image_handle;
+    ptrorig += ALIGN_UP (tag->size, MULTIBOOT2_TAG_ALIGN)
+      / sizeof (grub_properly_aligned_t);
       }
 #endif
     }
@@ -1046,12 +1052,12 @@ grub_multiboot2_init_mbi (int argc, char *argv[])
   cmdline_size = len;
 
   return grub_create_loader_cmdline (argc, argv, cmdline, cmdline_size,
-				     GRUB_VERIFY_KERNEL_CMDLINE);
+                     GRUB_VERIFY_KERNEL_CMDLINE);
 }
 
 grub_err_t
 grub_multiboot2_add_module (grub_addr_t start, grub_size_t size,
-			   int argc, char *argv[])
+               int argc, char *argv[])
 {
   struct module *newmod;
   grub_size_t len = 0;
@@ -1075,7 +1081,7 @@ grub_multiboot2_add_module (grub_addr_t start, grub_size_t size,
   total_modcmd += ALIGN_UP (len, MULTIBOOT2_TAG_ALIGN);
 
   err = grub_create_loader_cmdline (argc, argv, newmod->cmdline,
-				    newmod->cmdline_size, GRUB_VERIFY_MODULE_CMDLINE);
+                    newmod->cmdline_size, GRUB_VERIFY_MODULE_CMDLINE);
   if (err)
     {
       grub_free (newmod->cmdline);
@@ -1115,12 +1121,12 @@ grub_multiboot2_set_bootdev (void)
   if (dev && dev->disk && dev->disk->partition)
     {
       if (dev->disk->partition->parent)
- 	{
-	  part = dev->disk->partition->number;
-	  slice = dev->disk->partition->parent->number;
-	}
+     {
+      part = dev->disk->partition->number;
+      slice = dev->disk->partition->parent->number;
+    }
       else
-	slice = dev->disk->partition->number;
+    slice = dev->disk->partition->number;
     }
   if (dev)
     grub_device_close (dev);
