@@ -262,7 +262,7 @@ struct multiboot2_tag_mmap
   multiboot2_uint32_t size;
   multiboot2_uint32_t entry_size;
   multiboot2_uint32_t entry_version;
-  struct multiboot2_mmap_entry entries[0];  
+  struct multiboot2_mmap_entry entries[0];
 };
 
 struct multiboot2_vbe_info_block

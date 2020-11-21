@@ -19,14 +19,28 @@
 #ifndef GRUB_MULTIBOOT_KERNEL_HEADER
 #define GRUB_MULTIBOOT_KERNEL_HEADER 1
 
-#include <multiboot.h>
 #include <grub/types.h>
 #include <grub/dl.h>
 #include <grub/i386/coreboot/kernel.h>
+#include <grub/acpi.h>
+#include <multiboot.h>
+#include <multiboot2.h>
 
 #define CHECK_FLAG(flags, bit) ((flags) & (1 << (bit)))
 
+struct mbi2_extra_info
+{
+  grub_uint32_t efibs;
+  grub_uint32_t systab32;
+  grub_uint64_t systab64;
+  grub_uint32_t ih32;
+  grub_uint64_t ih64;
+  struct grub_acpi_rsdp_v10 acpi1;
+  struct grub_acpi_rsdp_v20 acpi2;
+};
+
 extern struct multiboot_info *EXPORT_VAR(grub_multiboot_info);
+extern struct mbi2_extra_info *EXPORT_VAR(grub_multiboot2_info);
 
 extern grub_uint32_t EXPORT_VAR(grub_boot_device);
 

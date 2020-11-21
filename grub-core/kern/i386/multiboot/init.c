@@ -36,12 +36,30 @@
 #include <grub/cpu/floppy.h>
 #include <grub/cpu/tsc.h>
 #include <grub/video.h>
+#include <grub/acpi.h>
+#include <multiboot.h>
+#include <multiboot2.h>
 
 extern grub_uint8_t _start[];
 extern grub_uint8_t _end[];
 extern grub_uint8_t _edata[];
 
 grub_uint32_t grub_boot_device = 0;
+
+/* MBI2 data */
+static char mbi2_cmdline[1024];
+static char mbi2_bootloader[64];
+multiboot_memory_map_t mbi2_mmap[256];
+static struct multiboot2_color mbi2_palette[256];
+static struct mbi2_extra_info mbi2;
+/* The MBI has to be copied to our BSS so that it won't be
+   overwritten.  This is its final location.  */
+static struct multiboot_info mbi;
+void *kern_multiboot_info = 0;
+grub_uint32_t kern_multiboot_magic = 0;
+
+struct multiboot_info *grub_multiboot_info = 0;
+struct mbi2_extra_info *grub_multiboot2_info = 0;
 
 void  __attribute__ ((noreturn))
 grub_exit (int rc __attribute__((unused)))
@@ -91,6 +109,164 @@ heap_init (grub_uint64_t addr, grub_uint64_t size, grub_memory_type_t type,
   return 0;
 }
 
+/* Move MBI to a safe place. */
+static void
+fill_mb_info (void)
+{
+  grub_uint32_t len = sizeof (struct multiboot_info);
+  if (!kern_multiboot_info)
+    grub_fatal ("Unable to find Multiboot Information");
+  if (kern_multiboot_magic == MULTIBOOT2_BOOTLOADER_MAGIC)
+  {
+    struct multiboot2_tag *tag;
+    grub_multiboot2_info = &mbi2;
+    grub_memset (&mbi2, 0, sizeof (mbi2));
+    grub_memset (&mbi, 0, len);
+    for (tag = (struct multiboot2_tag *) ((grub_uint8_t *) kern_multiboot_info + 8);
+         tag->type != MULTIBOOT2_TAG_TYPE_END;
+         tag = (struct multiboot2_tag *)
+               ((multiboot_uint8_t *) tag + ((tag->size + 7) & ~7)))
+    {
+      switch (tag->type)
+      {
+        case MULTIBOOT2_TAG_TYPE_CMDLINE:
+          mbi.flags |= MULTIBOOT_INFO_CMDLINE;
+          grub_snprintf (mbi2_cmdline, 1024, "%s",
+                  ((struct multiboot2_tag_string *) tag)->string);
+          mbi.cmdline = (grub_addr_t) mbi2_cmdline;
+          break;
+        case MULTIBOOT2_TAG_TYPE_BOOT_LOADER_NAME:
+          mbi.flags |= MULTIBOOT_INFO_BOOT_LOADER_NAME;
+          grub_snprintf (mbi2_bootloader, 64, "%s",
+                  ((struct multiboot2_tag_string *) tag)->string);
+          mbi.boot_loader_name = (grub_addr_t) mbi2_bootloader;
+          break;
+        case MULTIBOOT2_TAG_TYPE_BASIC_MEMINFO:
+          mbi.flags |= MULTIBOOT_INFO_MEMORY;
+          mbi.mem_lower = ((struct multiboot2_tag_basic_meminfo *) tag)->mem_lower;
+          mbi.mem_upper = ((struct multiboot2_tag_basic_meminfo *) tag)->mem_upper;
+          break;
+        case MULTIBOOT2_TAG_TYPE_BOOTDEV:
+          mbi.flags |= MULTIBOOT_INFO_BOOTDEV;
+          mbi.boot_device = ((struct multiboot2_tag_bootdev *) tag)->biosdev;
+          break;
+        case MULTIBOOT2_TAG_TYPE_MMAP:
+          {
+            grub_uint32_t i;
+            multiboot2_memory_map_t *mmap =
+                    ((struct multiboot2_tag_mmap *) tag)->entries;
+            for (i = 0; (i < 256) &&
+                 ((grub_uint8_t *) mmap < (grub_uint8_t *) tag + tag->size);
+                 i++, mmap = (multiboot2_memory_map_t *) ((grub_addr_t) mmap
+                    + ((struct multiboot2_tag_mmap *) tag)->entry_size))
+            {
+              mbi2_mmap[i].size = 20;
+              mbi2_mmap[i].addr = mmap->addr;
+              mbi2_mmap[i].len = mmap->len;
+              mbi2_mmap[i].type = mmap->type;
+            }
+            mbi.flags |= MULTIBOOT_INFO_MEM_MAP;
+            mbi.mmap_addr = (grub_addr_t) mbi2_mmap;
+            mbi.mmap_length = i * sizeof (multiboot_memory_map_t);
+          }
+          break;
+        case MULTIBOOT2_TAG_TYPE_VBE:
+          mbi.flags |= MULTIBOOT_INFO_VBE_INFO;
+          break;
+        case MULTIBOOT2_TAG_TYPE_FRAMEBUFFER:
+          {
+            struct multiboot2_tag_framebuffer *fb = (void *) tag;
+            mbi.flags |= MULTIBOOT_INFO_FRAMEBUFFER_INFO;
+            mbi.framebuffer_addr = fb->common.framebuffer_addr;
+            mbi.framebuffer_pitch = fb->common.framebuffer_pitch;
+            mbi.framebuffer_width = fb->common.framebuffer_width;
+            mbi.framebuffer_height = fb->common.framebuffer_height;
+            mbi.framebuffer_bpp = fb->common.framebuffer_bpp;
+            mbi.framebuffer_type = fb->common.framebuffer_type;
+            switch (fb->common.framebuffer_type)
+            {
+              case MULTIBOOT_FRAMEBUFFER_TYPE_INDEXED:
+                {
+                  grub_uint32_t num = fb->framebuffer_palette_num_colors;
+                  if (num > 256)
+                    num = 256;
+                  mbi.framebuffer_palette_num_colors = num;
+                  grub_memmove (mbi2_palette, fb->framebuffer_palette,
+                                num * sizeof (struct multiboot2_color));
+                  mbi.framebuffer_palette_addr = (grub_addr_t) mbi2_palette;
+                }
+                break;
+              case MULTIBOOT_FRAMEBUFFER_TYPE_RGB:
+                mbi.framebuffer_red_field_position =
+                        fb->framebuffer_red_field_position;
+                mbi.framebuffer_green_field_position =
+                        fb->framebuffer_green_field_position;
+                mbi.framebuffer_blue_field_position =
+                        fb->framebuffer_blue_field_position;
+                mbi.framebuffer_red_mask_size =
+                        fb->framebuffer_red_mask_size;
+                mbi.framebuffer_green_mask_size =
+                        fb->framebuffer_green_mask_size;
+                mbi.framebuffer_blue_mask_size =
+                        fb->framebuffer_blue_mask_size;
+                break;
+              default:
+                break;
+            }
+          }
+          break;
+        case MULTIBOOT2_TAG_TYPE_EFI32:
+          mbi2.systab32 = ((struct multiboot2_tag_efi32 *)tag)->pointer;
+          break;
+        case MULTIBOOT2_TAG_TYPE_EFI64:
+          mbi2.systab64 = ((struct multiboot2_tag_efi64 *)tag)->pointer;
+          break;
+        case MULTIBOOT2_TAG_TYPE_EFI32_IH:
+          mbi2.ih32 = ((struct multiboot2_tag_efi32_ih *)tag)->pointer;
+          break;
+        case MULTIBOOT2_TAG_TYPE_EFI64_IH:
+          mbi2.ih64 = ((struct multiboot2_tag_efi64_ih *)tag)->pointer;
+          break;
+        case MULTIBOOT2_TAG_TYPE_EFI_BS:
+          mbi2.efibs = 1;
+          break;
+        case MULTIBOOT2_TAG_TYPE_ACPI_OLD:
+          grub_memmove (&mbi2.acpi1, ((struct multiboot2_tag_old_acpi *)tag)->rsdp,
+                        sizeof (struct grub_acpi_rsdp_v10));
+          break;
+        case MULTIBOOT2_TAG_TYPE_ACPI_NEW:
+          grub_memmove (&mbi2.acpi2, ((struct multiboot2_tag_new_acpi *)tag)->rsdp,
+                        sizeof (struct grub_acpi_rsdp_v20));
+          break;
+        default:
+          break;
+      }
+    }
+  }
+  else if (kern_multiboot_magic == MULTIBOOT_BOOTLOADER_MAGIC)
+  {
+    grub_memmove (&mbi, kern_multiboot_info, len);
+    if ((mbi.flags & MULTIBOOT_INFO_MEM_MAP) == 0)
+      grub_fatal ("Missing Multiboot memory information");
+    /* Move the memory map to a safe place.  */
+    grub_uint32_t i;
+    grub_uint8_t *mmap = (void *)(grub_addr_t) mbi.mmap_addr;
+    for (i = 0; i < 256 && (grub_addr_t) mmap < mbi.mmap_addr + mbi.mmap_length;
+         i++, mmap += ((multiboot_memory_map_t *)mmap)->size + 4)
+    {
+      mbi2_mmap[i].size = 20;
+      mbi2_mmap[i].addr = ((multiboot_memory_map_t *)mmap)->addr;
+      mbi2_mmap[i].len = ((multiboot_memory_map_t *)mmap)->len;
+      mbi2_mmap[i].type = ((multiboot_memory_map_t *)mmap)->type;
+    }
+    mbi.mmap_addr = (grub_addr_t) mbi2_mmap;
+    mbi.mmap_length = i * sizeof (multiboot_memory_map_t);
+  }
+  else
+    grub_fatal ("Bad Multiboot magic");
+  grub_multiboot_info = &mbi;
+}
+
 void
 grub_machine_init (void)
 {
@@ -99,17 +275,21 @@ grub_machine_init (void)
   grub_console_pcbios_init ();
   grub_vga_text_init ();
 
+  fill_mb_info ();
+
   grub_machine_mmap_init ();
   grub_machine_mmap_iterate (heap_init, NULL);
 
   grub_video_multiboot_fb_init ();
 
   grub_font_init ();
+
   grub_gfxterm_init ();
 
   grub_tsc_init ();
 
-  if (grub_mb_check_bios_int (0x13))
+  if (grub_mb_check_bios_int (0x13) &&
+      (grub_multiboot_info->flags & MULTIBOOT_INFO_BOOTDEV))
     grub_boot_device = grub_multiboot_info->boot_device;
 }
 
