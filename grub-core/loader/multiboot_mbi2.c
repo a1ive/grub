@@ -515,14 +515,14 @@ fill_vbe_tag (struct multiboot2_tag_vbe *tag)
 
   tag->type = MULTIBOOT2_TAG_TYPE_VBE;
   tag->size = 0;
-    
+
   status = grub_vbe_bios_get_controller_info (scratch);
   if (status != GRUB_VBE_STATUS_OK)
     return;
-  
+
   grub_memcpy (&tag->vbe_control_info, scratch,
            sizeof (struct grub_vbe_info_block));
-  
+
   status = grub_vbe_bios_get_mode (scratch);
   tag->vbe_mode = *(grub_uint32_t *) scratch;
   if (status != GRUB_VBE_STATUS_OK)
@@ -545,7 +545,7 @@ fill_vbe_tag (struct multiboot2_tag_vbe *tag)
     return;
       grub_memcpy (&tag->vbe_mode_info, scratch,
            sizeof (struct grub_vbe_mode_info_block));
-    }      
+    }
   grub_vbe_bios_get_pm_interface (&tag->vbe_interface_seg,
                   &tag->vbe_interface_off,
                   &tag->vbe_interface_len);
@@ -623,13 +623,13 @@ retrieve_video_parameters (grub_properly_aligned_t **ptrorig)
       tag->common.size = 0;
 
       tag->common.framebuffer_addr = 0xb8000;
-      
+
       tag->common.framebuffer_pitch = 2 * vbe_mode_info.x_resolution;    
       tag->common.framebuffer_width = vbe_mode_info.x_resolution;
       tag->common.framebuffer_height = vbe_mode_info.y_resolution;
 
       tag->common.framebuffer_bpp = 16;
-      
+
       tag->common.framebuffer_type = MULTIBOOT2_FRAMEBUFFER_TYPE_EGA_TEXT;
       tag->common.size = sizeof (tag->common);
       tag->common.reserved = 0;
@@ -671,7 +671,7 @@ retrieve_video_parameters (grub_properly_aligned_t **ptrorig)
   tag->common.framebuffer_bpp = mode_info.bpp;
 
   tag->common.reserved = 0;
-      
+
   if (mode_info.mode_type & GRUB_VIDEO_MODE_TYPE_INDEX_COLOR)
     {
       unsigned i;
@@ -814,13 +814,12 @@ grub_multiboot2_make_mbi (grub_uint32_t *target)
       }
   }
 
-  if (!keep_bs)
-    {
-      struct multiboot2_tag_mmap *tag = (struct multiboot2_tag_mmap *) ptrorig;
-      grub_fill_multiboot2_mmap (tag);
-      ptrorig += ALIGN_UP (tag->size, MULTIBOOT2_TAG_ALIGN)
-    / sizeof (grub_properly_aligned_t);
-    }
+  {
+    struct multiboot2_tag_mmap *tag = (struct multiboot2_tag_mmap *) ptrorig;
+    grub_fill_multiboot2_mmap (tag);
+    ptrorig += ALIGN_UP (tag->size, MULTIBOOT2_TAG_ALIGN)
+              / sizeof (grub_properly_aligned_t);
+  }
 
   {
     struct multiboot2_tag_elf_sections *tag
