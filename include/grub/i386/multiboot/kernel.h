@@ -23,6 +23,7 @@
 #include <grub/dl.h>
 #include <grub/i386/coreboot/kernel.h>
 #include <grub/acpi.h>
+#include <grub/smbios.h>
 #include <multiboot.h>
 #include <multiboot2.h>
 
@@ -37,6 +38,8 @@ struct mbi2_extra_info
   grub_uint64_t ih64;
   struct grub_acpi_rsdp_v10 acpi1;
   struct grub_acpi_rsdp_v20 acpi2;
+  struct grub_smbios_eps eps;
+  struct grub_smbios_eps3 eps3;
 };
 
 extern struct multiboot_info *EXPORT_VAR(grub_multiboot_info);

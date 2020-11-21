@@ -238,6 +238,14 @@ fill_mb_info (void)
           grub_memmove (&mbi2.acpi2, ((struct multiboot2_tag_new_acpi *)tag)->rsdp,
                         sizeof (struct grub_acpi_rsdp_v20));
           break;
+        case MULTIBOOT2_TAG_TYPE_SMBIOS:
+          if (((struct multiboot2_tag_smbios *)tag)->major == 3)
+            grub_memmove (&mbi2.eps3, ((struct multiboot2_tag_smbios *)tag)->tables,
+                        sizeof (struct grub_smbios_eps3));
+          else if (((struct multiboot2_tag_smbios *)tag)->major < 3)
+            grub_memmove (&mbi2.eps, ((struct multiboot2_tag_smbios *)tag)->tables,
+                        sizeof (struct grub_smbios_eps));
+          break;
         default:
           break;
       }

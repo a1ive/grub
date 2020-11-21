@@ -34,6 +34,7 @@
 #include <grub/env.h>
 #include <grub/video.h>
 #include <grub/acpi.h>
+#include <grub/smbios.h>
 #include <grub/i18n.h>
 #include <grub/net.h>
 #include <grub/lib/cmdline.h>
@@ -185,6 +186,7 @@ grub_multiboot2_load (grub_file_t file, const char *filename)
             case MULTIBOOT2_TAG_TYPE_EFI64:
             case MULTIBOOT2_TAG_TYPE_ACPI_OLD:
             case MULTIBOOT2_TAG_TYPE_ACPI_NEW:
+            case MULTIBOOT2_TAG_TYPE_SMBIOS:
             case MULTIBOOT2_TAG_TYPE_NETWORK:
             case MULTIBOOT2_TAG_TYPE_EFI_MMAP:
             case MULTIBOOT2_TAG_TYPE_EFI_BS:
@@ -416,6 +418,25 @@ acpiv2_size (void)
 #endif
 }
 
+static grub_size_t
+smbios_size (void)
+{
+#if GRUB_MACHINE_HAS_ACPI
+  struct grub_smbios_eps3 *eps3 = grub_machine_smbios_get_eps3 ();
+  struct grub_smbios_eps *eps = grub_machine_smbios_get_eps ();
+  if (eps3)
+    return ALIGN_UP (sizeof (struct multiboot2_tag_smbios)
+           + eps3->length, MULTIBOOT2_TAG_ALIGN);
+  else if (eps)
+    return ALIGN_UP (sizeof (struct multiboot2_tag_smbios)
+           + eps->length, MULTIBOOT2_TAG_ALIGN);
+  else
+    return 0;
+#else
+  return 0;
+#endif
+}
+
 #ifdef GRUB_MACHINE_EFI
 
 static grub_efi_uintn_t efi_mmap_size = 0;
@@ -462,6 +483,7 @@ grub_multiboot2_get_mbi_size (void)
         + sizeof (struct grub_acpi_rsdp_v10), MULTIBOOT2_TAG_ALIGN)
     + ALIGN_UP (sizeof (struct multiboot2_tag_load_base_addr), MULTIBOOT2_TAG_ALIGN)
     + acpiv2_size ()
+    + smbios_size ()
     + net_size ()
 #ifdef GRUB_MACHINE_EFI
     + ALIGN_UP (sizeof (struct multiboot2_tag_efi32), MULTIBOOT2_TAG_ALIGN)
@@ -937,6 +959,35 @@ grub_multiboot2_make_mbi (grub_uint32_t *target)
     ptrorig += ALIGN_UP (tag->size, MULTIBOOT2_TAG_ALIGN)
       / sizeof (grub_properly_aligned_t);
       }
+  }
+
+  {
+    struct multiboot2_tag_smbios *tag = (struct multiboot2_tag_smbios *)
+      ptrorig;
+    struct grub_smbios_eps3 *eps3 = grub_machine_smbios_get_eps3 ();
+    struct grub_smbios_eps *eps = grub_machine_smbios_get_eps ();
+    if (eps3)
+    {
+      tag->type = MULTIBOOT2_TAG_TYPE_SMBIOS;
+      tag->size = sizeof (*tag) + eps3->length;
+      tag->major = eps3->version_major;
+      tag->minor = eps3->version_minor;
+      grub_memset (tag->reserved, 0, 6);
+      grub_memcpy (tag->tables, eps3, eps3->length);
+      ptrorig += ALIGN_UP (tag->size, MULTIBOOT2_TAG_ALIGN)
+        / sizeof (grub_properly_aligned_t);
+    }
+    else if (eps)
+    {
+      tag->type = MULTIBOOT2_TAG_TYPE_SMBIOS;
+      tag->size = sizeof (*tag) + eps->length;
+      tag->major = eps->version_major;
+      tag->minor = eps->version_minor;
+      grub_memset (tag->reserved, 0, 6);
+      grub_memcpy (tag->tables, eps, eps->length);
+      ptrorig += ALIGN_UP (tag->size, MULTIBOOT2_TAG_ALIGN)
+        / sizeof (grub_properly_aligned_t);
+    }
   }
 #endif
 

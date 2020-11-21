@@ -20,38 +20,25 @@
 #include <grub/acpi.h>
 #include <grub/smbios.h>
 #include <grub/misc.h>
-#ifdef GRUB_MACHINE_MULTIBOOT
 #include <grub/i386/multiboot/kernel.h>
-#endif
 
 struct grub_smbios_eps *
 grub_machine_smbios_get_eps (void)
 {
   grub_uint8_t *ptr;
-
-#ifdef GRUB_MACHINE_MULTIBOOT
-  /* check multiboot modules */
-  struct multiboot_info *mbi = grub_multiboot_info;
-  if (mbi->flags & MULTIBOOT_INFO_MODS)
+  /* check multiboot2 boot info */
+  if (grub_multiboot2_info)
   {
-    multiboot_module_t *mod = (void *) (grub_addr_t) mbi->mods_addr;
-    unsigned i;
-    for (i = 0; i < mbi->mods_count; i++, mod++)
-    {
-      if (mod->mod_end - mod->mod_start < sizeof (struct grub_smbios_eps))
-        continue;
-      ptr = (void *) (grub_addr_t) mod->mod_start;
-      if (grub_memcmp (ptr, "_SM_", 4) == 0
-          && grub_byte_checksum (ptr, sizeof (struct grub_smbios_eps)) == 0)
-        return (struct grub_smbios_eps *) ptr;
-    }
+    ptr = (void *) &grub_multiboot2_info->eps;
+    if (grub_memcmp (ptr, "_SM_", 4) == 0
+        && grub_byte_checksum (ptr, sizeof (struct grub_smbios_eps)) == 0)
+      return (struct grub_smbios_eps *) ptr;
   }
-#endif
 
   grub_dprintf ("smbios", "Looking for SMBIOS EPS. Scanning BIOS\n");
   for (ptr = (grub_uint8_t *) 0xf0000; ptr < (grub_uint8_t *) 0x100000; ptr += 16)
     if (grub_memcmp (ptr, "_SM_", 4) == 0
-	&& grub_byte_checksum (ptr, sizeof (struct grub_smbios_eps)) == 0)
+        && grub_byte_checksum (ptr, sizeof (struct grub_smbios_eps)) == 0)
       return (struct grub_smbios_eps *) ptr;
 
   return 0;
@@ -61,30 +48,19 @@ struct grub_smbios_eps3 *
 grub_machine_smbios_get_eps3 (void)
 {
   grub_uint8_t *ptr;
-
-#ifdef GRUB_MACHINE_MULTIBOOT
-  /* check multiboot modules */
-  struct multiboot_info *mbi = grub_multiboot_info;
-  if (mbi->flags & MULTIBOOT_INFO_MODS)
+  /* check multiboot2 boot info */
+  if (grub_multiboot2_info)
   {
-    multiboot_module_t *mod = (void *) (grub_addr_t) mbi->mods_addr;
-    unsigned i;
-    for (i = 0; i < mbi->mods_count; i++, mod++)
-    {
-      if (mod->mod_end - mod->mod_start < sizeof (struct grub_smbios_eps3))
-        continue;
-      ptr = (void *) (grub_addr_t) mod->mod_start;
-      if (grub_memcmp (ptr, "_SM3_", 5) == 0
-          && grub_byte_checksum (ptr, sizeof (struct grub_smbios_eps3)) == 0)
+    ptr = (void *) &grub_multiboot2_info->eps3;
+    if (grub_memcmp (ptr, "_SM3_", 5) == 0
+        && grub_byte_checksum (ptr, sizeof (struct grub_smbios_eps3)) == 0)
       return (struct grub_smbios_eps3 *) ptr;
-    }
   }
-#endif
 
   grub_dprintf ("smbios", "Looking for SMBIOS3 EPS. Scanning BIOS\n");
   for (ptr = (grub_uint8_t *) 0xf0000; ptr < (grub_uint8_t *) 0x100000; ptr += 16)
     if (grub_memcmp (ptr, "_SM3_", 5) == 0
-	&& grub_byte_checksum (ptr, sizeof (struct grub_smbios_eps3)) == 0)
+        && grub_byte_checksum (ptr, sizeof (struct grub_smbios_eps3)) == 0)
       return (struct grub_smbios_eps3 *) ptr;
 
   return 0;

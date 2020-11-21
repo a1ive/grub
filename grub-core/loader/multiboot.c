@@ -22,7 +22,6 @@
  *         need to be implemented:
  *  - drives table
  *  - ROM configuration table
- *  - SMBIOS tables
  *  - Networking information
  */
 

@@ -27,22 +27,14 @@ grub_machine_acpi_get_rsdpv1 (void)
   int ebda_len;
   grub_uint8_t *ebda, *ptr;
 
-  /* check multiboot modules */
-  struct multiboot_info *mbi = grub_multiboot_info;
-  if (mbi->flags & MULTIBOOT_INFO_MODS)
+  /* check multiboot2 boot info */
+  if (grub_multiboot2_info)
   {
-    multiboot_module_t *mod = (void *) (grub_addr_t) mbi->mods_addr;
-    unsigned i;
-    for (i = 0; i < mbi->mods_count; i++, mod++)
-    {
-      if (mod->mod_end - mod->mod_start < sizeof (struct grub_acpi_rsdp_v10))
-        continue;
-      ptr = (void *) (grub_addr_t) mod->mod_start;
-      if (grub_memcmp (ptr, GRUB_RSDP_SIGNATURE, GRUB_RSDP_SIGNATURE_SIZE) == 0
+    ptr = (void *) &grub_multiboot2_info->acpi1;
+    if (grub_memcmp (ptr, GRUB_RSDP_SIGNATURE, GRUB_RSDP_SIGNATURE_SIZE) == 0
           && grub_byte_checksum (ptr, sizeof (struct grub_acpi_rsdp_v10)) == 0
           && ((struct grub_acpi_rsdp_v10 *) ptr)->revision == 0)
       return (struct grub_acpi_rsdp_v10 *) ptr;
-    }
   }
 
   grub_dprintf ("acpi", "Looking for RSDP. Scanning EBDA\n");
@@ -73,25 +65,17 @@ grub_machine_acpi_get_rsdpv2 (void)
   int ebda_len;
   grub_uint8_t *ebda, *ptr;
 
-  /* check multiboot modules */
-  struct multiboot_info *mbi = grub_multiboot_info;
-  if (mbi->flags & MULTIBOOT_INFO_MODS)
+  /* check multiboot2 boot info */
+  if (grub_multiboot2_info)
   {
-    multiboot_module_t *mod = (void *) (grub_addr_t) mbi->mods_addr;
-    unsigned i;
-    for (i = 0; i < mbi->mods_count; i++, mod++)
-    {
-      if (mod->mod_end - mod->mod_start < sizeof (struct grub_acpi_rsdp_v20))
-        continue;
-      ptr = (void *) (grub_addr_t) mod->mod_start;
-      if (grub_memcmp (ptr, GRUB_RSDP_SIGNATURE, GRUB_RSDP_SIGNATURE_SIZE) == 0
+    ptr = (void *) &grub_multiboot2_info->acpi2;
+    if (grub_memcmp (ptr, GRUB_RSDP_SIGNATURE, GRUB_RSDP_SIGNATURE_SIZE) == 0
           && grub_byte_checksum (ptr, sizeof (struct grub_acpi_rsdp_v10)) == 0
           && ((struct grub_acpi_rsdp_v10 *) ptr)->revision != 0
           && ((struct grub_acpi_rsdp_v20 *) ptr)->length < 1024
           && grub_byte_checksum (ptr, ((struct grub_acpi_rsdp_v20 *) ptr)->length)
-             == 0)
+              == 0)
       return (struct grub_acpi_rsdp_v20 *) ptr;
-    }
   }
 
   grub_dprintf ("acpi", "Looking for RSDP. Scanning EBDA\n");

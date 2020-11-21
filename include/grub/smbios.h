@@ -64,7 +64,7 @@ struct grub_smbios_eps3
 extern struct grub_smbios_eps *grub_machine_smbios_get_eps (void);
 extern struct grub_smbios_eps3 *grub_machine_smbios_get_eps3 (void);
 
-extern struct grub_smbios_eps *EXPORT_FUNC (grub_smbios_get_eps) (void);
-extern struct grub_smbios_eps3 *EXPORT_FUNC (grub_smbios_get_eps3) (void);
+extern struct grub_smbios_eps *grub_smbios_get_eps (void);
+extern struct grub_smbios_eps3 *grub_smbios_get_eps3 (void);
 
 #endif /* ! GRUB_SMBIOS_HEADER */
