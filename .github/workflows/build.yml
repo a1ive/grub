@@ -27,6 +27,26 @@ jobs:
     - name: i686-w64-mingw clean
       run: make clean
 
+    - name: arm64-efi configure
+      run: |
+        ./configure --prefix=/ --target=aarch64-linux-gnu --with-platform=efi --host=aarch64-linux-gnu
+    - name: arm64-efi make
+      run: |
+        make
+        make install DESTDIR=$PWD/PKG
+    - name: arm64-efi clean
+      run: make clean
+
+    - name: arm-efi configure
+      run: |
+        ./configure --prefix=/ --target=arm-linux-gnueabi --with-platform=efi --host=arm-linux-gnueabi
+    - name: arm-efi make
+      run: |
+        make
+        make install DESTDIR=$PWD/PKG
+    - name: arm-efi clean
+      run: make clean
+
     - name: x86_64-efi configure
       run: ./configure --prefix=/ --target=x86_64 --with-platform=efi
     - name: x86_64-efi make
@@ -63,34 +83,14 @@ jobs:
     - name: i386-multiboot clean
       run: make clean
 
-    - name: i386-coreboot configure
-      run: ./configure --prefix=/ --target=i386 --with-platform=coreboot
-    - name: i386-coreboot make
-      run: |
-        make
-        make install DESTDIR=$PWD/PKG
-    - name: i386-coreboot clean
-      run: make clean
-
-    - name: arm64-efi configure
-      run: |
-        ./configure --prefix=/ --target=aarch64-linux-gnu --with-platform=efi --host=aarch64-linux-gnu
-    - name: arm64-efi make
-      run: |
-        make
-        make install DESTDIR=$PWD/PKG
-    - name: arm64-efi clean
-      run: make clean
-
-    - name: arm-efi configure
-      run: |
-        ./configure --prefix=/ --target=arm-linux-gnueabi --with-platform=efi --host=arm-linux-gnueabi
-    - name: arm-efi make
-      run: |
-        make
-        make install DESTDIR=$PWD/PKG
-    - name: arm-efi clean
-      run: make clean
+#    - name: i386-coreboot configure
+#      run: ./configure --prefix=/ --target=i386 --with-platform=coreboot
+#    - name: i386-coreboot make
+#      run: |
+#        make
+#        make install DESTDIR=$PWD/PKG
+#    - name: i386-coreboot clean
+#      run: make clean
 
     - name: makepkg
       run: ./makepkg.sh
