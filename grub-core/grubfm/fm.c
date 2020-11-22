@@ -30,6 +30,10 @@
 #include <grub/bitmap.h>
 #include <grub/gfxmenu_view.h>
 
+#ifdef GRUB_MACHINE_MULTIBOOT
+#include <grub/machine/kernel.h>
+#endif
+
 #include "fm.h"
 
 GRUB_MOD_LICENSE ("GPLv3+");
@@ -279,6 +283,13 @@ static grub_extcmd_t cmd_html;
 
 GRUB_MOD_INIT(grubfm)
 {
+#ifdef GRUB_MACHINE_MULTIBOOT
+  if (grub_mb_check_bios_int (0x13))
+    grub_env_set ("grub_mb_firmware", "bios");
+  else
+    grub_env_set ("grub_mb_firmware", "unknown");
+  grub_env_export ("grub_mb_firmware");
+#endif
   cmd = grub_register_extcmd ("grubfm", grub_cmd_grubfm, 0, 
                   N_("[PATH]"),
                   N_("GRUB file manager."), 0);
