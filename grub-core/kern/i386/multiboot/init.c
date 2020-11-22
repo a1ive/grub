@@ -275,10 +275,33 @@ fill_mb_info (void)
   grub_multiboot_info = &mbi;
 }
 
+extern grub_uint16_t grub_bios_via_workaround1, grub_bios_via_workaround2;
+
+/* Via needs additional wbinvd.  */
+static void
+grub_via_workaround_init (void)
+{
+  grub_uint32_t manufacturer[3], max_cpuid;
+  if (! grub_cpu_is_cpuid_supported ())
+    return;
+
+  grub_cpuid (0, max_cpuid, manufacturer[0], manufacturer[2], manufacturer[1]);
+
+  if (grub_memcmp (manufacturer, "CentaurHauls", 12) != 0)
+    return;
+
+  grub_bios_via_workaround1 = 0x090f;
+  grub_bios_via_workaround2 = 0x090f;
+  asm volatile ("wbinvd");
+}
+
 void
 grub_machine_init (void)
 {
   modend = grub_modules_get_end ();
+
+  /* This has to happen before any BIOS calls. */
+  grub_via_workaround_init ();
 
   grub_console_pcbios_init ();
   grub_vga_text_init ();
@@ -302,9 +325,35 @@ grub_machine_init (void)
 }
 
 void
-grub_machine_get_bootlocation (char **device __attribute__ ((unused)),
+grub_machine_get_bootlocation (char **device,
                                char **path __attribute__ ((unused)))
 {
+  char *ptr;
+  grub_uint8_t boot_drive, dos_part, bsd_part;
+
+  if (!grub_mb_check_bios_int (0x13))
+    return;
+
+  boot_drive = (grub_boot_device >> 24);
+  dos_part = (grub_boot_device >> 16);
+  bsd_part = (grub_boot_device >> 8);
+
+  /* XXX: This should be enough.  */
+#define DEV_SIZE 100
+  *device = grub_malloc (DEV_SIZE);
+  ptr = *device;
+  grub_snprintf (*device, DEV_SIZE, "%cd%u",
+                 (boot_drive & 0x80) ? 'h' : 'f', boot_drive & 0x7f);
+  ptr += grub_strlen (ptr);
+
+  if (dos_part != 0xff)
+    grub_snprintf (ptr, DEV_SIZE - (ptr - *device), ",%u", dos_part + 1);
+  ptr += grub_strlen (ptr);
+
+  if (bsd_part != 0xff)
+    grub_snprintf (ptr, DEV_SIZE - (ptr - *device), ",%u", bsd_part + 1);
+  ptr += grub_strlen (ptr);
+  *ptr = 0;
 }
 
 void

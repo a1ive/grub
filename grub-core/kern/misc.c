@@ -491,6 +491,9 @@ grub_strdup (const char *s)
   grub_size_t len;
   char *p;
 
+  if (!s)
+    return grub_zalloc (1);
+
   len = grub_strlen (s) + 1;
   p = (char *) grub_malloc (len);
   if (! p)
