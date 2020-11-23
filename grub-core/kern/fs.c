@@ -160,6 +160,7 @@ grub_fs_blocklist_open (grub_file_t file, const char *name)
   unsigned i;
   grub_disk_t disk = file->device->disk;
   struct grub_fs_block *blocks;
+  grub_size_t max_sectors;
 
   /* First, count the number of blocks.  */
   do
@@ -177,11 +178,12 @@ grub_fs_blocklist_open (grub_file_t file, const char *name)
     return 0;
 
   file->size = 0;
+  max_sectors = grub_disk_from_native_sector (disk, disk->total_sectors);
   p = (char *) name;
   if (! *p)
   {
     blocks[0].offset = 0;
-    blocks[0].length = disk->total_sectors << GRUB_DISK_SECTOR_BITS;
+    blocks[0].length = max_sectors << GRUB_DISK_SECTOR_BITS;
     file->size = blocks[0].length;
   }
   else for (i = 0; i < num; i++)
@@ -206,7 +208,7 @@ grub_fs_blocklist_open (grub_file_t file, const char *name)
       goto fail;
     }
 
-    if (disk->total_sectors << GRUB_DISK_SECTOR_BITS <
+    if (max_sectors << GRUB_DISK_SECTOR_BITS <
         blocks[i].offset + blocks[i].length)
     {
       grub_error (GRUB_ERR_BAD_FILENAME, "beyond the total sectors");
