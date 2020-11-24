@@ -135,27 +135,28 @@ grub_efi_bootpart (grub_efi_device_path_t *dp, const char *filename)
   grub_efi_boot_services_t *b = grub_efi_system_table->boot_services;
   if (!dp)
   {
-    grub_error (GRUB_ERR_BAD_OS, "Invalid device path");
+    grub_printf ("Invalid device path\n");
     return NULL;
   }
   boot_file = grub_efi_file_device_path (dp, filename);
   if (!boot_file)
   {
-    grub_error (GRUB_ERR_BAD_OS, "Invalid device path");
+    grub_printf ("Invalid device path\n");
     return NULL;
   }
+  text_dp = grub_efi_device_path_to_str (boot_file);
+  grub_printf ("Load image %s\n", text_dp);
   status = efi_call_6 (b->load_image, TRUE, grub_efi_image_handle,
                        boot_file, NULL, 0, (void **)&image_handle);
-  text_dp = grub_efi_device_path_to_str (boot_file);
-  grub_free (boot_file);
   if (status != GRUB_EFI_SUCCESS)
   {
-    grub_error (GRUB_ERR_BAD_OS, "Failed to load image %s", text_dp);
-    grub_free (text_dp);
-    return NULL;
+    grub_printf ("Failed to load image %s\n", text_dp);
+    image_handle = NULL;
   }
-  grub_printf ("Will boot %s\n", text_dp);
+  else
+    grub_printf ("Will boot %s\n", text_dp);
   grub_free (text_dp);
+  grub_free (boot_file);
   return image_handle;
 }
 
@@ -163,7 +164,6 @@ grub_efi_handle_t
 grub_efi_bootdisk (grub_efi_device_path_t *dp, const char *filename)
 {
   grub_efi_status_t status;
-  char *text_dp = NULL;
   grub_efi_uintn_t count = 0;
   grub_efi_uintn_t i = 0;
   grub_efi_handle_t *buf = NULL;
@@ -177,7 +177,7 @@ grub_efi_bootdisk (grub_efi_device_path_t *dp, const char *filename)
                        &sfs_guid, NULL, &count, &buf);
   if(status != GRUB_EFI_SUCCESS)
   {
-    grub_error (GRUB_ERR_BAD_OS, "SimpleFileSystemProtocol not found.");
+    grub_printf ("SimpleFileSystemProtocol not found.\n");
     return NULL;
   }
   for (i = 0; i < count; i++)
@@ -185,10 +185,6 @@ grub_efi_bootdisk (grub_efi_device_path_t *dp, const char *filename)
     tmp_dp = grub_efi_get_device_path (buf[i]);
     if (!grub_efi_is_child_dp (tmp_dp, dp))
       continue;
-    text_dp = grub_efi_device_path_to_str (tmp_dp);
-    grub_printf ("Child DP: %s\n", text_dp);
-    grub_free (text_dp);
-
     image_handle = grub_efi_bootpart (tmp_dp, filename);
     if (image_handle)
       break;
