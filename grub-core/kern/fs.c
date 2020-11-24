@@ -334,16 +334,16 @@ quit:
 }
 
 int
-grub_blocklist_convert (grub_file_t file)
+grub_blocklist_offset_convert (grub_file_t file, grub_off_t ofs, grub_off_t len)
 {
   struct read_blocklist_ctx c;
 
-  if ((file->fs == &grub_fs_blocklist) || (! file->device->disk) ||
-      (! file->size))
+  if (!file->device->disk || !file->size || ofs >= file->size)
     return 0;
 
-  file->offset = 0;
-
+  file->offset = ofs;
+  if (len && len < file->size - ofs)
+    file->size = len + ofs;
   c.num = 0;
   c.blocks = 0;
   c.total_size = 0;
@@ -352,7 +352,7 @@ grub_blocklist_convert (grub_file_t file)
   file->read_hook_data = &c;
   grub_file_dummy_read (file);
   file->read_hook = 0;
-  if ((grub_errno) || (c.total_size != file->size))
+  if ((grub_errno) || (c.total_size != file->size - ofs))
   {
     grub_errno = 0;
     c.num = 0;
@@ -365,18 +365,24 @@ grub_blocklist_convert (grub_file_t file)
     file->fs = &grub_fs_blocklist;
     file->data = c.blocks;
   }
-
-  file->offset = 0;
   return c.num;
 }
 
+int
+grub_blocklist_convert (grub_file_t file)
+{
+  int num = grub_blocklist_offset_convert (file, 0, 0);
+  file->offset = 0;
+  return num;
+}
+
 struct grub_fs grub_fs_blocklist =
-  {
-    .name = "blocklist",
-    .fs_dir = 0,
-    .fs_open = grub_fs_blocklist_open,
-    .fs_read = grub_fs_blocklist_read,
-    .fs_close = grub_fs_blocklist_close,
-    .fast_blocklist = 1,
-    .next = 0
-  };
+{
+  .name = "blocklist",
+  .fs_dir = 0,
+  .fs_open = grub_fs_blocklist_open,
+  .fs_read = grub_fs_blocklist_read,
+  .fs_close = grub_fs_blocklist_close,
+  .fast_blocklist = 1,
+  .next = 0
+};

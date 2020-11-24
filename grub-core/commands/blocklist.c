@@ -61,8 +61,10 @@ blocklist_to_str (grub_file_t file, int num, char *text, grub_disk_addr_t start)
 
 static const struct grub_arg_option options[] =
 {
-  {"set", 's', 0, N_("Set a variable to return value."), N_("VAR"), ARG_TYPE_STRING},
+  {"set", 's', 0, N_("Set a variable to return value."), "VAR", ARG_TYPE_STRING},
   {"disk", 'd', 0, N_("Use disk start_sector."), 0, 0},
+  {"offset", 'o', 0, N_("Set file offset."), "BYTES", ARG_TYPE_INT},
+  {"length", 'l', 0, N_("Set blocklist length."), "BYTES", ARG_TYPE_INT},
   {0, 0, 0, 0, 0, 0}
 };
 
@@ -70,6 +72,8 @@ enum options
 {
   BLOCKLIST_SET,
   BLOCKLIST_DISK,
+  BLOCKLIST_OFFSET,
+  BLOCKLIST_LENGTH,
 };
 
 static grub_err_t
@@ -81,6 +85,7 @@ grub_cmd_blocklist (grub_extcmd_context_t ctxt, int argc, char **args)
   char *text = NULL;
   grub_size_t len;
   grub_disk_addr_t start = 0;
+  grub_off_t bl_ofs = 0, bl_len = 0;
 
   if (argc < 1)
     return grub_error (GRUB_ERR_BAD_ARGUMENT, N_("filename expected"));
@@ -96,8 +101,12 @@ grub_cmd_blocklist (grub_extcmd_context_t ctxt, int argc, char **args)
                 "this command is available only for disk devices");
     goto fail;
   }
+  if (state[BLOCKLIST_OFFSET].set)
+    bl_ofs = grub_strtoull (state[BLOCKLIST_OFFSET].arg, 0, 0);
+  if (state[BLOCKLIST_LENGTH].set)
+    bl_len = grub_strtoull (state[BLOCKLIST_LENGTH].arg, 0, 0);
 
-  num = grub_blocklist_convert (file);
+  num = grub_blocklist_offset_convert (file, bl_ofs, bl_len);
   if (!num)
     goto fail;
   if (state[BLOCKLIST_DISK].set)
