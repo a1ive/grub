@@ -27,7 +27,6 @@
 #include <grub/file.h>
 #include <grub/fs.h>
 #include <grub/extcmd.h>
-#include <grub/efi/disk.h>
 
 #define CD_BOOT_SECTOR 17
 #define CD_BLOCK_SIZE 2048
@@ -48,6 +47,9 @@
 
 #ifdef GRUB_MACHINE_EFI
 
+#include <grub/efi/api.h>
+#include <grub/efi/disk.h>
+
 extern block_io_protocol_t blockio_template;
 
 enum options_map
@@ -61,11 +63,18 @@ enum options_map
   MAP_NB,
   MAP_UNMAP,
   MAP_FIRST,
+#if 0
+  MAP_ALT,
+#endif
 };
 
 enum grub_efivdisk_type
 grub_vdisk_check_type (const char *name, grub_file_t file,
                        enum grub_efivdisk_type type);
+
+grub_efi_status_t
+grub_efivdisk_connect_driver (grub_efi_handle_t controller,
+                              const grub_efi_char16_t *name);
 
 grub_err_t
 grub_efivdisk_install (struct grub_efivdisk_data *disk,

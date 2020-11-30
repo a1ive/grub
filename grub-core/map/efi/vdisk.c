@@ -26,6 +26,112 @@
 #include <guid.h>
 #include <misc.h>
 
+static grub_efi_guid_t dp_guid = GRUB_EFI_DEVICE_PATH_GUID;
+static grub_efi_guid_t blk_io_guid = GRUB_EFI_BLOCK_IO_GUID;
+static grub_efi_guid_t cn_guid = GRUB_EFI_COMPONENT_NAME_PROTOCOL_GUID;
+static grub_efi_guid_t cn2_guid = GRUB_EFI_COMPONENT_NAME2_PROTOCOL_GUID;
+
+static grub_efi_status_t
+connect_driver (grub_efi_boolean_t cn2, grub_efi_handle_t controller,
+                const grub_efi_char16_t *name)
+{
+  grub_efi_uintn_t i, count = 0;
+  grub_efi_char16_t *driver_name = NULL;
+  grub_efi_handle_t *buf = NULL;
+  grub_efi_handle_t saved_buf[2] = { NULL, NULL };
+  grub_efi_status_t status;
+  void *protocol = NULL;
+  grub_efi_guid_t *guid;
+  grub_efi_boot_services_t *b = grub_efi_system_table->boot_services;
+
+  if (cn2)
+    guid = &cn2_guid;
+  else
+    guid = &cn_guid;
+
+  status = efi_call_5 (b->locate_handle_buffer, GRUB_EFI_BY_PROTOCOL,
+                       guid, NULL, &count, &buf);
+
+  if(status != GRUB_EFI_SUCCESS)
+  {
+    grub_printf ("ComponentName%sProtocol not found.\n", cn2 ? "2" : "");
+    return status;
+  }
+
+  for (i = 0; i < count; i++)
+  {
+    status = efi_call_3 (b->handle_protocol, buf[i], guid,
+                         &protocol);
+    if(status != GRUB_EFI_SUCCESS)
+      continue;
+    if (cn2)
+      status = efi_call_3 (
+        ((grub_efi_component_name2_protocol_t *)protocol)->get_driver_name,
+        protocol, (grub_efi_char8_t *)"en", &driver_name);
+    else
+      status = efi_call_3 (
+        ((grub_efi_component_name_protocol_t *)protocol)->get_driver_name,
+        protocol, (grub_efi_char8_t *)"en", &driver_name);
+    if (status != GRUB_EFI_SUCCESS || !driver_name)
+      continue;
+    if(grub_wstrstr (driver_name, name))
+    {
+      saved_buf[0] = buf[i];
+      break;
+    }
+  }
+
+  if (i < count)
+    status = efi_call_4 (b->connect_controller, controller, saved_buf, NULL, TRUE);
+  else
+    status = GRUB_EFI_NOT_FOUND;
+
+  if (buf)
+    efi_call_1 (b->free_pool, buf);
+  return status;
+}
+
+grub_efi_status_t
+grub_efivdisk_connect_driver (grub_efi_handle_t controller,
+                              const grub_efi_char16_t *name)
+{
+  grub_efi_status_t status;
+  status = connect_driver (TRUE, controller, name);
+  if (status != GRUB_EFI_SUCCESS)
+    status = connect_driver (FALSE, controller, name);
+  return status;
+}
+
+#if 0
+static grub_err_t
+alt_install (struct grub_efivdisk_data *disk)
+{
+  grub_efi_status_t status;
+  grub_efi_boot_services_t *b = grub_efi_system_table->boot_services;
+
+  status = efi_call_6 (b->install_multiple_protocol_interfaces,
+                       &disk->vdisk.handle,
+                       &blk_io_guid, &disk->vdisk.block_io,
+                       &dp_guid, disk->vdisk.dp, NULL);
+
+  if (status != GRUB_EFI_SUCCESS)
+    return grub_error (GRUB_ERR_BAD_OS, "Failed to install virtual disk.");
+  status = grub_efivdisk_connect_driver (disk->vdisk.handle, L"Disk I/O Driver");
+  if (status != GRUB_EFI_SUCCESS)
+    grub_printf ("Failed to connect Disk I/O Driver.\n");
+  status = grub_efivdisk_connect_driver (disk->vdisk.handle, L"Partition Driver");
+  if (status != GRUB_EFI_SUCCESS)
+  {
+    grub_printf ("Failed to connect Partition Driver.\n");
+    status = efi_call_4 (b->connect_controller,
+                         disk->vdisk.handle, NULL, NULL, TRUE);
+    if (status != GRUB_EFI_SUCCESS)
+      grub_printf ("Failed to connect all controller.\n");
+  }
+  return GRUB_ERR_NONE;
+}
+#endif
+
 grub_err_t
 grub_efivdisk_install (struct grub_efivdisk_data *disk,
                        struct grub_arg_list *state)
@@ -34,9 +140,6 @@ grub_efivdisk_install (struct grub_efivdisk_data *disk,
   grub_efi_device_path_t *tmp_dp;
   grub_efi_uint32_t bs;
   grub_efi_boot_services_t *b = grub_efi_system_table->boot_services;
-  /* guid */
-  grub_efi_guid_t dp_guid = GRUB_EFI_DEVICE_PATH_GUID;
-  grub_efi_guid_t blk_io_guid = GRUB_EFI_BLOCK_IO_GUID;
 
   /* block size */
   if (disk->type == CD)
@@ -77,6 +180,11 @@ grub_efivdisk_install (struct grub_efivdisk_data *disk,
                 disk->vdisk.media.block_size,
                 (unsigned long long)disk->vdisk.media.last_block);
   grub_efi_dprintf_dp (disk->vdisk.dp);
+#if 0
+  /* Install blockio using alternative methods. */
+  if (state[MAP_ALT].set)
+    return alt_install (disk);
+#endif
   /* install vpart */
   if (disk->type != FD)
     grub_efivpart_install (disk, state);

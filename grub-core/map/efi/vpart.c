@@ -178,7 +178,6 @@ grub_efivpart_install (struct grub_efivdisk_data *disk,
   grub_efi_guid_t dp_guid = GRUB_EFI_DEVICE_PATH_GUID;
   grub_efi_guid_t blk_io_guid = GRUB_EFI_BLOCK_IO_GUID;
   grub_efi_guid_t sfs_guid = GRUB_EFI_SIMPLE_FILE_SYSTEM_PROTOCOL_GUID;
-  grub_efi_guid_t cn2_guid = GRUB_EFI_COMPONENT_NAME2_PROTOCOL_GUID;
 
   switch (disk->type)
   {
@@ -240,47 +239,11 @@ grub_efivpart_install (struct grub_efivdisk_data *disk,
   if (disk->type != CD)
     return GRUB_ERR_NONE;
   /* for DUET UEFI firmware */
-  {
-    grub_efi_handle_t fat_handle = NULL;
-    grub_efi_handle_t *buf;
-    grub_efi_uintn_t count;
-    grub_efi_uintn_t i;
-    grub_efi_component_name2_protocol_t *cn2_protocol;
-    grub_efi_char16_t *driver_name;
-    grub_efi_simple_fs_protocol_t *sfs_protocol = NULL;
-
-    status = efi_call_3 (b->handle_protocol, disk->vpart.handle,
-                         &sfs_guid, (void **)&sfs_protocol);
-    if(status == GRUB_EFI_SUCCESS)
-      return GRUB_ERR_NONE;
-
-    status = efi_call_5 (b->locate_handle_buffer, GRUB_EFI_BY_PROTOCOL,
-                         &cn2_guid, NULL, &count, &buf);
-    if(status != GRUB_EFI_SUCCESS)
-    {
-      grub_dprintf ("map", "ComponentNameProtocol not found.\n");
-    }
-    for (i = 0; i < count; i++)
-    {
-      efi_call_3 (b->handle_protocol, buf[i], &cn2_guid, (void **)&cn2_protocol);
-      efi_call_3 (cn2_protocol->get_driver_name,
-                  cn2_protocol, (grub_efi_char8_t *)"en-us", &driver_name);
-      if(driver_name && grub_wstrstr (driver_name, L"FAT File System Driver"))
-      {
-        fat_handle = buf[i];
-        break;
-      }
-    }
-    if (fat_handle)
-    {
-      status = efi_call_4 (b->connect_controller,
-                           disk->vpart.handle, &fat_handle, NULL, TRUE);
-      return GRUB_ERR_NONE;
-    }
-    else
-    {
-      grub_dprintf ("map", "FAT Driver not found.\n");
-      return GRUB_ERR_BAD_OS;
-    }
-  }
+  grub_efi_simple_fs_protocol_t *sfs_protocol = NULL;
+  status = efi_call_3 (b->handle_protocol, disk->vpart.handle,
+                       &sfs_guid, (void **)&sfs_protocol);
+  if(status == GRUB_EFI_SUCCESS)
+    return GRUB_ERR_NONE;
+  return grub_efivdisk_connect_driver (disk->vpart.handle,
+                                       L"FAT File System Driver");
 }

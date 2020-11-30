@@ -253,6 +253,9 @@ static const struct grub_arg_option options_map[] =
   {"nb", 'n', 0, N_("Don't boot virtual disk."), 0, 0},
   {"unmap", 'x', 0, N_("Unmap devices."), N_("disk"), ARG_TYPE_STRING},
   {"first", 'f', 0, N_("Set as the first drive."), 0, 0},
+#if 0
+  {"alt", 'a', 0, N_("Install blockio using alternative methods."), 0, 0},
+#endif
   {0, 0, 0, 0, 0, 0}
 };
 
