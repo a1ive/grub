@@ -58,7 +58,7 @@ grub_iso_get_eltorito (grub_file_t iso, grub_off_t *offset, grub_off_t *len)
 {
   cdrom_volume_descriptor_t *vol = NULL;
   eltorito_catalog_t *catalog = NULL;
-  grub_size_t dbr_img_size = sizeof (grub_efi_uint16_t);
+  grub_size_t dbr_img_size = sizeof (grub_uint16_t);
   grub_uint16_t dbr_img_buf;
   int boot_entry = 0;
   grub_size_t i;

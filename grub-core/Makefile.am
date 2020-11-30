@@ -462,6 +462,46 @@ platform_DATA += $(MOD_FILES)
 platform_DATA += modinfo.sh
 CLEANFILES += $(MOD_FILES)
 
+if COND_ENABLE_EFIEMU
+efiemu32_c.o: efiemu/runtime/efiemu.c
+	$(TARGET_CC) $(DEFS) $(INCLUDES) $(CPPFLAGS_EFIEMU) $(CPPFLAGS_DEFAULT) -m32 -nostdlib -Wall -Werror -fno-pic -O0 -c -o $@ $<
+
+efiemu32_s.o: efiemu/runtime/efiemu.S
+	$(TARGET_CC) $(DEFS) $(INCLUDES) $(CPPFLAGS_EFIEMU) $(CPPFLAGS_DEFAULT) -m32 -Wall -Werror -nostdlib -fno-pic -O0 -c -o $@ $<
+
+efiemu32.o: efiemu32_c.o efiemu32_s.o $(TARGET_OBJ2ELEF)
+	-rm -f $@
+	-rm -f $@.bin
+	$(TARGET_CC) -m32 $(EFIEMU32_LINK_FORMAT) -nostdlib -static -fno-pic -Wl,-r -o $@.bin $^
+	if test "x$(EFIEMU32_LINK_FORMAT)" = x-arch,i386; then \
+	  $(TARGET_OBJCONV) -felf32 -nu -nd $@.bin $@ || exit 1; \
+	  rm -f $@.bin; \
+	else \
+	  mv $@.bin $@ ; \
+	fi
+
+# Link format -arch,x86_64 means Apple linker
+efiemu64_c.o: efiemu/runtime/efiemu.c
+	$(TARGET_CC) $(DEFS) $(INCLUDES) $(CPPFLAGS_EFIEMU) $(CPPFLAGS_DEFAULT) -m64 -nostdlib -Wall -Werror -fno-pic -O0 -mcmodel=large -mno-red-zone -c -o $@ $<
+
+efiemu64_s.o: efiemu/runtime/efiemu.S
+	$(TARGET_CC) $(DEFS) $(INCLUDES) $(CPPFLAGS_EFIEMU) $(CPPFLAGS_DEFAULT) -m64 -Wall -Werror -nostdlib -fno-pic -O0 -mcmodel=large -mno-red-zone -c -o $@ $<
+
+efiemu64.o: efiemu64_c.o efiemu64_s.o $(TARGET_OBJ2ELEF)
+	-rm -f $@
+	-rm -f $@.bin
+	$(TARGET_CC) -m64 $(EFIEMU64_LINK_FORMAT) -nostdlib -static -fno-pic -Wl,-r -o $@.bin $^
+	if test "x$(EFIEMU64_LINK_FORMAT)" = x-arch,x86_64; then \
+	  $(TARGET_OBJCONV) -felf64 -nu -nd $@.bin $@ || exit 1; \
+	  rm -f $@.bin; \
+	else \
+	  mv $@.bin $@ ; \
+	fi
+
+platform_DATA += efiemu32.o efiemu64.o
+CLEANFILES += efiemu32.o efiemu64.o efiemu64_c.o efiemu64_s.o
+endif
+
 windowsdir=$(top_builddir)/$(PACKAGE)-$(VERSION)-for-windows
 windowsdir: $(PROGRAMS) $(starfield_DATA) $(platform_DATA)
 	test -d $(windowsdir)/$(target_cpu)-$(platform) || mkdir $(windowsdir)/$(target_cpu)-$(platform)

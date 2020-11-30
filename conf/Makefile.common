@@ -74,6 +74,8 @@ CPPFLAGS_POSIX = -I$(top_srcdir)/grub-core/lib/posix_wrap
 CFLAGS_GCRY = -Wno-error -Wno-missing-field-initializers -Wno-redundant-decls -Wno-undef $(CFLAGS_POSIX)
 CPPFLAGS_GCRY = -I$(top_srcdir)/grub-core/lib/libgcrypt_wrap $(CPPFLAGS_POSIX) -D_GCRYPT_IN_LIBGCRYPT=1 -I$(top_srcdir)/include/grub/gcrypt
 
+CPPFLAGS_EFIEMU = -I$(top_srcdir)/grub-core/efiemu/runtime
+
 # List file macros for recognizing /interesting/ modules
 CPPFLAGS_FS_LIST = -Dgrub_fs_register=FS_LIST_MARKER
 CPPFLAGS_VIDEO_LIST= -Dgrub_video_register=VIDEO_LIST_MARKER

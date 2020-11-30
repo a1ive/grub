@@ -1423,6 +1423,31 @@ module = {
 };
 
 module = {
+  name = efiemu;
+  common = efiemu/main.c;
+  common = efiemu/i386/loadcore32.c;
+  common = efiemu/i386/loadcore64.c;
+  common = efiemu/cfgtables.c;
+  common = efiemu/mm.c;
+  common = efiemu/loadcore_common.c;
+  common = efiemu/symbols.c;
+  common = efiemu/loadcore32.c;
+  common = efiemu/loadcore64.c;
+  common = efiemu/prepare32.c;
+  common = efiemu/prepare64.c;
+  common = efiemu/pnvram.c;
+  common = efiemu/i386/coredetect.c;
+
+  extra_dist = efiemu/prepare.c;
+  extra_dist = efiemu/loadcore.c;
+  extra_dist = efiemu/runtime/efiemu.S;
+  extra_dist = efiemu/runtime/efiemu.c;
+
+  enable = i386_pc;
+  enable = i386_multiboot;
+};
+
+module = {
   name = font;
   common = font/font.c;
   common = font/font_cmd.c;
