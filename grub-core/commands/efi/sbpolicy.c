@@ -201,8 +201,7 @@ grub_cmd_sbpolicy (grub_extcmd_context_t ctxt,
     goto done;
   }
 
-  data = grub_efi_get_variable ("SecureBoot", &global,
-                          &datasize);
+  grub_efi_get_variable ("SecureBoot", &global, &datasize, (void **) &data);
 
   if (!data || !datasize)
   {

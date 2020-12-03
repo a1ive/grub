@@ -126,9 +126,10 @@ grub_efi_status_t
 EXPORT_FUNC(grub_efi_allocate_pool) (grub_efi_memory_type_t pool_type,
                                      grub_efi_uintn_t buffer_size, void **buffer);
 grub_efi_status_t EXPORT_FUNC(grub_efi_free_pool) (void *buffer);
-void *EXPORT_FUNC (grub_efi_get_variable) (const char *variable,
-					   const grub_efi_guid_t *guid,
-					   grub_size_t *datasize_out);
+grub_efi_status_t EXPORT_FUNC (grub_efi_get_variable) (const char *variable,
+						       const grub_efi_guid_t *guid,
+						       grub_size_t *datasize_out,
+						       void **data_out);
 grub_efi_status_t
 EXPORT_FUNC (grub_efi_set_var_attr) (const char *var,
                     const grub_efi_guid_t *guid,

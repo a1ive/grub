@@ -51,8 +51,8 @@ fwsetup_is_supported (void)
   grub_efi_uint64_t *os_indications_supported = NULL;
   grub_size_t oi_size = 0;
   grub_efi_guid_t global = GRUB_EFI_GLOBAL_VARIABLE_GUID;
-  os_indications_supported = grub_efi_get_variable ("OsIndicationsSupported",
-                              &global, &oi_size);
+  grub_efi_get_variable ("OsIndicationsSupported",
+                         &global, &oi_size, (void **) &os_indications_supported);
   if (!os_indications_supported)
     return 0;
   if (*os_indications_supported & GRUB_EFI_OS_INDICATIONS_BOOT_TO_FW_UI)
@@ -70,7 +70,8 @@ fwsetup_setvar (void)
   grub_efi_uint64_t os_indications = GRUB_EFI_OS_INDICATIONS_BOOT_TO_FW_UI;
   grub_size_t oi_size;
   grub_efi_guid_t global = GRUB_EFI_GLOBAL_VARIABLE_GUID;
-  old_os_indications = grub_efi_get_variable ("OsIndications", &global, &oi_size);
+  grub_efi_get_variable ("OsIndications",
+                         &global, &oi_size, (void **) &old_os_indications);
   if (old_os_indications != NULL && oi_size == sizeof (os_indications))
     os_indications |= *old_os_indications;
   status = grub_efi_set_variable ("OsIndications", &global, &os_indications,

@@ -127,7 +127,7 @@ grub_cmd_getenv (grub_extcmd_context_t ctxt, int argc, char **args)
     efi_var_guid.data4[0] = grub_strtoul(guid + 19, NULL, 16);
   }
 
-  data = grub_efi_get_variable (envvar, &efi_var_guid, &datasize);
+  grub_efi_get_variable (envvar, &efi_var_guid, &datasize, (void **)&data);
 
   if (!data || !datasize)
   {

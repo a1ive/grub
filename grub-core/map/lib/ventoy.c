@@ -80,7 +80,7 @@ grub_ventoy_get_osparam (void)
 #ifdef GRUB_MACHINE_EFI
   grub_efi_guid_t ventoy_guid = VENTOY_GUID;
   grub_size_t datasize = 0;
-  data = grub_efi_get_variable("VentoyOsParam", &ventoy_guid, &datasize);
+  grub_efi_get_variable("VentoyOsParam", &ventoy_guid, &datasize, (void **) &data);
   if (!data || !datasize || datasize != sizeof (ventoy_os_param))
   {
     if (data)
