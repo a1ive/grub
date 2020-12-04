@@ -532,7 +532,8 @@ void grub_reboot (void) __attribute__ ((noreturn));
 void __attribute__ ((noreturn)) EXPORT_FUNC (abort) (void);
 #endif
 
-#ifdef GRUB_MACHINE_PCBIOS
+#if defined (GRUB_MACHINE_COREBOOT) || defined (GRUB_MACHINE_MULTIBOOT) || \
+    defined (GRUB_MACHINE_PCBIOS) || defined (GRUB_MACHINE_QEMU)
 /* Halt the system, using APM if possible. If NO_APM is true, don't
  * use APM even if it is available.  */
 void grub_halt (int no_apm) __attribute__ ((noreturn));

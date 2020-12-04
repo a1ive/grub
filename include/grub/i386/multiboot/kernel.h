@@ -53,4 +53,7 @@ static inline grub_uint32_t grub_mb_check_bios_int (grub_uint8_t intno)
   return ivt[intno];
 }
 
+void EXPORT_FUNC(grub_bios_warm_reset) (void) __attribute__ ((noreturn));
+void EXPORT_FUNC(grub_bios_cold_reset) (void) __attribute__ ((noreturn));
+
 #endif

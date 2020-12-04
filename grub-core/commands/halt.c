@@ -18,30 +18,47 @@
  */
 
 #include <grub/dl.h>
-#include <grub/command.h>
+#include <grub/extcmd.h>
 #include <grub/misc.h>
 #include <grub/i18n.h>
 
 GRUB_MOD_LICENSE ("GPLv3+");
 
-static grub_err_t __attribute__ ((noreturn))
-grub_cmd_halt (grub_command_t cmd __attribute__ ((unused)),
-	       int argc __attribute__ ((unused)),
-	       char **args __attribute__ ((unused)))
+static const struct grub_arg_option options[] =
 {
+  {"no-apm", 'n', 0, N_("Do not use APM to halt the computer."), 0, 0},
+  {0, 0, 0, 0, 0, 0}
+};
+
+static grub_err_t __attribute__ ((noreturn))
+grub_cmd_halt (grub_extcmd_context_t ctxt,
+               int argc __attribute__ ((unused)),
+               char **args __attribute__ ((unused)))
+{
+  struct grub_arg_list *state = ctxt->state;
+#if defined (GRUB_MACHINE_COREBOOT) || defined (GRUB_MACHINE_MULTIBOOT) || \
+    defined (GRUB_MACHINE_PCBIOS) || defined (GRUB_MACHINE_QEMU)
+  int no_apm = 0;
+  if (state[0].set)
+    no_apm = 1;
+  grub_halt (no_apm);
+#else
+  if (state[0].set)
+    grub_puts_ (N_("APM not supported."));
   grub_halt ();
+#endif
 }
 
-static grub_command_t cmd;
-
+static grub_extcmd_t cmd;
+
 GRUB_MOD_INIT(halt)
 {
-  cmd = grub_register_command ("halt", grub_cmd_halt,
-			       0, N_("Halts the computer.  This command does" 
-			       " not work on all firmware implementations."));
+  cmd = grub_register_extcmd ("halt", grub_cmd_halt, 0, "[-n]",
+                              N_("Halt the system, if possible using APM."),
+                              options);
 }
 
 GRUB_MOD_FINI(halt)
 {
-  grub_unregister_command (cmd);
+  grub_unregister_extcmd (cmd);
 }

@@ -25,6 +25,17 @@
 #include <grub/cpu/reboot.h>
 #include <grub/i386/floppy.h>
 
+#ifdef GRUB_MACHINE_MULTIBOOT
+#include <grub/machine/kernel.h>
+
+void
+grub_reboot (void)
+{
+  grub_bios_cold_reset ();
+}
+
+#else
+
 void
 grub_reboot (void)
 {
@@ -55,10 +66,11 @@ grub_reboot (void)
   state.a20 = 0;
 
   grub_stop_floppy ();
-  
+
   err = grub_relocator16_boot (relocator, state);
 
   while (1);
 }
+#endif
 
 #endif /* GRUB_MACHINE_EFI */
