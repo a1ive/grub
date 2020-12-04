@@ -415,8 +415,8 @@ char *
 grub_normal_do_completion (char *buf, int *restore,
 			   void (*hook) (const char *, grub_completion_type_t, int))
 {
-  int argc;
-  char **argv;
+  int argc = 0;
+  char **argv = NULL;
 
   /* Initialize variables.  */
   match = 0;
@@ -539,10 +539,8 @@ grub_normal_do_completion (char *buf, int *restore,
 
  fail:
   if (argc != 0)
-    {
-      grub_free (argv[0]);
-      grub_free (argv);
-    }
+    grub_free (argv[0]);
+  grub_free (argv);
   grub_free (match);
   grub_errno = GRUB_ERR_NONE;
 
