@@ -613,12 +613,6 @@ module = {
 };
 
 module = {
-  name = usb_gamepad;
-  common = term/usb_gamepad.c;
-  enable = usb;
-};
-
-module = {
   name = usbserial_common;
   common = bus/usb/serial/common.c;
   enable = usb;
