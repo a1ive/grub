@@ -25,7 +25,7 @@
 #include <grub/cpu/reboot.h>
 #include <grub/i386/floppy.h>
 
-#ifdef GRUB_MACHINE_MULTIBOOT
+#if defined (GRUB_MACHINE_MULTIBOOT) || defined (GRUB_MACHINE_PCBIOS)
 #include <grub/machine/kernel.h>
 
 void

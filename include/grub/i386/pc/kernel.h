@@ -36,6 +36,9 @@ extern grub_uint32_t EXPORT_VAR(grub_boot_device);
 
 extern void (*EXPORT_VAR(grub_pc_net_config)) (char **device, char **path);
 
+void EXPORT_FUNC(grub_bios_warm_reset) (void) __attribute__ ((noreturn));
+void EXPORT_FUNC(grub_bios_cold_reset) (void) __attribute__ ((noreturn));
+
 #endif /* ! ASM_FILE */
 
 #endif /* ! KERNEL_MACHINE_HEADER */

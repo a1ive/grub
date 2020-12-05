@@ -201,6 +201,8 @@ FUNCTION(grub_pxe_call)
 VARIABLE(grub_realidt)
 	.long 0
 
+#include "../reboot.S"
+
 #ifdef __APPLE__
 	/* Older versions of objconv assume that there is the same number
 	   of text and data sections. Hence this dummy.  */

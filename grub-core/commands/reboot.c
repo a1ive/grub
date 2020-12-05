@@ -21,13 +21,17 @@
 #include <grub/command.h>
 #include <grub/misc.h>
 #include <grub/i18n.h>
-
-#ifdef GRUB_MACHINE_EFI
 #include <grub/extcmd.h>
 #include <grub/kernel.h>
 #include <grub/loader.h>
+
+#ifdef GRUB_MACHINE_EFI
 #include <grub/efi/api.h>
 #include <grub/efi/efi.h>
+#endif
+
+#if defined (GRUB_MACHINE_MULTIBOOT) || defined (GRUB_MACHINE_PCBIOS)
+#include <grub/machine/kernel.h>
 #endif
 
 GRUB_MOD_LICENSE ("GPLv3+");
@@ -40,10 +44,10 @@ grub_cmd_reboot (grub_command_t cmd __attribute__ ((unused)),
   grub_reboot ();
 }
 
-#ifdef GRUB_MACHINE_EFI
-static grub_efi_boolean_t
-grub_efi_fwsetup_is_supported (void)
+static int
+fwsetup_is_supported (void)
 {
+#ifdef GRUB_MACHINE_EFI
   grub_efi_uint64_t *os_indications_supported = NULL;
   grub_size_t oi_size = 0;
   grub_efi_guid_t global = GRUB_EFI_GLOBAL_VARIABLE_GUID;
@@ -53,15 +57,17 @@ grub_efi_fwsetup_is_supported (void)
     return 0;
   if (*os_indications_supported & GRUB_EFI_OS_INDICATIONS_BOOT_TO_FW_UI)
     return 1;
+#endif
   return 0;
 }
 
 static grub_err_t
-grub_efi_fwsetup_setvar (void)
+fwsetup_setvar (void)
 {
+  grub_err_t status = GRUB_ERR_BAD_OS;
+#ifdef GRUB_MACHINE_EFI
   grub_efi_uint64_t *old_os_indications;
   grub_efi_uint64_t os_indications = GRUB_EFI_OS_INDICATIONS_BOOT_TO_FW_UI;
-  grub_err_t status;
   grub_size_t oi_size;
   grub_efi_guid_t global = GRUB_EFI_GLOBAL_VARIABLE_GUID;
   old_os_indications = grub_efi_get_variable ("OsIndications", &global, &oi_size);
@@ -69,6 +75,7 @@ grub_efi_fwsetup_setvar (void)
     os_indications |= *old_os_indications;
   status = grub_efi_set_variable ("OsIndications", &global, &os_indications,
                                   sizeof (os_indications));
+#endif
   return status;
 }
 
@@ -95,20 +102,28 @@ grub_cmd_reset (grub_extcmd_context_t ctxt,
                 char **args __attribute__ ((unused)))
 {
   struct grub_arg_list *state = ctxt->state;
-  grub_efi_reset_type_t rst = GRUB_EFI_RESET_COLD;
-
+  if (state[RESET_F].set && fwsetup_is_supported ())
+    fwsetup_setvar ();
   if (state[RESET_S].set)
-    rst = GRUB_EFI_RESET_SHUTDOWN;
+#if defined (GRUB_MACHINE_COREBOOT) || defined (GRUB_MACHINE_MULTIBOOT) || \
+    defined (GRUB_MACHINE_PCBIOS) || defined (GRUB_MACHINE_QEMU)
+    grub_halt (0);
+#else
+    grub_halt ();
+#endif
   if (state[RESET_W].set)
-    rst = GRUB_EFI_RESET_WARM;
-  if (state[RESET_C].set)
-    rst = GRUB_EFI_RESET_COLD;
-  if (state[RESET_F].set && grub_efi_fwsetup_is_supported ())
-    grub_efi_fwsetup_setvar ();
-  grub_machine_fini (GRUB_LOADER_FLAG_NORETURN |
-                     GRUB_LOADER_FLAG_EFI_KEEP_ALLOCATED_MEMORY);
-  efi_call_4 (grub_efi_system_table->runtime_services->reset_system,
-              rst, GRUB_EFI_SUCCESS, 0, NULL);
+  {
+#ifdef GRUB_MACHINE_EFI
+    grub_machine_fini (GRUB_LOADER_FLAG_NORETURN |
+                       GRUB_LOADER_FLAG_EFI_KEEP_ALLOCATED_MEMORY);
+    efi_call_4 (grub_efi_system_table->runtime_services->reset_system,
+                GRUB_EFI_RESET_WARM, GRUB_EFI_SUCCESS, 0, NULL);
+#elif defined (GRUB_MACHINE_MULTIBOOT) || defined (GRUB_MACHINE_PCBIOS)
+    grub_bios_warm_reset ();
+#endif
+  }
+  grub_reboot ();
+
   for (;;) ;
 }
 
@@ -118,7 +133,7 @@ grub_cmd_fwsetup (grub_command_t cmd __attribute__ ((unused)),
                   char **args __attribute__ ((unused)))
 {
   grub_err_t status;
-  status = grub_efi_fwsetup_setvar ();
+  status = fwsetup_setvar ();
   if (status != GRUB_ERR_NONE)
     return status;
   grub_reboot ();
@@ -127,37 +142,24 @@ grub_cmd_fwsetup (grub_command_t cmd __attribute__ ((unused)),
 
 static grub_extcmd_t reset_cmd;
 static grub_command_t fw_cmd = NULL;
-#else
-static grub_command_t reset_cmd;
-#endif
-
 static grub_command_t reboot_cmd;
 
 GRUB_MOD_INIT(reboot)
 {
   reboot_cmd = grub_register_command ("reboot", grub_cmd_reboot,
                   0, N_("Reboot the computer."));
-#ifdef GRUB_MACHINE_EFI
   reset_cmd = grub_register_extcmd ("reset", grub_cmd_reset, 0,
                   N_("[-w|-s|-c] [-f]"),
                   N_("Reset the system."), options);
-  if (grub_efi_fwsetup_is_supported ())
+  if (fwsetup_is_supported ())
     fw_cmd = grub_register_command ("fwsetup", grub_cmd_fwsetup, 0,
                     N_("Reboot into firmware setup menu."));
-#else
-  reset_cmd = grub_register_command ("reset", grub_cmd_reboot,
-                  0, N_("Reboot the computer."));
-#endif
 }
 
 GRUB_MOD_FINI(reboot)
 {
   grub_unregister_command (reboot_cmd);
-#ifdef GRUB_MACHINE_EFI
   grub_unregister_extcmd (reset_cmd);
   if (fw_cmd)
     grub_unregister_command (fw_cmd);
-#else
-  grub_unregister_command (reset_cmd);
-#endif
 }

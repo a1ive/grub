@@ -123,21 +123,4 @@ mb2_hdr_end:
 
 #include "../realmode.S"
 #include "../int.S"
-
-FUNCTION(grub_bios_cold_reset)
-    .code32
-    PROT_TO_REAL
-    .code16
-    movw    $0x0472, %di
-    xorw    %ax, %ax
-    movw    %ax, (%di)
-    ljmp    $0xf000, $0xfff0
-
-FUNCTION(grub_bios_warm_reset)
-    .code32
-    PROT_TO_REAL
-    .code16
-    movw    $0x1234, %di
-    xorw    %ax, %ax
-    movw    %ax, (%di)
-    ljmp    $0xf000, $0xfff0
+#include "../reboot.S"
