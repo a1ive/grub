@@ -241,7 +241,7 @@ grub_lua_enum_device_iter (const char *name, void *data)
       else
       {
         const char *human_size = NULL;
-        human_size = grub_get_human_size (grub_disk_get_size (dev->disk)
+        human_size = grub_get_human_size (grub_disk_native_sectors (dev->disk)
               << GRUB_DISK_SECTOR_BITS, GRUB_HUMAN_SIZE_SHORT);
         if (human_size)
           lua_pushstring (state, human_size);

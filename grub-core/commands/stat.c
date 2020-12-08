@@ -116,7 +116,7 @@ grub_cmd_stat (grub_extcmd_context_t ctxt, int argc, char **args)
     disk = grub_disk_open (&args[0][1]);
     if (!disk)
       goto fail;
-    size = grub_disk_get_size (disk) << GRUB_DISK_SECTOR_BITS;
+    size = grub_disk_native_sectors (disk) << GRUB_DISK_SECTOR_BITS;
     grub_disk_close (disk);
   }
 

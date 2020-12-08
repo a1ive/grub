@@ -162,7 +162,7 @@ grubfm_enum_device_iter (const char *name, void *data)
         label_real = grub_xasprintf ("[%s] ", label);
 
       if (dev->disk)
-        human_size = grub_get_human_size (grub_disk_get_size (dev->disk)
+        human_size = grub_get_human_size (grub_disk_native_sectors (dev->disk)
               << GRUB_DISK_SECTOR_BITS, GRUB_HUMAN_SIZE_SHORT);
       char *title = NULL;
       title = grub_xasprintf ("(%s) %s%s %s", name,
