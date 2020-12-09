@@ -63,6 +63,8 @@ enum options_map
   MAP_NB,
   MAP_UNMAP,
   MAP_FIRST,
+  MAP_NOG4D,
+  MAP_NOVT,
 #if 0
   MAP_ALT,
 #endif

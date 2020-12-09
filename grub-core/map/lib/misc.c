@@ -20,6 +20,7 @@
 #include <grub/types.h>
 #include <grub/term.h>
 #include <grub/misc.h>
+#include <grub/memory.h>
 #include <grub/file.h>
 #include <grub/msdos_partition.h>
 #include <grub/eltorito.h>
@@ -30,6 +31,7 @@
 #include <grub/efi/api.h>
 #include <grub/efi/efi.h>
 #include <grub/efi/disk.h>
+#include <grub/machine/memory.h>
 
 enum grub_efivdisk_type
 grub_vdisk_check_type (const char *name, grub_file_t file,
@@ -67,6 +69,73 @@ grub_vdisk_check_type (const char *name, grub_file_t file,
     return MBR;
   else
     return GPT;
+}
+
+struct findmem_ctx
+{
+  unsigned long long size;
+  unsigned long long addr;
+};
+
+static int
+findmem_hook (grub_uint64_t addr, grub_uint64_t size,
+              grub_memory_type_t type, void *data)
+{
+  struct findmem_ctx *ctx = data;
+  if (type != GRUB_MEMORY_AVAILABLE || addr < 0x9F000 || size < ctx->size)
+    return 0;
+  ctx->addr = addr;
+  return 1;
+}
+
+static void *
+allocate_pages (grub_efi_physical_address_t address, grub_efi_uintn_t pages,
+                grub_efi_allocate_type_t alloctype, grub_efi_memory_type_t memtype)
+{
+  grub_efi_status_t status;
+  grub_efi_boot_services_t *b = grub_efi_system_table->boot_services;
+
+#if GRUB_CPU_SIZEOF_VOID_P != 8
+  /* Limit the memory access to less than 4GB for 32-bit platforms.  */
+  if (address > GRUB_EFI_MAX_USABLE_ADDRESS)
+    address = GRUB_EFI_MAX_USABLE_ADDRESS;
+#endif
+  status = efi_call_4 (b->allocate_pages, alloctype, memtype, pages, &address);
+  if (status != GRUB_EFI_SUCCESS)
+    return NULL;
+  if (address == 0)
+  {
+    address = GRUB_EFI_MAX_USABLE_ADDRESS;
+    status = efi_call_4 (b->allocate_pages, alloctype, memtype, pages, &address);
+    efi_call_2 (b->free_pages, 0, pages);
+    if (status != GRUB_EFI_SUCCESS)
+      return NULL;
+  }
+  return (void *) ((grub_addr_t) address);
+}
+
+static void *
+efi_malloc (grub_efi_uintn_t size, grub_efi_memory_type_t memtype)
+{
+  void *ret = NULL;
+  grub_efi_uintn_t pages = ((grub_efi_uintn_t) size + ((1 << 12) - 1)) >> 12;
+  struct findmem_ctx ctx;
+  ctx.size = size;
+  ctx.addr = 0;
+  grub_machine_mmap_iterate (findmem_hook, &ctx);
+  if (ctx.addr)
+  {
+    grub_printf ("allocate memory at 0x%llx\n", ctx.addr);
+    ret = allocate_pages (ctx.addr, pages, GRUB_EFI_ALLOCATE_ADDRESS, memtype);
+  }
+  if (!ret)
+  {
+    grub_printf ("allocate memory under 0x%llx\n",
+                 (unsigned long long) GRUB_EFI_MAX_USABLE_ADDRESS);
+    ret = allocate_pages (GRUB_EFI_MAX_USABLE_ADDRESS, pages,
+                          GRUB_EFI_ALLOCATE_MAX_ADDRESS, memtype);
+  }
+  return ret;
 }
 
 #endif
@@ -134,14 +203,8 @@ file_open (const char *name, int mem, int bl, int rt)
     void *addr = NULL;
     char newname[100];
 #ifdef GRUB_MACHINE_EFI
-    grub_efi_physical_address_t address = 0;
-    grub_efi_boot_services_t *b = grub_efi_system_table->boot_services;
-    grub_efi_uintn_t pages =
-            (((grub_efi_uintn_t) size + ((1 << 12) - 1)) >> 12);
-    efi_call_4 (b->allocate_pages, GRUB_EFI_ALLOCATE_ANY_PAGES,
-                rt ? GRUB_EFI_RUNTIME_SERVICES_DATA : GRUB_EFI_BOOT_SERVICES_DATA,
-                pages, &address);
-    addr = (void *) (grub_addr_t) address;
+    addr = efi_malloc (size, rt ? GRUB_EFI_RUNTIME_SERVICES_DATA :
+                       GRUB_EFI_BOOT_SERVICES_DATA);
 #else
     (void) rt;
     addr = grub_malloc (size);
@@ -152,7 +215,7 @@ file_open (const char *name, int mem, int bl, int rt)
       grub_file_close (file);
       return NULL;
     }
-    grub_printf ("Loading %s ...\n", name);
+    grub_printf ("Loading %s to %p ...\n", name, addr);
     grub_refresh ();
     grub_file_read (file, addr, size);
     grub_file_close (file);

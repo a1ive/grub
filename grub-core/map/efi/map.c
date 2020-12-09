@@ -37,6 +37,7 @@
 #include <iso.h>
 #include <guid.h>
 #include <misc.h>
+#include <grub4dos.h>
 
 GRUB_MOD_LICENSE ("GPLv3+");
 
@@ -253,6 +254,9 @@ static const struct grub_arg_option options_map[] =
   {"nb", 'n', 0, N_("Don't boot virtual disk."), 0, 0},
   {"unmap", 'x', 0, N_("Unmap devices."), N_("disk"), ARG_TYPE_STRING},
   {"first", 'f', 0, N_("Set as the first drive."), 0, 0},
+
+  {"no_g4d", 'g', 0, N_("Don't write GRUB4DOS drive map info."), 0, 0},
+  {"no_vt", 'v', 0, N_("Don't write Ventoy compatible info."), 0, 0},
 #if 0
   {"alt", 'a', 0, N_("Install blockio using alternative methods."), 0, 0},
 #endif
@@ -311,8 +315,10 @@ grub_cmd_map (grub_extcmd_context_t ctxt, int argc, char **args)
 
   grub_efivdisk_install (disk, state);
   grub_efivdisk_append (disk);
-  if (disk->type == CD)
+  if (disk->type == CD && ! state[MAP_NOVT].set)
     grub_ventoy_set_osparam (args[0]);
+  if (! state[MAP_NOG4D].set)
+    g4d_add_drive (disk->vdisk.file, disk->type == CD);
 
   if (disk->type == CD && state[MAP_ELT].set)
     mount_eltorito (disk, state[MAP_ELT].arg);
