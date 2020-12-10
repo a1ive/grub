@@ -74,7 +74,7 @@ g4d_alloc_data (void)
   grub_efi_status_t status;
   grub_efi_boot_services_t *b = grub_efi_system_table->boot_services;
   status = efi_call_4 (b->allocate_pages, GRUB_EFI_ALLOCATE_ADDRESS,
-                       GRUB_EFI_RUNTIME_SERVICES_DATA, 1, (void *) &address);
+                       GRUB_EFI_RESERVED_MEMORY_TYPE, 1, (void *) &address);
   if (status != GRUB_EFI_SUCCESS)
     grub_printf ("failed to allocate memory.\n");
 #endif

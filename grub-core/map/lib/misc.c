@@ -203,7 +203,7 @@ file_open (const char *name, int mem, int bl, int rt)
     void *addr = NULL;
     char newname[100];
 #ifdef GRUB_MACHINE_EFI
-    addr = efi_malloc (size, rt ? GRUB_EFI_RUNTIME_SERVICES_DATA :
+    addr = efi_malloc (size, rt ? GRUB_EFI_RESERVED_MEMORY_TYPE :
                        GRUB_EFI_BOOT_SERVICES_DATA);
 #else
     (void) rt;
