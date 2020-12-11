@@ -23,6 +23,10 @@
 #include <grub/usbdesc.h>
 #include <grub/usbtrans.h>
 
+#define GRUB_USB_MAX_CONF    8
+#define GRUB_USB_MAX_IF      32
+#define GRUB_USB_MAX_TOGGLE  256
+
 typedef struct grub_usb_device *grub_usb_device_t;
 typedef struct grub_usb_controller *grub_usb_controller_t;
 typedef struct grub_usb_controller_dev *grub_usb_controller_dev_t;
@@ -172,7 +176,7 @@ struct grub_usb_configuration
   struct grub_usb_desc_config *descconf;
 
   /* Interfaces associated to this configuration.  */
-  struct grub_usb_interface interf[32];
+  struct grub_usb_interface interf[GRUB_USB_MAX_IF];
 };
 
 struct grub_usb_hub_port
@@ -196,7 +200,7 @@ struct grub_usb_device
   struct grub_usb_controller controller;
 
   /* Device configurations (after opening the device).  */
-  struct grub_usb_configuration config[8];
+  struct grub_usb_configuration config[GRUB_USB_MAX_CONF];
 
   /* Device address.  */
   int addr;
@@ -208,7 +212,7 @@ struct grub_usb_device
   int initialized;
 
   /* Data toggle values (used for bulk transfers only).  */
-  int toggle[256];
+  int toggle[GRUB_USB_MAX_TOGGLE];
 
   /* Used by libusb wrapper.  Schedulded for removal. */
   void *data;
