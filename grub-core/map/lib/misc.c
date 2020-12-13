@@ -26,6 +26,7 @@
 #include <grub/eltorito.h>
 
 #include <misc.h>
+#include <grub4dos.h>
 
 #ifdef GRUB_MACHINE_EFI
 #include <grub/efi/api.h>
@@ -82,7 +83,7 @@ findmem_hook (grub_uint64_t addr, grub_uint64_t size,
               grub_memory_type_t type, void *data)
 {
   struct findmem_ctx *ctx = data;
-  if (type != GRUB_MEMORY_AVAILABLE || addr < 0x9F000 || size < ctx->size)
+  if (type != GRUB_MEMORY_AVAILABLE || size < ctx->size || addr <= G4D_MAX_ADDR)
     return 0;
   ctx->addr = addr;
   return 1;

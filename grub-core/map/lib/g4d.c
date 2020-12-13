@@ -35,49 +35,28 @@
 
 #include <grub4dos.h>
 
-static grub_uint64_t min_con_mem;
 static struct g4d_drive_map_slot *g4d_slot = 0;
-
-static int
-minmem_hook (grub_uint64_t addr, grub_uint64_t size,
-             grub_memory_type_t type,
-             void *data __attribute__ ((unused)))
-{
-  if (type != GRUB_MEMORY_AVAILABLE || addr > min_con_mem || size < 0x1000)
-    return 0;
-  if (addr + size < 0x9F000)
-    min_con_mem = addr + size - 0x1000;
-  return 0;
-}
-
-static grub_uint64_t
-get_min_con_mem (void)
-{
-  min_con_mem = 0x9F000;
-  grub_machine_mmap_iterate (minmem_hook, NULL);
-  return min_con_mem;
-}
 
 static void
 g4d_alloc_data (void)
 {
-  grub_addr_t address;
-  grub_uint8_t *g4d_data;
+  grub_uint8_t *g4d_data = NULL;
 
   if (g4d_slot)
     return;
-
-  address = get_min_con_mem ();
-  g4d_data = (void *) address;
-  grub_printf ("write grub4dos drive map slot info to %p\n", g4d_data);
 #ifdef GRUB_MACHINE_EFI
-  grub_efi_status_t status;
-  grub_efi_boot_services_t *b = grub_efi_system_table->boot_services;
-  status = efi_call_4 (b->allocate_pages, GRUB_EFI_ALLOCATE_ADDRESS,
-                       GRUB_EFI_RESERVED_MEMORY_TYPE, 1, (void *) &address);
-  if (status != GRUB_EFI_SUCCESS)
-    grub_printf ("failed to allocate memory.\n");
+  g4d_data = grub_efi_allocate_pages_real (G4D_MAX_ADDR + 0x1000, 1,
+                GRUB_EFI_ALLOCATE_MAX_ADDRESS, GRUB_EFI_RUNTIME_SERVICES_DATA);
+#else
+  g4d_data = G4D_MAX_ADDR;
 #endif
+  if (!g4d_data)
+  {
+    grub_printf ("Can't allocate grub4dos drive map slot info.\n");
+    return;
+  }
+  grub_printf ("write grub4dos drive map slot info to %p\n", g4d_data);
+
   grub_memcpy (g4d_data + 0xE0, "   $INT13SFGRUB4DOS", 19);
   g4d_slot = (void *)g4d_data;
   grub_memset (g4d_slot, 0, DRIVE_MAP_SLOT_SIZE * DRIVE_MAP_SIZE);
