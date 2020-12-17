@@ -2702,58 +2702,6 @@ module = {
 };
 
 module = {
-  name = fdlibm;
-  cppflags = '-I$(srcdir)/lib/posix_wrap -I$(srcdir)/lib/fdlibm -D_IEEE_LIBM -D__LITTLE_ENDIAN= ';
-  cflags = '-fno-strict-aliasing -Wdeclaration-after-statement -fshort-wchar -maccumulate-outgoing-args -Wno-empty-body -Wno-float-equal -Wno-maybe-uninitialized -Wno-missing-field-initializers -Wno-missing-declarations -Wno-missing-format-attribute -Wno-missing-noreturn -Wno-missing-prototypes -Wno-nested-externs -Wno-old-style-definition -Wno-parentheses -Wno-redundant-decls -Wno-sign-compare -Wno-shadow -Wno-type-limits -Wno-undef -Wno-uninitialized -Wno-unused -Wno-unused-parameter -Wno-unused-value -Wno-unused-variable -Wno-write-strings -Wno-error=format-nonliteral';
-  enable = i386_pc;
-  enable = i386_coreboot;
-  enable = i386_efi;
-  enable = x86_64_efi;
-  common = lib/fdlibm/w_log.c;
-  common = lib/fdlibm/e_log.c;
-  common = lib/fdlibm/s_floor.c;
-  common = lib/fdlibm/s_modf.c;
-  common = lib/fdlibm/w_fmod.c;
-  common = lib/fdlibm/e_fmod.c;
-  common = lib/fdlibm/s_cos.c;
-  common = lib/fdlibm/k_cos.c;
-  common = lib/fdlibm/s_sin.c;
-  common = lib/fdlibm/k_sin.c;
-  common = lib/fdlibm/e_rem_pio2.c;
-  common = lib/fdlibm/k_rem_pio2.c;
-  common = lib/fdlibm/w_atan2.c;
-  common = lib/fdlibm/e_atan2.c;
-  common = lib/fdlibm/s_tan.c;
-  common = lib/fdlibm/k_tan.c;
-  common = lib/fdlibm/s_atan.c;
-  common = lib/fdlibm/s_frexp.c;
-  common = lib/fdlibm/e_sqrt.c;
-  common = lib/fdlibm/w_sqrt.c;
-  common = lib/fdlibm/s_fabs.c;
-  common = lib/fdlibm/s_scalbn.c;
-  common = lib/fdlibm/w_pow.c;
-  common = lib/fdlibm/e_pow.c;
-  common = lib/fdlibm/e_exp.c;
-  common = lib/fdlibm/w_exp.c;
-  common = lib/fdlibm/s_ldexp.c;
-  common = lib/fdlibm/s_finite.c;
-  common = lib/fdlibm/e_sinh.c;
-  common = lib/fdlibm/w_sinh.c;
-  common = lib/fdlibm/e_asin.c;
-  common = lib/fdlibm/w_asin.c;
-  common = lib/fdlibm/e_log10.c;
-  common = lib/fdlibm/w_log10.c;
-  common = lib/fdlibm/s_ceil.c;
-  common = lib/fdlibm/e_acos.c;
-  common = lib/fdlibm/w_acos.c;
-  common = lib/fdlibm/e_cosh.c;
-  common = lib/fdlibm/w_cosh.c;
-  common = lib/fdlibm/s_tanh.c;
-  common = lib/fdlibm/s_expm1.c;
-  common = lib/fdlibm/s_copysign.c;
-};
-
-module = {
   name = vhd;
   common = io/vhdio.c;
 };
