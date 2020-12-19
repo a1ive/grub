@@ -2529,6 +2529,17 @@ module = {
 };
 
 module = {
+  name = lz4;
+  common = lib/lz4/lz4.c;
+  common = lib/lz4/lz4hc.c;
+  common = lib/lz4/lz4frame.c;
+  common = lib/lz4/xxhash.c;
+  common = io/lz4io.c;
+  cflags = '-Wno-undef -Wno-redundant-decls -Wno-error';
+  cppflags = '-I$(srcdir)/lib/lz4 -DXXH_NAMESPACE=LZ4_';
+};
+
+module = {
   name = lzopio;
   common = io/lzopio.c;
   common = lib/minilzo/minilzo.c;
