@@ -126,7 +126,8 @@ grubfm_textcat (const char *filename)
   grubfm_get_screen_info (&w, &h);
   if (w < 1024 || h < 768)
     return;
-  file = grub_file_open (filename, GRUB_FILE_TYPE_CAT);
+  file = grub_file_open (filename, GRUB_FILE_TYPE_CAT |
+                         GRUB_FILE_TYPE_NO_DECOMPRESS);
   if (!file)
     return;
   if (file->size > SIZE_1MB)
