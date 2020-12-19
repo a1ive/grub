@@ -99,7 +99,7 @@ grub_cmd_stat (grub_extcmd_context_t ctxt, int argc, char **args)
     grub_error (GRUB_ERR_BAD_ARGUMENT, "bad argument");
     goto fail;
   }
-  file = grub_file_open (args[0], GRUB_FILE_TYPE_CAT);
+  file = grub_file_open (args[0], GRUB_FILE_TYPE_CAT | GRUB_FILE_TYPE_NO_DECOMPRESS);
   if (!file)
   {
     grub_error (GRUB_ERR_BAD_FILENAME, N_("failed to open %s"), args[0]);
