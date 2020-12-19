@@ -87,21 +87,24 @@ grub_menu_get_entry (grub_menu_t menu, int no)
 {
   grub_menu_entry_t e;
 
-  if (no & MENU_INCLUDE_HIDDEN) {
-      no &= ~MENU_INCLUDE_HIDDEN;
+  for (e = menu->entry_list; e && no > 0; e = e->next, no--)
+  {
+    while (e && e->flag & GRUB_MENU_FLAG_HIDDEN)
+      e = e->next;
+  }
 
-      for (e = menu->entry_list; e && no > 0; e = e->next, no--)
-        ;
-    } else {
-      for (e = menu->entry_list; e && no > 0; e = e->next, no--) {
-       /* Skip hidden entries */
-       while (e && e->hidden)
-         e = e->next;
-      }
-      while (e && e->hidden)
-        e = e->next;
-    }
+  while (e && e->flag & GRUB_MENU_FLAG_HIDDEN)
+    e = e->next;
 
+  return e;
+}
+
+static grub_menu_entry_t
+grub_menu_get_all_entry (grub_menu_t menu, int no)
+{
+  grub_menu_entry_t e;
+  for (e = menu->entry_list; e && no > 0; e = e->next, no--)
+    ;
   return e;
 }
 
@@ -115,7 +118,7 @@ get_entry_index_by_hotkey (grub_menu_t menu, int hotkey)
   for (i = 0, entry = menu->entry_list; entry;
        i++, entry = entry->next)
     if (entry->hotkey == hotkey)
-      return i | MENU_INCLUDE_HIDDEN;
+      return i;
 
   return -1;
 }
@@ -129,13 +132,15 @@ get_next_entry_by_first_char (grub_menu_t menu, int key, int cur)
   for (i = cur + 1, entry = grub_menu_get_entry (menu, cur + 1); entry;
        i++, entry = entry->next)
   {
-    if (!entry->hidden && key == grub_tolower (entry->id[0]))
+    if (!(entry->flag & GRUB_MENU_FLAG_HIDDEN)
+        && key == grub_tolower (entry->id[0]))
       return i;
   }
   for (i = 0, entry = menu->entry_list; (i < cur) && entry;
        i++, entry = entry->next)
   {
-    if (!entry->hidden && key == grub_tolower (entry->id[0]))
+    if (!(entry->flag & GRUB_MENU_FLAG_HIDDEN)
+        && key == grub_tolower (entry->id[0]))
       return i;
   }
 
@@ -322,7 +327,7 @@ grub_menu_execute_entry(grub_menu_entry_t entry, int auto_boot)
   chosen = grub_env_get ("chosen");
   def = grub_env_get ("default");
 
-  if (entry->submenu)
+  if (entry->flag & GRUB_MENU_FLAG_SUBMENU)
     {
       grub_env_context_open ();
       menu = grub_zalloc (sizeof (*menu));
@@ -402,7 +407,7 @@ grub_menu_execute_entry(grub_menu_entry_t entry, int auto_boot)
   if (errs_before != grub_err_printed_errors)
     grub_wait_after_message ();
 
-  if (entry->submenu)
+  if (entry->flag & GRUB_MENU_FLAG_SUBMENU)
     {
       if (menu && menu->size)
     {
@@ -451,7 +456,7 @@ grub_menu_execute_with_fallback (grub_menu_t menu,
       grub_print_error ();
       grub_errno = GRUB_ERR_NONE;
 
-      entry = grub_menu_get_entry (menu, fallback_entry);
+      entry = grub_menu_get_all_entry (menu, fallback_entry);
       callback->notify_fallback (entry, callback_data);
       err = grub_menu_execute_entry (entry, 1);
       if (err == GRUB_ERR_NONE)
@@ -715,11 +720,11 @@ get_entry_number (grub_menu_t menu, const char *name)
       grub_menu_entry_t e = menu->entry_list;
       int i;
 
-      /* Skip hidden entries */
-      while (e && e->hidden)
-       e = e->next;
-
       grub_errno = GRUB_ERR_NONE;
+
+      /* Skip hidden entries */
+      while (e && e->flag & GRUB_MENU_FLAG_HIDDEN)
+        e = e->next;
 
       for (i = 0; e; i++)
     {
@@ -730,11 +735,10 @@ get_entry_number (grub_menu_t menu, const char *name)
           break;
         }
       e = e->next;
-
-      /* Skip hidden entries */
-      while (e && e->hidden)
-        e = e->next;
     }
+      /* Skip hidden entries */
+      while (e && e->flag & GRUB_MENU_FLAG_HIDDEN)
+        e = e->next;
 
       if (! e)
     entry = -1;
@@ -898,7 +902,7 @@ refresh:
 
   timeout = grub_menu_get_timeout ();
 
-  if (timeout > 0) 
+  if (timeout > 0)
   {
     menu_print_timeout (timeout);
 	clear_help_message();
@@ -1242,7 +1246,7 @@ show_menu (grub_menu_t menu, int nested, int autobooted)
       if (boot_entry < 0)
     break;
 
-      e = grub_menu_get_entry (menu, boot_entry);
+      e = grub_menu_get_all_entry (menu, boot_entry);
       if (! e)
     continue; /* Menu is empty.  */
 

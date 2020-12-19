@@ -42,6 +42,10 @@ struct grub_menu_entry_class
   struct grub_menu_entry_class *next;
 };
 
+#define GRUB_MENU_FLAG_SUBMENU    0x01
+#define GRUB_MENU_FLAG_HIDDEN     0x02
+#define GRUB_MENU_FLAG_SKIP       0x04
+
 /* The menu entry.  */
 struct grub_menu_entry
 {
@@ -72,9 +76,7 @@ struct grub_menu_entry
 
   int hotkey;
 
-  int submenu;
-  
-  int hidden;
+  grub_uint8_t flag;
 
   const char *help_message;
 

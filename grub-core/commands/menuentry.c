@@ -28,26 +28,29 @@
 #include <grub/mm.h>
 
 static const struct grub_arg_option options[] =
-  {
-    {"class", 1, GRUB_ARG_OPTION_REPEATABLE,
-     N_("Menu entry type."), N_("STRING"), ARG_TYPE_STRING},
-    {"users", 2, GRUB_ARG_OPTION_OPTIONAL,
-     N_("List of users allowed to boot this entry."), N_("USERNAME[,USERNAME]"),
-     ARG_TYPE_STRING},
-    {"hotkey", 3, 0,
-     N_("Keyboard key to quickly boot this entry."), N_("KEYBOARD_KEY"), ARG_TYPE_STRING},
-    {"source", 4, 0,
-     N_("Use STRING as menu entry body."), N_("STRING"), ARG_TYPE_STRING},
-    {"id", 0, 0, N_("Menu entry identifier."), N_("STRING"), ARG_TYPE_STRING},
-    /* TRANSLATORS: menu entry can either be bootable by anyone or only by
-       handful of users. By default when security is active only superusers can
-       boot a given menu entry. With --unrestricted (this option)
-       anyone can boot it.  */
-    {"unrestricted", 0, 0, N_("This entry can be booted by any user."),
-     0, ARG_TYPE_NONE},
-    {"help-msg", 0, GRUB_ARG_OPTION_OPTIONAL,  N_("Menu entry help message."), N_("STRING"), ARG_TYPE_STRING},
-    {0, 0, 0, 0, 0, 0}
-  };
+{
+  {"class", 1, GRUB_ARG_OPTION_REPEATABLE,
+    N_("Menu entry type."), N_("STRING"), ARG_TYPE_STRING},
+  {"users", 2, GRUB_ARG_OPTION_OPTIONAL,
+    N_("List of users allowed to boot this entry."), N_("USERNAME[,USERNAME]"),
+    ARG_TYPE_STRING},
+  {"hotkey", 3, 0,
+    N_("Keyboard key to quickly boot this entry."), N_("KEYBOARD_KEY"),
+    ARG_TYPE_STRING},
+  {"source", 4, 0,
+    N_("Use STRING as menu entry body."), N_("STRING"), ARG_TYPE_STRING},
+  {"id", 0, 0, N_("Menu entry identifier."), N_("STRING"), ARG_TYPE_STRING},
+  /* TRANSLATORS: menu entry can either be bootable by anyone or only by
+     handful of users. By default when security is active only superusers can
+     boot a given menu entry. With --unrestricted (this option) anyone can boot it. */
+  {"unrestricted", 0, 0, N_("This entry can be booted by any user."), 0,
+    ARG_TYPE_NONE},
+  {"help-msg", 0, GRUB_ARG_OPTION_OPTIONAL,  N_("Menu entry help message."),
+    N_("STRING"), ARG_TYPE_STRING},
+  {"submenu", 0, 0, N_("Define a submenu."), 0, ARG_TYPE_NONE},
+  {"hidden", 0, 0, N_("Define a hidden menu entry."), 0, ARG_TYPE_NONE},
+  {0, 0, 0, 0, 0, 0}
+};
 
 static struct
 {
@@ -80,11 +83,11 @@ extern int grub_normal_exit_level;
    variable data slot `menu').  As the configuration file is read, the script
    parser calls this when a menu entry is to be created.  */
 grub_err_t
-grub_normal_add_menu_entry (int argc, const char **args,
-			    char **classes, const char *id,
-			    const char *users, const char *hotkey,
-			    const char *prefix, const char *sourcecode, const char * help_message,
-			    int submenu, int hidden, int *index, struct bls_entry *bls)
+grub_normal_add_menu_entry (int argc, const char **args, char **classes,
+                            const char *id, const char *users, const char *hotkey,
+                            const char *prefix, const char *sourcecode,
+                            const char * help_message,
+                            grub_uint8_t flag, int *index, struct bls_entry *bls)
 {
   int menu_hotkey = 0;
   char **menu_args = NULL;
@@ -110,66 +113,70 @@ grub_normal_add_menu_entry (int argc, const char **args,
     return grub_errno;
 
   if (classes && classes[0])
-    {
-      int i;
-      for (i = 0; classes[i]; i++); /* count # of menuentry classes */
-      menu_classes = grub_zalloc (sizeof (struct grub_menu_entry_class)
-				  * (i + 1));
-      if (! menu_classes)
-	goto fail;
+  {
+    int i;
+    for (i = 0; classes[i]; i++); /* count # of menuentry classes */
+    menu_classes = grub_zalloc (sizeof (struct grub_menu_entry_class) * (i + 1));
+    if (! menu_classes)
+      goto fail;
 
-      for (i = 0; classes[i]; i++)
-	{
-	  menu_classes[i].name = grub_strdup (classes[i]);
-	  if (! menu_classes[i].name)
-	    goto fail;
-	  menu_classes[i].next = classes[i + 1] ? &menu_classes[i + 1] : NULL;
-	}
+    for (i = 0; classes[i]; i++)
+    {
+      menu_classes[i].name = grub_strdup (classes[i]);
+      if (! menu_classes[i].name)
+        goto fail;
+      menu_classes[i].next = classes[i + 1] ? &menu_classes[i + 1] : NULL;
     }
+  }
 
   if (users)
-    {
-      menu_users = grub_strdup (users);
-      if (! menu_users)
-	goto fail;
-    }
+  {
+    menu_users = grub_strdup (users);
+    if (! menu_users)
+      goto fail;
+  }
 
   if (hotkey)
-    {
-      unsigned i;
-      for (i = 0; i < ARRAY_SIZE (hotkey_aliases); i++)
-        if (grub_strcmp (hotkey, hotkey_aliases[i].name) == 0)
-        {
-          menu_hotkey = hotkey_aliases[i].key;
-          break;
-        }
-      if (i == ARRAY_SIZE (hotkey_aliases))
+  {
+    unsigned i;
+    for (i = 0; i < ARRAY_SIZE (hotkey_aliases); i++)
+      if (grub_strcmp (hotkey, hotkey_aliases[i].name) == 0)
       {
-        if (grub_strlen (hotkey) >= 3 && hotkey[0] == '0' && hotkey[1] == 'x')
-          menu_hotkey = (int) grub_strtoul (hotkey, NULL, 16);
-        else
-          menu_hotkey = hotkey[0];
+        menu_hotkey = hotkey_aliases[i].key;
+        break;
       }
-    }
-
-  if(help_message) 
+    if (i == ARRAY_SIZE (hotkey_aliases))
     {
-      menu_help_message = grub_strdup(help_message);
-      if(!menu_help_message)
-         goto fail;
+      if (grub_strlen (hotkey) >= 3 && hotkey[0] == '0' && hotkey[1] == 'x')
+        menu_hotkey = (int) grub_strtoul (hotkey, NULL, 16);
+      else
+        menu_hotkey = hotkey[0];
     }
+  }
+
+  if(help_message)
+  {
+    menu_help_message = grub_strdup(help_message);
+    if(!menu_help_message)
+      goto fail;
+  }
 
   if (! argc)
-    {
-      grub_error (GRUB_ERR_MENU, "menuentry is missing title");
-      goto fail;
-    }
+  {
+    grub_error (GRUB_ERR_MENU, "menuentry is missing title");
+    goto fail;
+  }
 
   enable_hotkey = grub_env_get ("grub_enable_menu_hotkey");
-  if (enable_hotkey && enable_hotkey[0] == '1' && hotkey)
-    menu_title = grub_xasprintf ("[%s] %s", hotkey, args[0]);
+  if (flag & GRUB_MENU_FLAG_HIDDEN)
+    menu_title = grub_strdup ("");
   else
-    menu_title = grub_strdup (args[0]);
+  {
+    if (enable_hotkey && enable_hotkey[0] == '1' && hotkey)
+      menu_title = grub_xasprintf ("[%s] %s", hotkey, args[0]);
+    else
+      menu_title = grub_strdup (args[0]);
+  }
   if (! menu_title)
     goto fail;
 
@@ -188,21 +195,21 @@ grub_normal_add_menu_entry (int argc, const char **args,
   {
     int i;
     for (i = 0; i < argc; i++)
-      {
-	menu_args[i] = grub_strdup (args[i]);
-	if (! menu_args[i])
-	  goto fail;
-      }
+    {
+      menu_args[i] = grub_strdup (args[i]);
+      if (! menu_args[i])
+        goto fail;
+    }
     menu_args[argc] = NULL;
   }
 
   /* Add the menu entry at the end of the list.  */
-  int ind=0;
+  int ind = 0;
   while (*last)
-    {
-      ind++;
-      last = &(*last)->next;
-    }
+  {
+    ind++;
+    last = &(*last)->next;
+  }
 
   *last = grub_zalloc (sizeof (**last));
   if (! *last)
@@ -218,12 +225,11 @@ grub_normal_add_menu_entry (int argc, const char **args,
   (*last)->argc = argc;
   (*last)->args = menu_args;
   (*last)->sourcecode = menu_sourcecode;
-  (*last)->submenu = submenu;
-  (*last)->hidden = hidden;
+  (*last)->flag = flag;
   (*last)->bls = bls;
   (*last)->help_message = menu_help_message;
 
-  if (!hidden)
+  if (!(flag & GRUB_MENU_FLAG_HIDDEN))
     menu->size++;
   if (index)
     *index = ind;
@@ -273,12 +279,12 @@ setparams_prefix (int argc, char **args)
 
   /* Count resulting string length */
   for (i = 0; i < argc; i++)
-    {
-      len += 3; /* 3 = 1 space + 2 quotes */
-      p = args[i];
-      while (*p)
-	len += (*p++ == '\'' ? 3 : 1);
-    }
+  {
+    len += 3; /* 3 = 1 space + 2 quotes */
+    p = args[i];
+    while (*p)
+      len += (*p++ == '\'' ? 3 : 1);
+  }
 
   result = grub_malloc (len + 2);
   if (! result)
@@ -288,12 +294,12 @@ setparams_prefix (int argc, char **args)
   p = result + 9;
 
   for (j = 0; j < argc; j++)
-    {
-      *p++ = ' ';
-      *p++ = '\'';
-      p = grub_strchrsub (p, args[j], '\'', "'\\''");
-      *p++ = '\'';
-    }
+  {
+    *p++ = ' ';
+    *p++ = '\'';
+    p = grub_strchrsub (p, args[j], '\'', "'\\''");
+    *p++ = '\'';
+  }
   *p++ = '\n';
   *p = '\0';
   return result;
@@ -308,6 +314,7 @@ grub_cmd_menuentry (grub_extcmd_context_t ctxt, int argc, char **args)
   unsigned len;
   grub_err_t r;
   const char *users;
+  grub_uint8_t flag = 0;
 
   if (! argc)
     return grub_error (GRUB_ERR_BAD_ARGUMENT, "missing arguments");
@@ -325,17 +332,16 @@ grub_cmd_menuentry (grub_extcmd_context_t ctxt, int argc, char **args)
   else
     users = "";
 
+  if (ctxt->extcmd->cmd->name[0] == 's' || ctxt->state[7].set)
+    flag |= GRUB_MENU_FLAG_SUBMENU;
+  if (ctxt->extcmd->cmd->name[0] == 'h' || ctxt->state[8].set)
+    flag |= GRUB_MENU_FLAG_HIDDEN;
   if (! ctxt->script)
     return grub_normal_add_menu_entry (argc, (const char **) args,
-				       (ctxt->state[0].set ? ctxt->state[0].args
-					: NULL),
-				       ctxt->state[4].arg,
-				       users,
-				       ctxt->state[2].arg, 0,
-				       ctxt->state[3].arg,
-                                       (ctxt->state[6].set ? ctxt->state[6].arg : NULL),
-				       ctxt->extcmd->cmd->name[0] == 's',
-                       ctxt->extcmd->cmd->name[0] == 'h', NULL, NULL);
+              (ctxt->state[0].set ? ctxt->state[0].args : NULL),
+              ctxt->state[4].arg, users, ctxt->state[2].arg, 0, ctxt->state[3].arg,
+              (ctxt->state[6].set ? ctxt->state[6].arg : NULL),
+              flag, NULL, NULL);
 
   src = args[argc - 1];
   args[argc - 1] = NULL;
@@ -349,12 +355,9 @@ grub_cmd_menuentry (grub_extcmd_context_t ctxt, int argc, char **args)
     return grub_errno;
 
   r = grub_normal_add_menu_entry (argc - 1, (const char **) args,
-				  ctxt->state[0].args, ctxt->state[4].arg,
-				  users,
-				  ctxt->state[2].arg, prefix, src + 1,
-                                  (ctxt->state[6].set ? ctxt->state[6].arg : NULL),
-				  ctxt->extcmd->cmd->name[0] == 's',
-                  ctxt->extcmd->cmd->name[0] == 'h', NULL, NULL);
+                ctxt->state[0].args, ctxt->state[4].arg, users, ctxt->state[2].arg,
+                prefix, src + 1, (ctxt->state[6].set ? ctxt->state[6].arg : NULL),
+                flag, NULL, NULL);
 
   src[len - 1] = ch;
   args[argc - 1] = src;
@@ -363,29 +366,29 @@ grub_cmd_menuentry (grub_extcmd_context_t ctxt, int argc, char **args)
 }
 
 static grub_err_t
-grub_cmd_pop_env (grub_extcmd_context_t ctxt __attribute__ ((unused)), int argc, char **args)
+grub_cmd_pop_env (grub_extcmd_context_t ctxt __attribute__ ((unused)),
+                  int argc, char **args)
 {
 
   while (argc)
+  {
+    struct grub_env_context *cc = grub_current_context;
+    const char *value;
+
+    value = grub_env_get (args[0]);
+    if (value)
     {
-      struct grub_env_context *cc = grub_current_context;
-      const char *value;
-
-      value = grub_env_get (args[0]);
-      if (value)
-        {
-	  grub_current_context = grub_current_context->prev;
-	  while(grub_current_context && grub_env_get(args[0]))
-	    {
-              grub_env_set(args[0], value);
-              grub_current_context = grub_current_context->prev;
-	    }
-          grub_current_context = cc;
-        }
-      argc--;
-      args++;
+      grub_current_context = grub_current_context->prev;
+      while(grub_current_context && grub_env_get(args[0]))
+      {
+        grub_env_set(args[0], value);
+        grub_current_context = grub_current_context->prev;
+      }
+      grub_current_context = cc;
     }
-
+    argc--;
+    args++;
+  }
   return 0;
 }
 
@@ -409,30 +412,28 @@ void
 grub_menu_init (void)
 {
   cmd = grub_register_extcmd ("menuentry", grub_cmd_menuentry,
-			      GRUB_COMMAND_FLAG_BLOCKS
-			      | GRUB_COMMAND_ACCEPT_DASH
-			      | GRUB_COMMAND_FLAG_EXTRACTOR,
-			      N_("BLOCK"), N_("Define a menu entry."), options);
+                  GRUB_COMMAND_FLAG_BLOCKS
+                  | GRUB_COMMAND_ACCEPT_DASH
+                  | GRUB_COMMAND_FLAG_EXTRACTOR,
+                  N_("BLOCK"), N_("Define a menu entry."), options);
   cmd_sub = grub_register_extcmd ("submenu", grub_cmd_menuentry,
-				  GRUB_COMMAND_FLAG_BLOCKS
-				  | GRUB_COMMAND_ACCEPT_DASH
-				  | GRUB_COMMAND_FLAG_EXTRACTOR,
-				  N_("BLOCK"), N_("Define a submenu."),
-				  options);
+                  GRUB_COMMAND_FLAG_BLOCKS
+                  | GRUB_COMMAND_ACCEPT_DASH
+                  | GRUB_COMMAND_FLAG_EXTRACTOR,
+                  N_("BLOCK"), N_("Define a submenu."), options);
   cmd_hidden = grub_register_extcmd ("hiddenentry", grub_cmd_menuentry,
                 GRUB_COMMAND_FLAG_BLOCKS
                 | GRUB_COMMAND_ACCEPT_DASH
                 | GRUB_COMMAND_FLAG_EXTRACTOR,
                 N_("BLOCK"),
-                N_("Define a hidden menu entry."),
-                options);
+                N_("Define a hidden menu entry."), options);
   cmd_pop = grub_register_extcmd ("pop_env", grub_cmd_pop_env, 0,
-			     N_("variable_name [...]"),
-			     N_("Pass variable value to parent contexts."), 0);
+                N_("variable_name [...]"),
+                N_("Pass variable value to parent contexts."), 0);
   cmd_sub_exit = grub_register_extcmd ("submenu_exit", grub_cmd_submenu_exit, 0, 0,
-			     N_("Exit from current submenu."), 0);
+                N_("Exit from current submenu."), 0);
   cmd_clear_menu = grub_register_extcmd ("clear_menu", grub_cmd_clear_menu, 0, 0,
-			     N_("Clear the current (sub)menu."), 0);
+                N_("Clear the current (sub)menu."), 0);
 }
 
 void

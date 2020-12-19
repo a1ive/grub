@@ -592,7 +592,7 @@ make_screen (grub_menu_entry_t entry)
   if (! screen)
     return 0;
 
-  screen->submenu = entry->submenu;
+  screen->submenu = entry->flag & GRUB_MENU_FLAG_SUBMENU;
 
   screen->num_lines = 1;
   screen->lines = grub_malloc (sizeof (struct line));
@@ -1028,12 +1028,12 @@ complete (struct screen *screen, int continuous, int update)
     return 1;
 
   insert = grub_normal_do_completion (u8, &restore, store_completion);
-  
+
   if (completion_buffer.buf)
     {
       buflen = grub_strlen (completion_buffer.buf);
       ucs4 = grub_calloc (buflen + 1, sizeof (grub_uint32_t));
-      
+
       if (!ucs4)
 	{
 	  grub_print_error ();
