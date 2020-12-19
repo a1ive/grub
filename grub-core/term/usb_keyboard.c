@@ -171,7 +171,7 @@ grub_usb_keyboard_attach (grub_usb_device_t usbdev, int configno, int interfno)
   for (j = 0; j < usbdev->config[configno].interf[interfno].descif->endpointcnt;
        j++)
     {
-      endp = &usbdev->config[configno].interf[interfno].descendp[j];
+      endp = usbdev->config[configno].interf[interfno].descendp[j];
 
       if ((endp->endp_addr & 128) && grub_usb_get_ep_type(endp)
 	  == GRUB_USB_EP_INTERRUPT)

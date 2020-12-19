@@ -659,6 +659,13 @@ module = {
 };
 
 module = {
+  name = xhci;
+  common = bus/usb/xhci.c;
+  pci = bus/usb/xhci-pci.c;
+  enable = pci;
+};
+
+module = {
   name = pci;
   common = bus/pci.c;
   i386_ieee1275 = bus/i386/ieee1275/pci.c;

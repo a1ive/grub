@@ -29,7 +29,9 @@ typedef enum {
   GRUB_USB_DESCRIPTOR_INTERFACE,
   GRUB_USB_DESCRIPTOR_ENDPOINT,
   GRUB_USB_DESCRIPTOR_DEBUG = 10,
-  GRUB_USB_DESCRIPTOR_HUB = 0x29
+  GRUB_USB_DESCRIPTOR_HUB = 0x29,
+  GRUB_USB_DESCRIPTOR_SS_HUB = 0x2a,
+  GRUB_USB_DESCRIPTOR_SS_ENDPOINT_COMPANION = 0x30
 } grub_usb_descriptor_t;
 
 struct grub_usb_desc
@@ -112,6 +114,14 @@ struct grub_usb_desc_endp
   grub_uint8_t attrib;
   grub_uint16_t maxpacket;
   grub_uint8_t interval;
+} GRUB_PACKED;
+
+struct grub_usb_desc_ssep {
+  grub_uint8_t  length;
+  grub_uint8_t  type;
+  grub_uint8_t  maxburst;
+  grub_uint8_t  attrib;
+  grub_uint16_t interval;
 } GRUB_PACKED;
 
 struct grub_usb_desc_str
