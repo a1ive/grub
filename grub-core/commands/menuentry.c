@@ -316,8 +316,25 @@ grub_cmd_menuentry (grub_extcmd_context_t ctxt, int argc, char **args)
   const char *users;
   grub_uint8_t flag = 0;
 
+  if (ctxt->extcmd->cmd->name[0] == 's' || ctxt->state[7].set)
+    flag |= GRUB_MENU_FLAG_SUBMENU;
+  if (ctxt->extcmd->cmd->name[0] == 'h' || ctxt->state[8].set)
+    flag |= GRUB_MENU_FLAG_HIDDEN;
+
   if (! argc)
-    return grub_error (GRUB_ERR_BAD_ARGUMENT, "missing arguments");
+  {
+    if (flag & GRUB_MENU_FLAG_HIDDEN)
+    {
+      argc = 1;
+      args = grub_zalloc (2 * sizeof (char *));
+      if (!args)
+        return grub_error (GRUB_ERR_OUT_OF_MEMORY, "out of memory");
+      args[0] = grub_strdup ("");
+      args[1] = NULL;
+    }
+    else
+      return grub_error (GRUB_ERR_BAD_ARGUMENT, "missing arguments");
+  }
 
   if (ctxt->state[3].set && ctxt->script)
     return grub_error (GRUB_ERR_BAD_ARGUMENT, "multiple menuentry definitions");
@@ -332,10 +349,6 @@ grub_cmd_menuentry (grub_extcmd_context_t ctxt, int argc, char **args)
   else
     users = "";
 
-  if (ctxt->extcmd->cmd->name[0] == 's' || ctxt->state[7].set)
-    flag |= GRUB_MENU_FLAG_SUBMENU;
-  if (ctxt->extcmd->cmd->name[0] == 'h' || ctxt->state[8].set)
-    flag |= GRUB_MENU_FLAG_HIDDEN;
   if (! ctxt->script)
     return grub_normal_add_menu_entry (argc, (const char **) args,
               (ctxt->state[0].set ? ctxt->state[0].args : NULL),

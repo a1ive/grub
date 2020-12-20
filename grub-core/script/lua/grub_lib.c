@@ -558,29 +558,31 @@ grub_lua_add_menu (lua_State *state)
   source = luaL_checklstring (state, 1, 0);
   n = lua_gettop (state) - 1;
   if (n > 0)
-    {
-      const char **args;
-      char *p;
-      int i;
+  {
+    const char **args;
+    char *p;
+    int i;
 
-      args = grub_malloc (n * sizeof (args[0]));
-      if (!args)
-    return push_result (state);
-      for (i = 0; i < n; i++)
-    args[i] = luaL_checkstring (state, 2 + i);
+    args = grub_malloc (n * sizeof (args[0]));
+    if (!args)
+      return push_result (state);
+    for (i = 0; i < n; i++)
+      args[i] = luaL_checkstring (state, 2 + i);
 
-      p = grub_strdup (source);
-      if (! p)
-    return push_result (state);
+    p = grub_strdup (source);
+    if (! p)
+      return push_result (state);
 
-      grub_normal_add_menu_entry (n, args, NULL, NULL, NULL, NULL, NULL, p, NULL,
-                                  0, NULL, NULL);
-    }
+    grub_normal_add_menu_entry (n, args, NULL, NULL, NULL, NULL, NULL, p, NULL,
+                                0, NULL, NULL);
+    grub_free (p);
+    grub_free (args);
+  }
   else
-    {
-      lua_pushstring (state, "not enough parameter");
-      lua_error (state);
-    }
+  {
+    lua_pushstring (state, "not enough parameter");
+    lua_error (state);
+  }
 
   return push_result (state);
 }
@@ -600,31 +602,33 @@ grub_lua_add_icon_menu (lua_State *state)
   source = luaL_checklstring (state, 2, 0);
   n = lua_gettop (state) - 2;
   if (n > 0)
-    {
-      const char **args;
-      char *p;
-      int i;
-      char **class = NULL;
-      class = grub_malloc (sizeof (class[0]));
-      class[0] = grub_strdup (luaL_checklstring (state, 1, 0));
-      class[1] = NULL;
-      args = grub_malloc (n * sizeof (args[0]));
-      if (!args)
-    return push_result (state);
-      for (i = 0; i < n; i++)
-    args[i] = luaL_checkstring (state, 3 + i);
+  {
+    const char **args;
+    char *p;
+    int i;
+    char **class = NULL;
+    class = grub_malloc (2 * sizeof (class[0]));
+    class[0] = grub_strdup (luaL_checklstring (state, 1, 0));
+    class[1] = NULL;
+    args = grub_malloc (n * sizeof (args[0]));
+    if (!args)
+      return push_result (state);
+    for (i = 0; i < n; i++)
+      args[i] = luaL_checkstring (state, 3 + i);
 
-      p = grub_strdup (source);
-      if (! p)
-    return push_result (state);
-      grub_normal_add_menu_entry (n, args, class, NULL, NULL, NULL, NULL, p, NULL,
-                                  0, NULL, NULL);
-    }
+    p = grub_strdup (source);
+    if (! p)
+      return push_result (state);
+    grub_normal_add_menu_entry (n, args, class, NULL, NULL, NULL, NULL, p, NULL,
+                                0, NULL, NULL);
+    grub_free (p);
+    grub_free (args);
+  }
   else
-    {
-      lua_pushstring (state, "not enough parameter");
-      lua_error (state);
-    }
+  {
+    lua_pushstring (state, "not enough parameter");
+    lua_error (state);
+  }
   return push_result (state);
 }
 
@@ -636,29 +640,31 @@ grub_lua_add_hidden_menu (lua_State *state)
   source = luaL_checklstring (state, 2, 0);
   n = lua_gettop (state) - 2;
   if (n > 0)
-    {
-      const char **args;
-      char *p;
-      int i;
-      const char *hotkey;
-      args = grub_malloc (n * sizeof (args[0]));
-      if (!args)
-    return push_result (state);
-      for (i = 0; i < n; i++)
-    args[i] = luaL_checkstring (state, 3 + i);
+  {
+    const char **args;
+    char *p;
+    int i;
+    const char *hotkey;
+    args = grub_malloc (n * sizeof (args[0]));
+    if (!args)
+      return push_result (state);
+    for (i = 0; i < n; i++)
+      args[i] = luaL_checkstring (state, 3 + i);
 
-      p = grub_strdup (source);
-      if (! p)
-    return push_result (state);
-      hotkey = grub_strdup (luaL_checklstring (state, 1, 0));
-      grub_normal_add_menu_entry (n, args, NULL, NULL, NULL, hotkey, NULL, p, NULL,
-                                  0x02, NULL, NULL);
-    }
+    p = grub_strdup (source);
+    if (! p)
+      return push_result (state);
+    hotkey = grub_strdup (luaL_checklstring (state, 1, 0));
+    grub_normal_add_menu_entry (n, args, NULL, NULL, NULL, hotkey, NULL, p, NULL,
+                                0x02, NULL, NULL);
+    grub_free (p);
+    grub_free (args);
+  }
   else
-    {
-      lua_pushstring (state, "not enough parameter");
-      lua_error (state);
-    }
+  {
+    lua_pushstring (state, "not enough parameter");
+    lua_error (state);
+  }
   return push_result (state);
 }
 

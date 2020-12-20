@@ -44,7 +44,6 @@ struct grub_menu_entry_class
 
 #define GRUB_MENU_FLAG_SUBMENU    0x01
 #define GRUB_MENU_FLAG_HIDDEN     0x02
-#define GRUB_MENU_FLAG_SKIP       0x04
 
 /* The menu entry.  */
 struct grub_menu_entry
