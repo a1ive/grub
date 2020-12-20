@@ -221,7 +221,21 @@ grub_cmd_unalias (grub_command_t cmd __attribute__((__unused__)),
   return GRUB_ERR_NONE;
 }
 
-static grub_command_t cmd_alias, cmd_unalias;
+static grub_err_t
+grub_cmd_type (grub_command_t cmd __attribute__((__unused__)),
+                   int argc, char *argv[])
+{
+  grub_command_t func;
+  if (argc < 1)
+    return grub_error (GRUB_ERR_BAD_ARGUMENT, N_("bad argument"));
+  func = grub_command_find (argv[0]);
+  if (! func)
+    return GRUB_ERR_TEST_FAILURE;
+  else
+    return GRUB_ERR_NONE;
+}
+
+static grub_command_t cmd_alias, cmd_unalias, cmd_type;
 
 GRUB_MOD_INIT(alias)
 {
@@ -231,11 +245,15 @@ GRUB_MOD_INIT(alias)
   cmd_unalias = grub_register_command ("unalias", grub_cmd_unalias,
                                        N_("NAME"),
                                        N_("Delete aliases."));
+  cmd_type = grub_register_command ("type", grub_cmd_type,
+                                    N_("NAME"),
+                                    N_("Check whether a command exists."));
 }
 
 GRUB_MOD_FINI(alias)
 {
   grub_unregister_command (cmd_alias);
   grub_unregister_command (cmd_unalias);
+  grub_unregister_command (cmd_type);
 }
 
