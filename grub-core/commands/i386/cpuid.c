@@ -54,6 +54,8 @@ static const struct grub_arg_option options[] =
   {"hypervisor", 0, 0, N_("Check if Hypervisor presents."), 0, 0},
   /* eax = 0x06 */
   {"dts", 0, 0, N_("Check if CPU supports DTS."), 0, 0},
+  /* eax = 0x40000000 */
+  {"vmsign", 0, 0, N_("Get hypervisor signature."), 0, 0},
   /* eax = 0x80000000 */
   {"emax", 'e', 0, N_("Get highest extended function parameter."), 0, 0},
   /* eax = 0x80000002, 0x80000003, 0x80000004 */
@@ -83,6 +85,8 @@ enum options
   CPUID_HYPER,
 
   CPUID_DTS,
+
+  CPUID_VMSIGN,
 
   CPUID_EMAX,
   CPUID_BRAND,
@@ -208,6 +212,20 @@ grub_cmd_cpuid (grub_extcmd_context_t ctxt, int argc, char **args)
   {
     grub_cpuid (6, eax, ebx, ecx, edx);
     return cpuid_set_bool (ctxt, eax & (1 << 0));
+  }
+  else if (ctxt->state[CPUID_VMSIGN].set)
+  {
+    char vmsign[13];
+    grub_cpuid (0x40000000, eax, ebx, ecx, edx);
+    grub_memcpy (&vmsign[0], &ebx, 4);
+    grub_memcpy (&vmsign[4], &ecx, 4);
+    grub_memcpy (&vmsign[8], &edx, 4);
+    vmsign[12] = '\0';
+    if (ctxt->state[CPUID_SET].set)
+      grub_env_set (ctxt->state[CPUID_SET].arg, vmsign);
+    else
+      grub_printf ("%s\n", vmsign);
+    return GRUB_ERR_NONE;
   }
   else if (ctxt->state[CPUID_EMAX].set)
   {
