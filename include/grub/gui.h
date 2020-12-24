@@ -37,6 +37,8 @@ typedef struct grub_gui_component *grub_gui_component_t;
 typedef struct grub_gui_container *grub_gui_container_t;
 typedef struct grub_gui_list *grub_gui_list_t;
 typedef struct grub_engine_animation *engine_animation_t;
+typedef struct grub_gui_image *grub_gui_image_t;
+typedef struct grub_gui_label *grub_gui_label_t;
 
 typedef void (*grub_gui_component_callback) (grub_gui_component_t component,
                                              void *userdata);
@@ -55,7 +57,6 @@ struct grub_gui_component_ops
   void (*get_bounds) (void *self, grub_video_rect_t *bounds);
   void (*get_minimal_size) (void *self, unsigned *width, unsigned *height);
   grub_err_t (*set_property) (void *self, const char *name, const char *value);
-  void (*repaint) (void *self, int second_pass);
 };
 
 struct grub_gui_container_ops
@@ -208,6 +209,41 @@ struct grub_engine_animation
 {
   struct grub_gui_component component;
   void (*refresh_animation) (void *self, grub_gfxmenu_view_t view);
+};
+
+struct grub_gui_image
+{
+  struct grub_gui_component component;
+
+  grub_gui_container_t parent;
+  grub_video_rect_t bounds;
+  char *id;
+  char *theme_dir;
+  struct grub_video_bitmap *raw_bitmap;
+  struct grub_video_bitmap *bitmap;
+};
+
+enum grub_gui_label_align_mode
+{
+  align_left,
+  align_center,
+  align_right
+};
+
+struct grub_gui_label
+{
+  struct grub_gui_component comp;
+
+  grub_gui_container_t parent;
+  grub_video_rect_t bounds;
+  char *id;
+  int visible;
+  char *text;
+  char *template;
+  grub_font_t font;
+  grub_video_rgba_color_t color;
+  int value;
+  enum grub_gui_label_align_mode align;
 };
 
 /* Interfaces to concrete component classes.  */

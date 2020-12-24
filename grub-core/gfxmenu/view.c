@@ -230,7 +230,7 @@ redraw_timeouts (struct grub_gfxmenu_view *view)
     }
 }
 
-void 
+void
 grub_gfxmenu_print_timeout (int timeout, void *data)
 {
   struct grub_gfxmenu_view *view = data;
@@ -316,7 +316,7 @@ static void
 refresh_animation_components (grub_gfxmenu_view_t view)
 {
   grub_gui_iterate_recursively ((grub_gui_component_t) view->canvas,
-				refresh_animation_state, view);
+                  refresh_animation_state, view);
 }
 
 static void
@@ -347,7 +347,7 @@ draw_message (grub_gfxmenu_view_t view)
 
 void
 grub_gfxmenu_view_redraw (grub_gfxmenu_view_t view,
-			  const grub_video_rect_t *region)
+                const grub_video_rect_t *region)
 {
   if (grub_video_have_common_points (&view->terminal_rect, region))
     grub_gfxterm_schedule_repaint ();
@@ -389,7 +389,7 @@ grub_gfxmenu_view_draw (grub_gfxmenu_view_t view)
 
   refresh_menu_components (view);
   update_menu_components (view);
-  
+
   refresh_animation_components (view);
 
   grub_video_set_area_status (GRUB_VIDEO_AREA_DISABLED);
@@ -400,53 +400,25 @@ grub_gfxmenu_view_draw (grub_gfxmenu_view_t view)
       grub_video_set_area_status (GRUB_VIDEO_AREA_DISABLED);
       grub_gfxmenu_view_redraw (view, &view->screen);
     }
-
-}
-
-static void
-redraw_menu_visit (grub_gui_component_t component,
-                   void *userdata)
-{
-  grub_gfxmenu_view_t view;
-  view = userdata;
-  if (component->ops->is_instance (component, "list"))
-    {
-      grub_video_rect_t bounds;
-
-      component->ops->get_bounds (component, &bounds);
-      grub_video_set_area_status (GRUB_VIDEO_AREA_ENABLED);
-      grub_gfxmenu_view_redraw (view, &bounds);
-    }
-    
-  if (component->ops->is_instance (component, "animation"))
-    {
-      grub_video_rect_t bounds;
-
-      component->ops->get_bounds (component, &bounds);
-      grub_video_set_area_status (GRUB_VIDEO_AREA_ENABLED);
-      grub_gfxmenu_view_redraw (view, &bounds);
-    }
 }
 
 void
 grub_gfxmenu_redraw_menu (grub_gfxmenu_view_t view)
 {
   update_menu_components (view);
-  
+
   /* Avoid interference.  */
   if (view->need_refresh)
-    {
-      refresh_animation_components (view);
-    }
+    refresh_animation_components (view);
 
-  grub_gui_iterate_recursively ((grub_gui_component_t) view->canvas,
-                                redraw_menu_visit, view);
+  grub_video_set_area_status (GRUB_VIDEO_AREA_DISABLED);
+  grub_gfxmenu_view_redraw (view, &view->screen);
   grub_video_swap_buffers ();
   if (view->double_repaint)
-    {
-      grub_gui_iterate_recursively ((grub_gui_component_t) view->canvas,
-				    redraw_menu_visit, view);
-    }
+  {
+    grub_video_set_area_status (GRUB_VIDEO_AREA_DISABLED);
+    grub_gfxmenu_view_redraw (view, &view->screen);
+  }
 }
 
 void
@@ -460,18 +432,16 @@ grub_gfxmenu_set_animation_state (int need_refresh, void *data)
   view->need_refresh = 0;
 }
 
-void 
+void
 grub_gfxmenu_set_chosen_entry (int entry, void *data)
 {
   grub_gfxmenu_view_t view = data;
 
   view->selected = entry;
-  
+
   /* Avoid interference.  */
   if (!view->is_animation)
-    {
-      grub_gfxmenu_redraw_menu (view);
-    }
+    grub_gfxmenu_redraw_menu (view);
 }
 
 static int
@@ -533,7 +503,7 @@ grub_gfxmenu_draw_terminal_box (void)
 
   term_box->set_content_size (term_box, term_view->terminal_rect.width,
 			      term_view->terminal_rect.height);
-  
+
   term_box->draw (term_box,
 		  term_view->terminal_rect.x - term_box->get_left_pad (term_box),
 		  term_view->terminal_rect.y - term_box->get_top_pad (term_box));

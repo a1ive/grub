@@ -34,30 +34,6 @@ static const char *align_options[] =
   0
 };
 
-enum align_mode {
-  align_left,
-  align_center,
-  align_right
-};
-
-struct grub_gui_label
-{
-  struct grub_gui_component comp;
-
-  grub_gui_container_t parent;
-  grub_video_rect_t bounds;
-  char *id;
-  int visible;
-  char *text;
-  char *template;
-  grub_font_t font;
-  grub_video_rgba_color_t color;
-  int value;
-  enum align_mode align;
-};
-
-typedef struct grub_gui_label *grub_gui_label_t;
-
 static void
 label_destroy (void *vself)
 {
@@ -78,7 +54,8 @@ label_get_id (void *vself)
 static int
 label_is_instance (void *vself __attribute__((unused)), const char *type)
 {
-  return grub_strcmp (type, "component") == 0;
+  return (grub_strcmp (type, "component") == 0
+          || grub_strcmp (type, "label") == 0);
 }
 
 static void
@@ -161,7 +138,7 @@ static void
 label_set_state (void *vself, int visible, int start __attribute__ ((unused)),
          int current, int end __attribute__ ((unused)))
 {
-  grub_gui_label_t self = vself;  
+  grub_gui_label_t self = vself;
   self->value = -current;
   self->visible = visible;
   grub_free (self->text);

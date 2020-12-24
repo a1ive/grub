@@ -24,20 +24,6 @@
 #include <grub/bitmap.h>
 #include <grub/bitmap_scale.h>
 
-struct grub_gui_image
-{
-  struct grub_gui_component component;
-
-  grub_gui_container_t parent;
-  grub_video_rect_t bounds;
-  char *id;
-  char *theme_dir;
-  struct grub_video_bitmap *raw_bitmap;
-  struct grub_video_bitmap *bitmap;
-};
-
-typedef struct grub_gui_image *grub_gui_image_t;
-
 static void
 image_destroy (void *vself)
 {
@@ -62,7 +48,8 @@ image_get_id (void *vself)
 static int
 image_is_instance (void *vself __attribute__((unused)), const char *type)
 {
-  return grub_strcmp (type, "component") == 0;
+  return (grub_strcmp (type, "component") == 0
+          || grub_strcmp (type, "image") == 0);
 }
 
 static void

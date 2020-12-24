@@ -124,9 +124,9 @@ struct grub_gfxmenu_view
   int nested;
 
   int first_timeout;
-  
+
   int *menu_title_offset;
-  
+
   int is_animation;
   int need_refresh;
   int point_x;
