@@ -25,6 +25,8 @@
 #include <grub/i18n.h>
 #include <grub/color.h>
 #include <grub/env.h>
+#include <grub/command.h>
+#include <grub/parser.h>
 
 static const char *align_options[] =
 {
@@ -143,10 +145,36 @@ label_refresh_help_message (void *vself, grub_gfxmenu_view_t view)
 }
 
 static void
+label_refresh_var (void *vself,
+                   grub_gfxmenu_view_t view __attribute__ ((unused)))
+{
+  int n;
+  char **args = NULL;
+  grub_gui_label_t self = vself;
+  grub_free (self->text);
+  if (self->template && self->template[0])
+  {
+    if ((!grub_parser_split_cmdline (self->template, 0, 0, &n, &args)) && (n >= 0))
+    {
+      grub_command_t cmd;
+      cmd = grub_command_find (args[0]);
+      if (cmd)
+        (cmd->func) (cmd, n-1, &args[1]);
+      grub_free (args[0]);
+      grub_free (args);
+    }
+  }
+  if (self->env)
+    self->text = grub_strdup (grub_env_get (self->env));
+  else
+    self->text = grub_strdup ("");
+}
+
+static void
 label_get_minimal_size (void *vself, unsigned *width, unsigned *height)
 {
   grub_gui_label_t self = vself;
-  if (self->refresh_text != label_refresh_help_message)
+  if (self->refresh_text == label_refresh_default)
     *width = grub_font_get_string_width (self->font, self->text);
   else
     *width = 65535;
@@ -206,16 +234,24 @@ label_set_property (void *vself, const char *name, const char *value)
       self->text = grub_xasprintf (value, self->value);
     }
   }
-  else if (grub_strcmp (name, "var") == 0)
+  else if (grub_strcmp (name, "translate") == 0)
   {
     self->refresh_text = label_refresh_default;
     grub_free (self->text);
-    const char *str = NULL;
-    if (value)
-      str = grub_env_get (value);
-    if (!str)
-      str = "";
-    self->text = grub_xasprintf (str, self->value);
+    self->text = grub_strdup (value ? grub_gettext (value): "");
+  }
+  else if (grub_strcmp (name, "var") == 0)
+  {
+    self->refresh_text = label_refresh_var;
+    grub_free (self->env);
+    grub_free (self->text);
+    self->text = grub_strdup ("");
+    self->env = grub_strdup (value);
+  }
+  else if (grub_strcmp (name, "hook") == 0)
+  {
+    grub_free (self->template);
+    self->template = grub_strdup (value ? value : "");
   }
   else if (grub_strcmp (name, "font") == 0)
   {

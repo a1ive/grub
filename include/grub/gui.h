@@ -240,6 +240,7 @@ struct grub_gui_label
   int visible;
   char *text;
   char *template;
+  char *env;
   grub_font_t font;
   grub_video_rgba_color_t color;
   int value;
