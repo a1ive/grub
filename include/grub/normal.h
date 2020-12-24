@@ -56,6 +56,7 @@ struct grub_term_screen_geometry
   int first_entry_y;
   int first_entry_x;
   int entry_width;
+  int help_y;
   int timeout_y;
   int timeout_lines;
   int border;
@@ -64,7 +65,7 @@ struct grub_term_screen_geometry
 
 void grub_menu_init_page (int nested, int edit,
 			  struct grub_term_screen_geometry *geo,
-			  struct grub_term_output *term);
+			  struct grub_term_output *term, const char *msg);
 void grub_normal_init_page (struct grub_term_output *term, int y);
 char *grub_file_getline (grub_file_t file);
 void grub_cmdline_run (int nested, int force_auth);

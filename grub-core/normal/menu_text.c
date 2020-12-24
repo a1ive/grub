@@ -34,9 +34,11 @@ static grub_uint8_t grub_color_menu_highlight;
 struct menu_viewer_data
 {
   int first, offset;
+  int nested;
   struct grub_term_screen_geometry geo;
-  enum { 
-    TIMEOUT_UNKNOWN, 
+  enum
+  {
+    TIMEOUT_UNKNOWN,
     TIMEOUT_NORMAL,
     TIMEOUT_TERSE,
     TIMEOUT_TERSE_NO_MARGIN
@@ -53,7 +55,7 @@ grub_term_cursor_x (const struct grub_term_screen_geometry *geo)
 
 grub_size_t
 grub_getstringwidth (grub_uint32_t * str, const grub_uint32_t * last_position,
-		     struct grub_term_output *term)
+             struct grub_term_output *term)
 {
   grub_ssize_t width = 0;
 
@@ -70,8 +72,8 @@ grub_getstringwidth (grub_uint32_t * str, const grub_uint32_t * last_position,
 
 static int
 grub_print_message_indented_real (const char *msg, int margin_left,
-				  int margin_right,
-				  struct grub_term_output *term, int dry_run)
+                  int margin_right,
+                  struct grub_term_output *term, int dry_run)
 {
   grub_uint32_t *unicode_msg;
   grub_uint32_t *last_position;
@@ -79,22 +81,22 @@ grub_print_message_indented_real (const char *msg, int margin_left,
   int ret = 0;
 
   unicode_msg = grub_calloc (msg_len, sizeof (grub_uint32_t));
- 
+
   if (!unicode_msg)
     return 0;
 
   msg_len = grub_utf8_to_ucs4 (unicode_msg, msg_len,
-			       (grub_uint8_t *) msg, -1, 0);
-  
+                   (grub_uint8_t *) msg, -1, 0);
+
   last_position = unicode_msg + msg_len;
   *last_position = 0;
 
   if (dry_run)
     ret = grub_ucs4_count_lines (unicode_msg, last_position, margin_left,
-				 margin_right, term);
+                 margin_right, term);
   else
     grub_print_ucs4_menu (unicode_msg, last_position, margin_left,
-			  margin_right, term, 0, -1, 0, 0);
+              margin_right, term, 0, -1, 0, 0);
 
   grub_free (unicode_msg);
 
@@ -103,7 +105,7 @@ grub_print_message_indented_real (const char *msg, int margin_left,
 
 void
 grub_print_message_indented (const char *msg, int margin_left, int margin_right,
-			     struct grub_term_output *term)
+                 struct grub_term_output *term)
 {
   grub_print_message_indented_real (msg, margin_left, margin_right, term, 0);
 }
@@ -116,7 +118,7 @@ draw_border (struct grub_term_output *term, const struct grub_term_screen_geomet
   grub_term_setcolorstate (term, GRUB_TERM_COLOR_NORMAL);
 
   grub_term_gotoxy (term, (struct grub_term_coordinate) { geo->first_entry_x - 1,
-	geo->first_entry_y - 1 });
+    geo->first_entry_y - 1 });
   grub_putcode (GRUB_UNICODE_CORNER_UL, term);
   for (i = 0; i < geo->entry_width + 1; i++)
     grub_putcode (GRUB_UNICODE_HLINE, term);
@@ -125,17 +127,17 @@ draw_border (struct grub_term_output *term, const struct grub_term_screen_geomet
   for (i = 0; i < geo->num_entries; i++)
     {
       grub_term_gotoxy (term, (struct grub_term_coordinate) { geo->first_entry_x - 1,
-	    geo->first_entry_y + i });
+        geo->first_entry_y + i });
       grub_putcode (GRUB_UNICODE_VLINE, term);
       grub_term_gotoxy (term,
-			(struct grub_term_coordinate) { geo->first_entry_x + geo->entry_width + 1,
-			    geo->first_entry_y + i });
+            (struct grub_term_coordinate) { geo->first_entry_x + geo->entry_width + 1,
+                geo->first_entry_y + i });
       grub_putcode (GRUB_UNICODE_VLINE, term);
     }
 
   grub_term_gotoxy (term,
-		    (struct grub_term_coordinate) { geo->first_entry_x - 1,
-			geo->first_entry_y - 1 + geo->num_entries + 1 });
+            (struct grub_term_coordinate) { geo->first_entry_x - 1,
+            geo->first_entry_y - 1 + geo->num_entries + 1 });
   grub_putcode (GRUB_UNICODE_CORNER_LL, term);
   for (i = 0; i < geo->entry_width + 1; i++)
     grub_putcode (GRUB_UNICODE_HLINE, term);
@@ -144,63 +146,68 @@ draw_border (struct grub_term_output *term, const struct grub_term_screen_geomet
   grub_term_setcolorstate (term, GRUB_TERM_COLOR_NORMAL);
 
   grub_term_gotoxy (term,
-		    (struct grub_term_coordinate) { geo->first_entry_x - 1,
-			(geo->first_entry_y - 1 + geo->num_entries
-			 + GRUB_TERM_MARGIN + 1) });
+            (struct grub_term_coordinate) { geo->first_entry_x - 1,
+            (geo->first_entry_y - 1 + geo->num_entries
+             + GRUB_TERM_MARGIN + 1) });
 }
 
 static int
-print_message (int nested, int edit, struct grub_term_output *term, int dry_run)
+print_message (int nested, int edit, const char *msg,
+               struct grub_term_output *term, int dry_run)
 {
   int ret = 0;
   grub_term_setcolorstate (term, GRUB_TERM_COLOR_NORMAL);
 
   if (edit)
-    {
-      ret += grub_print_message_indented_real (_("Minimum Emacs-like screen editing is \
+  {
+    ret += grub_print_message_indented_real
+      (_("Minimum Emacs-like screen editing is \
 supported. TAB lists completions. Press Ctrl-x or F10 to boot, Ctrl-c or F2 for a \
 command-line or ESC to discard edits and return to the GRUB menu."),
-					       STANDARD_MARGIN, STANDARD_MARGIN,
-					       term, dry_run);
-    }
+                      STANDARD_MARGIN, STANDARD_MARGIN, term, dry_run);
+  }
+  else if (msg && msg[0])
+  {
+    ret += grub_print_message_indented_real (msg,
+              STANDARD_MARGIN, STANDARD_MARGIN, term, dry_run);
+  }
   else
+  {
+    char *msg_translated;
+
+    msg_translated = grub_xasprintf
+        (_("Use the %C and %C keys to select which entry is highlighted."),
+                      GRUB_UNICODE_UPARROW, GRUB_UNICODE_DOWNARROW);
+    if (!msg_translated)
+      return 0;
+    ret += grub_print_message_indented_real (msg_translated, STANDARD_MARGIN,
+                           STANDARD_MARGIN, term, dry_run);
+
+    grub_free (msg_translated);
+
+    if (nested)
     {
-      char *msg_translated;
-
-      msg_translated = grub_xasprintf (_("Use the %C and %C keys to select which "
-					 "entry is highlighted."),
-				       GRUB_UNICODE_UPARROW,
-				       GRUB_UNICODE_DOWNARROW);
-      if (!msg_translated)
-	return 0;
-      ret += grub_print_message_indented_real (msg_translated, STANDARD_MARGIN,
-					       STANDARD_MARGIN, term, dry_run);
-
-      grub_free (msg_translated);
-
-      if (nested)
-	{
-	  ret += grub_print_message_indented_real
-	    (_("Press enter to boot the selected OS, "
-	       "`e' to edit the commands before booting "
-	       "or `c' for a command-line. ESC to return previous menu."),
-	     STANDARD_MARGIN, STANDARD_MARGIN, term, dry_run);
-	}
-      else
-	{
-	  ret += grub_print_message_indented_real
-	    (_("Press enter to boot the selected OS, "
-	       "`e' to edit the commands before booting "
-	       "or `c' for a command-line."),
-	     STANDARD_MARGIN, STANDARD_MARGIN, term, dry_run);
-	}	
+      ret += grub_print_message_indented_real
+          (_("Press enter to boot the selected OS, "
+             "`e' to edit the commands before booting "
+             "or `c' for a command-line. ESC to return previous menu."),
+            STANDARD_MARGIN, STANDARD_MARGIN, term, dry_run);
     }
+    else
+    {
+      ret += grub_print_message_indented_real
+          (_("Press enter to boot the selected OS, "
+             "`e' to edit the commands before booting "
+             "or `c' for a command-line."),
+            STANDARD_MARGIN, STANDARD_MARGIN, term, dry_run);
+    }
+  }
   return ret;
 }
 
 static void
 print_entry (int y, int highlight, grub_menu_entry_t entry,
-	     const struct menu_viewer_data *data)
+         const struct menu_viewer_data *data)
 {
   const char *title;
   grub_size_t title_len;
@@ -230,31 +237,31 @@ print_entry (int y, int highlight, grub_menu_entry_t entry,
   grub_term_normal_color = grub_color_menu_normal;
   grub_term_highlight_color = grub_color_menu_highlight;
   grub_term_setcolorstate (data->term, highlight
-			   ? GRUB_TERM_COLOR_HIGHLIGHT
-			   : GRUB_TERM_COLOR_NORMAL);
+               ? GRUB_TERM_COLOR_HIGHLIGHT
+               : GRUB_TERM_COLOR_NORMAL);
 
   grub_term_gotoxy (data->term, (struct grub_term_coordinate) { 
       data->geo.first_entry_x, y });
 
   for (i = 0; i < len; i++)
     if (unicode_title[i] == '\n' || unicode_title[i] == '\b'
-	|| unicode_title[i] == '\r' || unicode_title[i] == '\e')
+    || unicode_title[i] == '\r' || unicode_title[i] == '\e')
       unicode_title[i] = ' ';
 
   if (data->geo.num_entries > 1)
     grub_putcode (highlight ? '*' : ' ', data->term);
 
   grub_print_ucs4_menu (unicode_title,
-			unicode_title + len,
-			0,
-			data->geo.right_margin,
-			data->term, 0, 1,
-			GRUB_UNICODE_RIGHTARROW, 0);
+            unicode_title + len,
+            0,
+            data->geo.right_margin,
+            data->term, 0, 1,
+            GRUB_UNICODE_RIGHTARROW, 0);
 
   grub_term_setcolorstate (data->term, GRUB_TERM_COLOR_NORMAL);
   grub_term_gotoxy (data->term,
-		    (struct grub_term_coordinate) { 
-		      grub_term_cursor_x (&data->geo), y });
+            (struct grub_term_coordinate) { 
+              grub_term_cursor_x (&data->geo), y });
 
   grub_term_normal_color = old_color_normal;
   grub_term_highlight_color = old_color_highlight;
@@ -270,54 +277,54 @@ print_entries (grub_menu_t menu, const struct menu_viewer_data *data)
   int i;
 
   grub_term_gotoxy (data->term,
-		    (struct grub_term_coordinate) { 
-		      data->geo.first_entry_x + data->geo.entry_width
-			+ data->geo.border + 1,
-			data->geo.first_entry_y });
+            (struct grub_term_coordinate) { 
+              data->geo.first_entry_x + data->geo.entry_width
+            + data->geo.border + 1,
+            data->geo.first_entry_y });
 
   if (data->geo.num_entries != 1)
     {
       if (data->first)
-	grub_putcode (GRUB_UNICODE_UPARROW, data->term);
+    grub_putcode (GRUB_UNICODE_UPARROW, data->term);
       else
-	grub_putcode (' ', data->term);
+    grub_putcode (' ', data->term);
     }
   e = grub_menu_get_entry (menu, data->first);
 
   for (i = 0; i < data->geo.num_entries; i++)
     {
       print_entry (data->geo.first_entry_y + i, data->offset == i,
-		   e, data);
+           e, data);
       if (e)
-	e = e->next;
+    e = e->next;
     }
 
   grub_term_gotoxy (data->term,
-		    (struct grub_term_coordinate) { data->geo.first_entry_x + data->geo.entry_width
-			+ data->geo.border + 1,
-			data->geo.first_entry_y + data->geo.num_entries - 1 });
+            (struct grub_term_coordinate) { data->geo.first_entry_x + data->geo.entry_width
+            + data->geo.border + 1,
+            data->geo.first_entry_y + data->geo.num_entries - 1 });
   if (data->geo.num_entries == 1)
     {
       if (data->first && e)
-	grub_putcode (GRUB_UNICODE_UPDOWNARROW, data->term);
+    grub_putcode (GRUB_UNICODE_UPDOWNARROW, data->term);
       else if (data->first)
-	grub_putcode (GRUB_UNICODE_UPARROW, data->term);
+    grub_putcode (GRUB_UNICODE_UPARROW, data->term);
       else if (e)
-	grub_putcode (GRUB_UNICODE_DOWNARROW, data->term);
+    grub_putcode (GRUB_UNICODE_DOWNARROW, data->term);
       else
-	grub_putcode (' ', data->term);
+    grub_putcode (' ', data->term);
     }
   else
     {
       if (e)
-	grub_putcode (GRUB_UNICODE_DOWNARROW, data->term);
+    grub_putcode (GRUB_UNICODE_DOWNARROW, data->term);
       else
-	grub_putcode (' ', data->term);
+    grub_putcode (' ', data->term);
     }
 
   grub_term_gotoxy (data->term,
-		    (struct grub_term_coordinate) { grub_term_cursor_x (&data->geo),
-			data->geo.first_entry_y + data->offset });
+            (struct grub_term_coordinate) { grub_term_cursor_x (&data->geo),
+            data->geo.first_entry_y + data->offset });
 }
 
 /* Initialize the screen.  If NESTED is non-zero, assume that this menu
@@ -325,8 +332,8 @@ print_entries (grub_menu_t menu, const struct menu_viewer_data *data)
    a message for the menu entry editor.  */
 void
 grub_menu_init_page (int nested, int edit,
-		     struct grub_term_screen_geometry *geo,
-		     struct grub_term_output *term)
+             struct grub_term_screen_geometry *geo,
+             struct grub_term_output *term, const char *msg)
 {
   grub_uint8_t old_color_normal, old_color_highlight;
   int msg_num_lines;
@@ -349,7 +356,7 @@ grub_menu_init_page (int nested, int edit,
     - 1 /* empty line before info message*/
     - geo->timeout_lines /* timeout */
     - 1 /* empty final line  */;
-  msg_num_lines = print_message (nested, edit, term, 1);
+  msg_num_lines = print_message (nested, edit, NULL, term, 1);
   if (geo->num_entries - msg_num_lines < 3
       || geo->entry_width < 10)
     {
@@ -399,9 +406,9 @@ grub_menu_init_page (int nested, int edit,
 
   /* Then give user a chance to replace them.  */
   grub_parse_color_name_pair (&grub_color_menu_normal,
-			      grub_env_get ("menu_color_normal"));
+                  grub_env_get ("menu_color_normal"));
   grub_parse_color_name_pair (&grub_color_menu_highlight,
-			      grub_env_get ("menu_color_highlight"));
+                  grub_env_get ("menu_color_highlight"));
 
   if (version_msg)
     grub_normal_init_page (term, empty_lines);
@@ -422,13 +429,18 @@ grub_menu_init_page (int nested, int edit,
   grub_term_highlight_color = old_color_highlight;
   geo->timeout_y = geo->first_entry_y + geo->num_entries
     + geo->border + empty_lines;
+  geo->help_y = 0;
   if (bottom_message)
     {
+      geo->help_y = geo->timeout_y;
       grub_term_gotoxy (term,
-			(struct grub_term_coordinate) { GRUB_TERM_MARGIN,
-			    geo->timeout_y });
+            (struct grub_term_coordinate) { GRUB_TERM_MARGIN,
+                geo->timeout_y });
 
-      print_message (nested, edit, term, 0);
+      if (msg && msg[0])
+        print_message (nested, edit, msg, term, 0);
+      else
+        print_message (nested, edit, NULL, term, 0);
       geo->timeout_y += msg_num_lines;
     }
   geo->right_margin = grub_term_width (term)
@@ -443,7 +455,7 @@ menu_text_print_timeout (int timeout, void *dataptr)
   char *msg_translated = 0;
 
   grub_term_gotoxy (data->term,
-		    (struct grub_term_coordinate) { 0, data->geo.timeout_y });
+            (struct grub_term_coordinate) { 0, data->geo.timeout_y });
 
   if (data->timeout_msg == TIMEOUT_TERSE
       || data->timeout_msg == TIMEOUT_TERSE_NO_MARGIN)
@@ -460,28 +472,82 @@ menu_text_print_timeout (int timeout, void *dataptr)
   if (data->timeout_msg == TIMEOUT_UNKNOWN)
     {
       data->timeout_msg = grub_print_message_indented_real (msg_translated,
-							    3, 1, data->term, 1)
-	<= data->geo.timeout_lines ? TIMEOUT_NORMAL : TIMEOUT_TERSE;
+                                3, 1, data->term, 1)
+    <= data->geo.timeout_lines ? TIMEOUT_NORMAL : TIMEOUT_TERSE;
       if (data->timeout_msg == TIMEOUT_TERSE)
-	{
-	  grub_free (msg_translated);
-	  msg_translated = grub_xasprintf (_("%ds"), timeout);
-	  if (grub_term_width (data->term) < 10)
-	    data->timeout_msg = TIMEOUT_TERSE_NO_MARGIN;
-	}
+    {
+      grub_free (msg_translated);
+      msg_translated = grub_xasprintf (_("%ds"), timeout);
+      if (grub_term_width (data->term) < 10)
+        data->timeout_msg = TIMEOUT_TERSE_NO_MARGIN;
+    }
     }
 
   grub_print_message_indented (msg_translated,
-			       data->timeout_msg == TIMEOUT_TERSE_NO_MARGIN ? 0 : 3,
-			       data->timeout_msg == TIMEOUT_TERSE_NO_MARGIN ? 0 : 1,
-			       data->term);
+                   data->timeout_msg == TIMEOUT_TERSE_NO_MARGIN ? 0 : 3,
+                   data->timeout_msg == TIMEOUT_TERSE_NO_MARGIN ? 0 : 1,
+                   data->term);
   grub_free (msg_translated);
 
   grub_term_gotoxy (data->term,
-		    (struct grub_term_coordinate) { 
-		      grub_term_cursor_x (&data->geo),
-			data->geo.first_entry_y + data->offset });
+            (struct grub_term_coordinate) { 
+              grub_term_cursor_x (&data->geo),
+            data->geo.first_entry_y + data->offset });
   grub_term_refresh (data->term);
+}
+
+static void
+menu_text_print_help (void *dataptr, const char *text)
+{
+  struct menu_viewer_data *data = dataptr;
+  int nested = data->nested;
+  struct grub_term_output *term = data->term;
+
+  if (!data->geo.help_y)
+    return;
+  grub_term_gotoxy (term, (struct grub_term_coordinate)
+                    { GRUB_TERM_MARGIN, data->geo.help_y });
+
+  grub_term_setcolorstate (term, GRUB_TERM_COLOR_NORMAL);
+
+  if (text && text[0])
+  {
+    int num;
+    num = grub_print_message_indented_real (text,
+                    STANDARD_MARGIN, STANDARD_MARGIN, term, 1);
+    num = data->geo.timeout_y - data->geo.help_y - num;
+    grub_print_message_indented (text, STANDARD_MARGIN, STANDARD_MARGIN, term);
+    for (; num > 0; num--)
+      grub_print_message_indented (" ", STANDARD_MARGIN, STANDARD_MARGIN, term);
+  }
+  else
+  {
+    char *msg = NULL;
+    msg = grub_xasprintf (_("Use the %C and %C keys to select which "
+                            "entry is highlighted."),
+                            GRUB_UNICODE_UPARROW, GRUB_UNICODE_DOWNARROW);
+    if (!msg)
+      return;
+    grub_print_message_indented (msg, STANDARD_MARGIN, STANDARD_MARGIN, term);
+    grub_free (msg);
+    if (nested)
+    {
+      grub_print_message_indented (_("Press enter to boot the selected OS, "
+            "`e' to edit the commands before booting "
+            "or `c' for a command-line. ESC to return previous menu."),
+            STANDARD_MARGIN, STANDARD_MARGIN, term);
+    }
+    else
+    {
+      grub_print_message_indented (_("Press enter to boot the selected OS, "
+            "`e' to edit the commands before booting "
+            "or `c' for a command-line."),
+            STANDARD_MARGIN, STANDARD_MARGIN, term);
+    }
+  }
+  grub_term_gotoxy (data->term,
+          (struct grub_term_coordinate) { grub_term_cursor_x (&data->geo),
+          data->geo.first_entry_y + data->offset });
 }
 
 static void
@@ -490,31 +556,31 @@ menu_text_set_chosen_entry (int entry, void *dataptr)
   struct menu_viewer_data *data = dataptr;
   int oldoffset = data->offset;
   int complete_redraw = 0;
+  grub_menu_entry_t e;
 
   data->offset = entry - data->first;
   if (data->offset > data->geo.num_entries - 1)
-    {
-      data->first = entry - (data->geo.num_entries - 1);
-      data->offset = data->geo.num_entries - 1;
-      complete_redraw = 1;
-    }
+  {
+    data->first = entry - (data->geo.num_entries - 1);
+    data->offset = data->geo.num_entries - 1;
+    complete_redraw = 1;
+  }
   if (data->offset < 0)
-    {
-      data->offset = 0;
-      data->first = entry;
-      complete_redraw = 1;
-    }
+  {
+    data->offset = 0;
+    data->first = entry;
+    complete_redraw = 1;
+  }
   if (complete_redraw)
     print_entries (data->menu, data);
   else
-    {
-      print_entry (data->geo.first_entry_y + oldoffset, 0,
-		   grub_menu_get_entry (data->menu, data->first + oldoffset),
-		   data);
-      print_entry (data->geo.first_entry_y + data->offset, 1,
-		   grub_menu_get_entry (data->menu, data->first + data->offset),
-		   data);
-    }
+  {
+    e = grub_menu_get_entry (data->menu, data->first + oldoffset);
+    print_entry (data->geo.first_entry_y + oldoffset, 0, e, data);
+    e = grub_menu_get_entry (data->menu, data->first + data->offset);
+    print_entry (data->geo.first_entry_y + data->offset, 1, e, data);
+    menu_text_print_help (data, e ? e->help_message : NULL);
+  }
   grub_term_refresh (data->term);
 }
 
@@ -529,6 +595,12 @@ menu_text_fini (void *dataptr)
 }
 
 static void
+menu_set_animation_state (int need_refresh __attribute__ ((unused)),
+                          void *data __attribute__ ((unused)))
+{
+}
+
+static void
 menu_text_clear_timeout (void *dataptr)
 {
   struct menu_viewer_data *data = dataptr;
@@ -537,17 +609,17 @@ menu_text_clear_timeout (void *dataptr)
   for (i = 0; i < data->geo.timeout_lines;i++)
     {
       grub_term_gotoxy (data->term, (struct grub_term_coordinate) {
-	  0, data->geo.timeout_y + i });
+      0, data->geo.timeout_y + i });
       grub_print_spaces (data->term, grub_term_width (data->term) - 1);
     }
   if (data->geo.num_entries <= 5 && !data->geo.border)
     {
       grub_term_gotoxy (data->term,
-			(struct grub_term_coordinate) { 
-			  data->geo.first_entry_x + data->geo.entry_width
-			    + data->geo.border + 1,
-			    data->geo.first_entry_y + data->geo.num_entries - 1
-			    });
+            (struct grub_term_coordinate) { 
+              data->geo.first_entry_x + data->geo.entry_width
+                + data->geo.border + 1,
+                data->geo.first_entry_y + data->geo.num_entries - 1
+                });
       grub_putcode (' ', data->term);
 
       data->geo.timeout_lines = 0;
@@ -555,18 +627,19 @@ menu_text_clear_timeout (void *dataptr)
       print_entries (data->menu, data);
     }
   grub_term_gotoxy (data->term,
-		    (struct grub_term_coordinate) {
-		      grub_term_cursor_x (&data->geo),
-			data->geo.first_entry_y + data->offset });
+            (struct grub_term_coordinate) {
+              grub_term_cursor_x (&data->geo),
+            data->geo.first_entry_y + data->offset });
   grub_term_refresh (data->term);
 }
 
-grub_err_t 
+grub_err_t
 grub_menu_try_text (struct grub_term_output *term, 
-		    int entry, grub_menu_t menu, int nested)
+            int entry, grub_menu_t menu, int nested)
 {
   struct menu_viewer_data *data;
   struct grub_menu_viewer *instance;
+  grub_menu_entry_t e;
 
   instance = grub_zalloc (sizeof (*instance));
   if (!instance)
@@ -574,31 +647,35 @@ grub_menu_try_text (struct grub_term_output *term,
 
   data = grub_zalloc (sizeof (*data));
   if (!data)
-    {
-      grub_free (instance);
-      return grub_errno;
-    }
+  {
+    grub_free (instance);
+    return grub_errno;
+  }
 
   data->term = term;
   instance->data = data;
   instance->set_chosen_entry = menu_text_set_chosen_entry;
   instance->print_timeout = menu_text_print_timeout;
   instance->clear_timeout = menu_text_clear_timeout;
+  instance->set_animation_state = menu_set_animation_state;
   instance->fini = menu_text_fini;
 
   data->menu = menu;
 
   data->offset = entry;
   data->first = 0;
+  data->nested = nested;
 
   grub_term_setcursor (data->term, 0);
-  grub_menu_init_page (nested, 0, &data->geo, data->term);
+  e = grub_menu_get_entry (data->menu, entry);
+  grub_menu_init_page (nested, 0, &data->geo, data->term,
+                       e ? e->help_message : NULL);
 
   if (data->offset > data->geo.num_entries - 1)
-    {
-      data->first = data->offset - (data->geo.num_entries - 1);
-      data->offset = data->geo.num_entries - 1;
-    }
+  {
+    data->first = data->offset - (data->geo.num_entries - 1);
+    data->offset = data->geo.num_entries - 1;
+  }
 
   print_entries (menu, data);
   grub_term_refresh (data->term);

@@ -1306,8 +1306,7 @@ grub_menu_entry_run (grub_menu_entry_t entry)
   }
   /* Draw the screen.  */
   for (i = 0; i < screen->nterms; i++)
-    grub_menu_init_page (0, 1, &screen->terms[i].geo,
-			 screen->terms[i].term);
+    grub_menu_init_page (0, 1, &screen->terms[i].geo, screen->terms[i].term, NULL);
   update_screen_all (screen, 0, 0, 1, 1, ALL_LINES);
   for (i = 0; i < screen->nterms; i++)
     grub_term_setcursor (screen->terms[i].term, 1);
