@@ -244,6 +244,7 @@ struct grub_gui_label
   grub_video_rgba_color_t color;
   int value;
   enum grub_gui_label_align_mode align;
+  void (*refresh_text) (void *self, grub_gfxmenu_view_t view);
 };
 
 /* Interfaces to concrete component classes.  */

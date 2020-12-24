@@ -320,6 +320,25 @@ refresh_animation_components (grub_gfxmenu_view_t view)
 }
 
 static void
+refresh_label_visit (grub_gui_component_t component, void *userdata)
+{
+  grub_gfxmenu_view_t view;
+  view = userdata;
+  if (component->ops->is_instance (component, "label"))
+  {
+    grub_gui_label_t label = (grub_gui_label_t) component;
+    label->refresh_text (label, view);
+  }
+}
+
+static void
+refresh_label_components (grub_gfxmenu_view_t view)
+{
+  grub_gui_iterate_recursively ((grub_gui_component_t) view->canvas,
+                                refresh_label_visit, view);
+}
+
+static void
 draw_message (grub_gfxmenu_view_t view)
 {
   char *text = view->progress_message_text;
@@ -392,6 +411,8 @@ grub_gfxmenu_view_draw (grub_gfxmenu_view_t view)
 
   refresh_animation_components (view);
 
+  refresh_label_components (view);
+
   grub_video_set_area_status (GRUB_VIDEO_AREA_DISABLED);
   grub_gfxmenu_view_redraw (view, &view->screen);
   grub_video_swap_buffers ();
@@ -410,6 +431,7 @@ grub_gfxmenu_redraw_menu (grub_gfxmenu_view_t view)
   /* Avoid interference.  */
   if (view->need_refresh)
     refresh_animation_components (view);
+  refresh_label_components (view);
 
   grub_video_set_area_status (GRUB_VIDEO_AREA_DISABLED);
   grub_gfxmenu_view_redraw (view, &view->screen);
