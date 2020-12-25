@@ -131,6 +131,7 @@ grub_gfxmenu_try (int entry, grub_menu_t menu, int nested)
   instance->clear_timeout = grub_gfxmenu_clear_timeout;
   instance->set_animation_state = grub_gfxmenu_set_animation_state;
   instance->scroll_chosen_entry = grub_gfxmenu_scroll_chosen_entry;
+  instance->update_screen = grub_gfxmenu_update_screen;
 
   grub_menu_register_viewer (instance);
 

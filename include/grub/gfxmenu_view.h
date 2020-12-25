@@ -66,6 +66,8 @@ void
 grub_gfxmenu_set_animation_state (int need_refresh, void *data);
 void
 grub_gfxmenu_scroll_chosen_entry (void *data, int diren);
+void
+grub_gfxmenu_update_screen (void *data);
 
 grub_err_t grub_font_draw_string (const char *str,
 				  grub_font_t font,

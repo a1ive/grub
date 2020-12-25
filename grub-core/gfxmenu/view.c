@@ -455,6 +455,13 @@ grub_gfxmenu_set_animation_state (int need_refresh, void *data)
 }
 
 void
+grub_gfxmenu_update_screen (void *data)
+{
+  grub_gfxmenu_view_t view = data;
+  grub_gfxmenu_redraw_menu (view);
+}
+
+void
 grub_gfxmenu_set_chosen_entry (int entry, void *data)
 {
   grub_gfxmenu_view_t view = data;

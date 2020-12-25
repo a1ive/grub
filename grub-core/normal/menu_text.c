@@ -601,6 +601,11 @@ menu_set_animation_state (int need_refresh __attribute__ ((unused)),
 }
 
 static void
+menu_update_screen (void *data __attribute__ ((unused)))
+{
+}
+
+static void
 menu_text_clear_timeout (void *dataptr)
 {
   struct menu_viewer_data *data = dataptr;
@@ -658,6 +663,7 @@ grub_menu_try_text (struct grub_term_output *term,
   instance->print_timeout = menu_text_print_timeout;
   instance->clear_timeout = menu_text_clear_timeout;
   instance->set_animation_state = menu_set_animation_state;
+  instance->update_screen = menu_update_screen;
   instance->fini = menu_text_fini;
 
   data->menu = menu;

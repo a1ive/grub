@@ -655,6 +655,15 @@ clear_timeout (void)
     cur->clear_timeout (cur->data);
 }
 
+static void
+update_screen (void)
+{
+  struct grub_menu_viewer *cur;
+
+  for (cur = viewers; cur; cur = cur->next)
+    cur->update_screen (cur->data);
+}
+
 void
 grub_menu_register_viewer (struct grub_menu_viewer *viewer)
 {
@@ -906,11 +915,15 @@ refresh:
     if (grub_normal_exit_level)
       return -1;
 
-    if (timeout > 0 && has_second_elapsed (&saved_time))
+    if (has_second_elapsed (&saved_time))
     {
-      timeout--;
-      grub_menu_set_timeout (timeout);
-      menu_print_timeout (timeout);
+      if (timeout > 0)
+      {
+        timeout--;
+        grub_menu_set_timeout (timeout);
+        menu_print_timeout (timeout);
+      }
+      update_screen ();
     }
 
     if (timeout == 0)

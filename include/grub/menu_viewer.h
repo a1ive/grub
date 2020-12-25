@@ -35,6 +35,7 @@ struct grub_menu_viewer
   void (*clear_timeout) (void *data);
   void (*scroll_chosen_entry) (void *data, int diren);
   void (*set_animation_state) (int need_refresh, void *data);
+  void (*update_screen) (void *data);
   void (*fini) (void *fini);
 };
 
