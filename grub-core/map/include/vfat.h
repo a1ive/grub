@@ -253,7 +253,7 @@ struct vfat_vbr
 #define VDISK_VBR_SIGNATURE 0x29
 
 /** VBR serial number */
-#define VDISK_VBR_SERIAL 0xf00df00d
+#define VDISK_VBR_SERIAL 0xdeadc0de
 
 /** VBR label */
 #define VDISK_VBR_LABEL "grubvfat   "

@@ -124,6 +124,6 @@ grub_wimboot_install (void)
   if (status != GRUB_EFI_SUCCESS)
     return grub_error (GRUB_ERR_BAD_OS, "failed to install virtual disk\n");
   efi_call_4 (b->connect_controller, wimboot_disk.handle, NULL, NULL, TRUE);
-
+  grub_efi_set_first_disk (wimboot_disk.handle);
   return GRUB_ERR_NONE;
 }
