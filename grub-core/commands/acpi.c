@@ -504,29 +504,22 @@ slic_print (const char *slic_str, grub_size_t n, const char *line)
   grub_printf ("\n");
 }
 
-struct acpi_table_rsdt
-{
-  struct grub_acpi_table_header header; /* Common ACPI table header */
-  grub_uint32_t table_offset_entry[1];  /* Array of pointers to ACPI tables */
-};
-
 static struct grub_acpi_table_header *
 acpi_find_slic (struct grub_acpi_rsdp_v10 *rsdp)
 {
-  int i, rsdt_entries;
-  struct acpi_table_rsdt *rsdt;
-  struct grub_acpi_table_header *slic;
-  rsdt = (struct acpi_table_rsdt *)(grub_addr_t)(rsdp->rsdt_addr);
-  rsdt_entries = (rsdt->header.length
-          - sizeof(struct grub_acpi_table_header)) / sizeof(grub_uint32_t);
-  for (i = 0; i < rsdt_entries; ++i)
+  grub_uint32_t len;
+  grub_uint32_t *desc;
+  struct grub_acpi_table_header *t;
+  t = (void *)(grub_addr_t)(rsdp->rsdt_addr);
+  len = t->length - sizeof (*t);
+  desc = (grub_uint32_t *) (t + 1);
+  for (; len >= sizeof (*desc); desc++, len -= sizeof (*desc))
   {
-    slic = (struct grub_acpi_table_header *)
-            (grub_addr_t)(rsdt->table_offset_entry[i]);
-    if (slic != NULL && grub_memcmp(slic->signature, "SLIC", 4) == 0)
-    {
-      return slic;
-    }
+    t = (struct grub_acpi_table_header *) (grub_addr_t) *desc;
+    if (t == NULL)
+      continue;
+    if (grub_memcmp (t->signature, "SLIC", sizeof (t->signature)) == 0)
+      return t;
   }
   return NULL;
 }
