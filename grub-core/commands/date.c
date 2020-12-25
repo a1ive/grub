@@ -20,6 +20,7 @@
 #include <grub/dl.h>
 #include <grub/err.h>
 #include <grub/misc.h>
+#include <grub/mm.h>
 #include <grub/datetime.h>
 #include <grub/command.h>
 #include <grub/extcmd.h>
@@ -36,10 +37,17 @@ GRUB_MOD_LICENSE ("GPLv3+");
 #define GRUB_DATETIME_SET_SECOND	32
 
 static const struct grub_arg_option options[] =
-  {
-    {"set", 's', 0, N_("Store date in a variable."), N_("VARNAME"), ARG_TYPE_STRING},
-    {0, 0, 0, 0, 0, 0}
-  };
+{
+  {"human", 'm', 0, N_("Store date in a human readable format."), 0, 0},
+  {"set", 's', 0, N_("Store date in a variable."), N_("VARNAME"), ARG_TYPE_STRING},
+  {0, 0, 0, 0, 0, 0}
+};
+
+enum options
+{
+  DATE_HUMAN,
+  DATE_SET,
+};
 
 static grub_err_t
 grub_cmd_date (grub_extcmd_context_t ctxt,
@@ -50,16 +58,24 @@ grub_cmd_date (grub_extcmd_context_t ctxt,
   int limit[6][2] = {{1980, 2079}, {1, 12}, {1, 31}, {0, 23}, {0, 59}, {0, 59}};
   int value[6], mask;
 
-  if (state[0].set)
+  if (state[DATE_SET].set)
     {
-      char buffer[15];
+      char *str = NULL;
       if (grub_get_datetime (&datetime))
         return grub_errno;
-
-      grub_snprintf (buffer, sizeof (buffer), "%d%02d%02d%02d%02d%02d",
+      if (state[DATE_HUMAN].set)
+        str = grub_xasprintf ("%d-%02d-%02d %02d:%02d:%02d %s",
+                        datetime.year, datetime.month, datetime.day,
+                        datetime.hour, datetime.minute, datetime.second,
+                        grub_get_weekday_name (&datetime));
+      else
+        str = grub_xasprintf ("%d%02d%02d%02d%02d%02d",
                    datetime.year, datetime.month, datetime.day,
                    datetime.hour, datetime.minute, datetime.second);
-      grub_env_set (state[0].arg, buffer);
+      if (!str)
+        return grub_error (GRUB_ERR_OUT_OF_MEMORY, "out of memory");
+      grub_env_set (state[DATE_SET].arg, str);
+      grub_free (str);
       return 0;
     }
 
