@@ -34,6 +34,7 @@
 #include <string.h>
 #include <misc.h>
 #include <guid.h>
+#include <vfat.h>
 #include <bcd.h>
 #include <reg.h>
 
@@ -41,7 +42,6 @@
 #include "raw/bcdvhd.c"
 #include "raw/bcdwin.c"
 #include "raw/bcdram.c"
-#include "raw/bcdraw.c"
 
 #pragma GCC diagnostic ignored "-Wcast-align"
 
@@ -75,6 +75,7 @@ load_bcd (enum bcd_type type)
   uint32_t bcd_len;
   switch (type)
   {
+    case BOOT_RAW:
     case BOOT_WIM:
       bcd = bcd_wim;
       bcd_len = bcd_wim_len;
@@ -91,10 +92,9 @@ load_bcd (enum bcd_type type)
       bcd = bcd_ram;
       bcd_len = bcd_ram_len;
       break;
-    case BOOT_RAW:
     default:
-      bcd = bcd_raw;
-      bcd_len = bcd_raw_len;
+      bcd = bcd_wim;
+      bcd_len = bcd_wim_len;
       break;
   }
   grub_xz_decompress (bcd, bcd_len, grub_bcd_data, BCD_DECOMPRESS_LEN);
@@ -144,7 +144,10 @@ bcd_patch_path (const char *path)
   char path8[256], *p;
   wchar_t path16[256];
   grub_size_t len;
-  grub_strncpy (path8, path, 256);
+  if (path[0] != '/')
+    grub_snprintf (path8, 256, "/%s", path);
+  else
+    grub_strncpy (path8, path, 256);
   len = 2 * (strlen (path8) + 1);
   /* replace '/' to '\\' */
   p = path8;
@@ -166,7 +169,7 @@ bcd_patch_dp (struct bcd_patch_data *cmd)
 {
   grub_disk_t disk = 0;
   /* mbr*/
-  grub_uint8_t part_start[8];
+  grub_uint64_t part_start;
   struct grub_msdos_partition_mbr mbr;
   grub_disk_addr_t lba;
   /* gpt */
@@ -178,6 +181,19 @@ bcd_patch_dp (struct bcd_patch_data *cmd)
   grub_uint8_t partguid[16];
   int partnum;
 
+  if (cmd->type == BOOT_RAW)
+  {
+    grub_uint32_t signature = VDISK_MBR_SIGNATURE;
+    part_start = VDISK_PARTITION_LBA << GRUB_DISK_SECTOR_BITS;
+    /* fill dp */
+    memset (&cmd->dp, 0, sizeof (struct bcd_dp));
+    memcpy (cmd->dp.partid, &part_start, 8);
+    cmd->dp.partmap = 0x01;
+    memcpy (cmd->dp.diskid, &signature, 4);
+    bcd_replace_hex (BCD_DP_MAGIC, strlen (BCD_DP_MAGIC),
+                   &cmd->dp, sizeof (struct bcd_dp), 2);
+    return GRUB_ERR_NONE;
+  }
   disk = grub_disk_open (cmd->file->device->disk->name);
   if (!disk)
     return grub_error (GRUB_ERR_BAD_OS, "failed to open parent disk");
@@ -207,11 +223,11 @@ bcd_patch_dp (struct bcd_patch_data *cmd)
   else
   {
     lba = grub_partition_get_start (cmd->file->device->disk->partition);
-    *(grub_uint64_t *)part_start = lba << GRUB_DISK_SECTOR_BITS;
+    part_start = lba << GRUB_DISK_SECTOR_BITS;
     grub_disk_read (disk, 0, 0, GRUB_DISK_SECTOR_SIZE, &mbr);
     /* fill dp */
     memset (&cmd->dp, 0, sizeof (struct bcd_dp));
-    memcpy (cmd->dp.partid, part_start, 8);
+    memcpy (cmd->dp.partid, &part_start, 8);
     cmd->dp.partmap = 0x01;
     memcpy (cmd->dp.diskid, mbr.unique_signature, 4);
   }
@@ -292,7 +308,7 @@ grub_patch_bcd (struct bcd_patch_data *cmd)
   if (cmd->type != BOOT_WIN)
     bcd_patch_path (cmd->path);
 
-  if (cmd->type != BOOT_RAW && bcd_patch_dp (cmd))
+  if (bcd_patch_dp (cmd))
     return grub_errno;
 
   grub_snprintf (bcd_name, 64, "mem:%p:size:%u", grub_bcd_data, bcd_len);

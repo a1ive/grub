@@ -32,10 +32,12 @@
 #include <wimboot.h>
 
 /** GUID used in vendor device path */
+#if 0
 static const grub_packed_guid_t WIMBOOT_GUID =
 { 0x1322d197, 0x15dc, 0x4a45,
   { 0xa6, 0xa4, 0xfa, 0x57, 0x05, 0x4e, 0xa6, 0x14 }
 };
+#endif
 
 grub_efivdisk_t wimboot_disk, wimboot_part;
 
@@ -56,7 +58,8 @@ grub_wimboot_install (void)
                &blockio_template, sizeof (block_io_protocol_t));
   tmp_dp = grub_efi_create_device_node (HARDWARE_DEVICE_PATH, HW_VENDOR_DP,
                                         sizeof(grub_efi_vendor_device_path_t));
-  grub_guidcpy (&((grub_efi_vendor_device_path_t *)tmp_dp)->vendor_guid, &WIMBOOT_GUID);
+  grub_guidgen (&((grub_efi_vendor_device_path_t *)tmp_dp)->vendor_guid);
+  //grub_guidcpy (&((grub_efi_vendor_device_path_t *)tmp_dp)->vendor_guid, &WIMBOOT_GUID);
   wimboot_disk.dp = grub_efi_append_device_node (NULL, tmp_dp);
   if (tmp_dp)
     grub_free (tmp_dp);
