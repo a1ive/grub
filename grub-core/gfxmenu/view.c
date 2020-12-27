@@ -82,7 +82,7 @@ grub_gfxmenu_view_new (const char *theme_path,
   view->terminal_rect.y = view->screen.y + (view->screen.height
                                             - view->terminal_rect.height) / 2;
 
-  default_font = grub_font_get ("Unknown Regular 16");
+  default_font = grub_font_get ("Unifont Regular 16");
   default_fg_color = grub_video_rgba_color_rgb (0, 0, 0);
   default_bg_color = grub_video_rgba_color_rgb (255, 255, 255);
 
@@ -90,7 +90,7 @@ grub_gfxmenu_view_new (const char *theme_path,
 
   view->title_font = default_font;
   view->message_font = default_font;
-  view->terminal_font_name = grub_strdup ("Fixed 10");
+  view->terminal_font_name = grub_strdup ("Unifont Regular 16");
   view->title_color = default_fg_color;
   view->message_color = default_bg_color;
   view->message_bg_color = default_fg_color;

@@ -286,7 +286,7 @@ grubfm_gfx_printf (grub_video_color_t color, int x, int y, const char *fmt, ...)
 
   if (str)
   {
-    grub_font_draw_string (str, grub_font_get ("unifont"), color, x, y);
+    grub_font_draw_string (str, grub_font_get ("Unifont Regular 16"), color, x, y);
     grub_free (str);
   }
 }

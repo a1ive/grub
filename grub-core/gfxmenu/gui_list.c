@@ -939,7 +939,7 @@ grub_gui_list_new (void)
 
   self->visible = 1;
 
-  default_font = grub_font_get ("Unknown Regular 16");
+  default_font = grub_font_get ("Unifont Regular 16");
   default_fg_color = grub_video_rgba_color_rgb (0, 0, 0);
 
   self->icon_width = 32;
