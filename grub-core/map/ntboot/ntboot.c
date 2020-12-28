@@ -100,6 +100,19 @@ enum options_ntboot
   NTBOOT_SYSROOT,  // string
 };
 
+static int check_disk (grub_disk_t disk)
+{
+  if (!disk || !disk->partition || !disk->dev)
+    return 0;
+  if (disk->dev->id == GRUB_DISK_DEVICE_EFIDISK_ID && disk->name[0] == 'h')
+    return 1;
+  if (disk->dev->id == GRUB_DISK_DEVICE_BIOSDISK_ID && disk->name[0] == 'h')
+    return 1;
+  if (disk->dev->id == GRUB_DISK_DEVICE_EFIVDISK_ID)
+    return 1;
+  return 0;
+}
+
 static grub_err_t
 grub_cmd_ntboot (grub_extcmd_context_t ctxt,
                   int argc, char *argv[])
@@ -131,8 +144,7 @@ grub_cmd_ntboot (grub_extcmd_context_t ctxt,
     grub_error (GRUB_ERR_FILE_READ_ERROR, N_("failed to open file"));
     goto fail;
   }
-  if (!file->device || !file->device->disk ||
-      file->device->disk->name[0] != 'h' || !file->device->disk->partition)
+  if (!file->device || !check_disk (file->device->disk))
   {
     grub_error (GRUB_ERR_BAD_DEVICE,
                 "this command is available only for disk devices");
