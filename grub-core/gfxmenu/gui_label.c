@@ -145,6 +145,19 @@ label_refresh_help_message (void *vself, grub_gfxmenu_view_t view)
 }
 
 static void
+label_refresh_menu_title (void *vself, grub_gfxmenu_view_t view)
+{
+  grub_gui_label_t self = vself;
+  grub_menu_entry_t e;
+  e = grub_menu_get_entry (view->menu, view->selected);
+  grub_free (self->text);
+  if (e && e->title)
+    self->text = grub_strdup (e->title);
+  else
+    self->text = grub_strdup ("");
+}
+
+static void
 label_refresh_var (void *vself,
                    grub_gfxmenu_view_t view __attribute__ ((unused)))
 {
@@ -295,6 +308,13 @@ label_set_property (void *vself, const char *name, const char *value)
       self->text = grub_strdup ("");
       self->id = grub_strdup (value);
       self->refresh_text = label_refresh_help_message;
+    }
+    else if (grub_strcmp (value, GRUB_GFXMENU_TITLE_COMPONENT_ID) == 0)
+    {
+      grub_free (self->text);
+      self->text = grub_strdup ("");
+      self->id = grub_strdup (value);
+      self->refresh_text = label_refresh_menu_title;
     }
   }
   return GRUB_ERR_NONE;

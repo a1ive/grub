@@ -33,6 +33,8 @@
 
 #define GRUB_GFXMENU_HELPMSG_COMPONENT_ID  "__help__"
 
+#define GRUB_GFXMENU_TITLE_COMPONENT_ID  "__title__"
+
 typedef struct grub_gui_component *grub_gui_component_t;
 typedef struct grub_gui_container *grub_gui_container_t;
 typedef struct grub_gui_list *grub_gui_list_t;
