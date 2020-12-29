@@ -1,0 +1,100 @@
+#!/bin/sh -e
+#
+# BURG - Brand-new Universal loadeR from GRUB
+# Copyright 2010 Bean Lee - All Rights Reserved
+#
+# BURG is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# BURG is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+#  along with BURG.  If not, see <http://www.gnu.org/licenses/>.
+
+# Initialize some variables.
+transform="@program_transform_name@"
+
+prefix=@prefix@
+sysconfdir=@sysconfdir@
+
+pass_file=${sysconfdir}/default/burg-passwd
+
+# Usage: usage
+# Print the usage.
+usage () {
+    cat <<EOF
+Usage: $0 [OPTION] username
+Delete a burg user
+
+  -h, --help              print this message and exit
+  -v, --version           print the version information and exit
+
+Report bugs to <bean123ch@gmail.com>.
+EOF
+}
+
+# Check the arguments.
+for option in "$@"; do
+    case "$option" in
+    -h | --help)
+	usage
+	exit 0 ;;
+    -v | --version)
+	echo "$0 (${PACKAGE_NAME} ${package_version})"
+	exit 0 ;;
+    -*)
+	echo "Unrecognized option \`$option'" 1>&2
+	usage
+	exit 1
+	;;
+    esac
+done
+
+if [ "x$1" = "x" ] ; then
+    echo "$0: No username is specified" >&2
+    exit 1
+fi
+
+username=`echo $1 | sed 's,[^a-zA-Z0-9],,'`
+if [ "x$1" != "x$username" ] ; then
+    echo "$0: Only digits and letters are allowed in username" >&2
+    exit 1
+fi
+
+if [ "x$EUID" = "x" ] ; then
+  EUID=`id -u`
+fi
+
+if [ "$EUID" != 0 ] ; then
+  root=f
+  case "`uname 2>/dev/null`" in
+    CYGWIN*)
+      # Cygwin: Assume root if member of admin group
+      for g in `id -G 2>/dev/null` ; do
+	case $g in
+	  0|544) root=t ;;
+	esac
+      done ;;
+  esac
+  if [ $root != t ] ; then
+    echo "$0: You must run this as root" >&2
+    exit 1
+  fi
+fi
+
+touch $pass_file
+chmod 600 $pass_file
+
+temp_file=${pass_file}.tmp
+touch $temp_file
+chmod 600 $temp_file
+
+grep -v "^$username:" $pass_file > $temp_file || { rm $temp_file; exit 1; }
+mv $temp_file $pass_file
+
+exit 0
