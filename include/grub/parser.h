@@ -66,26 +66,6 @@ EXPORT_FUNC (grub_parser_split_cmdline) (const char *cmdline,
 					 void *getline_func_data,
 					 int *argc, char ***argv);
 
-struct grub_parser
-{
-  /* The next parser.  */
-  struct grub_parser *next;
-
-  /* The parser name.  */
-  const char *name;
-
-  /* Initialize the parser.  */
-  grub_err_t (*init) (void);
-
-  /* Clean up the parser.  */
-  grub_err_t (*fini) (void);
-
-  grub_err_t (*parse_line) (char *line,
-			    grub_reader_getline_t getline_func,
-			    void *getline_func_data);
-};
-typedef struct grub_parser *grub_parser_t;
-
 grub_err_t grub_parser_execute (char *source);
 
 grub_err_t
