@@ -44,6 +44,7 @@ char grubfm_user[20] = "\0";
 char grubfm_data_path[256] = "/boot/grubfm/";
 int grubfm_boot = 0;
 int grubfm_hide = 0;
+char grubfm_top[256] = "";
 
 static void
 grubfm_init (void)
@@ -59,7 +60,7 @@ grubfm_init (void)
 
 static grub_err_t
 grub_cmd_grubfm (grub_extcmd_context_t ctxt __attribute__ ((unused)),
-        int argc, char **args)
+                 int argc, char **args)
 {
   grubfm_init ();
   grubfm_clear_menu ();
@@ -96,6 +97,7 @@ static const struct grub_arg_option options_set[] =
   {"user", 'u', 0, N_("user"), 0, 0},
   {"boot", 'b', 0, N_("boot"), 0, 0},
   {"hide", 'i', 0, N_("hide"), 0, 0},
+  {"top", 't', 0, N_("top"), 0, 0},
   {0, 0, 0, 0, 0, 0}
 };
 
@@ -105,6 +107,7 @@ enum options_set
   FM_SET_USER,
   FM_SET_BOOT,
   FM_SET_HIDE,
+  FM_SET_TOP,
 };
 
 static grub_err_t
@@ -139,6 +142,13 @@ grub_cmd_grubfm_set (grub_extcmd_context_t ctxt,
       grubfm_hide = 1;
     grub_printf ("grubfm_hide: %d\n", grubfm_hide);
   }
+  if (state[FM_SET_TOP].set)
+  {
+    if (argc)
+      grub_strncpy(grubfm_top, args[0], 256);
+    else
+      grubfm_top[0] = '\0';
+  }
   return 0;
 }
 
@@ -168,6 +178,10 @@ grub_cmd_grubfm_get (grub_extcmd_context_t ctxt,
       return GRUB_ERR_NONE;
     else
       return GRUB_ERR_TEST_FAILURE;
+  }
+  if (state[FM_SET_TOP].set)
+  {
+    grub_env_set (args[0], grubfm_top);
   }
   return 0;
 }

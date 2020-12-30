@@ -292,8 +292,13 @@ grubfm_enum_file (char *dirname)
   grub_fs_t fs;
   const char *path;
   grub_device_t dev;
+  unsigned int menu_cnt = 0;
 
-  grubfm_add_menu_parent (dirname);
+  if (grub_strcmp (grubfm_top, dirname) != 0)
+  {
+    grubfm_add_menu_parent (dirname);
+    menu_cnt++;
+  }
 
   device_name = grub_file_get_device_name (dirname);
   dev = grub_device_open (device_name);
@@ -335,6 +340,7 @@ grubfm_enum_file (char *dirname)
     (fs->fs_dir) (dev, path, grubfm_enum_file_iter, &ctx);
     ctx.ndirs = ctx.d;
     ctx.nfiles = ctx.f;
+    menu_cnt += ctx.ndirs + ctx.nfiles;
     if (!disable_qsort || disable_qsort[0] != '1')
       perform_quick_sort (ctx.dir_list, ctx.ndirs,
                           sizeof(struct grubfm_enum_file_info), list_compare);
@@ -369,6 +375,8 @@ grubfm_enum_file (char *dirname)
       grubfm_add_menu_file (&ctx.file_list[ctx.f], pathname);
       grub_free (pathname);
     }
+    if (!menu_cnt)
+      grubfm_add_menu ("NO FILE", "cancel", NULL, "echo", 0);
     grubfm_enum_file_list_close (&ctx);
   }
 

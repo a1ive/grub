@@ -64,6 +64,7 @@ extern char grubfm_user[];
 extern char grubfm_data_path[];
 extern int grubfm_boot;
 extern int grubfm_hide;
+extern char grubfm_top[];
 
 extern struct grubfm_ini_enum_list grubfm_ext_table;
 extern ini_t *grubfm_ini_config;
