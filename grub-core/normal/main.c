@@ -88,26 +88,28 @@ grub_normal_free_menu (grub_menu_t menu)
   grub_env_unset_menu ();
 }
 
+static grub_uint8_t utf8bom[] = {0xef, 0xbb, 0xbf};
+
 /* Helper for read_config_file.  */
 static grub_err_t
 read_config_file_getline (char **line, int cont __attribute__ ((unused)),
-			  void *data)
+                          void *data)
 {
   grub_file_t file = data;
 
   while (1)
-    {
-      char *buf;
+  {
+    char *buf;
 
-      *line = buf = grub_file_getline (file);
-      if (! buf)
-	return grub_errno;
+    *line = buf = grub_file_getline (file);
+    if (! buf)
+      return grub_errno;
 
-      if (buf[0] == '#')
-	grub_free (*line);
-      else
-	break;
-    }
+    if (buf[0] == '#')
+      grub_free (*line);
+    else
+      break;
+  }
 
   return GRUB_ERR_NONE;
 }
@@ -175,19 +177,24 @@ read_config_file (const char *config)
   grub_env_export ("config_directory");
 
   while (1)
+  {
+    char *line;
+
+    /* Print an error, if any.  */
+    grub_print_error ();
+    grub_errno = GRUB_ERR_NONE;
+
+    if ((read_config_file_getline (&line, 0, file)) || (! line))
+      break;
+    if (grub_strlen (line) > 3 && grub_memcmp (line, utf8bom, 3) == 0)
     {
-      char *line;
-
-      /* Print an error, if any.  */
-      grub_print_error ();
-      grub_errno = GRUB_ERR_NONE;
-
-      if ((read_config_file_getline (&line, 0, file)) || (! line))
-	break;
-
-      grub_normal_parse_line (line, read_config_file_getline, file);
-      grub_free (line);
+      grub_printf ("WARNING: Found UTF-8 Byte-Order Mark in config file.\n");
+      grub_normal_parse_line (&line[3], read_config_file_getline, file);
     }
+    else
+      grub_normal_parse_line (line, read_config_file_getline, file);
+    grub_free (line);
+  }
 
   if (old_file)
     grub_env_set ("config_file", old_file);
