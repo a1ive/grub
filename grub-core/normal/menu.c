@@ -865,6 +865,7 @@ run_menu (grub_menu_t menu, int nested, int *auto_boot)
   }
 
   current_entry = default_entry;
+  menu_set_chosen_entry (current_entry);
 
 refresh:
   menu_init (current_entry, menu, nested, &frame_speed, &egn_refresh);

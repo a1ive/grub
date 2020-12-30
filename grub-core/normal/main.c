@@ -80,6 +80,7 @@ grub_normal_free_menu (grub_menu_t menu)
       grub_free ((void *) entry->users);
       grub_free ((void *) entry->title);
       grub_free ((void *) entry->sourcecode);
+      grub_free ((void *) entry->help_message);
       grub_free (entry);
       entry = next_entry;
     }
