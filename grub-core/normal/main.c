@@ -46,47 +46,265 @@ GRUB_MOD_LICENSE ("GPLv3+");
 static int nested_level = 0;
 int grub_normal_exit_level = 0;
 
-void
-grub_normal_free_menu (grub_menu_t menu)
+static struct
+{
+  const char *name;
+  int key;
+} hotkey_aliases[] =
+{
+  {"backspace", GRUB_TERM_BACKSPACE},
+  {"tab", GRUB_TERM_TAB},
+  {"delete", GRUB_TERM_KEY_DC},
+  {"insert", GRUB_TERM_KEY_INSERT},
+  {"esc", GRUB_TERM_ESC},
+  {"f1", GRUB_TERM_KEY_F1},
+  {"f2", GRUB_TERM_KEY_F2},
+  {"f3", GRUB_TERM_KEY_F3},
+  {"f4", GRUB_TERM_KEY_F4},
+  {"f5", GRUB_TERM_KEY_F5},
+  {"f6", GRUB_TERM_KEY_F6},
+  {"f7", GRUB_TERM_KEY_F7},
+  {"f8", GRUB_TERM_KEY_F8},
+  {"f9", GRUB_TERM_KEY_F9},
+  {"f10", GRUB_TERM_KEY_F10},
+  {"f11", GRUB_TERM_KEY_F11},
+  {"f12", GRUB_TERM_KEY_F12},
+};
+
+static void
+free_menu (grub_menu_t menu)
 {
   grub_menu_entry_t entry = menu->entry_list;
 
   while (entry)
-    {
-      grub_menu_entry_t next_entry = entry->next;
-      grub_size_t i;
+  {
+    grub_menu_entry_t next_entry = entry->next;
+    grub_size_t i;
 
-      if (entry->classes)
-	{
-	  struct grub_menu_entry_class *class;
-	  for (class = entry->classes; class; class = class->next)
-	    grub_free (class->name);
-	  grub_free (entry->classes);
-	}
-
-      if (entry->args)
-	{
-	  for (i = 0; entry->args[i]; i++)
-	    grub_free (entry->args[i]);
-	  grub_free (entry->args);
-	}
-	
-      if (entry->bls)
+    if (entry->classes)
     {
+      struct grub_menu_entry_class *class;
+      for (class = entry->classes; class; class = class->next)
+        grub_free (class->name);
+      grub_free (entry->classes);
+    }
+
+    if (entry->args)
+    {
+      for (i = 0; entry->args[i]; i++)
+        grub_free (entry->args[i]);
+      grub_free (entry->args);
+    }
+
+    if (entry->bls)
       entry->bls->visible = 0;
-    }
 
-      grub_free ((void *) entry->id);
-      grub_free ((void *) entry->users);
-      grub_free ((void *) entry->title);
-      grub_free ((void *) entry->sourcecode);
-      grub_free ((void *) entry->help_message);
-      grub_free (entry);
-      entry = next_entry;
-    }
+    grub_free ((void *) entry->id);
+    grub_free ((void *) entry->users);
+    grub_free ((void *) entry->title);
+    grub_free ((void *) entry->sourcecode);
+    grub_free ((void *) entry->help_message);
+    grub_free (entry);
+    entry = next_entry;
+  }
+}
 
+void
+grub_normal_free_menu (grub_menu_t menu)
+{
+  free_menu (menu);
   grub_free (menu);
   grub_env_unset_menu ();
+}
+
+void
+grub_normal_clear_menu (void)
+{
+  grub_menu_t menu = grub_env_get_menu ();
+  if (!menu)
+    return;
+  free_menu (menu);
+  menu->entry_list = NULL;
+  menu->size=0;
+}
+
+/* Add a menu entry to the current menu context (as given by the environment
+   variable data slot `menu').  As the configuration file is read, the script
+   parser calls this when a menu entry is to be created.  */
+grub_err_t
+grub_normal_add_menu_entry (int argc, const char **args, char **classes,
+                            const char *id, const char *users, const char *hotkey,
+                            const char *prefix, const char *sourcecode,
+                            const char * help_message,
+                            grub_uint8_t flag, int *index, struct bls_entry *bls)
+{
+  int menu_hotkey = 0;
+  char **menu_args = NULL;
+  char *menu_users = NULL;
+  char *menu_title = NULL;
+  char *menu_sourcecode = NULL;
+  char *menu_id = NULL;
+  char *menu_help_message = NULL;
+  struct grub_menu_entry_class *menu_classes = NULL;
+  const char *enable_hotkey = NULL;
+
+  grub_menu_t menu;
+  grub_menu_entry_t *last;
+
+  menu = grub_env_get_menu ();
+  if (! menu)
+    return grub_error (GRUB_ERR_MENU, "no menu context");
+
+  last = &menu->entry_list;
+
+  menu_sourcecode = grub_xasprintf ("%s%s", prefix ?: "", sourcecode);
+  if (! menu_sourcecode)
+    return grub_errno;
+
+  if (classes && classes[0])
+  {
+    int i;
+    for (i = 0; classes[i]; i++); /* count # of menuentry classes */
+    menu_classes = grub_zalloc (sizeof (struct grub_menu_entry_class) * (i + 1));
+    if (! menu_classes)
+      goto fail;
+
+    for (i = 0; classes[i]; i++)
+    {
+      menu_classes[i].name = grub_strdup (classes[i]);
+      if (! menu_classes[i].name)
+        goto fail;
+      menu_classes[i].next = classes[i + 1] ? &menu_classes[i + 1] : NULL;
+    }
+  }
+
+  if (users)
+  {
+    menu_users = grub_strdup (users);
+    if (! menu_users)
+      goto fail;
+  }
+
+  if (hotkey)
+  {
+    unsigned i;
+    for (i = 0; i < ARRAY_SIZE (hotkey_aliases); i++)
+      if (grub_strcmp (hotkey, hotkey_aliases[i].name) == 0)
+      {
+        menu_hotkey = hotkey_aliases[i].key;
+        break;
+      }
+    if (i == ARRAY_SIZE (hotkey_aliases))
+    {
+      if (grub_strlen (hotkey) >= 3 && hotkey[0] == '0' && hotkey[1] == 'x')
+        menu_hotkey = (int) grub_strtoul (hotkey, NULL, 16);
+      else
+        menu_hotkey = hotkey[0];
+    }
+  }
+
+  if(help_message)
+  {
+    menu_help_message = grub_strdup(help_message);
+    if(!menu_help_message)
+      goto fail;
+  }
+
+  if (! argc)
+  {
+    grub_error (GRUB_ERR_MENU, "menuentry is missing title");
+    goto fail;
+  }
+
+  enable_hotkey = grub_env_get ("grub_enable_menu_hotkey");
+  if (flag & GRUB_MENU_FLAG_HIDDEN)
+    menu_title = grub_strdup ("");
+  else
+  {
+    if (enable_hotkey && enable_hotkey[0] == '1' && hotkey)
+      menu_title = grub_xasprintf ("[%s] %s", hotkey, args[0]);
+    else
+      menu_title = grub_strdup (args[0]);
+  }
+  if (! menu_title)
+    goto fail;
+
+  grub_dprintf ("menu", "id:\"%s\"\n", id);
+  grub_dprintf ("menu", "title:\"%s\"\n", menu_title);
+  menu_id = grub_strdup (id ? : menu_title);
+  if (! menu_id)
+    goto fail;
+  grub_dprintf ("menu", "menu_id:\"%s\"\n", menu_id);
+
+  /* Save argc, args to pass as parameters to block arg later. */
+  menu_args = grub_calloc (argc + 1, sizeof (char *));
+  if (! menu_args)
+    goto fail;
+
+  {
+    int i;
+    for (i = 0; i < argc; i++)
+    {
+      menu_args[i] = grub_strdup (args[i]);
+      if (! menu_args[i])
+        goto fail;
+    }
+    menu_args[argc] = NULL;
+  }
+
+  /* Add the menu entry at the end of the list.  */
+  int ind = 0;
+  while (*last)
+  {
+    ind++;
+    last = &(*last)->next;
+  }
+
+  *last = grub_zalloc (sizeof (**last));
+  if (! *last)
+    goto fail;
+
+  (*last)->title = menu_title;
+  (*last)->id = menu_id;
+  (*last)->hotkey = menu_hotkey;
+  (*last)->classes = menu_classes;
+  if (menu_users)
+    (*last)->restricted = 1;
+  (*last)->users = menu_users;
+  (*last)->argc = argc;
+  (*last)->args = menu_args;
+  (*last)->sourcecode = menu_sourcecode;
+  (*last)->flag = flag;
+  (*last)->bls = bls;
+  (*last)->help_message = menu_help_message;
+
+  if (!(flag & GRUB_MENU_FLAG_HIDDEN))
+    menu->size++;
+  if (index)
+    *index = ind;
+  return GRUB_ERR_NONE;
+
+ fail:
+
+  grub_free (menu_sourcecode);
+  {
+    int i;
+    for (i = 0; menu_classes && menu_classes[i].name; i++)
+      grub_free (menu_classes[i].name);
+    grub_free (menu_classes);
+  }
+
+  {
+    int i;
+    for (i = 0; menu_args && menu_args[i]; i++)
+      grub_free (menu_args[i]);
+    grub_free (menu_args);
+  }
+  grub_free (menu_help_message);
+  grub_free (menu_users);
+  grub_free (menu_title);
+  grub_free (menu_id);
+  return grub_errno;
 }
 
 static grub_uint8_t utf8bom[] = {0xef, 0xbb, 0xbf};
