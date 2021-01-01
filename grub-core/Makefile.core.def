@@ -2935,3 +2935,10 @@ module = {
   common = commands/i386/multiboot/mbinfo.c;
   enable = i386_multiboot;
 };
+
+module = {
+  name = geometry;
+  common = commands/i386/pc/geometry.c;
+  enable = i386_pc;
+  enable = i386_multiboot;
+};
