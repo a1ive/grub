@@ -2703,6 +2703,11 @@ module = {
 };
 
 module = {
+  name = fixed_vdi;
+  common = io/fixed_vdi.c;
+};
+
+module = {
   name = vboot;
   i386_pc = vboot/vboot.c;
   i386_pc = vboot/dl.c;
