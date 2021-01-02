@@ -215,7 +215,8 @@ grub_wimboot_init (int argc, char *argv[])
     grub_file_t file = 0;
     if (grub_memcmp (argv[i], "@:", 2) == 0 ||
         grub_memcmp (argv[i], "m:", 2) == 0 ||
-        grub_memcmp (argv[i], "b:", 2) == 0)
+        grub_memcmp (argv[i], "b:", 2) == 0 ||
+        grub_memcmp (argv[i], "f:", 2) == 0)
     {
       const char *ptr, *eptr;
       ptr = argv[i] + 2;
@@ -230,9 +231,9 @@ grub_wimboot_init (int argc, char *argv[])
     }
     int mem = 0;
     int bl = 0;
-    if (argv[i][0] == 'm')
+    if (argv[i][0] == 'm' || argv[i][0] == 'f')
       mem = 1;
-    if (argv[i][0] == 'b')
+    if (argv[i][0] == 'b' || argv[i][0] == 'f')
       bl = 1;
     file = file_open (fname, mem, bl, 0);
     if (!file)

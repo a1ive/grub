@@ -160,7 +160,8 @@ grub_fs_blocklist_open (grub_file_t file, const char *name)
   unsigned i;
   grub_disk_t disk = file->device->disk;
   struct grub_fs_block *blocks;
-  grub_size_t max_sectors;
+  grub_uint64_t max_sectors;
+  grub_uint64_t part_sectors = 0;
 
   /* First, count the number of blocks.  */
   do
@@ -183,7 +184,13 @@ grub_fs_blocklist_open (grub_file_t file, const char *name)
   if (! *p)
   {
     blocks[0].offset = 0;
-    blocks[0].length = max_sectors << GRUB_DISK_SECTOR_BITS;
+    if (disk->partition)
+    {
+      part_sectors = grub_disk_from_native_sector (disk, disk->partition->len);
+      blocks[0].length = part_sectors << GRUB_DISK_SECTOR_BITS;
+    }
+    else
+      blocks[0].length = max_sectors << GRUB_DISK_SECTOR_BITS;
     file->size = blocks[0].length;
   }
   else for (i = 0; i < num; i++)
@@ -249,11 +256,11 @@ grub_fs_blocklist_rw (int write, grub_file_t file, char *buf, grub_size_t len)
       if (offset + size > p->length)
         size = p->length - offset;
 
-      if ((write) ?
-           grub_disk_write_weak (file->device->disk, 0, p->offset + offset,
-              size, buf) :
+      if ((write ?
+          grub_disk_write_weak (file->device->disk, 0, p->offset + offset,
+                                size, buf) :
            grub_disk_read_ex (file->device->disk, 0, p->offset + offset,
-              size, buf, file->blocklist) != GRUB_ERR_NONE)
+              size, buf, file->blocklist)) != GRUB_ERR_NONE)
         return -1;
 
       ret += size;
@@ -309,11 +316,12 @@ read_blocklist (grub_disk_addr_t sector, unsigned offset,
                 unsigned length, void *ctx)
 {
   struct read_blocklist_ctx *c = ctx;
+  grub_off_t block_offset;
 
-  sector = ((sector - c->part_start) << GRUB_DISK_SECTOR_BITS) + offset;
+  block_offset = ((sector - c->part_start) << GRUB_DISK_SECTOR_BITS) + offset;
 
-  if ((c->num) &&
-      (c->blocks[c->num - 1].offset + c->blocks[c->num - 1].length == sector))
+  if (c->num && (c->blocks[c->num - 1].offset
+                 + c->blocks[c->num - 1].length == block_offset))
   {
     c->blocks[c->num - 1].length += length;
     goto quit;
@@ -327,7 +335,7 @@ read_blocklist (grub_disk_addr_t sector, unsigned offset,
       return;
   }
 
-  c->blocks[c->num].offset = sector;
+  c->blocks[c->num].offset = block_offset;
   c->blocks[c->num].length = length;
   c->num++;
 
@@ -354,7 +362,8 @@ grub_blocklist_offset_convert (grub_file_t file, grub_off_t ofs, grub_off_t len)
   file->read_hook_data = &c;
   grub_file_dummy_read (file);
   file->read_hook = 0;
-  if ((grub_errno) || (c.total_size != file->size - ofs))
+  file->read_hook_data = 0;
+  if (grub_errno || (c.total_size != file->size - ofs))
   {
     grub_errno = 0;
     c.num = 0;

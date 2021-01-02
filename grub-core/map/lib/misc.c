@@ -116,10 +116,10 @@ allocate_pages (grub_efi_physical_address_t address, grub_efi_uintn_t pages,
 }
 
 static void *
-efi_malloc (grub_efi_uintn_t size, grub_efi_memory_type_t memtype)
+efi_malloc (grub_efi_uint64_t size, grub_efi_memory_type_t memtype)
 {
   void *ret = NULL;
-  grub_efi_uintn_t pages = ((grub_efi_uintn_t) size + ((1 << 12) - 1)) >> 12;
+  grub_efi_uintn_t pages = (size + ((1 << 12) - 1)) >> 12;
   struct findmem_ctx ctx;
   ctx.size = size;
   ctx.addr = 0;
@@ -190,7 +190,7 @@ grub_file_t
 file_open (const char *name, int mem, int bl, int rt)
 {
   grub_file_t file = 0;
-  grub_size_t size = 0;
+  unsigned long long size = 0;
   enum grub_file_type type = GRUB_FILE_TYPE_LOOPBACK;
 
   file = grub_file_open (name, type);
@@ -218,19 +218,47 @@ file_open (const char *name, int mem, int bl, int rt)
     }
     grub_printf ("Loading %s to %p ...\n", name, addr);
     grub_refresh ();
-    grub_file_read (file, addr, size);
+    file_read (file, addr, size, 0);
     grub_file_close (file);
-    grub_snprintf (newname, 100, "mem:%p:size:%lld", addr, (unsigned long long)size);
+    grub_snprintf (newname, 100, "mem:%p:size:%lld", addr, size);
     file = grub_file_open (newname, type);
   }
   return file;
 }
 
+#define BLK_32M (32 * 1024 * 1024)
+
 void
 file_read (grub_file_t file, void *buf, grub_size_t len, grub_off_t offset)
 {
+  unsigned long size = BLK_32M;
+  long ret;
+  grub_uint8_t *p = buf;
+  if (offset >= file->size)
+  {
+    grub_printf ("read out of range\n");
+    grub_memset (buf, 0, len);
+    return;
+  }
+  if (file->size < offset + len)
+  {
+    grub_off_t amount = offset + len - file->size;
+    len -= amount;
+    grub_printf ("read len out of range\n");
+    grub_memset ((grub_uint8_t *) buf + len, 0, amount);
+  }
   grub_file_seek (file, offset);
-  grub_file_read (file, buf, len);
+  while (len > 0)
+  {
+    size = (len > size) ? size : len;
+    ret = grub_file_read (file, p, size);
+    //grub_printf ("read addr=%p size=%lu ret=%ld\n", p, size, ret);
+    //grub_refresh ();
+    if (ret < 0)
+      break;
+    p += ret;
+    len -= ret;
+  }
 }
 
 void
@@ -238,7 +266,7 @@ file_write (grub_file_t file, const void *buf, grub_size_t len, grub_off_t offse
 {
   if (grub_ismemfile (file->name))
   {
-    grub_memcpy((grub_uint8_t *)(file->data) + offset, buf, len);
+    grub_memcpy ((grub_uint8_t *)(file->data) + offset, buf, len);
   }
   else if (file->fs && grub_strcmp (file->fs->name, "blocklist") == 0)
   {
