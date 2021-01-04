@@ -123,7 +123,7 @@ grub_normal_clear_menu (void)
   grub_menu_t menu = grub_env_get_menu ();
   if (!menu)
     return;
-  free_menu (menu);
+  //free_menu (menu);
   menu->entry_list = NULL;
   menu->size=0;
 }
