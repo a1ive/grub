@@ -16,7 +16,7 @@
  *  along with GRUB.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-EXPR_INT64 SUFFIX(eval_expr_0) (char **ps);
+static EXPR_INT64 SUFFIX(eval_expr_0) (char **ps);
 
 static EXPR_INT64 SUFFIX(parse_sgn) (int32_t sign, EXPR_INT64 num)
 {
@@ -116,7 +116,7 @@ static EXPR_INT64 SUFFIX(eval_expr_1) (char **ps)
   return (lhs);
 }
 
-EXPR_INT64 SUFFIX(eval_expr_0) (char **ps)
+static EXPR_INT64 SUFFIX(eval_expr_0) (char **ps)
 {
   EXPR_INT64 lhs;
   EXPR_INT64 rhs;
