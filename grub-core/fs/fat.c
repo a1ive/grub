@@ -289,6 +289,28 @@ grub_fat_mount (grub_disk_t disk)
 			    ? grub_le_to_cpu16 (bpb.sectors_per_fat_16)
 			    : grub_le_to_cpu32 (bpb.version_specific.fat32.sectors_per_fat_32))
 			   << data->logical_sector_bits);
+  // Miray Workaround
+  if (bpb.sectors_per_fat_16)
+    data->sectors_per_fat = grub_le_to_cpu16 (bpb.sectors_per_fat_16) << data->logical_sector_bits;
+  else
+    {
+      /* Workaround for buggy BIOSes which replace offset 0x24 in the bpb 
+         with the drive number. This offset is part of sectors_per_fat_32 in
+         the fat32 structure. 
+         We read the backup bpb (if available) and use the value there */
+      struct grub_fat_bpb backup_bpb;
+      grub_uint32_t backup_bpb_address = grub_le_to_cpu16 (bpb.version_specific.fat32.backup_boot_sector) << data->logical_sector_bits;
+      if (bpb.version_specific.fat32.backup_boot_sector && 
+	  (! grub_disk_read (disk,
+			     backup_bpb_address,
+			     0,
+			     sizeof (backup_bpb),
+			     &backup_bpb)))
+	data->sectors_per_fat = grub_le_to_cpu32 (backup_bpb.version_specific.fat32.sectors_per_fat_32) << data->logical_sector_bits;
+
+      if (data->sectors_per_fat == 0)
+	data->sectors_per_fat = grub_le_to_cpu32 (bpb.version_specific.fat32.sectors_per_fat_32) << data->logical_sector_bits;
+    }
 #endif
   if (data->sectors_per_fat == 0)
     goto fail;
