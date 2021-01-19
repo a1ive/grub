@@ -1,0 +1,36 @@
+From 5064d8e01ae70ab5e22db73a49c072a2f40b1a4f Mon Sep 17 00:00:00 2001
+From: Thomas Frauendorfer <tf@miray.de>
+Date: Fri, 19 Sep 2014 10:13:27 +0200
+Subject: [PATCH 30/41] grub normal updates
+
+---
+ grub-core/normal/menu.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/grub-core/normal/menu.c b/grub-core/normal/menu.c
+index f32991f..d24696f 100755
+--- a/grub-core/normal/menu.c
++++ b/grub-core/normal/menu.c
+@@ -901,7 +901,8 @@ grub_show_menu (grub_menu_t menu, int nested, int autoboot)
+     {
+       err1 = show_menu (menu, nested, autoboot);
+       autoboot = 0;
+-      grub_print_error ();
++      if (err1)
++        grub_print_error ();
+ 
+       if (grub_normal_exit_level)
+ 	break;
+@@ -909,8 +910,7 @@ grub_show_menu (grub_menu_t menu, int nested, int autoboot)
+       err2 = grub_auth_check_authentication (NULL);
+       if (err2)
+ 	{
+-     if (miray_debugmode())
+-	    grub_print_error ();
++	  grub_print_error ();
+ 	  grub_errno = GRUB_ERR_NONE;
+ 	  continue;
+ 	}
+-- 
+1.9.2.msysgit.0
+

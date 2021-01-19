@@ -1,0 +1,157 @@
+AutoGen definitions Makefile.tpl;
+
+
+image = {
+  name = boot;
+  i386_pc = boot/i386/pc/boot_rel.S;
+  i386_qemu = boot/i386/qemu/boot.S;
+  sparc64_ieee1275 = boot/sparc64/ieee1275/boot.S;
+
+  i386_pc_ldflags = '$(TARGET_IMG_LDFLAGS)';
+  i386_pc_ldflags = '$(TARGET_IMG_BASE_LDOPT),0x7C00';
+
+  i386_qemu_ldflags = '$(TARGET_IMG_LDFLAGS)';
+  i386_qemu_ldflags = '$(TARGET_IMG_BASE_LDOPT),$(GRUB_BOOT_MACHINE_LINK_ADDR)';
+  i386_qemu_ccasflags = '-DGRUB_BOOT_MACHINE_LINK_ADDR=$(GRUB_BOOT_MACHINE_LINK_ADDR)';
+
+  sparc64_ieee1275_objcopyflags = '-O a.out-sunos-big';
+  sparc64_ieee1275_ldflags = ' -Wl,-Ttext=0x4000';
+
+  objcopyflags = '-O binary';
+  enable = i386_pc;
+  enable = i386_qemu;
+  enable = sparc64_ieee1275;
+};
+
+
+
+image = {
+  name = boot_dump;
+  i386_pc = boot/i386/pc/boot_dump.S;
+  i386_qemu = boot/i386/qemu/boot.S;
+  sparc64_ieee1275 = boot/sparc64/ieee1275/boot.S;
+
+  i386_pc_ldflags = '$(TARGET_IMG_LDFLAGS)';
+  i386_pc_ldflags = '$(TARGET_IMG_BASE_LDOPT),0x7C00';
+
+  i386_qemu_ldflags = '$(TARGET_IMG_LDFLAGS)';
+  i386_qemu_ldflags = '$(TARGET_IMG_BASE_LDOPT),$(GRUB_BOOT_MACHINE_LINK_ADDR)';
+  i386_qemu_ccasflags = '-DGRUB_BOOT_MACHINE_LINK_ADDR=$(GRUB_BOOT_MACHINE_LINK_ADDR)';
+
+  sparc64_ieee1275_objcopyflags = '-O a.out-sunos-big';
+  sparc64_ieee1275_ldflags = ' -Wl,-Ttext=0x4000';
+
+  objcopyflags = '-O binary';
+  enable = i386_pc;
+  enable = i386_qemu;
+  enable = sparc64_ieee1275;
+};
+
+
+
+image = {
+  name = diskboot;
+  i386_pc = boot/i386/pc/diskboot_rel.S;
+
+  i386_pc_ldflags = '$(TARGET_IMG_LDFLAGS)';
+  i386_pc_ldflags = '$(TARGET_IMG_BASE_LDOPT),0x8000';
+
+  sparc64_ieee1275 = boot/sparc64/ieee1275/diskboot.S;
+  sparc64_ieee1275_ldflags = '-Wl,-Ttext=0x4200';
+
+  objcopyflags = '-O binary';
+
+  enable = i386_pc;
+  enable = sparc64_ieee1275;
+};
+
+
+
+module = {
+  name = miray;
+  common = miray/bootscreen/main.c;
+  common = miray/bootscreen/miray_logo.c;
+  common = miray/bootscreen/text_progress_bar.c;
+  common = miray/bootscreen/miray_screen.c;
+  common = miray/bootscreen/miray_text_screen.c;
+  common = miray/bootscreen/miray_bootscreen.c;
+  common = miray/bootscreen/miray_segmented_file_helpers.c;
+};
+
+
+
+module = {
+  name = miray_gfx;
+  common = miray/bootscreen/miray_gfx_main.c;
+  common = miray/bootscreen/miray_gfx_screen.c;
+  common = miray/bootscreen/gui_activity_bar.c;
+};
+
+
+
+module = {
+  name = miray_test;
+  common = miray/bootscreen/bootscreen_test.c;
+};
+
+
+
+module = {
+  name = isprefix;
+  common = miray/commands/isprefix.c;
+};
+
+
+
+module = {
+  name = boothelper;
+  common = miray/commands/boothelper.c;
+  
+  i386_pc = miray/commands/boothelper_bios.c;
+  efi = miray/commands/boothelper_efi.c;
+  efi = miray/lib/efi.c;
+
+  i386_pc = commands/i386/pc/acpi.c;
+  efi = commands/efi/acpi.c;
+};
+
+
+
+module = { 
+  name = miray_diag;
+  common = miray/commands/diag.c;
+  common = lib/hexdump.c;
+
+  i386_pc = miray/commands/diag_bios.c;
+  efi = miray/commands/diag_efi.c;
+  efi = miray/lib/efi.c;
+};
+
+
+
+module = {
+  name = miray_bootlog;
+  common = miray/bootlog/bootlog.c;
+};
+
+
+
+module = { 
+  name = miray_activity;
+  common = miray/lib/activity.c;
+};
+
+
+
+module = {
+  name = segmented_file;
+  common = miray/io/segmented_file.c;
+};
+
+
+
+module = {
+  name = lzmaio;
+  common = miray/io/lzmaio.c;
+  common = lib/LzmaDec.c;
+};

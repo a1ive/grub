@@ -1,0 +1,60 @@
+From df4a0f2d9c5c28e2f10a7ed426587245bbfe7499 Mon Sep 17 00:00:00 2001
+From: Thomas Frauendorfer <tf@miray.de>
+Date: Tue, 6 May 2014 10:45:42 +0200
+Subject: [PATCH 16/41] Additional symbols for terminal
+
+---
+ grub-core/normal/term.c | 27 +++++++++++++++++++++++++--
+ 1 file changed, 25 insertions(+), 2 deletions(-)
+ mode change 100644 => 100755 grub-core/normal/term.c
+
+diff --git a/grub-core/normal/term.c b/grub-core/normal/term.c
+old mode 100644
+new mode 100755
+index 4c2238b..deaac29
+--- a/grub-core/normal/term.c
++++ b/grub-core/normal/term.c
+@@ -176,7 +176,30 @@ map_code (grub_uint32_t in, struct grub_term_output *term)
+ 	  return GRUB_CP437_CORNER_LL;
+ 	case GRUB_UNICODE_CORNER_LR:
+ 	  return GRUB_CP437_CORNER_LR;
+-	}
++	case 0xc4: // 'Ä'
++	  return 0x8e;
++	case 0xd6: // 'Ö'
++	  return 0x99;
++	case 0xdc: // 'Ü'
++	  return 0x9a;
++	case 0xe4: // ä
++	  return 0x84;
++	case 0xf6: // ö
++	  return 0x94;
++	case 0xfc: // ü
++	  return 0x81;
++	case 0x2580:    /* half upper block */
++	  return 0xdf;
++	case 0x2584:    /* half lower block */
++	  return 0xdc;
++	case 0x2588:    /* full block */
++	  return 0xdb;
++	case 0x2591:
++	  return 0xb0;     /* light shade */
++	case 0x2592:
++	  return 0xb1;     /* medium shade */
++	case 0x2593:
++	  return 0xb2;     /* dark shade */			}
+       return '?';
+     case GRUB_TERM_CODE_TYPE_ASCII:
+       /* Better than nothing.  */
+@@ -205,7 +228,7 @@ map_code (grub_uint32_t in, struct grub_term_output *term)
+ 	case GRUB_UNICODE_CORNER_LL:
+ 	case GRUB_UNICODE_CORNER_LR:
+ 	  return '+';
+-		
++
+ 	}
+       return '?';
+     }
+-- 
+1.9.2.msysgit.0
+

@@ -1,0 +1,62 @@
+From 7f590ba30a68888935c060c32b91245afd6085d3 Mon Sep 17 00:00:00 2001
+From: Thomas Frauendorfer <tf@miray.de>
+Date: Mon, 5 May 2014 14:54:00 +0200
+Subject: [PATCH 12/41] Remove grub boot messages
+
+---
+ grub-core/boot/i386/pc/boot.S     | 5 +++--
+ grub-core/boot/i386/pc/diskboot.S | 5 ++++-
+ 2 files changed, 7 insertions(+), 3 deletions(-)
+
+diff --git a/grub-core/boot/i386/pc/boot.S b/grub-core/boot/i386/pc/boot.S
+index b4975e2..8a7c7df 100644
+--- a/grub-core/boot/i386/pc/boot.S
++++ b/grub-core/boot/i386/pc/boot.S
+@@ -250,7 +250,7 @@ real_start:
+ 	pushw	%dx
+ 
+ 	/* print a notification message on the screen */
+-	MSG(notification_string)
++	/* MSG(notification_string) */
+ 
+ 	/* set %si to the disk address packet */
+ 	movw	$disk_address_packet, %si
+@@ -478,7 +478,8 @@ LOCAL(general_error):
+ LOCAL(stop):
+ 	jmp	LOCAL(stop)
+ 
+-notification_string:	.asciz "GRUB "
++/* notification_string:	.asciz "GRUB " */
++notification_string:    .asciz ""
+ geometry_error_string:	.asciz "Geom"
+ hd_probe_error_string:	.asciz "Hard Disk"
+ read_error_string:	.asciz "Read"
+diff --git a/grub-core/boot/i386/pc/diskboot.S b/grub-core/boot/i386/pc/diskboot.S
+index d030a14..1670a5f 100644
+--- a/grub-core/boot/i386/pc/diskboot.S
++++ b/grub-core/boot/i386/pc/diskboot.S
+@@ -51,9 +51,11 @@ _start:
+ 	pushw	%dx
+ 
+ 	/* print a notification message on the screen */
++	/* Miray Disable
+ 	pushw	%si
+ 	MSG(notification_string)
+ 	popw	%si
++	*/
+ 
+ 	/* this sets up for the first run through "bootloop" */
+ 	movw	$LOCAL(firstlist), %di
+@@ -320,7 +322,8 @@ LOCAL(general_error):
+ /* go here when you need to stop the machine hard after an error condition */
+ LOCAL(stop):	jmp	LOCAL(stop)
+ 
+-notification_string:	.asciz "loading"
++/* notification_string:	.asciz "loading" */
++notifcitaion_string:	.asciz ""
+ 
+ notification_step:	.asciz "."
+ notification_done:	.asciz "\r\n"
+-- 
+1.9.2.msysgit.0
+

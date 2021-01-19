@@ -1,0 +1,424 @@
+From 66c292eb563f0dda87070a86b1748c2fc0a84ce6 Mon Sep 17 00:00:00 2001
+From: Thomas Frauendorfer <tf@miray.de>
+Date: Tue, 21 Oct 2014 09:53:02 +0200
+Subject: [PATCH 35/41] update to text screen
+
+---
+ grub-core/miray/bootscreen/main.c              | 27 +++++++++-
+ grub-core/miray/bootscreen/miray_constants.h   |  2 +-
+ grub-core/miray/bootscreen/miray_screen.c      | 52 ++++++++++++++++--
+ grub-core/miray/bootscreen/miray_screen.h      |  3 ++
+ grub-core/miray/bootscreen/miray_text_screen.c | 75 ++++++++++++++++++++++----
+ grub-core/miray/bootscreen/text_progress_bar.c | 26 ++++-----
+ 6 files changed, 151 insertions(+), 34 deletions(-)
+
+diff --git a/grub-core/miray/bootscreen/main.c b/grub-core/miray/bootscreen/main.c
+index 449f051..fa174b8 100755
+--- a/grub-core/miray/bootscreen/main.c
++++ b/grub-core/miray/bootscreen/main.c
+@@ -31,6 +31,7 @@
+ #include <grub/mm.h>
+ #include <grub/misc.h>
+ #include <grub/menu.h>
++#include <grub/miray_debug.h>
+ 
+ #include "miray_bootscreen.h"
+ #include "miray_constants.h"
+@@ -116,13 +117,35 @@ miray_cmd_submenu (struct grub_command *cmd __attribute__ ((unused)),
+    return miray_bootscreen_run_submenu(argv[0]);
+ }
+ 
++static int getkey_norefresh(void)
++{
++   while (1)
++   {
++      int ret = grub_getkey_noblock ();
++      if (ret != GRUB_TERM_NO_KEY)
++         return ret;
++      grub_cpu_idle ();
++    }
++}
++
+ static grub_err_t
+ miray_cmd_fatal (struct grub_command *cmd __attribute__ ((unused)),
+ 		int argc, char *argv[])
+ {
++   if (!miray_debugmode())
++   {
++      while(grub_error_pop()) {}
++   }
++   
+    if (argc > 0) 
+    {
+-      miray_screen_message_box((const char **)argv, 0);
++      //miray_screen_message_box((const char **)argv, 0);
++      int i;
++      const char ** tmp = grub_zalloc((argc + 1) * sizeof(char *));
++      for (i = 0; i < argc; i++)
++         tmp[i] = argv[i];
++      miray_screen_message_box(tmp, 0);
++      grub_free(tmp);
+    }  
+    else
+    {
+@@ -132,7 +155,7 @@ miray_cmd_fatal (struct grub_command *cmd __attribute__ ((unused)),
+ 
+    if (grub_term_inputs)
+    {
+-      grub_getkey ();
++      getkey_norefresh ();
+    }
+  
+    grub_reboot();
+diff --git a/grub-core/miray/bootscreen/miray_constants.h b/grub-core/miray/bootscreen/miray_constants.h
+index 283a2aa..076f998 100755
+--- a/grub-core/miray/bootscreen/miray_constants.h
++++ b/grub-core/miray/bootscreen/miray_constants.h
+@@ -24,7 +24,7 @@
+ static const unsigned int miray_pos_logo_top = 3;
+ static const unsigned int miray_pos_msg_starting_top = 13;
+ static const unsigned int miray_pos_activity_bar_top = 15;
+-static const unsigned int miray_size_activity_bar = 12;
++static const unsigned int miray_size_activity_bar = 24;
+ 
+ // static const unsigned int miray_activity_bar_speed = 50;
+ 
+diff --git a/grub-core/miray/bootscreen/miray_screen.c b/grub-core/miray/bootscreen/miray_screen.c
+index 8456745..b789ce6 100755
+--- a/grub-core/miray/bootscreen/miray_screen.c
++++ b/grub-core/miray/bootscreen/miray_screen.c
+@@ -47,6 +47,9 @@ struct miray_screen_common_data screen_data =
+    .timeout_stop    = 0,
+    .activity_descr  = 0,
+ 
++   .stage_max = 1,
++   .stage     = 0,
++
+ };
+ 
+ 
+@@ -66,16 +69,30 @@ miray_screen_file_progress_hook (grub_disk_addr_t sector __attribute__ ((unused)
+                                  void *data)
+ {
+    static unsigned int last_tick = 0;
++   grub_file_t file = data;
++
++   if (file->progress_offset >= file->size)
++      return;
++
++   if (file->progress_offset < file->offset)
++   {
++      file->progress_offset = file->offset;
++   }
+ 
++   file->progress_offset += length;
++   if (file->progress_offset > file->size)
++   {
++      file->progress_offset = file->size;
++   }
++   
+    if (_miray_screen == 0 || _miray_screen->set_progress == 0)
+       return;
+ 
+-   grub_file_t file = data;
+    if (file->size < 100 * 1024) // Avoid some very smal (file system?) reads
+       return;
+ 
+    grub_uint32_t cur = grub_get_time_ms(); // Avoid flicker
+-   if ((last_tick + 50) > cur) // update every 50 ms at max
++   if ((last_tick + 50) > cur && file->progress_offset < file->size) // update every 50 ms at max
+       return;
+ 
+    last_tick = cur;
+@@ -84,7 +101,8 @@ miray_screen_file_progress_hook (grub_disk_addr_t sector __attribute__ ((unused)
+    //if (file->size == 0)
+    //   return
+ 
+-   _miray_screen->set_progress(_miray_screen, file->offset + length, file->size);
++   //_miray_screen->set_progress(_miray_screen, file->offset + length, file->size);
++   _miray_screen->set_progress(_miray_screen, file->progress_offset, file->size);
+ }
+ 
+ 
+@@ -102,9 +120,19 @@ grub_err_t miray_screen_property(const char * name, const char * data)
+          screen_data.default_message = grub_strdup(data);
+    }
+    else if (grub_strcmp(name, "activity") == 0)
+-   {
++   {      
+       grub_free(screen_data.activity_descr);
+       screen_data.activity_descr = 0;
++
++      if (screen_data.stage_max < 1)
++      {
++         screen_data.stage_max = 1;
++      }
++
++      if (screen_data.stage < 1)
++      {
++         screen_data.stage = 1;
++      }
+    
+       if (data != 0)
+       {
+@@ -151,7 +179,17 @@ grub_err_t miray_screen_property(const char * name, const char * data)
+       if (data != 0)
+          screen_data.text_font = grub_strdup(data);
+    }
+-   
++   else if (grub_strcmp(name, "max_stage") == 0)
++   {
++      int num = (int) grub_strtoul (data, 0, 0);
++      screen_data.stage_max = num;
++   }
++   else if (grub_strcmp(name, "stage") == 0)
++   {
++      int num = (int) grub_strtoul (data, 0, 0);
++      screen_data.stage = num;
++   }
++      
+    if (_miray_screen != 0 && _miray_screen->property != 0)
+       return _miray_screen->property(_miray_screen, name, data);
+ 
+@@ -163,6 +201,8 @@ grub_err_t miray_screen_set_screen(struct miray_screen * screen)
+ {
+    grub_err_t ret = GRUB_ERR_NONE;
+ 
++   grub_dprintf("miray", "%s\n", __FUNCTION__);
++
+    if (screen != 0 && screen == _miray_screen) // Nothing to do in that case
+       return GRUB_ERR_NONE; 
+    
+@@ -407,6 +447,8 @@ grub_err_t miray_screen_init(void)
+ {
+    grub_err_t ret = GRUB_ERR_NONE;
+ 
++   grub_dprintf("miray", "%s\n", __FUNCTION__);
++
+    if ((ret = miray_screen_set_screen(0)) != GRUB_ERR_NONE)
+    {
+       return ret;
+diff --git a/grub-core/miray/bootscreen/miray_screen.h b/grub-core/miray/bootscreen/miray_screen.h
+index 35ec2d1..b9b946f 100755
+--- a/grub-core/miray/bootscreen/miray_screen.h
++++ b/grub-core/miray/bootscreen/miray_screen.h
+@@ -75,6 +75,9 @@ struct miray_screen_common_data
+    char * timeout_stop;
+    char * activity_descr;
+ 
++   int stage_max;
++   int stage;
++
+    /* Needed by gfx menu */
+    char * menu_font;
+    char * text_font;
+diff --git a/grub-core/miray/bootscreen/miray_text_screen.c b/grub-core/miray/bootscreen/miray_text_screen.c
+index d3f6fc2..a8aea46 100755
+--- a/grub-core/miray/bootscreen/miray_text_screen.c
++++ b/grub-core/miray/bootscreen/miray_text_screen.c
+@@ -52,7 +52,8 @@ compat_strncat (char *dest, const char *src, int c)
+ }
+ 
+ struct miray_text_screen_data {
+-   struct text_bar *bar;
++   struct text_bar *bar1;
++   struct text_bar *bar2;
+    const struct text_logo_data * logo;
+    char * menutext;
+    int show_bar;
+@@ -243,7 +244,8 @@ static grub_err_t miray_text_screen_destroy(struct miray_screen *scr)
+    //if (scr->term != 0)
+    //   grub_term_setcursor (scr->term, 1);	
+ 
+-   text_bar_destroy(data->bar);
++   text_bar_destroy(data->bar1);
++   text_bar_destroy(data->bar2);
+    grub_free(data->menutext);
+    grub_free (data);
+    grub_free (scr);
+@@ -315,7 +317,13 @@ static void miray_text_screen_put_text(struct miray_screen *scr)
+    }
+ 
+    if (data->show_bar > 0)
+-      text_bar_draw(data->bar);
++   {
++      text_bar_draw(data->bar1);
++      if (screen_data.stage_max > 1)
++      {
++         text_bar_draw(data->bar2);
++      }
++   }
+ 
+    if (data->show_bar < 0 && data->menutext!= 0)
+    {
+@@ -445,7 +453,27 @@ static grub_err_t miray_text_screen_property(struct miray_screen *scr, const cha
+          }
+       }
+    }
+-
++#if 0
++   else if (grub_strcmp(name, "max_stage") == 0)
++   {
++      if (screen_data.stage_max <= 1)
++      {
++         _set_single_progress_bar(data);
++      }
++      else
++      {
++         _set_dual_progress_bar(data);
++      }
++   }
++#endif
++   else if (grub_strcmp(name, "stage") == 0)
++   {
++      if (screen_data.stage > 1)
++      {
++         text_bar_set_progress(data->bar1, 1, 1);
++         //text_bar_set_progress(data->bar2, 0, 1);
++      }
++   }
+    return GRUB_ERR_NONE;
+ }
+ 
+@@ -456,7 +484,27 @@ static void miray_text_screen_set_progress(struct miray_screen *scr, grub_uint64
+    if (data && data->show_bar >= 0)
+    {
+       data->show_bar = 1;
+-      text_bar_set_progress(data->bar, cur, max);
++      if (screen_data.stage <= screen_data.stage_max)
++      {
++         switch(screen_data.stage)
++         {
++         case 0:
++         case 1:
++            text_bar_set_progress(data->bar1, cur, max);
++            text_bar_set_progress(data->bar2, 0, 1);
++            break;
++         case 2:
++            text_bar_set_progress(data->bar1, 1, 1);
++            text_bar_set_progress(data->bar2, cur, max);
++            break;
++         }
++      }
++
++      text_bar_draw(data->bar1);
++      if (screen_data.stage_max > 1)
++      {
++         text_bar_draw(data->bar2);
++      }
+    }
+ }
+ 
+@@ -467,7 +515,11 @@ static void miray_text_screen_finish(struct miray_screen *scr)
+    struct miray_text_screen_data * data = scr->data;
+ 
+    if (data->show_bar > 0)
+-      text_bar_finish(data->bar);
++   {
++      text_bar_finish(data->bar1);
++      if (screen_data.stage_max > 1)
++         text_bar_finish(data->bar2);
++   }
+ }
+ 
+ 
+@@ -542,7 +594,7 @@ static void miray_text_screen_message_box(struct miray_screen *scr, const char *
+    unsigned int y;
+    for (y = y_text_offset; y < y_text_offset + lines; y++)
+    {
+-      struct grub_term_coordinate pos = { .x = x_offset, .y = y_text_offset };
++      struct grub_term_coordinate pos = { .x = x_offset, .y = y };
+       const char * str = message[y - y_text_offset];
+       grub_term_gotoxy(scr->term, pos);
+       grub_putcode(c_v, scr->term);
+@@ -601,14 +653,18 @@ miray_text_screen_submenu_center_string(struct miray_screen *scr __attribute__ (
+ 
+ struct miray_screen *
+ miray_text_screen_new(struct grub_term_output *term)
+-{
++{   
+    struct miray_screen *ret = grub_zalloc(sizeof(struct miray_screen));
+    if (ret == 0)
+    {
++      grub_dprintf("miray", "%s: Out of memory\n", __FUNCTION__);
+       grub_error(GRUB_ERR_OUT_OF_MEMORY, "Out of Memory");
+       return 0;
+    }
+ 
++   grub_dprintf("miray", "%s\n", __FUNCTION__);
++
++
+    ret->destroy = miray_text_screen_destroy;
+    ret->reset   = miray_text_screen_reset;
+    ret->clear   = miray_text_screen_clear;
+@@ -635,7 +691,8 @@ miray_text_screen_new(struct grub_term_output *term)
+    ret->data = data;
+    ret->term = term;
+ 
+-   data->bar = text_progress_bar_new(term, offset_center(miray_size_activity_bar, term), miray_pos_activity_bar_top, miray_size_activity_bar);
++   data->bar1 = text_progress_bar_new(term, offset_center(miray_size_activity_bar, term), miray_pos_activity_bar_top, miray_size_activity_bar);
++   data->bar2 = text_progress_bar_new(term, offset_center(miray_size_activity_bar, term), miray_pos_activity_bar_top + 1, miray_size_activity_bar);
+ 
+    data->logo = logos[0];
+ 
+diff --git a/grub-core/miray/bootscreen/text_progress_bar.c b/grub-core/miray/bootscreen/text_progress_bar.c
+index 1e42e41..b476989 100755
+--- a/grub-core/miray/bootscreen/text_progress_bar.c
++++ b/grub-core/miray/bootscreen/text_progress_bar.c
+@@ -27,20 +27,10 @@
+ #include "miray_constants.h"
+ #include "text_progress_bar.h"
+ 
+-#if 0
+-#if defined(GRUB_MACHINE_PCBIOS)
+-# define PBAR_CHAR 0x2592
+-# define PBAR_CHAR_HIGHLIGHT 0x2592
+-#else
+-# define PBAR_CHAR 0x2591
+-# define PBAR_CHAR_HIGHLIGHT 0x2591
+-#endif
+-#endif
+-
+-# define PBAR_CHAR 0x2591
+-# define PBAR_CHAR_HIGHLIGHT 0x2588
+-
+-
++//# define PBAR_CHAR 0x2591
++//# define PBAR_CHAR_HIGHLIGHT 0x2588
++# define PBAR_CHAR GRUB_UNICODE_LIGHT_HLINE
++# define PBAR_CHAR_HIGHLIGHT GRUB_UNICODE_LIGHT_HLINE
+ 
+ 
+ struct text_bar {
+@@ -173,7 +163,7 @@ static void text_progress_bar_set_progress(struct text_bar * tbar, grub_uint64_t
+ 
+    bar->current_pos = grub_divmod64(cur * tbar->bar_len, max, 0);
+ 
+-	text_progress_bar_draw(tbar);
++	//text_progress_bar_draw(tbar);
+ }
+ 
+ 
+@@ -220,7 +210,8 @@ text_progress_bar_new_verbose(grub_term_output_t term, int offset_left, int offs
+ struct text_bar *
+ text_progress_bar_new (grub_term_output_t term, int offset_left, int offset_top, int len)
+ {
+-   return text_progress_bar_new_verbose(term, offset_left, offset_top, len, PBAR_CHAR, PBAR_CHAR_HIGHLIGHT, "light-gray/black", "blue/black");
++   //return text_progress_bar_new_verbose(term, offset_left, offset_top, len, PBAR_CHAR, PBAR_CHAR_HIGHLIGHT, "light-gray/black", "blue/black");
++   return text_progress_bar_new_verbose(term, offset_left, offset_top, len, PBAR_CHAR, PBAR_CHAR_HIGHLIGHT, "dark-gray/black", "white/black");
+ }
+ 
+ 
+@@ -307,7 +298,8 @@ text_activity_bar_new_verbose(grub_term_output_t term, int offset_left, int offs
+ struct text_bar *
+ text_activity_bar_new (grub_term_output_t term, int offset_left, int offset_top, int len)
+ {
+-   return text_activity_bar_new_verbose(term, offset_left, offset_top, len, PBAR_CHAR, PBAR_CHAR_HIGHLIGHT, "light-gray/black", "blue/black");
++   //return text_activity_bar_new_verbose(term, offset_left, offset_top, len, PBAR_CHAR, PBAR_CHAR_HIGHLIGHT, "light-gray/black", "blue/black");
++   return text_activity_bar_new_verbose(term, offset_left, offset_top, len, PBAR_CHAR, PBAR_CHAR_HIGHLIGHT, "dark-gray/black", "white/black");
+    
+ #if 0
+ 	struct text_activity_bar *ret;
+-- 
+1.9.2.msysgit.0
+

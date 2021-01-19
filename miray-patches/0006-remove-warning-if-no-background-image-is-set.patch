@@ -1,0 +1,29 @@
+From afe21d9cd8fe1f33fa5347b8a6e87e4623887fc5 Mon Sep 17 00:00:00 2001
+From: Thomas Frauendorfer <tf@miray.de>
+Date: Mon, 11 Aug 2014 15:18:58 +0200
+Subject: [PATCH 06/41] remove warning if no background image is set
+
+---
+ grub-core/gfxmenu/view.c | 3 +++
+ 1 file changed, 3 insertions(+)
+ mode change 100644 => 100755 grub-core/gfxmenu/view.c
+
+diff --git a/grub-core/gfxmenu/view.c b/grub-core/gfxmenu/view.c
+old mode 100644
+new mode 100755
+index ad5e82b..a853443
+--- a/grub-core/gfxmenu/view.c
++++ b/grub-core/gfxmenu/view.c
+@@ -556,6 +556,9 @@ init_background (grub_gfxmenu_view_t view)
+   if (view->scaled_desktop_image)
+     return;
+ 
++  if (!view->raw_desktop_image)
++    return;
++
+   struct grub_video_bitmap *scaled_bitmap;
+   if (view->desktop_image_scale_method ==
+       GRUB_VIDEO_BITMAP_SELECTION_METHOD_STRETCH)
+-- 
+1.9.2.msysgit.0
+

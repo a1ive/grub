@@ -1,0 +1,56 @@
+From 698e7190ea08437161d32a684ee6ee842567f4bb Mon Sep 17 00:00:00 2001
+From: Thomas Frauendorfer <tf@miray.de>
+Date: Wed, 7 May 2014 13:14:36 +0200
+Subject: [PATCH 20/41] additional GUIDs for lsefisystab
+
+---
+ grub-core/commands/efi/lsefisystab.c | 23 ++++++++++++++++++++++-
+ 1 file changed, 22 insertions(+), 1 deletion(-)
+ mode change 100644 => 100755 grub-core/commands/efi/lsefisystab.c
+
+diff --git a/grub-core/commands/efi/lsefisystab.c b/grub-core/commands/efi/lsefisystab.c
+old mode 100644
+new mode 100755
+index 8717db9..0c5f2ff
+--- a/grub-core/commands/efi/lsefisystab.c
++++ b/grub-core/commands/efi/lsefisystab.c
+@@ -24,6 +24,11 @@
+ #include <grub/charset.h>
+ #include <grub/efi/api.h>
+ #include <grub/efi/efi.h>
++#include <grub/efi/pci.h>
++#include <grub/efi/uga_draw.h>
++#include <grub/efi/graphics_output.h>
++#include <grub/efi/console_control.h>
++#include <grub/efi/edid.h>
+ 
+ GRUB_MOD_LICENSE ("GPLv3+");
+ 
+@@ -40,7 +45,23 @@ static const struct guid_mapping guid_mappings[] =
+     { GRUB_EFI_SAL_TABLE_GUID, "SAL"},
+     { GRUB_EFI_SMBIOS_TABLE_GUID, "SMBIOS"},
+     { GRUB_EFI_MPS_TABLE_GUID, "MPS"},
+-    { GRUB_EFI_HCDP_TABLE_GUID, "HCDP"}
++    { GRUB_EFI_HCDP_TABLE_GUID, "HCDP"},
++    // MIRAY additions
++    { GRUB_EFI_LOADED_IMAGE_GUID, "LOADED IMAGE" },
++    { GRUB_EFI_DISK_IO_GUID, "DISK IO" },
++    { GRUB_EFI_BLOCK_IO_GUID, "BLOCK IO" },
++    { GRUB_EFI_SERIAL_IO_GUID, "SERIAL IO" },
++    { GRUB_EFI_SIMPLE_NETWORK_GUID, "SIMPLE NETWORK" },
++    { GRUB_EFI_PXE_GUID , "PXE" },
++    { GRUB_EFI_DEVICE_PATH_GUID, "DEVICE PATH" },
++    { GRUB_EFI_GOP_GUID, "VIDEO GOP" },
++    { GRUB_EFI_CONSOLE_CONTROL_GUID, "CONSOLE CONTROL" },
++    { GRUB_EFI_EDID_ACTIVE_GUID, "EDID ACTIVE" },
++    { GRUB_EFI_EDID_DISCOVERED_GUID, "EDID DISCOVERED" },
++    { GRUB_EFI_EDID_OVERRIDE_GUID, "EDID OVERRIDE" },
++    { GRUB_EFI_UGA_DRAW_GUID, "UGA DRAW" },
++    { GRUB_EFI_PCI_IO_GUID, "PCI IO" },
++    { GRUB_EFI_PCI_ROOT_IO_GUID , "PCI ROOT IO" }
+   };
+ 
+ static grub_err_t
+-- 
+1.9.2.msysgit.0
+

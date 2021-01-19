@@ -1,0 +1,47 @@
+From a276b840464629fdaecbe7e813f83a717a34993a Mon Sep 17 00:00:00 2001
+From: Khem Raj <raj.khem@gmail.com>
+Date: Wed, 3 Sep 2014 01:15:08 -0700
+Subject: [PATCH 04/41] Fix build with glibc 2.20
+
+* grub-core/kern/emu/hostfs.c: squahes below warning
+  warning: #warning "_BSD_SOURCE and _SVID_SOURCE are deprecated, use _DEFAULT_SOURCE"
+
+Signed-off-by: Khem Raj <raj.khem@gmail.com>
+
+Upstream-Status: Submitted
+---
+ ChangeLog                   | 4 ++++
+ grub-core/kern/emu/hostfs.c | 4 ++++
+ 2 files changed, 8 insertions(+)
+
+diff --git a/ChangeLog b/ChangeLog
+index 0676065..ea011b7 100644
+--- a/ChangeLog
++++ b/ChangeLog
+@@ -1,3 +1,7 @@
++2014-09-15  Khem Raj <raj.khem@gmail.com>
++	* grub-core/kern/emu/hostfs.c: use _DEFAULT_SOURCE in addition to
++	_BSD_SOURCE to avoid warnings under glibc 2.20+.
++
+ 2014-09-08  Michael Chang  <mchang@suse.com>
+ 
+ 	* grub-core/fs/btrfs.c (grub_btrfs_extent_read): Fix extent size
+diff --git a/grub-core/kern/emu/hostfs.c b/grub-core/kern/emu/hostfs.c
+index 7e725f6..823116d 100644
+--- a/grub-core/kern/emu/hostfs.c
++++ b/grub-core/kern/emu/hostfs.c
+@@ -19,7 +19,11 @@
+ 
+ #include <config-util.h>
+ 
++/* Legacy feature macro.*/
+ #define _BSD_SOURCE
++/* New feature macro that provides everything _BSD_SOURCE and
++ *    _SVID_SOURCE provided and possibly more.  */
++#define _DEFAULT_SOURCE
+ #include <grub/fs.h>
+ #include <grub/file.h>
+ #include <grub/disk.h>
+-- 
+1.9.2.msysgit.0
+

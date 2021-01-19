@@ -1,0 +1,110 @@
+From 04e148cb9159a975a6b08fee84bd1ac4b2d279db Mon Sep 17 00:00:00 2001
+From: Thomas Frauendorfer <tf@miray.de>
+Date: Mon, 7 Dec 2015 13:58:59 +0100
+Subject: [PATCH 41/41] Add command to check if gfx menu is active
+
+---
+ grub-core/miray/bootscreen/miray_gfx_main.c | 36 +++++++++++++++++++++--------
+ 1 file changed, 26 insertions(+), 10 deletions(-)
+
+diff --git a/grub-core/miray/bootscreen/miray_gfx_main.c b/grub-core/miray/bootscreen/miray_gfx_main.c
+index 4ab1555..b26cf99 100755
+--- a/grub-core/miray/bootscreen/miray_gfx_main.c
++++ b/grub-core/miray/bootscreen/miray_gfx_main.c
+@@ -32,7 +32,7 @@ static int active = 0;
+ 
+ static grub_err_t
+ cmd_test_start (struct grub_command *cmd __attribute__ ((unused)),
+-		int argc __attribute__ ((unused)), char *argv[] __attribute__ ((unused)))
++                int argc __attribute__ ((unused)), char *argv[] __attribute__ ((unused)))
+ {
+    grub_err_t ret = GRUB_ERR_NONE;
+    
+@@ -54,7 +54,7 @@ cmd_test_start (struct grub_command *cmd __attribute__ ((unused)),
+ 
+ static grub_err_t
+ cmd_test_stop (struct grub_command *cmd __attribute__ ((unused)),
+-		int argc __attribute__ ((unused)), char *argv[] __attribute__ ((unused)))
++               int argc __attribute__ ((unused)), char *argv[] __attribute__ ((unused)))
+ {
+    grub_err_t ret = GRUB_ERR_NONE;
+ 
+@@ -69,7 +69,7 @@ cmd_test_stop (struct grub_command *cmd __attribute__ ((unused)),
+ 
+ static grub_err_t
+ cmd_gfx_toggle (struct grub_command *cmd __attribute__ ((unused)),
+-		int argc __attribute__ ((unused)), char *argv[] __attribute__ ((unused)))
++                int argc __attribute__ ((unused)), char *argv[] __attribute__ ((unused)))
+ {
+    grub_err_t ret = GRUB_ERR_NONE;
+    
+@@ -98,23 +98,38 @@ cmd_gfx_toggle (struct grub_command *cmd __attribute__ ((unused)),
+    return ret;
+ }
+ 
++static grub_err_t
++cmd_gfx_check(struct grub_command *cmd __attribute__ ((unused)),
++              int argc __attribute__ ((unused)), char *argv[] __attribute__ ((unused)))
++ {
++    if (active)
++         return GRUB_ERR_NONE;
++    else
++         return grub_error(GRUB_ERR_MENU, "GFX menu not active");
++ }
++
+ 
+ static grub_command_t _cmd_gfx_toggle;
+ static grub_command_t _cmd_test_start, _cmd_test_stop;
++static grub_command_t _cmd_gfx_check;
+ 
+ GRUB_MOD_INIT(miray_gfx_bootscreen)
+ {
+    _cmd_test_start = grub_register_command("miray_gfx_start",
+-				      cmd_test_start, 
+-				      0, N_("display the Miray bootscreen"));
++                                           cmd_test_start,
++                                           0, N_("display the Miray bootscreen"));
+ 
+    _cmd_test_stop = grub_register_command("miray_gfx_stop",
+-				      cmd_test_stop, 
+-				      0, N_("center string and output to env"));
++                                          cmd_test_stop,
++                                          0, N_("center string and output to env"));
+ 
+    _cmd_gfx_toggle = grub_register_command("miray_gfx_toggle",
+-                  cmd_gfx_toggle,
+-                  0, N_("toggle text and gfx mode"));
++                                           cmd_gfx_toggle,
++                                           0, N_("toggle text and gfx mode"));
++
++   _cmd_gfx_check = grub_register_command("miray_gfx_active",
++                                          cmd_gfx_check,
++                                          0, N_("Check if gfx menu is active"));
+ 
+    struct miray_screen * scr = miray_gfx_screen_new(grub_term_outputs);
+    if (scr != 0)
+@@ -131,6 +146,7 @@ GRUB_MOD_INIT(miray_gfx_bootscreen)
+             grub_wait_after_message();
+          }
+          miray_screen_destroy(scr);
++         scr = NULL;
+       }
+    }
+    else
+@@ -143,7 +159,6 @@ GRUB_MOD_INIT(miray_gfx_bootscreen)
+    }
+ 
+    while (grub_error_pop()) {};
+-      
+ }
+ 
+ GRUB_MOD_FINI(miray_gfX_bootscreen)
+@@ -154,4 +169,5 @@ GRUB_MOD_FINI(miray_gfX_bootscreen)
+    grub_unregister_command (_cmd_test_start);
+    grub_unregister_command (_cmd_test_stop);
+    grub_unregister_command (_cmd_gfx_toggle);
++   grub_unregister_command (_cmd_gfx_check);
+ }
+-- 
+1.9.2.msysgit.0
+

@@ -1,0 +1,25 @@
+From 32f15036d72819473d2e4ba802c398d624fa4aa7 Mon Sep 17 00:00:00 2001
+From: Thomas Frauendorfer <tf@miray.de>
+Date: Thu, 13 Nov 2014 17:27:39 +0100
+Subject: [PATCH 38/41] screen update
+
+---
+ grub-core/miray/bootscreen/miray_screen.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/grub-core/miray/bootscreen/miray_screen.c b/grub-core/miray/bootscreen/miray_screen.c
+index b789ce6..73ff3bb 100755
+--- a/grub-core/miray/bootscreen/miray_screen.c
++++ b/grub-core/miray/bootscreen/miray_screen.c
+@@ -449,6 +449,8 @@ grub_err_t miray_screen_init(void)
+ 
+    grub_dprintf("miray", "%s\n", __FUNCTION__);
+ 
++   screen_data.default_message = grub_strdup("Initializing ...");
++
+    if ((ret = miray_screen_set_screen(0)) != GRUB_ERR_NONE)
+    {
+       return ret;
+-- 
+1.9.2.msysgit.0
+

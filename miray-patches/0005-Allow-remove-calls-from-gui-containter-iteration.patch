@@ -1,0 +1,61 @@
+From 7520b2cd5e74409d4618d4bb39d8c75d4d6a0df2 Mon Sep 17 00:00:00 2001
+From: Thomas Frauendorfer <tf@miray.de>
+Date: Thu, 7 Aug 2014 13:58:12 +0200
+Subject: [PATCH 05/41] Allow remove calls from gui containter iteration
+
+---
+ grub-core/gfxmenu/gui_box.c    | 10 +++++++---
+ grub-core/gfxmenu/gui_canvas.c | 10 +++++++---
+ 2 files changed, 14 insertions(+), 6 deletions(-)
+ mode change 100644 => 100755 grub-core/gfxmenu/gui_box.c
+ mode change 100644 => 100755 grub-core/gfxmenu/gui_canvas.c
+
+diff --git a/grub-core/gfxmenu/gui_box.c b/grub-core/gfxmenu/gui_box.c
+old mode 100644
+new mode 100755
+index 37bab3f..dde0328
+--- a/grub-core/gfxmenu/gui_box.c
++++ b/grub-core/gfxmenu/gui_box.c
+@@ -364,9 +364,13 @@ box_iterate_children (void *vself,
+                       grub_gui_component_callback cb, void *userdata)
+ {
+   grub_gui_box_t self = vself;
+-  struct component_node *cur;
+-  for (cur = self->chead.next; cur != &self->ctail; cur = cur->next)
+-    cb (cur->component, userdata);
++  struct component_node *next = self->chead.next;
++  while (next != &self->ctail)
++  {
++    struct component_node *cur = next;
++    next = next->next;
++    cb(cur->component, userdata);
++  }    
+ }
+ 
+ static struct grub_gui_component_ops box_comp_ops =
+diff --git a/grub-core/gfxmenu/gui_canvas.c b/grub-core/gfxmenu/gui_canvas.c
+old mode 100644
+new mode 100755
+index a054912..e779426
+--- a/grub-core/gfxmenu/gui_canvas.c
++++ b/grub-core/gfxmenu/gui_canvas.c
+@@ -240,9 +240,13 @@ canvas_iterate_children (void *vself,
+                          grub_gui_component_callback cb, void *userdata)
+ {
+   grub_gui_canvas_t self = vself;
+-  struct component_node *cur;
+-  for (cur = self->components.next; cur; cur = cur->next)
+-    cb (cur->component, userdata);
++  struct component_node *next = self->components.next;
++  while (next)
++  {
++    struct component_node *cur = next;
++    next = next->next;
++    cb(cur->component, userdata);
++  }
+ }
+ 
+ static struct grub_gui_component_ops canvas_comp_ops =
+-- 
+1.9.2.msysgit.0
+

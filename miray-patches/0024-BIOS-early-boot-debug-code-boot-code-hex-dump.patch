@@ -1,0 +1,447 @@
+From 96764a669475b64ba1a4fe998056e7ddd0c3e871 Mon Sep 17 00:00:00 2001
+From: Thomas Frauendorfer <tf@miray.de>
+Date: Wed, 7 May 2014 16:16:23 +0200
+Subject: [PATCH 24/41] BIOS early boot debug code (boot code hex dump)
+
+---
+ grub-core/Makefile.miray.def       |  24 ++++
+ grub-core/boot/i386/pc/boot_dump.S | 259 +++++++++++++++++++++++++++++++++++++
+ grub-core/boot/i386/pc/hexdump.S   | 125 ++++++++++++++++++
+ 3 files changed, 408 insertions(+)
+ create mode 100755 grub-core/boot/i386/pc/boot_dump.S
+ create mode 100755 grub-core/boot/i386/pc/hexdump.S
+
+diff --git a/grub-core/Makefile.miray.def b/grub-core/Makefile.miray.def
+index 645457f..9b22fcc 100755
+--- a/grub-core/Makefile.miray.def
++++ b/grub-core/Makefile.miray.def
+@@ -26,6 +26,30 @@ image = {
+ 
+ 
+ image = {
++  name = boot_dump;
++  i386_pc = boot/i386/pc/boot_dump.S;
++  i386_qemu = boot/i386/qemu/boot.S;
++  sparc64_ieee1275 = boot/sparc64/ieee1275/boot.S;
++
++  i386_pc_ldflags = '$(TARGET_IMG_LDFLAGS)';
++  i386_pc_ldflags = '$(TARGET_IMG_BASE_LDOPT),0x7C00';
++
++  i386_qemu_ldflags = '$(TARGET_IMG_LDFLAGS)';
++  i386_qemu_ldflags = '$(TARGET_IMG_BASE_LDOPT),$(GRUB_BOOT_MACHINE_LINK_ADDR)';
++  i386_qemu_ccasflags = '-DGRUB_BOOT_MACHINE_LINK_ADDR=$(GRUB_BOOT_MACHINE_LINK_ADDR)';
++
++  sparc64_ieee1275_objcopyflags = '-O a.out-sunos-big';
++  sparc64_ieee1275_ldflags = ' -Wl,-Ttext=0x4000';
++
++  objcopyflags = '-O binary';
++  enable = i386_pc;
++  enable = i386_qemu;
++  enable = sparc64_ieee1275;
++};
++
++
++
++image = {
+   name = diskboot;
+   i386_pc = boot/i386/pc/diskboot_rel.S;
+ 
+diff --git a/grub-core/boot/i386/pc/boot_dump.S b/grub-core/boot/i386/pc/boot_dump.S
+new file mode 100755
+index 0000000..94c57f8
+--- /dev/null
++++ b/grub-core/boot/i386/pc/boot_dump.S
+@@ -0,0 +1,259 @@
++/* -*-Asm-*- */
++/*
++ *  GRUB  --  GRand Unified Bootloader
++ *  Copyright (C) 1999,2000,2001,2002,2005,2006,2007,2008,2009  Free Software Foundation, Inc.
++ *
++ *  GRUB is free software: you can redistribute it and/or modify
++ *  it under the terms of the GNU General Public License as published by
++ *  the Free Software Foundation, either version 3 of the License, or
++ *  (at your option) any later version.
++ *
++ *  GRUB is distributed in the hope that it will be useful,
++ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ *  GNU General Public License for more details.
++ *
++ *  You should have received a copy of the GNU General Public License
++ *  along with GRUB.  If not, see <http://www.gnu.org/licenses/>.
++ */
++
++#include <grub/symbol.h>
++#include <grub/machine/boot.h>
++
++/*
++ *  defines for the code go here
++ */
++
++	/* Print message string */
++#define MSG(x)	movw $x, %si; call LOCAL(message)
++#define ERR(x)	movw $x, %si; jmp LOCAL(error_message)
++
++	.macro floppy
++part_start:
++
++LOCAL(probe_values):
++	.byte	36, 18, 15, 9, 0
++
++LOCAL(floppy_probe):
++	pushw	%dx
++/*
++ *  Perform floppy probe.
++ */
++#ifdef __APPLE__
++	LOCAL(probe_values_minus_one) = LOCAL(probe_values) - 1
++	movw	MACRO_DOLLAR(LOCAL(probe_values_minus_one)), %si
++#else
++	movw	MACRO_DOLLAR(LOCAL(probe_values)) - 1, %si
++#endif
++
++LOCAL(probe_loop):
++	/* reset floppy controller INT 13h AH=0 */
++	xorw	%ax, %ax
++	int	MACRO_DOLLAR(0x13)
++
++	incw	%si
++	movb	(%si), %cl
++
++	/* if number of sectors is 0, display error and die */
++	testb	%cl, %cl
++	jnz	1f
++
++/*
++ * Floppy disk probe failure.
++ */
++	MSG(fd_probe_error_string)
++	jmp	LOCAL(general_error)
++
++/* "Floppy" */
++fd_probe_error_string:	.asciz "Floppy"
++
++1:
++	/* perform read */
++	movw	MACRO_DOLLAR(GRUB_BOOT_MACHINE_BUFFER_SEG), %bx
++	movw	%bx, %es
++	xorw	%bx, %bx
++	movw	MACRO_DOLLAR(0x201), %ax
++	movb	MACRO_DOLLAR(0), %ch
++	movb	MACRO_DOLLAR(0), %dh
++	int	MACRO_DOLLAR(0x13)
++
++	/* if error, jump to "LOCAL(probe_loop)" */
++	jc	LOCAL(probe_loop)
++
++	/* %cl is already the correct value! */
++	movb	MACRO_DOLLAR(1), %dh
++	movb	MACRO_DOLLAR(79), %ch
++
++	jmp	LOCAL(final_init)
++	.endm
++
++	.macro scratch
++
++	/* scratch space */
++mode:
++	.byte	0
++disk_address_packet:
++sectors:
++	.long	0
++heads:
++	.long	0
++cylinders:
++	.word	0
++sector_start:
++	.byte	0
++head_start:
++	.byte	0
++cylinder_start:
++	.word	0
++	/* more space... */
++	.endm
++
++	.file	"boot.S"
++
++	.text
++
++	/* Tell GAS to generate 16-bit instructions so that this code works
++	   in real mode. */
++	.code16
++
++.globl _start, start;
++_start:
++start:
++	/*
++	 * _start is loaded at 0x7c00 and is jumped to with CS:IP 0:0x7c00
++	 */
++
++	/*
++	 * Beginning of the sector is compatible with the FAT/HPFS BIOS
++	 * parameter block.
++	 */
++
++	jmp	LOCAL(after_BPB)
++	nop	/* do I care about this ??? */
++
++#ifdef HYBRID_BOOT
++	nop
++	nop
++	nop
++	nop
++	nop
++	nop
++	nop
++	nop
++	nop
++	nop
++	nop
++	nop
++	nop
++
++	nop
++	nop
++	nop
++	nop
++	nop
++	nop
++	nop
++	nop
++
++	nop
++	nop
++	jmp	LOCAL(after_BPB)
++#else
++	/*
++	 * This space is for the BIOS parameter block!!!!  Don't change
++	 * the first jump, nor start the code anywhere but right after
++	 * this area.
++	 */
++
++	. = _start + GRUB_BOOT_MACHINE_BPB_START
++	. = _start + 4
++#endif
++#ifdef HYBRID_BOOT
++	floppy
++#else
++	scratch
++#endif
++
++	. = _start + GRUB_BOOT_MACHINE_BPB_END
++	/*
++	 * End of BIOS parameter block.
++	 */
++
++kernel_address:
++	.word	GRUB_BOOT_MACHINE_KERNEL_ADDR
++
++#ifndef HYBRID_BOOT
++	. = _start + GRUB_BOOT_MACHINE_KERNEL_SECTOR
++kernel_sector:
++	.long	1
++kernel_sector_high:
++	.long	0
++#endif
++
++	. = _start + GRUB_BOOT_MACHINE_BOOT_DRIVE
++boot_drive:
++	.byte 0xff	/* the disk to load kernel from */
++			/* 0xff means use the boot drive */
++
++LOCAL(after_BPB):
++
++/* general setup */
++	cli		/* we're not safe here! */
++
++        /*
++         * This is a workaround for buggy BIOSes which don't pass boot
++         * drive correctly. If GRUB is installed into a HDD, check if
++         * DL is masked correctly. If not, assume that the BIOS passed
++         * a bogus value and set DL to 0x80, since this is the only
++         * possible boot drive. If GRUB is installed into a floppy,
++         * this does nothing (only jump).
++         */
++	. = _start + GRUB_BOOT_MACHINE_DRIVE_CHECK
++boot_drive_check:
++        jmp     3f	/* grub-setup may overwrite this jump */
++        testb   $0x80, %dl
++        jz      2f
++3:
++	/* Ignore %dl different from 0-0x0f and 0x80-0x8f.  */
++	testb   $0x70, %dl
++	jz      1f
++2:	
++        movb    $0x80, %dl
++1:
++	/*
++	 * ljmp to the next instruction because some bogus BIOSes
++	 * jump to 07C0:0000 instead of 0000:7C00.
++	 */
++	ljmp	$0, $real_start
++
++real_start:
++
++	/* set up %ds and %ss as offset from 0 */
++	xorw	%ax, %ax
++	movw	%ax, %ds
++	movw	%ax, %ss
++
++	/* set up the REAL stack */
++	movw	$GRUB_BOOT_MACHINE_STACK_SEG, %sp
++
++	sti		/* we're safe again */
++
++	movw	$(20), %cx
++	movw	$start, %di
++	movw	$0, %ax
++	movw	%ax, %es
++	call LOCAL(hexdump)
++
++/* go here when you need to stop the machine hard after an error condition */
++        /* tell the BIOS a boot failure, which may result in no effect */
++        int	$0x18
++LOCAL(stop):
++	jmp	LOCAL(stop)
++
++#include "hexdump.S"
++
++
++	. = _start + GRUB_BOOT_MACHINE_PART_END
++	
++/* the last 2 bytes in the sector 0 contain the signature */
++	.word	GRUB_BOOT_MACHINE_SIGNATURE
+diff --git a/grub-core/boot/i386/pc/hexdump.S b/grub-core/boot/i386/pc/hexdump.S
+new file mode 100755
+index 0000000..f1bb8f0
+--- /dev/null
++++ b/grub-core/boot/i386/pc/hexdump.S
+@@ -0,0 +1,125 @@
++/* Copyright 2010 Miray Software */
++
++/*
++ * Hexdump function that outputs over bios interrupts.
++ * define SERIAL_DEBUG for output over com1
++ * output buffer needs to be in %di
++ * length in 16 byte units (output lines) in %cx  
++ *
++ */
++
++#define N_SERIAL_DEBUG  1
++
++#ifndef LOCAL
++#define LOCAL(x) L_ ## x
++#endif
++
++
++/* Serial Port parameters
++ *       AH = 00h
++ *       AL = initializing parameters
++ *           7 - 6 - 5          4 - 3     2    1 - 0
++ *           -BAUD RATE-        PARITY   STOP   WORD
++ *                                       BITS  LENGTH
++ *           000 110/19200 bd   00 none  0: 1  00: 5
++ *           001 150/38400 bd   01 odd   1: 2  01: 6
++ *           010       300 bd   11 even        10: 7
++ *           011       600 bd                  11: 8
++ *           100      1200 bd
++ *           101      2400 bd
++ *           110      4800 bd
++ *           111      9600 bd (4800 on PCjr)
++ *       DX = port number (0-3 or FFh if only performing non-I/O setup)
++ */
++
++/*
++ * Debug Hexdump method
++ */
++LOCAL(hexdump):
++#ifdef SERIAL_DEBUG
++	movw $0x00c7, %ax /* 4800, no parity, 1 stop, 8 data*/
++	movw $0, %dx
++	int $0x14
++#endif
++
++/* 	inc %cx */
++1:
++	movb $16, %dl	
++	xor %dh, %dh
++2:
++	movb %es:(%di), %bl
++	shr  $4,%bl
++	and $0xf, %bl
++	call LOCAL(charout_idx)
++	movb %es:(%di), %bl
++	and $0xf, %bl
++	call LOCAL(charout_idx)
++	movb $' ', %al
++	call LOCAL(charout_chr)
++	inc %di
++	dec %dl
++	jnz 2b
++
++	movb $' ', %al
++	call LOCAL(charout_chr)
++
++	movw $16, %dx
++	subw %dx, %di
++3:
++	movb %es:(%di), %al
++	cmp $0x20, %al
++	jge 4f
++	movb $'.', %al
++4:
++	cmp $0x7f, %al
++	jl 5f
++	movb $'.', %al
++5:
++	call LOCAL(charout_chr)
++#if 0
++#ifdef SERIAL_DEBUG
++	movw %dx, %bx
++	movw	$0x0, %dx
++	movb	$0x1, %ah
++	int	$0x14
++	movw %bx, %dx
++#else
++	movw	$0x0001, %bx
++	movb	$0xe, %ah
++	int	$0x10		/* display a byte */
++#endif 
++#endif
++	inc %di
++	dec %dl
++	jnz 3b
++
++	
++	/* Print newline*/
++	movb $'\r', %al
++	call LOCAL(charout_chr)
++	movb $'\n', %al
++	call LOCAL(charout_chr)
++6:
++	loop 1b
++	ret
++
++LOCAL(charout_idx):
++ 	movw	$hexdump_characters, %si
++	xor 	%bh, %bh
++	movb    (%bx,%si), %al
++LOCAL(charout_chr):
++#ifdef SERIAL_DEBUG
++	movw %dx, %bx
++	movw	$0x0, %dx
++	movb	$0x1, %ah
++	int	$0x14
++	movw %bx, %dx
++#else
++	movw	$0x0001, %bx
++	movb	$0xe, %ah
++	int	$0x10		/* display a byte */
++#endif
++	ret
++
++hexdump_characters:	.asciz "0123456789ABCDEF"
++
+-- 
+1.9.2.msysgit.0
+

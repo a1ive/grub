@@ -1,0 +1,1767 @@
+From 530b9d851e3a40ec08387395511a1d2df7188574 Mon Sep 17 00:00:00 2001
+From: Thomas Frauendorfer <tf@miray.de>
+Date: Thu, 7 Aug 2014 15:54:15 +0200
+Subject: [PATCH 29/41] GUI boot screen
+
+---
+ grub-core/Makefile.miray.def                  |   9 +
+ grub-core/miray/bootscreen/gui_activity_bar.c | 558 ++++++++++++++++
+ grub-core/miray/bootscreen/gui_activity_bar.h |  37 +
+ grub-core/miray/bootscreen/miray_gfx_main.c   | 141 ++++
+ grub-core/miray/bootscreen/miray_gfx_screen.c | 929 ++++++++++++++++++++++++++
+ grub-core/miray/bootscreen/miray_gfx_screen.h |  30 +
+ 6 files changed, 1704 insertions(+)
+ create mode 100755 grub-core/miray/bootscreen/gui_activity_bar.c
+ create mode 100755 grub-core/miray/bootscreen/gui_activity_bar.h
+ create mode 100755 grub-core/miray/bootscreen/miray_gfx_main.c
+ create mode 100755 grub-core/miray/bootscreen/miray_gfx_screen.c
+ create mode 100755 grub-core/miray/bootscreen/miray_gfx_screen.h
+
+diff --git a/grub-core/Makefile.miray.def b/grub-core/Makefile.miray.def
+index 16e701b..555e640 100755
+--- a/grub-core/Makefile.miray.def
++++ b/grub-core/Makefile.miray.def
+@@ -81,6 +81,15 @@ module = {
+ 
+ 
+ module = {
++  name = miray_gfx;
++  common = miray/bootscreen/miray_gfx_main.c;
++  common = miray/bootscreen/miray_gfx_screen.c;
++  common = miray/bootscreen/gui_activity_bar.c;
++};
++
++
++
++module = {
+   name = miray_test;
+   common = miray/bootscreen/bootscreen_test.c;
+ };
+diff --git a/grub-core/miray/bootscreen/gui_activity_bar.c b/grub-core/miray/bootscreen/gui_activity_bar.c
+new file mode 100755
+index 0000000..aff7418
+--- /dev/null
++++ b/grub-core/miray/bootscreen/gui_activity_bar.c
+@@ -0,0 +1,558 @@
++/* gui_activity_bar.c - GUI activity bar component, based on GUI progress bar */
++/*
++ *  Extention for GRUB  --  GRand Unified Bootloader
++ *  Copyright (C) 2008,2009  Free Software Foundation, Inc.
++ *  Copyright (C) 2014 Miray Software <oss@miray.de>
++ *
++ *  GRUB is free software: you can redistribute it and/or modify
++ *  it under the terms of the GNU General Public License as published by
++ *  the Free Software Foundation, either version 3 of the License, or
++ *  (at your option) any later version.
++ *
++ *  GRUB is distributed in the hope that it will be useful,
++ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ *  GNU General Public License for more details.
++ *
++ *  You should have received a copy of the GNU General Public License
++ *  along with GRUB.  If not, see <http://www.gnu.org/licenses/>.
++ */
++
++#include <grub/mm.h>
++#include <grub/misc.h>
++#include <grub/gui.h>
++#include <grub/font.h>
++#include <grub/gui_string_util.h>
++#include <grub/gfxmenu_view.h>
++#include <grub/gfxwidgets.h>
++#include <grub/i18n.h>
++#include <grub/color.h>
++
++#include <grub/time.h>
++#include "gui_activity_bar.h"
++#include "grub/miray_activity.h"
++#include "miray_screen.h"
++#include "miray_gfx_screen.h"
++
++static const unsigned bar_highlight_width = 31;
++static const unsigned bar_step            = 1;
++
++#ifndef min
++#define min(a, b) ((a) < (b) ? (a) : (b))
++#endif
++
++#ifndef max
++#define max(a, b) ((a) > (b) ? (a) : (b))
++#endif
++
++struct grub_gui_activity_bar
++{
++  struct grub_gui_activity activity;
++
++  grub_gui_container_t parent;
++  grub_video_rect_t bounds;
++  char *id;
++  int visible;
++  unsigned step;
++  int value;
++  int end;
++  unsigned highlight_width;
++  grub_video_rgba_color_t border_color;
++  grub_video_rgba_color_t bg_color;
++  grub_video_rgba_color_t fg_color;
++
++  char *theme_dir;
++  int need_to_recreate_pixmaps;
++  int pixmapbar_available;
++  char *bar_pattern;
++  char *highlight_pattern;
++  grub_gfxmenu_box_t bar_box;
++  grub_gfxmenu_box_t highlight_box;
++  int highlight_overlay;
++};
++
++typedef struct grub_gui_activity_bar *grub_gui_activity_bar_t;
++
++static void
++activity_bar_destroy (void *vself)
++{
++  grub_gui_activity_bar_t self = vself;
++  grub_free (self->theme_dir);
++  grub_free (self->id);
++  grub_free (self);
++}
++
++static const char *
++activity_bar_get_id (void *vself)
++{
++  grub_gui_activity_bar_t self = vself;
++  return self->id;
++}
++
++static int
++activity_bar_is_instance (void *vself __attribute__((unused)), const char *type)
++{
++  return grub_strcmp (type, "component") == 0;
++}
++
++#if 0
++static int
++check_pixmaps (grub_gui_activity_bar_t self)
++{
++  if (!self->pixmapbar_available)
++    return 0;
++  if (self->need_to_recreate_pixmaps)
++    {
++      grub_gui_recreate_box (&self->bar_box,
++                             self->bar_pattern,
++                             self->theme_dir);
++
++      grub_gui_recreate_box (&self->highlight_box,
++                             self->highlight_pattern,
++                             self->theme_dir);
++
++      self->need_to_recreate_pixmaps = 0;
++    }
++
++  return (self->bar_box != 0 && self->highlight_box != 0);
++}
++#endif
++
++static void
++draw_filled_rect_bar (grub_gui_activity_bar_t self, unsigned int barstart, unsigned int barend)
++{
++  /* Set the progress bar's frame.  */
++  grub_video_rect_t f;
++  f.x = 1;
++  f.y = 1;
++  //f.width = self->bounds.width - 2;
++  //f.height = self->bounds.height - 2;
++   f.width = self->activity.component.w;
++   f.height = self->activity.component.h;
++
++  /* Border.  */
++  grub_video_fill_rect (grub_video_map_rgba_color (self->border_color),
++                        f.x - 1, f.y - 1,
++                        f.width + 2, f.height + 2);
++
++
++  barstart = max(barstart, f.x);
++  barend = min((unsigned int)barend, f.width + f.x);
++  
++
++  /* Bar background */
++  if ((unsigned int)barstart > f.x)
++    grub_video_fill_rect (grub_video_map_rgba_color (self->bg_color),
++                        f.x, f.y,
++                        barstart - f.x, f.height);
++  if ((unsigned int)barend < f.width + f.x)
++    grub_video_fill_rect (grub_video_map_rgba_color (self->bg_color),
++                        barend + 1, f.y,
++                        f.width - (barend + 1), f.height);
++ 
++  /* Bar foreground.  */
++  grub_video_fill_rect (grub_video_map_rgba_color (self->fg_color),
++                        barstart, f.y,
++                        barend - barstart + 1, f.height);
++}
++
++#if 0
++static void
++draw_pixmap_bar (grub_gui_activity_bar_t self)
++{
++  grub_gfxmenu_box_t bar = self->bar_box;
++  grub_gfxmenu_box_t hl = self->highlight_box;
++  int w = self->bounds.width;
++  int h = self->bounds.height;
++  int bar_l_pad = bar->get_left_pad (bar);
++  int bar_r_pad = bar->get_right_pad (bar);
++  int bar_t_pad = bar->get_top_pad (bar);
++  int bar_b_pad = bar->get_bottom_pad (bar);
++  int bar_h_pad = bar_l_pad + bar_r_pad;
++  int bar_v_pad = bar_t_pad + bar_b_pad;
++  int hl_l_pad = hl->get_left_pad (hl);
++  int hl_r_pad = hl->get_right_pad (hl);
++  int hl_t_pad = hl->get_top_pad (hl);
++  int hl_b_pad = hl->get_bottom_pad (hl);
++  int hl_h_pad = hl_l_pad + hl_r_pad;
++  int hl_v_pad = hl_t_pad + hl_b_pad;
++  int tracklen = w - bar_h_pad;
++  int trackheight = h - bar_v_pad;
++  int barwidth;
++  int hlheight = trackheight;
++  int hlx = bar_l_pad;
++  int hly = bar_t_pad;
++
++  bar->set_content_size (bar, tracklen, trackheight);
++  bar->draw (bar, 0, 0);
++
++  if (self->highlight_overlay)
++    {
++      tracklen += hl_h_pad;
++      hlx -= hl_l_pad;
++      hly -= hl_t_pad;
++    }
++  else
++    hlheight -= hl_v_pad;
++
++  if (self->value <= self->start
++      || self->end <= self->start)
++    barwidth = 0;
++  else
++    barwidth = ((unsigned) (tracklen * (self->value - self->start))
++		/ ((unsigned) (self->end - self->start)));
++
++  if (barwidth >= hl_h_pad)
++    {
++      hl->set_content_size (hl, barwidth - hl_h_pad, hlheight);
++      hl->draw (hl, hlx, hly);
++    }
++}
++#endif
++
++static void
++activity_bar_paint (void *vself, const grub_video_rect_t *region)
++{
++  grub_gui_activity_bar_t self = vself;
++  grub_video_rect_t vpsave;
++
++  if (! self->visible)
++    return;
++  if (!grub_video_have_common_points (region, &self->bounds))
++    return;
++
++  //if (self->end == self->start)
++  //  return;
++
++  grub_gui_set_viewport (&self->bounds, &vpsave);
++
++  //if (check_pixmaps (self))
++  //  draw_pixmap_bar (self);
++  //else
++
++  int barstart = self->value;
++  int barend = self->value + self->highlight_width;
++
++  draw_filled_rect_bar (self, barstart, barend);
++
++  grub_gui_restore_viewport (&vpsave);
++}
++
++
++static void
++progress_bar_paint (void *vself, const grub_video_rect_t *region)
++{
++  grub_gui_activity_bar_t self = vself;
++  grub_video_rect_t vpsave;
++
++  if (! self->visible)
++    return;
++  if (!grub_video_have_common_points (region, &self->bounds))
++    return;
++
++  if (self->end == 0)
++    return;
++
++  //if (self->end == self->start)
++  //  return;
++
++  grub_gui_set_viewport (&self->bounds, &vpsave);
++
++  //if (check_pixmaps (self))
++  //  draw_pixmap_bar (self);
++  //else
++
++  int barstart = (int)0;
++  int barend   = self->end != 0 ? grub_divmod64(self->value * (grub_uint64_t)self->activity.component.w, self->end, 0) : 0;
++  
++
++  draw_filled_rect_bar (self, barstart, barend);
++
++  grub_gui_restore_viewport (&vpsave);
++}
++
++
++static void
++activity_bar_set_parent (void *vself, grub_gui_container_t parent)
++{
++  grub_gui_activity_bar_t self = vself;
++  self->parent = parent;
++}
++
++static grub_gui_container_t
++activity_bar_get_parent (void *vself)
++{
++  grub_gui_activity_bar_t self = vself;
++  return self->parent;
++}
++
++static void
++activity_bar_set_bounds (void *vself, const grub_video_rect_t *bounds)
++{
++  grub_gui_activity_bar_t self = vself;
++  self->bounds = *bounds;
++}
++
++static void
++activity_bar_get_bounds (void *vself, grub_video_rect_t *bounds)
++{
++  grub_gui_activity_bar_t self = vself;
++  *bounds = self->bounds;
++}
++
++static void
++activity_bar_get_minimal_size (void *vself __attribute__((unused)),
++			       unsigned *width, unsigned *height)
++{
++  unsigned min_width = 0;
++  unsigned min_height = 0;
++  //grub_gui_activity_bar_t self = vself;
++
++#if 0
++  if (check_pixmaps (self))
++    {
++      grub_gfxmenu_box_t bar = self->bar_box;
++      grub_gfxmenu_box_t hl = self->highlight_box;
++      min_width += bar->get_left_pad (bar) + bar->get_right_pad (bar);
++      min_height += bar->get_top_pad (bar) + bar->get_bottom_pad (bar);
++      if (!self->highlight_overlay)
++        {
++          min_width += hl->get_left_pad (hl) + hl->get_right_pad (hl);
++          min_height += hl->get_top_pad (hl) + hl->get_bottom_pad (hl);
++        }
++    }
++  else
++#endif
++    {
++      min_height += 2;
++      min_width += 2;
++    }
++  *width = 200;
++  if (*width < min_width)
++    *width = min_width;
++  *height = 28;
++  if (*height < min_height)
++    *height = min_height;
++}
++
++
++static void
++activity_bar_set_state (void *vself, int visible, int start __attribute__ ((unused)),
++			int current, int end __attribute__ ((unused)))
++{
++  if (current != gui_activity_bar_advance_val)
++    return;
++
++  grub_gui_activity_bar_t self = vself;  
++  self->visible = visible;
++  self->value = self->value + self->step;
++  if (self->value >= (int)self->bounds.width - 2)
++    self->value = self->step - self->highlight_width;
++}
++
++
++
++static void
++progress_bar_set_state (void *vself, int visible, int start __attribute__ ((unused)),
++			int current, int end)
++{
++  if (current == gui_activity_bar_advance_val)
++    return;
++
++  grub_gui_activity_bar_t self = vself;  
++
++  self->visible = visible;
++  self->value = current;
++  self->end = end;
++}
++
++#if 0
++static void
++activity_bar_advance(void *vself)
++{
++  grub_gui_activity_bar_t self = vself;  
++  self->visible = 1;
++  self->value = self->value + self->step;
++  if (self->value >= (int)self->bounds.width - 2)
++    self->value = self->step - self->highlight_width;
++
++  miray_screen_draw_activity();
++}
++#endif
++
++static void
++activity_bar_finish(void *vself)
++{
++  grub_gui_activity_bar_t self = vself;  
++
++  while (self->value > 0)
++  {
++	 grub_millisleep (miray_activity_tick_throttle_ms);
++    activity_bar_set_state(vself, 1, 0, gui_activity_bar_advance_val, 0);
++    miray_screen_draw_activity();
++  }
++
++  while (self->value < 0)
++  {
++    grub_millisleep (miray_activity_tick_throttle_ms);
++    activity_bar_set_state(vself, 1, 0, gui_activity_bar_advance_val, 0);
++    miray_screen_draw_activity();
++  }
++
++  while (self->highlight_width < self->bounds.width)
++  {
++    grub_millisleep (miray_activity_tick_throttle_ms);
++    self->highlight_width += self->step;
++    miray_screen_draw_activity();
++  }
++
++  grub_millisleep (miray_activity_tick_throttle_ms);
++}
++
++static grub_err_t
++activity_bar_set_property (void *vself, const char *name, const char *value)
++{
++  grub_gui_activity_bar_t self = vself;
++  if (grub_strcmp (name, "border_color") == 0)
++    {
++       grub_video_parse_color (value, &self->border_color);
++    }
++  else if (grub_strcmp (name, "bg_color") == 0)
++    {
++       grub_video_parse_color (value, &self->bg_color);
++    }
++  else if (grub_strcmp (name, "fg_color") == 0)
++    {
++      grub_video_parse_color (value, &self->fg_color);
++    }
++  else if (grub_strcmp (name, "bar_style") == 0)
++    {
++      self->need_to_recreate_pixmaps = 1;
++      self->pixmapbar_available = 1;
++      grub_free (self->bar_pattern);
++      self->bar_pattern = value ? grub_strdup (value) : 0;
++    }
++  else if (grub_strcmp (name, "highlight_style") == 0)
++    {
++      self->need_to_recreate_pixmaps = 1;
++      self->pixmapbar_available = 1;
++      grub_free (self->highlight_pattern);
++      self->highlight_pattern = value ? grub_strdup (value) : 0;
++    }
++  else if (grub_strcmp (name, "highlight_overlay") == 0)
++    {
++      self->highlight_overlay = grub_strcmp (value, "true") == 0;
++    }
++  else if (grub_strcmp (name, "theme_dir") == 0)
++    {
++      self->need_to_recreate_pixmaps = 1;
++      grub_free (self->theme_dir);
++      self->theme_dir = value ? grub_strdup (value) : 0;
++    }
++  else if (grub_strcmp (name, "id") == 0)
++    {
++      grub_gfxmenu_timeout_unregister ((grub_gui_component_t) self);
++      grub_free (self->id);
++      if (value)
++        self->id = grub_strdup (value);
++      else
++        self->id = 0;
++    }
++  else if (grub_strcmp (name, "activity_finish") == 0)
++  {
++    if (self->step != 0) activity_bar_finish(self);
++  }
++  return grub_errno;
++}
++
++static struct grub_gui_component_ops activity_bar_ops =
++{
++  .destroy = activity_bar_destroy,
++  .get_id = activity_bar_get_id,
++  .is_instance = activity_bar_is_instance,
++  .paint = activity_bar_paint,
++  .set_parent = activity_bar_set_parent,
++  .get_parent = activity_bar_get_parent,
++  .set_bounds = activity_bar_set_bounds,
++  .get_bounds = activity_bar_get_bounds,
++  .get_minimal_size = activity_bar_get_minimal_size,
++  .set_property = activity_bar_set_property
++};
++
++static struct grub_gui_component_ops progress_bar_ops =
++{
++  .destroy = activity_bar_destroy,
++  .get_id = activity_bar_get_id,
++  .is_instance = activity_bar_is_instance,
++  .paint = progress_bar_paint,
++  .set_parent = activity_bar_set_parent,
++  .get_parent = activity_bar_get_parent,
++  .set_bounds = activity_bar_set_bounds,
++  .get_bounds = activity_bar_get_bounds,
++  .get_minimal_size = activity_bar_get_minimal_size,
++  .set_property = activity_bar_set_property
++};
++
++
++static struct grub_gui_progress_ops activity_bar_pg_ops =
++{
++  .set_state = activity_bar_set_state
++};
++
++static struct grub_gui_progress_ops progress_bar_pg_ops =
++{
++  .set_state = progress_bar_set_state
++};
++
++
++static grub_video_rgba_color_t black = { .red = 0, .green = 0, .blue = 0, .alpha = 255 };
++static grub_video_rgba_color_t gray = { .red = 128, .green = 128, .blue = 128, .alpha = 255 };
++static grub_video_rgba_color_t lightgray = { .red = 200, .green = 200, .blue = 200, .alpha = 255 };
++
++
++grub_gui_component_t
++grub_miray_gui_activity_bar_new (void)
++{
++  grub_gui_activity_bar_t self;
++  self = grub_zalloc (sizeof (*self));
++  if (! self)
++    return 0;
++
++  self->activity.ops  = &activity_bar_pg_ops;
++  self->activity.component.ops = &activity_bar_ops;
++  self->visible = 1;
++  self->step = bar_step;
++  self->highlight_width = bar_highlight_width;
++  self->value = bar_step - bar_highlight_width;
++  self->border_color = black;
++  self->bg_color = gray;
++  self->fg_color = lightgray;
++  self->highlight_overlay = 0;
++
++  return (grub_gui_component_t) self;
++}
++
++
++
++grub_gui_component_t
++grub_miray_gui_progress_bar_new (void)
++{
++  grub_gui_activity_bar_t self;
++  self = grub_zalloc (sizeof (*self));
++  if (! self)
++    return 0;
++
++  self->activity.ops  = &progress_bar_pg_ops;
++  self->activity.component.ops = &progress_bar_ops;
++  self->visible = 1;
++  self->step = 0;
++  self->highlight_width = 0;
++  self->value = 0;
++  self->end = 0;
++  self->border_color = black;
++  self->bg_color = gray;
++  self->fg_color = lightgray;
++  self->highlight_overlay = 0;
++
++  return (grub_gui_component_t) self;
++}
+diff --git a/grub-core/miray/bootscreen/gui_activity_bar.h b/grub-core/miray/bootscreen/gui_activity_bar.h
+new file mode 100755
+index 0000000..a8da12d
+--- /dev/null
++++ b/grub-core/miray/bootscreen/gui_activity_bar.h
+@@ -0,0 +1,37 @@
++/* gui_activity_bar.h - GUI activity bar component, based on GUI progress bar */
++/*
++ *  Extention for GRUB  --  GRand Unified Bootloader
++ *  Copyright (C) 2008,2009  Free Software Foundation, Inc.
++ *  Copyright (C) 2014 Miray Software <oss@miray.de>
++ *
++ *  GRUB is free software: you can redistribute it and/or modify
++ *  it under the terms of the GNU General Public License as published by
++ *  the Free Software Foundation, either version 3 of the License, or
++ *  (at your option) any later version.
++ *
++ *  GRUB is distributed in the hope that it will be useful,
++ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ *  GNU General Public License for more details.
++ *
++ *  You should have received a copy of the GNU General Public License
++ *  along with GRUB.  If not, see <http://www.gnu.org/licenses/>.
++ */
++
++#ifndef GUI_ACTIVITY_BAR
++#define GUI_ACTIVITY_BAR
++
++#include <grub/gui.h>
++
++static const int gui_activity_bar_advance_val = -GRUB_INT_MAX -1;
++
++struct grub_gui_activity
++{
++  struct grub_gui_component component;
++  struct grub_gui_progress_ops *ops;
++};
++
++grub_gui_component_t grub_miray_gui_activity_bar_new (void);
++grub_gui_component_t grub_miray_gui_progress_bar_new (void);
++
++#endif
+diff --git a/grub-core/miray/bootscreen/miray_gfx_main.c b/grub-core/miray/bootscreen/miray_gfx_main.c
+new file mode 100755
+index 0000000..707bfbe
+--- /dev/null
++++ b/grub-core/miray/bootscreen/miray_gfx_main.c
+@@ -0,0 +1,141 @@
++/*
++ *  Extention for GRUB  --  GRand Unified Bootloader
++ *  Copyright (C) 2010-2014 Miray Software <oss@miray.de>
++ *
++ *  GRUB is free software: you can redistribute it and/or modify
++ *  it under the terms of the GNU General Public License as published by
++ *  the Free Software Foundation, either version 3 of the License, or
++ *  (at your option) any later version.
++ *
++ *  GRUB is distributed in the hope that it will be useful,
++ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ *  GNU General Public License for more details.
++ *
++ *  You should have received a copy of the GNU General Public License
++ *  along with GRUB.  If not, see <http://www.gnu.org/licenses/>.
++ */
++
++#include <grub/dl.h>
++#include <grub/err.h>
++#include <grub/command.h>
++
++#include "miray_screen.h"
++
++
++GRUB_MOD_LICENSE ("GPLv3+");
++
++extern struct miray_screen * miray_gfx_screen_new(struct grub_term_output *term);
++static int active = 0;
++
++static grub_err_t
++cmd_test_start (struct grub_command *cmd __attribute__ ((unused)),
++		int argc __attribute__ ((unused)), char *argv[] __attribute__ ((unused)))
++{
++   grub_err_t ret = GRUB_ERR_NONE;
++   
++   struct miray_screen * scr = miray_gfx_screen_new(grub_term_outputs);
++   if (scr == 0)
++   {
++      return grub_errno;
++   }
++
++   if ((ret = miray_screen_set_screen(scr)) != GRUB_ERR_NONE)
++   {
++      miray_screen_destroy(scr);
++      return ret;
++   }
++
++   active = 1;
++   return GRUB_ERR_NONE;    
++}
++
++static grub_err_t
++cmd_test_stop (struct grub_command *cmd __attribute__ ((unused)),
++		int argc __attribute__ ((unused)), char *argv[] __attribute__ ((unused)))
++{
++   grub_err_t ret = GRUB_ERR_NONE;
++
++   if (active)
++   {
++      ret = miray_screen_set_screen(0);
++      active = 0;
++   }
++   
++   return ret;
++}
++
++static grub_err_t
++cmd_gfx_toggle (struct grub_command *cmd __attribute__ ((unused)),
++		int argc __attribute__ ((unused)), char *argv[] __attribute__ ((unused)))
++{
++   grub_err_t ret = GRUB_ERR_NONE;
++   
++   if (active)
++   {
++      ret = miray_screen_set_screen(0);
++      active = 0;
++   }
++   else
++   {
++      struct miray_screen * scr = miray_gfx_screen_new(grub_term_outputs);
++      if (scr == 0)
++      {
++         return grub_errno;
++      }
++      
++      if ((ret = miray_screen_set_screen(scr)) != GRUB_ERR_NONE)
++      {
++         miray_screen_destroy(scr);
++         return ret;
++      }
++
++      active = 1;
++   }
++
++   return ret;
++}
++
++
++static grub_command_t _cmd_gfx_toggle;
++static grub_command_t _cmd_test_start, _cmd_test_stop;
++
++GRUB_MOD_INIT(miray_gfx_bootscreen)
++{
++   _cmd_test_start = grub_register_command("miray_gfx_start",
++				      cmd_test_start, 
++				      0, N_("display the Miray bootscreen"));
++
++   _cmd_test_stop = grub_register_command("miray_gfx_stop",
++				      cmd_test_stop, 
++				      0, N_("center string and output to env"));
++
++   _cmd_gfx_toggle = grub_register_command("miray_gfx_toggle",
++                  cmd_gfx_toggle,
++                  0, N_("toggle text and gfx mode"));
++
++   struct miray_screen * scr = miray_gfx_screen_new(grub_term_outputs);
++   if (scr != 0)
++   {
++      if (miray_screen_set_screen(scr) == GRUB_ERR_NONE)
++      {
++         active = 1;
++      }
++      else
++      {
++         miray_screen_destroy(scr);
++      }
++   }
++
++
++}
++
++GRUB_MOD_FINI(miray_gfX_bootscreen)
++{
++   if (active)
++      miray_screen_set_screen(0);
++
++   grub_unregister_command (_cmd_test_start);
++   grub_unregister_command (_cmd_test_stop);
++   grub_unregister_command (_cmd_gfx_toggle);
++}
+diff --git a/grub-core/miray/bootscreen/miray_gfx_screen.c b/grub-core/miray/bootscreen/miray_gfx_screen.c
+new file mode 100755
+index 0000000..fbb7f03
+--- /dev/null
++++ b/grub-core/miray/bootscreen/miray_gfx_screen.c
+@@ -0,0 +1,929 @@
++/*
++ *  Extention for GRUB  --  GRand Unified Bootloader
++ *  Copyright (C) 2010-2014 Miray Software <oss@miray.de>
++ *
++ *  GRUB is free software: you can redistribute it and/or modify
++ *  it under the terms of the GNU General Public License as published by
++ *  the Free Software Foundation, either version 3 of the License, or
++ *  (at your option) any later version.
++ *
++ *  GRUB is distributed in the hope that it will be useful,
++ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ *  GNU General Public License for more details.
++ *
++ *  You should have received a copy of the GNU General Public License
++ *  along with GRUB.  If not, see <http://www.gnu.org/licenses/>.
++ */
++
++#include "miray_screen.h"
++#include <grub/video.h>
++#include <grub/gui.h>
++#include "gui_activity_bar.h"
++#include "miray_gfx_screen.h"
++
++#define min(x, y) ((x) < (y) ? (x) : (y))
++
++#ifndef max
++#define max(a, b) ((a) > (b) ? (a) : (b))
++#endif
++
++
++#define MAX_MENU_ENTRIES 10
++
++static const unsigned label_height = 20;
++
++static const char * darkgray_c  = "#202020ff";
++static const char * lightgray_c = "#b8b8b8ff";
++
++
++static const char * message_text_color = "white";
++
++
++static const unsigned menu_height = 40;
++static const char * menu_text_color = "#b8b8b8ff";
++
++
++enum fg_modes
++{
++   FG_HIDDEN,
++   FG_DEFAULT,
++   FG_ACTIVITY
++};
++
++struct miray_gfx_screen_data
++{
++   grub_video_rect_t screen_rect;
++   unsigned int v_height;
++   unsigned int v_width;
++   unsigned int screen_offs_y_text;
++   unsigned int screen_double_repaint;
++   grub_font_t menu_font;
++   grub_font_t text_font;
++   grub_font_t timeout_font;
++
++   /* Background */
++   grub_video_rgba_color_t bg_color;
++   grub_gui_container_t bg_canvas;
++   grub_gui_component_t bg_center_image;
++
++   grub_gui_container_t bg_label;
++   grub_gui_component_t bg_label_image;
++
++   /* Foreground */
++   unsigned int fg_mode;
++
++   grub_gui_container_t fg_timeout;
++   grub_gui_component_t label_timeout1;
++   grub_gui_component_t label_timeout2;
++
++   grub_gui_container_t fg_default;
++   grub_gui_component_t label_default;
++
++   grub_gui_container_t fg_activity;
++   grub_gui_component_t label_activity;
++   grub_gui_component_t progress_activity;
++   unsigned int activity_cur;
++   void * activity_hook;
++
++   grub_video_rgba_color_t bg_menu;
++   grub_video_rgba_color_t bg_menuseperator;
++   grub_gui_container_t menu;
++   unsigned int menu_entry_offset;
++};
++typedef struct miray_gfx_screen_data mgs_data_t;
++
++struct miray_screen * miray_gfx_screen_new(struct grub_term_output *term);
++
++
++
++static inline void _gui_container_add(grub_gui_container_t cont, grub_gui_component_t child)
++{
++   if (cont != 0 && cont->ops != 0 && cont->ops->add != 0)
++      cont->ops->add(cont, child);
++}
++
++static inline void _gui_container_remove(grub_gui_container_t cont, grub_gui_component_t child)
++{
++   if (cont != 0 && cont->ops != 0 && cont->ops->remove != 0)
++      cont->ops->remove(cont, child);
++}
++
++struct container_clear_state
++{
++   grub_gui_container_t cont;
++};
++
++static void _gui_container_clear_cb(grub_gui_component_t comp, void *userdata)
++{
++   struct container_clear_state * state = userdata;
++   state->cont->ops->remove(state->cont, comp);
++}
++
++static inline void _gui_container_clear(grub_gui_container_t cont)
++{
++   struct container_clear_state state;
++   state.cont = cont;
++
++   cont->ops->iterate_children(cont, _gui_container_clear_cb, &state);
++}
++
++
++
++static inline void _gui_destroy(grub_gui_component_t comp)
++{
++   if (comp != 0 && comp->ops != 0 && comp->ops->destroy != 0)
++      comp->ops->destroy(comp);
++}
++
++static inline void _gui_paint(grub_gui_component_t comp, const grub_video_rect_t *bounds)
++{
++   if (comp != 0 && comp->ops != 0 && comp->ops->paint != 0)
++      comp->ops->paint(comp, bounds);
++
++}
++
++static inline grub_err_t _gui_set_property(grub_gui_component_t comp, const char *name, const char *value)
++{
++   if (comp != 0 && comp->ops != 0 && comp->ops->set_property != 0)
++      return comp->ops->set_property(comp, name, value);
++
++   return GRUB_ERR_NONE;
++}
++
++static inline void _gui_set_bounds (grub_gui_component_t comp, const grub_video_rect_t *bounds)
++{
++   if (comp != 0 && comp->ops != 0 && comp->ops->set_bounds != 0)
++      comp->ops->set_bounds(comp, bounds);
++}
++
++
++static inline grub_gui_component_t _menu_component_new(grub_menu_entry_t entry)
++{
++   char * name = miray_screen_entry_name(entry);
++
++   // Hidden or no shortcut
++   if (name == 0)
++      return 0;
++   
++   grub_gui_component_t ret = grub_gui_label_new();
++   _gui_set_property(ret, "text", name);
++   _gui_set_property(ret, "color", menu_text_color);
++   _gui_set_property(ret, "font", screen_data.menu_font ? : "");
++
++   grub_free(name);
++
++   return ret;
++}
++
++static inline void _screen_paint_menu(mgs_data_t * data, const grub_video_rect_t * bounds)
++{
++   if (data->menu == 0)
++      return;
++
++   grub_video_rect_t menu_bounds;
++   data->menu->component.ops->get_bounds(&data->menu->component, &menu_bounds);
++
++   if (bounds->y + bounds->height >= menu_bounds.y - 1)
++   {
++      grub_video_fill_rect (grub_video_map_rgba_color (data->bg_menuseperator),
++                            0,
++                            data->v_height - menu_height - 1,
++                            data->v_width,
++                            1);      
++
++      grub_video_fill_rect (grub_video_map_rgba_color (data->bg_menu),
++                            0,
++                            data->v_height - menu_height,
++                            data->v_width,
++                            menu_height);      
++
++      menu_bounds.y = 0;
++      _gui_paint(&data->menu->component, &menu_bounds);
++   }
++
++}
++
++inline static void _set_label_positions(mgs_data_t * data)
++{
++   static const unsigned int label_border = 0;
++   //static const unsigned label_space  = 2;
++
++   unsigned int ascent = grub_font_get_ascent (data->text_font);
++
++   unsigned int line1 = 363 - ascent - label_border;
++   unsigned int line2 = 390 - ascent - label_border;
++
++   data->label_default->y = line1;
++   
++   data->label_timeout1->y = line1;
++   data->label_timeout2->y = line2;
++
++   data->label_activity->y = line1;
++}
++
++
++/*
++ *  screen interface
++ */
++
++static grub_err_t miray_gfx_screen_destroy(struct miray_screen *scr)
++{
++   mgs_data_t * data = scr->data;
++
++   /* Containers also free their children
++    * So we only call destroy for the parent containers
++    */
++
++   if (data->bg_canvas != 0)
++      data->bg_canvas->component.ops->destroy(data->bg_canvas);
++
++   if (data->fg_timeout != 0)
++      data->fg_timeout->component.ops->destroy(data->fg_timeout);
++
++   if (data->fg_default != 0)
++      data->fg_default->component.ops->destroy(data->fg_default);
++
++   if (data->fg_activity != 0)
++      data->fg_activity->component.ops->destroy(data->fg_activity);
++
++   if (data->menu != 0)
++      data->menu->component.ops->destroy(data->menu);
++   
++   grub_free(data);
++   grub_free(scr);
++
++   return GRUB_ERR_NONE;
++};
++
++
++static void miray_gfx_screen_reset (struct miray_screen * scr)
++{
++   mgs_data_t * data = scr->data;
++
++   data->fg_mode = FG_DEFAULT;
++
++   struct grub_gui_progress * progress = (struct grub_gui_progress *)data->progress_activity;
++   if (progress != 0)
++   {
++      data->activity_cur = 0;
++      
++      progress->ops->set_state(progress, 0, 0, 0, 0);
++   }
++
++}
++
++
++
++static inline void _screen_draw_bg(mgs_data_t * data, const grub_video_rect_t * abs_bounds)
++{
++   grub_video_fill_rect (grub_video_map_rgba_color (data->bg_color),
++                         abs_bounds->x,
++                         abs_bounds->y,
++                         abs_bounds->width,
++                         abs_bounds->height);
++}
++
++static void miray_gfx_screen_clear (struct miray_screen * scr)
++{
++   mgs_data_t * data = scr->data;
++
++   grub_video_rect_t bounds = {
++      .x = 0,
++      .y = 0,
++      .width = data->v_width,
++      .height = data->v_height
++   };
++
++
++   _screen_draw_bg(data, &bounds);
++   grub_video_swap_buffers ();
++   if (data->screen_double_repaint)
++   {
++      _screen_draw_bg(data, &bounds);
++   }
++}
++
++
++static void miray_gfx_screen_draw_rect_single (struct miray_screen * scr, const grub_video_rect_t * bounds, int clear)
++{
++   mgs_data_t * data = scr->data;
++
++   if (clear)
++   {
++      _screen_draw_bg(data, bounds);
++   }
++
++   grub_video_rect_t rel_bounds;
++   rel_bounds.x = bounds->x > data->screen_rect.x ? bounds->x - data->screen_rect.x : 0;
++   rel_bounds.y = bounds->y > data->screen_rect.y ? bounds->y - data->screen_rect.y : 0;
++   rel_bounds.width = bounds->x + bounds->width > data->screen_rect.x ? bounds->x + bounds->width - data->screen_rect.x : 0;
++   rel_bounds.height = bounds->y + bounds->height > data->screen_rect.y ? bounds->y + bounds->height - data->screen_rect.y : 0;
++
++
++   _gui_paint(&(data->bg_canvas->component), &rel_bounds);
++
++
++   int timeout = grub_menu_get_timeout();
++   
++   switch(data->fg_mode)
++   {
++      default:
++         break;
++
++      case FG_DEFAULT:
++         if (timeout > 0)
++         {
++            if (screen_data.timeout_format != 0 && data->label_timeout2 != 0)
++            {
++               /* We need to manually set the timeout here, because
++                * the internal mode only works with a valid view
++                */
++               char *timeout_str = 0;
++               timeout_str = grub_xasprintf(screen_data.timeout_format, timeout);
++               _gui_set_property(data->label_timeout2, "text", timeout_str);
++               grub_free(timeout_str);
++            }
++
++            _gui_paint(&data->fg_timeout->component, &rel_bounds);
++         }
++         else
++         {
++            _gui_paint(&data->fg_default->component, &rel_bounds);
++         }
++
++
++         _screen_paint_menu(data, bounds);
++         break;
++
++      case FG_ACTIVITY:
++         _gui_paint(&data->fg_activity->component, &rel_bounds);
++         break;
++
++      case FG_HIDDEN:
++         _gui_paint(&data->bg_label->component, &rel_bounds);
++   }
++}
++
++static void miray_gfx_screen_redraw_rect (struct miray_screen * scr, const grub_video_rect_t * bounds, int clear)
++{
++   if (scr->term != 0)
++      grub_term_setcursor (scr->term, 0);
++
++   mgs_data_t * data = scr->data;
++
++   miray_gfx_screen_draw_rect_single(scr, bounds, clear);
++   
++   grub_video_swap_buffers ();
++   if (data->screen_double_repaint)
++   {
++      miray_gfx_screen_draw_rect_single(scr, bounds, clear); 
++   }
++}
++
++
++static void miray_gfx_screen_redraw (struct miray_screen * scr)
++{
++   mgs_data_t * data = scr->data;
++
++   const grub_video_rect_t bounds = { .x = 0, .y = 0, .width = data->v_width, .height = data->v_height };
++   
++   miray_gfx_screen_redraw_rect(scr, &bounds, 1);
++}
++
++static void miray_gfx_screen_redraw_text (struct miray_screen *scr, int clear __attribute__ ((unused)))
++{
++   mgs_data_t * data = scr->data;
++
++   const grub_video_rect_t bounds = { .x = 0, .y = data->screen_rect.y + data->screen_offs_y_text, .width = data->v_width, .height = data->v_height - data->screen_rect.y - data->screen_offs_y_text };
++   miray_gfx_screen_redraw_rect(scr, &bounds, 1);
++}
++
++static void miray_gfx_screen_set_splash_menu(struct miray_screen *scr, grub_menu_t menu)
++{
++   mgs_data_t * data = scr->data;
++
++   _gui_container_clear(data->menu);
++   
++   if (menu == 0) return;
++
++   grub_gui_component_t list[MAX_MENU_ENTRIES];
++
++   grub_menu_entry_t entry;
++   int list_entries = 0;
++   unsigned sumw = 0;
++   unsigned menu_width = data->menu->component.w; 
++   for (entry = menu->entry_list; entry != 0 && list_entries < MAX_MENU_ENTRIES; entry = entry->next)
++   {
++      list[list_entries] = _menu_component_new(entry);
++
++      if (list[list_entries] != 0)
++      {
++         unsigned mh = 0;
++         unsigned mw = 0;
++
++         if (list[list_entries]->ops->get_minimal_size)
++            list[list_entries]->ops->get_minimal_size (list[list_entries], &mw, &mh);
++
++         sumw += mw;
++
++         list_entries++;
++      }
++   }
++
++   if (sumw > menu_width)
++   {
++      int i;
++      for (i = 0; i < list_entries; i++)
++      {
++         list[i]->ops->destroy(list[i]);
++      }
++      return;
++   }
++
++   if (list_entries > 0)
++   {
++      unsigned spacer_sum = menu_width - sumw;
++      int i;
++      for (i = 0; i < list_entries; i++)
++      {
++         unsigned space = spacer_sum / (list_entries - i + 1);
++         if (space > 0)
++         {
++            grub_gui_component_t spacer = grub_gui_label_new();
++            spacer->w = space;
++            _gui_container_add(data->menu, spacer);
++         }
++         spacer_sum -= space;
++         
++          _gui_container_add(data->menu, list[i]);        
++      }
++
++      if (spacer_sum > 0)
++      {
++         grub_gui_component_t spacer = grub_gui_label_new();
++         spacer->w = spacer_sum;
++         _gui_container_add(data->menu, spacer);
++      }
++   }
++   
++}
++
++static int miray_gfx_screen_run_submenu(struct miray_screen *scr __attribute__ ((unused)), grub_menu_t menu)
++{
++   return miray_run_menu(menu);
++}
++
++
++
++static grub_err_t miray_gfx_screen_property (struct miray_screen * scr, const char * name, const char * value)
++{
++   mgs_data_t * data = scr->data;
++
++   if (grub_strcmp(name, "default") == 0)
++   {
++      _gui_set_property(data->label_default, "text", value);
++   }
++   else if (grub_strcmp(name, "timeout_message") == 0)
++   {
++      _gui_set_property(data->label_timeout1, "text", value);
++   }
++   else if (grub_strcmp(name, "timeout_format") == 0)
++   {
++      _gui_set_property(data->label_timeout2, "text", value);
++   }
++   else if (grub_strcmp(name, "activity") == 0)
++   {
++      _gui_set_property(data->label_activity, "text", value);
++      if (value != 0)
++         data->fg_mode = FG_ACTIVITY;
++      else
++         data->fg_mode = FG_DEFAULT;
++   }
++   else if (grub_strcmp(name, "text_font") == 0 || grub_strcmp(name, "label_font") == 0)
++   {
++      const char * font = value ? : "";
++
++      data->text_font = grub_font_get(font);
++      
++      _gui_set_property(data->label_timeout1, "font", font);
++      if (data->timeout_font == 0)
++      {
++         _gui_set_property(data->label_timeout2, "font", font);
++      }
++
++      _gui_set_property(data->label_default, "font", font);
++      
++      _gui_set_property(data->label_activity, "font", font);
++
++      _set_label_positions(data);
++   }
++   else if (grub_strcmp(name, "timeout_font") == 0)
++   {
++      if (value == 0 || value[0] == '\0')
++      {
++         // TODO: reset to text_font?
++         return 0;
++      }
++
++      data->timeout_font = grub_font_get(value);
++
++      _gui_set_property(data->label_timeout2, "font", value);
++      _set_label_positions(data);
++      
++   }
++   else if (grub_strcmp(name, "menu_font") == 0)
++   {
++      grub_video_rect_t bounds;
++      
++      const char * font = value ? : "";
++
++      data->menu_font = grub_font_get(font);
++      unsigned int ascent = grub_font_get_ascent (data->menu_font);
++
++      data->menu->component.ops->get_bounds(data->menu, &bounds);
++      bounds.height = ((menu_height - ascent) / 2) + ascent; 
++      bounds.y = data->v_height - bounds.height;
++      data->menu->component.y = bounds.y;
++      data->menu->component.h = bounds.height;
++      data->menu->component.ops->set_bounds(data->menu, &bounds);
++
++      // rebuild menu, currently needed to get the spacing right
++      miray_gfx_screen_set_splash_menu(scr, screen_data.menu);
++   }
++
++   return GRUB_ERR_NONE;
++}
++
++static void miray_gfx_screen_message_box(struct miray_screen *scr, const char ** message __attribute__((unused)), const char * color __attribute__((unused)))
++{
++   mgs_data_t * data = scr->data;
++
++   static const unsigned border_x = 15;
++   static const unsigned border_y= 15;
++   static const unsigned spacing = 5;
++
++   if (message == 0) /* Nothing to display */
++      return;
++
++   unsigned text_width = 0;
++   unsigned text_height = 0;
++   unsigned count = 0;
++
++   {
++      while(message[count] != 0)
++      {
++         text_width = max(text_width, (unsigned)grub_font_get_string_width (data->text_font, message[count]));         
++         count++;
++      }
++      
++   }
++
++   if (count == 0) // Nothing to display
++      return;
++
++   text_height = count * (grub_font_get_ascent (data->text_font) + grub_font_get_descent (data->text_font)) + (count - 1) * spacing;
++
++
++   grub_video_rgba_color_t bg_color = {.red = 128, .blue = 0, .green = 0, .alpha = 255 };
++   grub_video_rgba_color_t fg_color = {.red = 255, .blue = 255, .green = 255, .alpha = 255 };
++
++   unsigned width = 2 * border_x + text_width;
++   unsigned height = 2 * border_y + text_height;
++   unsigned offs_x = data->screen_rect.x + (data->screen_rect.width - width) / 2;
++   unsigned offs_y = data->screen_rect.y + (data->screen_rect.height - height) / 2;
++
++   grub_video_fill_rect (grub_video_map_rgba_color (bg_color),
++                         offs_x, offs_y, width, height);
++   unsigned i;
++   for (i = 0; i < count; i++)
++   {
++      unsigned y = offs_y + border_y + grub_font_get_ascent (data->text_font) + i * (grub_font_get_ascent (data->text_font) + grub_font_get_descent (data->text_font) + spacing);
++      unsigned x = offs_x + border_x + (text_width - grub_font_get_string_width(data->text_font, message[i])) / 2;
++
++      grub_font_draw_string (message[i],
++                             data->text_font,
++                             grub_video_map_rgba_color (fg_color),
++                             x,
++                             y);
++   }
++
++
++   //if (data->screen_double_repaint)
++   //{
++      grub_video_swap_buffers ();
++   //}   
++
++}
++
++
++
++static void miray_gfx_screen_set_progress(struct miray_screen *scr, grub_uint64_t cur, grub_uint64_t max)
++{
++   struct miray_gfx_screen_data *data = scr->data;
++   if (data->fg_mode != FG_ACTIVITY)
++      return;
++
++   if (max == 0)
++      return;
++
++   struct grub_gui_progress * activity = (struct grub_gui_progress *)data->progress_activity;
++   if (activity != 0)
++   {      
++      activity->ops->set_state(data->progress_activity, 1, 0, (int)cur, (int)max);
++      miray_screen_draw_activity();
++   }
++}
++
++
++
++
++static void miray_gfx_screen_finish (struct miray_screen * scr)
++{
++   mgs_data_t * data = scr->data;
++
++   if (data->progress_activity != 0) data->progress_activity->ops->set_property(data->progress_activity, "activity_finish", "true"); 
++
++   data->fg_mode = FG_HIDDEN;
++   miray_gfx_screen_redraw(scr);
++}
++
++
++/*
++ * Init method
++ */
++
++struct miray_screen *
++miray_gfx_screen_new(struct grub_term_output *term)
++{
++   struct grub_video_mode_info mode_info;
++   grub_err_t err;
++   struct miray_screen *ret = 0;
++
++   const char * core_dir  = "/boot/grub/core_data";
++
++   err = grub_video_get_info (&mode_info);
++   if (err != GRUB_ERR_NONE)
++   {
++      return 0;
++   }
++
++   if (mode_info.width < 640 || mode_info.height < 480)
++   {
++      return 0;
++   }
++
++
++   ret = grub_zalloc(sizeof(struct miray_screen));
++   if (ret == 0)
++   {
++      grub_error(GRUB_ERR_OUT_OF_MEMORY, "Out of Memory");
++      return 0;
++   }
++
++   ret->destroy = miray_gfx_screen_destroy;
++   ret->reset   = miray_gfx_screen_reset;
++   ret->clear   = miray_gfx_screen_clear;
++   ret->redraw  = miray_gfx_screen_redraw;
++   ret->redraw_text = miray_gfx_screen_redraw_text;
++
++   ret->set_splash_menu = miray_gfx_screen_set_splash_menu;
++   ret->run_submenu = miray_gfx_screen_run_submenu;
++
++
++   ret->property     = miray_gfx_screen_property;
++   ret->set_progress = miray_gfx_screen_set_progress;
++
++   ret->message_box = miray_gfx_screen_message_box;
++
++   ret->finish = miray_gfx_screen_finish;
++
++   struct miray_gfx_screen_data * data = grub_zalloc(sizeof(struct miray_gfx_screen_data));
++   if (data == 0)
++   {
++      grub_free(ret);
++      grub_error(GRUB_ERR_OUT_OF_MEMORY, "Out of Memory");
++      return 0;
++   }
++
++   // Center the boot screen if the screen is bigger than 1024x768
++   data->v_width = mode_info.width;
++   data->v_height = mode_info.height;
++   data->screen_rect.width = 640;
++   data->screen_rect.height = 480;
++   data->screen_rect.x = (mode_info.width - data->screen_rect.width) / 2;
++   data->screen_rect.y = (mode_info.height - data->screen_rect.height) / 2;
++   data->screen_offs_y_text = 300;
++   data->screen_double_repaint =
++      (mode_info.mode_type & GRUB_VIDEO_MODE_TYPE_DOUBLE_BUFFERED)
++       && !(mode_info.mode_type & GRUB_VIDEO_MODE_TYPE_UPDATING_SWAP);
++
++   data->bg_color.red   = 0;
++   data->bg_color.green = 0;
++   data->bg_color.blue  = 0;   
++   data->bg_color.alpha = 255;   
++
++   data->bg_menu.red    = 32;
++   data->bg_menu.green  = 32;
++   data->bg_menu.blue   = 32;
++   data->bg_menu.alpha  = 255;
++
++   data->bg_menuseperator.red   = 184;
++   data->bg_menuseperator.green = 184;
++   data->bg_menuseperator.blue  = 184;
++   data->bg_menuseperator.alpha = 255;
++
++   data->menu_font = grub_font_get("");
++   data->text_font = grub_font_get("");
++   data->fg_mode = FG_DEFAULT;
++
++
++   ret->data = data;
++   ret->term = term;
++
++   data->activity_hook = 0;
++
++   {
++      data->bg_canvas = grub_gui_canvas_new();
++      data->bg_canvas->component.ops->set_bounds(data->bg_canvas, &data->screen_rect);
++      data->bg_canvas->component.x = data->screen_rect.x;
++      data->bg_canvas->component.y = data->screen_rect.y;
++      data->bg_canvas->component.w = data->screen_rect.width;
++      data->bg_canvas->component.h = data->screen_rect.height;
++
++      {
++         data->bg_center_image = grub_gui_image_new();
++         _gui_set_property(data->bg_center_image, "theme_dir", core_dir);
++         if (_gui_set_property(data->bg_center_image, "file", "center_image.png") == GRUB_ERR_NONE)
++         {
++            unsigned width = 0;
++            unsigned height = 0;
++
++            data->bg_center_image->ops->get_minimal_size(data->bg_center_image, &width, &height);
++            data->bg_center_image->w = min(width, data->screen_rect.width);
++            data->bg_center_image->h = min(height,data->screen_rect.height);
++            data->bg_center_image->x = (data->screen_rect.width - data->bg_center_image->w) / 2;
++            data->bg_center_image->y = 109;
++         }
++         else
++         {
++            data->bg_center_image->ops->destroy(data->bg_center_image);
++            data->bg_center_image = 0;
++         }
++
++         _gui_container_add(data->bg_canvas, data->bg_center_image);
++      }
++
++   }
++
++
++   {
++      data->bg_label = grub_gui_canvas_new();
++      data->bg_label->component.ops->set_bounds(data->bg_label, &data->screen_rect);
++      data->bg_label->component.x = data->screen_rect.x;
++      data->bg_label->component.y = data->screen_rect.y;
++      data->bg_label->component.w = data->screen_rect.width;
++      data->bg_label->component.h = data->screen_rect.height;
++
++      {
++         data->bg_label_image = grub_gui_image_new();
++         _gui_set_property(data->bg_label_image, "theme_dir", core_dir);
++         if (_gui_set_property(data->bg_label_image, "file", "center_text.png") == GRUB_ERR_NONE)
++         {
++            unsigned width = 0;
++            unsigned height = 0;
++
++            data->bg_label_image->ops->get_minimal_size(data->bg_label_image, &width, &height);
++            data->bg_label_image->w = min(width, data->screen_rect.width);
++            data->bg_label_image->h = min(height,data->screen_rect.height);
++            data->bg_label_image->x = (data->screen_rect.width - data->bg_label_image->w) / 2;
++            data->bg_label_image->y = 339;
++         }
++         else
++         {
++            data->bg_label_image->ops->destroy(data->bg_label_image);
++            data->bg_label_image = 0;
++         }
++
++         _gui_container_add(data->bg_label, data->bg_label_image);
++      }
++
++   }
++
++   {
++
++      data->fg_default = grub_gui_canvas_new();
++      data->fg_default->component.ops->set_bounds(data->fg_default, &data->screen_rect);
++      data->fg_default->component.w = data->screen_rect.width;
++      data->fg_default->component.h = data->screen_rect.height;
++
++      {
++         data->label_default = grub_gui_label_new();
++         data->label_default->x = 0;
++         data->label_default->w = data->screen_rect.width;
++         data->label_default->h = label_height;
++         _gui_set_property(data->label_default, "color", message_text_color);
++         _gui_set_property(data->label_default, "align", "center");
++         //_gui_set_property(data->label_default, "font", default_font);
++         _gui_container_add(data->fg_default, data->label_default);
++      }
++
++   }
++
++   {
++      data->fg_timeout = grub_gui_canvas_new();
++      data->fg_timeout->component.ops->set_bounds(data->fg_timeout, &data->screen_rect);
++      data->fg_timeout->component.w = data->screen_rect.width;
++      data->fg_timeout->component.h = data->screen_rect.height;
++
++      {
++         data->label_timeout1 = grub_gui_label_new();
++         data->label_timeout1->x = 0;
++         data->label_timeout1->w = data->screen_rect.width;
++         data->label_timeout1->h = label_height;
++         _gui_set_property(data->label_timeout1, "color", message_text_color);
++         _gui_set_property(data->label_timeout1, "align", "center");
++         //_gui_set_property(data->label_timeout1, "font", default_font);
++         _gui_container_add(data->fg_timeout, data->label_timeout1);
++      }
++
++      {
++         data->label_timeout2 = grub_gui_label_new();
++         data->label_timeout2->x = 0;
++         data->label_timeout2->w = data->screen_rect.width;
++         data->label_timeout2->h = label_height;
++         _gui_set_property(data->label_timeout2, "color", lightgray_c);
++         _gui_set_property(data->label_timeout2, "align", "center");
++         //_gui_set_property(data->label_timeout2, "font", default_font);
++         _gui_container_add(data->fg_timeout, data->label_timeout2);
++      }
++   }
++
++   {
++      data->fg_activity = grub_gui_canvas_new();
++      data->fg_activity->component.ops->set_bounds(data->fg_activity, &data->screen_rect);
++      data->fg_activity->component.w = data->screen_rect.width;
++      data->fg_activity->component.h = data->screen_rect.height;
++      
++      {
++         data->label_activity = grub_gui_label_new();
++         data->label_activity->x = 0;
++         data->label_activity->w = data->screen_rect.width;
++         data->label_activity->h = label_height;
++         _gui_set_property(data->label_activity, "color", message_text_color);
++         _gui_set_property(data->label_activity, "align", "center");
++         //_gui_set_property(data->label_activity, "font", default_font);
++         _gui_container_add(data->fg_activity, data->label_activity);
++      }
++
++      {
++         data->progress_activity = grub_miray_gui_progress_bar_new();
++         data->progress_activity->x = 160;
++         data->progress_activity->w = 320;
++         data->progress_activity->y = 380;
++         data->progress_activity->h = 2;
++         _gui_set_property(data->progress_activity, "bg_color", darkgray_c);
++         _gui_set_property(data->progress_activity, "fg_color", "white");
++         _gui_container_add(data->fg_activity, data->progress_activity);
++      }
++   }
++   
++   {
++      const grub_video_rect_t bounds = { .x = 0,
++                                         .y = data->v_height - menu_height,
++                                         .width = data->v_width,
++                                         .height = menu_height };
++      
++      data->menu = grub_gui_hbox_new();
++      data->menu->component.ops->set_bounds(data->menu, &bounds);
++      data->menu->component.x = bounds.x;
++      data->menu->component.y = bounds.y;
++      data->menu->component.w = bounds.width;
++      data->menu->component.h = bounds.height;
++   }
++
++
++   return ret;
++}
++
++
++/* This method is also exported to optimize rendering of some elements */
++void miray_screen_draw_rect(const grub_video_rect_t * bounds, int clear)
++{
++   miray_gfx_screen_redraw_rect(_miray_screen, bounds, clear);
++}
++
++
++void miray_screen_draw_activity()
++{
++   mgs_data_t * data = _miray_screen->data;
++
++   const grub_video_rect_t bounds = { .x = data->screen_rect.x, .y = data->screen_rect.y, .width = data->screen_rect.width, .height = data->screen_rect.height };
++
++   if (data->fg_mode != FG_ACTIVITY)
++      return;
++
++   _gui_paint(&data->fg_activity->component, &bounds);
++   
++   grub_video_swap_buffers ();
++}
+diff --git a/grub-core/miray/bootscreen/miray_gfx_screen.h b/grub-core/miray/bootscreen/miray_gfx_screen.h
+new file mode 100755
+index 0000000..34f2d9e
+--- /dev/null
++++ b/grub-core/miray/bootscreen/miray_gfx_screen.h
+@@ -0,0 +1,30 @@
++/*
++ *  Extention for GRUB  --  GRand Unified Bootloader
++ *  Copyright (C) 2014 Miray Software <oss@miray.de>
++ *
++ *  GRUB is free software: you can redistribute it and/or modify
++ *  it under the terms of the GNU General Public License as published by
++ *  the Free Software Foundation, either version 3 of the License, or
++ *  (at your option) any later version.
++ *
++ *  GRUB is distributed in the hope that it will be useful,
++ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ *  GNU General Public License for more details.
++ *
++ *  You should have received a copy of the GNU General Public License
++ *  along with GRUB.  If not, see <http://www.gnu.org/licenses/>.
++ */
++
++#ifndef MIRAY_GFX_SCREEN
++#define MIRAY_GFX_SCREEN
++
++#include "miray_screen.h"
++#include <grub/video.h>
++#include <grub/gui.h>
++
++void miray_screen_draw_rect(const grub_video_rect_t * bounds, int clear);
++void miray_screen_draw_activity(void);
++
++
++#endif
+-- 
+1.9.2.msysgit.0
+

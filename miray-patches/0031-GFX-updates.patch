@@ -1,0 +1,86 @@
+From 5b0db6c12752a5b7fbd6a69ec2ffb401ac09ed84 Mon Sep 17 00:00:00 2001
+From: Thomas Frauendorfer <tf@miray.de>
+Date: Wed, 1 Oct 2014 12:23:32 +0200
+Subject: [PATCH 31/41] GFX updates
+
+---
+ grub-core/miray/bootscreen/miray_gfx_screen.c | 35 +++++++++++++++++++++++++++
+ 1 file changed, 35 insertions(+)
+
+diff --git a/grub-core/miray/bootscreen/miray_gfx_screen.c b/grub-core/miray/bootscreen/miray_gfx_screen.c
+index fbb7f03..943a658 100755
+--- a/grub-core/miray/bootscreen/miray_gfx_screen.c
++++ b/grub-core/miray/bootscreen/miray_gfx_screen.c
+@@ -19,6 +19,7 @@
+ #include "miray_screen.h"
+ #include <grub/video.h>
+ #include <grub/gui.h>
++#include <grub/env.h>
+ #include "gui_activity_bar.h"
+ #include "miray_gfx_screen.h"
+ 
+@@ -399,6 +400,14 @@ static void miray_gfx_screen_redraw_text (struct miray_screen *scr, int clear __
+    miray_gfx_screen_redraw_rect(scr, &bounds, 1);
+ }
+ 
++static void miray_gfx_screen_redraw_timeout (struct miray_screen *scr, int clear __attribute__ ((unused)))
++{
++   mgs_data_t * data = scr->data;
++
++   const grub_video_rect_t bounds = { .x = 0, .y = data->screen_rect.y + data->screen_offs_y_text, .width = data->v_width, .height = data->v_height - data->screen_rect.y - data->screen_offs_y_text - menu_height - 1 };
++   miray_gfx_screen_redraw_rect(scr, &bounds, 1);
++}
++
+ static void miray_gfx_screen_set_splash_menu(struct miray_screen *scr, grub_menu_t menu)
+ {
+    mgs_data_t * data = scr->data;
+@@ -617,6 +626,30 @@ static void miray_gfx_screen_message_box(struct miray_screen *scr, const char **
+ }
+ 
+ 
++static char *
++miray_gfx_screen_submenu_center_entry(struct miray_screen *scr __attribute__((unused)), const char * string)
++{
++   int len = grub_strlen(string);
++   int pad = (grub_term_width(grub_term_outputs) - len -5) /2;
++
++   {
++      const char * val = grub_env_get ("gfx_center_padding");
++      if (val)
++      {
++         pad = (int) grub_strtoul (val, 0, 0);
++      }
++   }
++
++   char * new_string = grub_malloc(sizeof(char) * (len + pad + 1));
++   grub_memset(new_string, ' ', len + pad);
++   new_string[len + pad] = '\0';
++
++   grub_memcpy(&new_string[pad], string, len);
++
++   return new_string;
++}
++
++
+ 
+ static void miray_gfx_screen_set_progress(struct miray_screen *scr, grub_uint64_t cur, grub_uint64_t max)
+ {
+@@ -686,6 +719,7 @@ miray_gfx_screen_new(struct grub_term_output *term)
+    ret->clear   = miray_gfx_screen_clear;
+    ret->redraw  = miray_gfx_screen_redraw;
+    ret->redraw_text = miray_gfx_screen_redraw_text;
++   ret->redraw_timeout = miray_gfx_screen_redraw_timeout;
+ 
+    ret->set_splash_menu = miray_gfx_screen_set_splash_menu;
+    ret->run_submenu = miray_gfx_screen_run_submenu;
+@@ -695,6 +729,7 @@ miray_gfx_screen_new(struct grub_term_output *term)
+    ret->set_progress = miray_gfx_screen_set_progress;
+ 
+    ret->message_box = miray_gfx_screen_message_box;
++   ret->submenu_center_entry = miray_gfx_screen_submenu_center_entry;
+ 
+    ret->finish = miray_gfx_screen_finish;
+ 
+-- 
+1.9.2.msysgit.0
+

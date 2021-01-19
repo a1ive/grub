@@ -1,0 +1,68 @@
+From b4a8b98c131803cc5f70ef5df46dd7ec018bac7b Mon Sep 17 00:00:00 2001
+From: Thomas Frauendorfer <tf@miray.de>
+Date: Mon, 5 May 2014 14:38:04 +0200
+Subject: [PATCH 10/41] create hook to add our own modules
+
+---
+ autogen.sh                   | 2 +-
+ conf/Makefile.common         | 2 +-
+ conf/Makefile.extra-dist     | 1 +
+ grub-core/Makefile.miray.def | 2 ++
+ 4 files changed, 5 insertions(+), 2 deletions(-)
+ mode change 100644 => 100755 conf/Makefile.common
+ mode change 100644 => 100755 conf/Makefile.extra-dist
+ create mode 100755 grub-core/Makefile.miray.def
+
+diff --git a/autogen.sh b/autogen.sh
+index 7424428..936180a 100755
+--- a/autogen.sh
++++ b/autogen.sh
+@@ -40,7 +40,7 @@ if [ "x${GRUB_CONTRIB}" != x ]; then
+ fi
+ 
+ UTIL_DEFS='Makefile.util.def Makefile.utilgcry.def'
+-CORE_DEFS='grub-core/Makefile.core.def grub-core/Makefile.gcry.def'
++CORE_DEFS='grub-core/Makefile.core.def grub-core/Makefile.gcry.def grub-core/Makefile.miray.def'
+ 
+ for extra in contrib/*/Makefile.util.def; do
+   if test -e "$extra"; then
+diff --git a/conf/Makefile.common b/conf/Makefile.common
+old mode 100644
+new mode 100755
+index e4c301f..b1597ae
+--- a/conf/Makefile.common
++++ b/conf/Makefile.common
+@@ -137,7 +137,7 @@ $(top_srcdir)/Makefile.util.am: $(top_srcdir)/gentpl.py $(top_srcdir)/Makefile.u
+ 	mv $@.new $@
+ 
+ .PRECIOUS: $(top_srcdir)/grub-core/Makefile.core.am
+-$(top_srcdir)/grub-core/Makefile.core.am: $(top_srcdir)/gentpl.py $(top_srcdir)/grub-core/Makefile.core.def $(top_srcdir)/grub-core/Makefile.gcry.def
++$(top_srcdir)/grub-core/Makefile.core.am: $(top_srcdir)/gentpl.py $(top_srcdir)/grub-core/Makefile.core.def $(top_srcdir)/grub-core/Makefile.gcry.def $(top_srcdir)/grub-core/Makefile.miray.def
+ 	if [ "x$$GRUB_CONTRIB" != x ]; then echo "You need to run ./autogen.sh manually." >&2; exit 1; fi
+ 	python $^ > $@.new || (rm -f $@.new; exit 1)
+ 	mv $@.new $@
+diff --git a/conf/Makefile.extra-dist b/conf/Makefile.extra-dist
+old mode 100644
+new mode 100755
+index 51f08c1..28cd295
+--- a/conf/Makefile.extra-dist
++++ b/conf/Makefile.extra-dist
+@@ -19,6 +19,7 @@ EXTRA_DIST += conf/i386-cygwin-img-ld.sc
+ 
+ EXTRA_DIST += grub-core/Makefile.core.def
+ EXTRA_DIST += grub-core/Makefile.gcry.def
++EXTRA_DIST += grub-core/Makefile.miray.def
+ 
+ EXTRA_DIST += grub-core/genmoddep.awk
+ EXTRA_DIST += grub-core/genmod.sh.in
+diff --git a/grub-core/Makefile.miray.def b/grub-core/Makefile.miray.def
+new file mode 100755
+index 0000000..985baf4
+--- /dev/null
++++ b/grub-core/Makefile.miray.def
+@@ -0,0 +1,2 @@
++AutoGen definitions Makefile.tpl;
++
+-- 
+1.9.2.msysgit.0
+

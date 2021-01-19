@@ -1,0 +1,14 @@
+Environment-Variablen für den Miray-Startbildschirm:
+
+miray_options_message:
+Wird vor dem Laden des Kernels angezeigt. 
+Default: "<S> Start Symobi | <ESC> Boot Native OS | <M> More Boot Options"
+
+miray_starting_message:
+Wird beim Laden des Kernels und beim Booten angezeigt.
+Default: "Starting Miray Symobi"
+
+debugmode:
+Wenn nicht gesetzt sind alle als 'restricted' gekennzeichneten Funktionen gesperrt
+(console, edit menu, menu entries mit userlisten)
+Default: <unset>

@@ -1,0 +1,97 @@
+From 38cb1bb92c39fa08ea56aecb7a50cc610f9af00a Mon Sep 17 00:00:00 2001
+From: Thomas Frauendorfer <tf@miray.de>
+Date: Tue, 18 Aug 2015 10:23:35 +0200
+Subject: [PATCH 40/41] fix graphic error after submenu
+
+---
+ grub-core/miray/bootscreen/miray_gfx_screen.c | 30 +++++++++++++++++++++++++++
+ 1 file changed, 30 insertions(+)
+
+diff --git a/grub-core/miray/bootscreen/miray_gfx_screen.c b/grub-core/miray/bootscreen/miray_gfx_screen.c
+index ebf9624..3ba01b0d 100755
+--- a/grub-core/miray/bootscreen/miray_gfx_screen.c
++++ b/grub-core/miray/bootscreen/miray_gfx_screen.c
+@@ -20,6 +20,7 @@
+ #include <grub/video.h>
+ #include <grub/gui.h>
+ #include <grub/env.h>
++#include <grub/gfxterm.h>
+ #include "gui_activity_bar.h"
+ #include "miray_gfx_screen.h"
+ 
+@@ -98,6 +99,26 @@ typedef struct miray_gfx_screen_data mgs_data_t;
+ struct miray_screen * miray_gfx_screen_new(struct grub_term_output *term);
+ 
+ 
++static inline void _screen_reset_term(mgs_data_t * data)
++{
++  grub_font_t font;
++
++   grub_video_set_active_render_target (GRUB_VIDEO_RENDER_TARGET_DISPLAY);
++   grub_video_set_viewport (0, 0, data->v_width, data->v_height);
++   grub_video_set_region(0, 0, data->v_width, data->v_height);
++
++   grub_gfxterm_decorator_hook = 0;
++
++   font = grub_font_get ("");
++   if (font != 0)
++   {
++      grub_gfxterm_set_window (GRUB_VIDEO_RENDER_TARGET_DISPLAY,
++				  0, 0, data->v_width, data->v_height,
++				  data->screen_double_repaint,
++				  font, 10);
++   }
++}
++
+ 
+ static inline void _gui_container_add(grub_gui_container_t cont, grub_gui_component_t child)
+ {
+@@ -188,6 +209,9 @@ static inline void _screen_paint_menu(mgs_data_t * data, const grub_video_rect_t
+ 
+    if (bounds->y + bounds->height >= menu_bounds.y - 1)
+    {
++      grub_video_set_viewport (0, 0, data->v_width, data->v_height);
++
++
+       grub_video_fill_rect (grub_video_map_rgba_color (data->bg_menuseperator),
+                             0,
+                             data->v_height - menu_height - 1,
+@@ -200,8 +224,10 @@ static inline void _screen_paint_menu(mgs_data_t * data, const grub_video_rect_t
+                             data->v_width,
+                             menu_height);      
+ 
++
+       menu_bounds.y = 0;
+       _gui_paint(&data->menu->component, &menu_bounds);
++
+    }
+ }
+ 
+@@ -289,6 +315,7 @@ static inline void _screen_draw_bg(mgs_data_t * data, const grub_video_rect_t *
+                          abs_bounds->y,
+                          abs_bounds->width,
+                          abs_bounds->height);
++
+ }
+ 
+ static void miray_gfx_screen_clear (struct miray_screen * scr)
+@@ -302,6 +329,7 @@ static void miray_gfx_screen_clear (struct miray_screen * scr)
+       .height = data->v_height
+    };
+ 
++   _screen_reset_term(data);
+ 
+    _screen_draw_bg(data, &bounds);
+    grub_video_swap_buffers ();
+@@ -401,6 +429,8 @@ static void miray_gfx_screen_redraw (struct miray_screen * scr)
+ {
+    mgs_data_t * data = scr->data;
+ 
++   _screen_reset_term(data);
++
+    const grub_video_rect_t bounds = { .x = 0, .y = 0, .width = data->v_width, .height = data->v_height };
+    
+    miray_gfx_screen_redraw_rect(scr, &bounds, 1);
+-- 
+1.9.2.msysgit.0
+

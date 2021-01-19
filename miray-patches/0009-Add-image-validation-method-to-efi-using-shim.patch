@@ -1,0 +1,103 @@
+From 9539778355262f2bd546c34fb506ed7f96106fc3 Mon Sep 17 00:00:00 2001
+From: Thomas Frauendorfer <tf@miray.de>
+Date: Thu, 8 May 2014 15:57:02 +0200
+Subject: [PATCH 09/41] Add image validation method to efi using shim based on
+ linuxefi code from RedHat
+
+---
+ grub-core/kern/efi/efi.c | 39 +++++++++++++++++++++++++++++++++++++++
+ include/grub/efi/api.h   |  5 +++++
+ include/grub/efi/efi.h   |  2 ++
+ 3 files changed, 46 insertions(+)
+ mode change 100644 => 100755 grub-core/kern/efi/efi.c
+ mode change 100644 => 100755 include/grub/efi/api.h
+ mode change 100644 => 100755 include/grub/efi/efi.h
+
+diff --git a/grub-core/kern/efi/efi.c b/grub-core/kern/efi/efi.c
+old mode 100644
+new mode 100755
+index 3b6cf26..a9c945e
+--- a/grub-core/kern/efi/efi.c
++++ b/grub-core/kern/efi/efi.c
+@@ -287,6 +287,45 @@ grub_efi_secure_boot (void)
+   return ret;
+ }
+ 
++struct grub_efi_shim_lock
++{
++  grub_efi_status_t (*verify) (void *buffer, grub_uint32_t size);
++};
++typedef struct grub_efi_shim_lock grub_efi_shim_lock_t;
++
++grub_efi_boolean_t
++grub_efi_has_secure_validate(void)
++{
++  grub_efi_guid_t guid = GRUB_EFI_SHIM_LOCK_GUID;
++  grub_efi_shim_lock_t *shim_lock;
++
++  shim_lock = grub_efi_locate_protocol(&guid, NULL);
++
++  return (shim_lock != 0) ? 1 : 0;
++
++}
++
++grub_efi_boolean_t
++grub_efi_secure_validate(void * buffer, grub_uint32_t size)
++{
++  grub_efi_guid_t guid = GRUB_EFI_SHIM_LOCK_GUID;
++  grub_efi_shim_lock_t *shim_lock;
++  grub_efi_status_t status;
++
++  shim_lock = grub_efi_locate_protocol(&guid, NULL);
++
++  if (!shim_lock)
++    return 1;
++
++  status = shim_lock->verify(buffer, size);
++  if (status == GRUB_EFI_SUCCESS)
++    return 1;
++
++  grub_printf("Verification failed: %d\n", (int)status);
++
++  return 0;
++}
++
+ #pragma GCC diagnostic ignored "-Wcast-align"
+ 
+ /* Search the mods section from the PE32/PE32+ image. This code uses
+diff --git a/include/grub/efi/api.h b/include/grub/efi/api.h
+old mode 100644
+new mode 100755
+index e5dd543..3d03d11
+--- a/include/grub/efi/api.h
++++ b/include/grub/efi/api.h
+@@ -286,6 +286,11 @@
+       { 0x8B, 0x8C, 0xE2, 0x1B, 0x01, 0xAE, 0xF2, 0xB7 } \
+   }
+ 
++#define GRUB_EFI_SHIM_LOCK_GUID \
++  { 0x605dab50, 0xe046, 0x4300,  \
++      { 0xab, 0xb6, 0x3d, 0xd8, 0x10, 0xdd, 0x8b, 0x23} \
++  }
++
+ struct grub_efi_sal_system_table
+ {
+   grub_uint32_t signature;
+diff --git a/include/grub/efi/efi.h b/include/grub/efi/efi.h
+old mode 100644
+new mode 100755
+index db2169e..2886c4b
+--- a/include/grub/efi/efi.h
++++ b/include/grub/efi/efi.h
+@@ -70,6 +70,8 @@ EXPORT_FUNC (grub_efi_set_variable) (const char *var,
+ 				     void *data,
+ 				     grub_size_t datasize);
+ grub_efi_boolean_t EXPORT_FUNC (grub_efi_secure_boot) (void);
++grub_efi_boolean_t EXPORT_FUNC (grub_efi_has_secure_validate) (void);
++grub_efi_boolean_t EXPORT_FUNC (grub_efi_secure_validate) (void *buffer, grub_uint32_t size);
+ int
+ EXPORT_FUNC (grub_efi_compare_device_paths) (const grub_efi_device_path_t *dp1,
+ 					     const grub_efi_device_path_t *dp2);
+-- 
+1.9.2.msysgit.0
+

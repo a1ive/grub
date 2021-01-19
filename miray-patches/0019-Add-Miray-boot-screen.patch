@@ -1,0 +1,3777 @@
+From 2d0f14f11b5ba99ec6b7cfcff629d7980bb0fcaf Mon Sep 17 00:00:00 2001
+From: Thomas Frauendorfer <tf@miray.de>
+Date: Wed, 7 May 2014 12:13:56 +0200
+Subject: [PATCH 19/41] Add Miray boot screen
+
+---
+ grub-core/Makefile.miray.def                       |  25 +
+ grub-core/kern/err.c                               |   7 +-
+ grub-core/kern/main.c                              |   2 +
+ grub-core/loader/multiboot.c                       |   4 +-
+ grub-core/miray/README                             |  14 +
+ grub-core/miray/bootscreen/main.c                  | 229 ++++++++
+ grub-core/miray/bootscreen/miray_bootscreen.c      | 299 ++++++++++
+ grub-core/miray/bootscreen/miray_bootscreen.h      |  39 ++
+ grub-core/miray/bootscreen/miray_constants.h       |  39 ++
+ grub-core/miray/bootscreen/miray_logo.c            | 112 ++++
+ grub-core/miray/bootscreen/miray_logo.h            |  52 ++
+ grub-core/miray/bootscreen/miray_screen.c          | 472 +++++++++++++++
+ grub-core/miray/bootscreen/miray_screen.h          | 165 ++++++
+ .../bootscreen/miray_segmented_file_helpers.c      | 240 ++++++++
+ grub-core/miray/bootscreen/miray_text_screen.c     | 631 +++++++++++++++++++++
+ grub-core/miray/bootscreen/text_progress_bar.c     | 332 +++++++++++
+ grub-core/miray/bootscreen/text_progress_bar.h     |  51 ++
+ grub-core/miray/io/segmented_file.c                | 425 ++++++++++++++
+ grub-core/normal/main.c                            |  32 +-
+ grub-core/normal/menu.c                            |  33 +-
+ grub-core/normal/menu_entry.c                      |  10 +-
+ grub-core/normal/menu_text.c                       |  44 +-
+ include/grub/file.h                                |   1 +
+ include/grub/menu.h                                |   6 +
+ include/grub/menu_viewer.h                         |   5 +
+ 25 files changed, 3234 insertions(+), 35 deletions(-)
+ mode change 100644 => 100755 grub-core/kern/err.c
+ mode change 100644 => 100755 grub-core/kern/main.c
+ mode change 100644 => 100755 grub-core/loader/multiboot.c
+ create mode 100755 grub-core/miray/README
+ create mode 100755 grub-core/miray/bootscreen/main.c
+ create mode 100755 grub-core/miray/bootscreen/miray_bootscreen.c
+ create mode 100755 grub-core/miray/bootscreen/miray_bootscreen.h
+ create mode 100755 grub-core/miray/bootscreen/miray_constants.h
+ create mode 100755 grub-core/miray/bootscreen/miray_logo.c
+ create mode 100755 grub-core/miray/bootscreen/miray_logo.h
+ create mode 100755 grub-core/miray/bootscreen/miray_screen.c
+ create mode 100755 grub-core/miray/bootscreen/miray_screen.h
+ create mode 100755 grub-core/miray/bootscreen/miray_segmented_file_helpers.c
+ create mode 100755 grub-core/miray/bootscreen/miray_text_screen.c
+ create mode 100755 grub-core/miray/bootscreen/text_progress_bar.c
+ create mode 100755 grub-core/miray/bootscreen/text_progress_bar.h
+ create mode 100755 grub-core/miray/io/segmented_file.c
+ mode change 100644 => 100755 grub-core/normal/main.c
+ mode change 100644 => 100755 grub-core/normal/menu.c
+ mode change 100644 => 100755 grub-core/normal/menu_entry.c
+ mode change 100644 => 100755 grub-core/normal/menu_text.c
+ mode change 100644 => 100755 include/grub/menu.h
+ mode change 100644 => 100755 include/grub/menu_viewer.h
+
+diff --git a/grub-core/Makefile.miray.def b/grub-core/Makefile.miray.def
+index f33996d..9d2b9ea 100755
+--- a/grub-core/Makefile.miray.def
++++ b/grub-core/Makefile.miray.def
+@@ -1,5 +1,19 @@
+ AutoGen definitions Makefile.tpl;
+ 
++
++module = {
++  name = miray;
++  common = miray/bootscreen/main.c;
++  common = miray/bootscreen/miray_logo.c;
++  common = miray/bootscreen/text_progress_bar.c;
++  common = miray/bootscreen/miray_screen.c;
++  common = miray/bootscreen/miray_text_screen.c;
++  common = miray/bootscreen/miray_bootscreen.c;
++  common = miray/bootscreen/miray_segmented_file_helpers.c;
++};
++
++
++
+ module = {
+   name = boothelper;
+   common = miray/commands/boothelper.c;
+@@ -12,11 +26,22 @@ module = {
+   efi = commands/efi/acpi.c;
+ };
+ 
++
++
+ module = { 
+   name = miray_activity;
+   common = miray/lib/activity.c;
+ };
+ 
++
++
++module = {
++  name = segmented_file;
++  common = miray/io/segmented_file.c;
++};
++
++
++
+ module = {
+   name = lzmaio;
+   common = miray/io/lzmaio.c;
+diff --git a/grub-core/kern/err.c b/grub-core/kern/err.c
+old mode 100644
+new mode 100755
+index 53c734d..8a0b918
+--- a/grub-core/kern/err.c
++++ b/grub-core/kern/err.c
+@@ -21,6 +21,7 @@
+ #include <grub/misc.h>
+ #include <stdarg.h>
+ #include <grub/i18n.h>
++#include <grub/miray_debug.h>
+ 
+ #define GRUB_ERROR_STACK_SIZE	10
+ 
+@@ -107,7 +108,8 @@ grub_print_error (void)
+     {
+       if (grub_errno != GRUB_ERR_NONE)
+ 	{
+-	  grub_err_printf (_("error: %s.\n"), grub_errmsg);
++	  if (miray_debugmode())
++       grub_err_printf (_("error: %s.\n"), grub_errmsg);
+ 	  grub_err_printed_errors++;
+ 	}
+     }
+@@ -116,7 +118,8 @@ grub_print_error (void)
+   /* If there was an assert while using error stack, report about it.  */
+   if (grub_error_stack_assert)
+     {
+-      grub_err_printf ("assert: error stack overflow detected!\n");
++      if (miray_debugmode())
++        grub_err_printf ("assert: error stack overflow detected!\n");
+       grub_error_stack_assert = 0;
+     }
+ }
+diff --git a/grub-core/kern/main.c b/grub-core/kern/main.c
+old mode 100644
+new mode 100755
+index 9cad0c4..2355c26
+--- a/grub-core/kern/main.c
++++ b/grub-core/kern/main.c
+@@ -270,9 +270,11 @@ grub_main (void)
+   grub_boot_time ("After machine init.");
+ 
+   /* Hello.  */
++#if 0 // Miray disable
+   grub_setcolorstate (GRUB_TERM_COLOR_HIGHLIGHT);
+   grub_printf ("Welcome to GRUB!\n\n");
+   grub_setcolorstate (GRUB_TERM_COLOR_STANDARD);
++#endif
+ 
+   grub_load_config ();
+ 
+diff --git a/grub-core/loader/multiboot.c b/grub-core/loader/multiboot.c
+old mode 100644
+new mode 100755
+index 4b71f33..67e4464
+--- a/grub-core/loader/multiboot.c
++++ b/grub-core/loader/multiboot.c
+@@ -42,6 +42,7 @@
+ #include <grub/video.h>
+ #include <grub/memory.h>
+ #include <grub/i18n.h>
++#include <grub/miray_debug.h>
+ 
+ GRUB_MOD_LICENSE ("GPLv3+");
+ 
+@@ -190,7 +191,8 @@ grub_multiboot_set_console (int console_type, int accepted_consoles,
+       if (console_required)
+ 	return grub_error (GRUB_ERR_BAD_OS,
+ 			   "OS requires a console but none is available");
+-      grub_puts_ (N_("WARNING: no console will be available to OS"));
++      if (miray_debugmode())
++        grub_puts_ (N_("WARNING: no console will be available to OS"));
+       accepts_video = 0;
+       accepts_ega_text = 0;
+       return GRUB_ERR_NONE;
+diff --git a/grub-core/miray/README b/grub-core/miray/README
+new file mode 100755
+index 0000000..546e880
+--- /dev/null
++++ b/grub-core/miray/README
+@@ -0,0 +1,14 @@
++Environment-Variablen für den Miray-Startbildschirm:
++
++miray_options_message:
++Wird vor dem Laden des Kernels angezeigt. 
++Default: "<S> Start Symobi | <ESC> Boot Native OS | <M> More Boot Options"
++
++miray_starting_message:
++Wird beim Laden des Kernels und beim Booten angezeigt.
++Default: "Starting Miray Symobi"
++
++debugmode:
++Wenn nicht gesetzt sind alle als 'restricted' gekennzeichneten Funktionen gesperrt
++(console, edit menu, menu entries mit userlisten)
++Default: <unset>
+diff --git a/grub-core/miray/bootscreen/main.c b/grub-core/miray/bootscreen/main.c
+new file mode 100755
+index 0000000..4a18638
+--- /dev/null
++++ b/grub-core/miray/bootscreen/main.c
+@@ -0,0 +1,229 @@
++/* main.c - the miray bootscreen main routine, parts copied from normal main */
++/*
++ *  Extention for GRUB  --  GRand Unified Bootloader
++ *  Copyright (C) 2000,2001,2002,2003,2005,2006,2007,2008,2009  Free Software Foundation, Inc.
++ *  Copyright (C) 2010,2011 Miray Software <oss@miray.de>
++ *
++ *  GRUB is free software: you can redistribute it and/or modify
++ *  it under the terms of the GNU General Public License as published by
++ *  the Free Software Foundation, either version 3 of the License, or
++ *  (at your option) any later version.
++ *
++ *  GRUB is distributed in the hope that it will be useful,
++ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ *  GNU General Public License for more details.
++ *
++ *  You should have received a copy of the GNU General Public License
++ *  along with GRUB.  If not, see <http://www.gnu.org/licenses/>.
++ */
++
++
++
++#include <grub/dl.h>
++#include <grub/menu_viewer.h>
++#include <grub/normal.h>
++#include <grub/term.h>
++#include <grub/time.h>
++#include <grub/i18n.h>
++#include <grub/loader.h>
++#include <grub/charset.h>
++#include <grub/mm.h>
++#include <grub/misc.h>
++#include <grub/menu.h>
++
++#include "miray_bootscreen.h"
++#include "miray_constants.h"
++#include "miray_screen.h"
++
++GRUB_MOD_LICENSE ("GPLv3+");
++
++#ifndef GRUB_TERM_DISP_HLINE
++#define GRUB_TERM_DISP_HLINE GRUB_UNICODE_HLINE
++#endif
++
++
++static grub_err_t
++miray_cmd_fatal (struct grub_command *cmd __attribute__ ((unused)),
++		int argc, char *argv[]) __attribute__ ((noreturn));
++
++static grub_err_t
++miray_cmd_bootscreen (struct grub_command *cmd __attribute__ ((unused)),
++		int argc, char *argv[])
++{
++  if (argc == 0)
++    {
++      /* Guess the config filename. It is necessary to make CONFIG static,
++         so that it won't get broken by longjmp.  */
++      char *config;
++      const char *prefix;
++
++      prefix = grub_env_get ("prefix");
++      if (prefix)
++        {
++          config = grub_xasprintf ("%s/grub.cfg", prefix);
++          if (! config)
++            goto quit;
++
++          grub_enter_normal_mode (config);
++          grub_free (config);
++        }
++      else
++        grub_enter_normal_mode (0);
++    }
++  else
++    grub_enter_normal_mode (argv[0]);
++
++quit:
++  return GRUB_ERR_NONE;
++}
++
++static grub_err_t
++miray_cmd_center_env (struct grub_command *cmd __attribute__ ((unused)),
++		int argc, char *argv[])
++{
++   if (argc < 2) return GRUB_ERR_NONE;
++
++   char * string = argv[0];
++   char * key = argv[1];
++
++   int len = grub_strlen(string);
++   int pad = (grub_term_width(grub_term_outputs) - len -5) /2;
++
++   char * new_string = grub_malloc(sizeof(char) * (len + pad + 1));
++   grub_memset(new_string, ' ', len + pad);
++   new_string[len + pad] = '\0';
++
++   grub_memcpy(&new_string[pad], string, len);
++
++   grub_env_set(key, new_string);
++   grub_free(new_string);
++ 
++   return GRUB_ERR_NONE;
++}
++
++
++static grub_err_t
++miray_cmd_submenu (struct grub_command *cmd __attribute__ ((unused)),
++		int argc, char *argv[])
++{
++   if (argc < 1) return grub_error(GRUB_ERR_BAD_ARGUMENT, "Argument missing");
++   
++   return miray_bootscreen_run_submenu(argv[0]);
++}
++
++static grub_err_t
++miray_cmd_fatal (struct grub_command *cmd __attribute__ ((unused)),
++		int argc, char *argv[])
++{
++   if (argc > 0) 
++   {
++      miray_screen_message_box((const char **)argv, 0);
++   }  
++   else
++   {
++      const char *msg[] = {"FATAL INTERNAL ERROR", "Press any key to reboot", 0};
++      miray_screen_message_box(msg, 0);
++   }
++
++   if (grub_term_inputs)
++   {
++      grub_getkey ();
++   }
++ 
++   grub_reboot();
++
++}
++
++static grub_err_t
++miray_cmd_msg_box(struct grub_command *cmd __attribute__ ((unused)),
++		int argc, char *argv[])
++{
++   if (argc == 0)
++   {
++      return grub_error(GRUB_ERR_BAD_ARGUMENT, "Argument missing");
++   }
++
++   miray_screen_message_box((const char **) argv, 0);
++
++   grub_errno = GRUB_ERR_NONE;
++   return GRUB_ERR_NONE;
++}
++
++#define INIT_TERMWIDTH 73
++
++static grub_command_t cmd_bootscreen, cmd_center;
++static grub_command_t cmd_submenu;
++static grub_command_t cmd_fatal;
++static grub_command_t cmd_msg_box;
++static grub_command_t cmd_cmdline;
++// static grub_command_t cmd_booting;
++static void *preboot_handle;
++GRUB_MOD_INIT(miray_bootscreen)
++{
++   grub_uint32_t hline[INIT_TERMWIDTH + 1];
++   char *c_hline;
++   int i;
++
++   for (i = 0; i < INIT_TERMWIDTH; i++) {
++	hline[i] = GRUB_TERM_DISP_HLINE;
++   }
++   hline[INIT_TERMWIDTH] = '\0';
++
++   c_hline = grub_ucs4_to_utf8_alloc(hline, INIT_TERMWIDTH);
++   grub_env_set("hline", c_hline);
++   grub_free(c_hline);
++
++
++   if (custom_menu_handler == 0)
++      custom_menu_handler = miray_bootscreen_execute;
++
++   miray_screen_init();
++   miray_segfile_init();
++ 
++   cmd_bootscreen = grub_register_command("miray_bootscreen",
++				      miray_cmd_bootscreen, 
++				      0, N_("display the Miray bootscreen"));
++
++   cmd_center = grub_register_command("miray_center_env",
++				      miray_cmd_center_env, 
++				      0, N_("center string and output to env"));
++
++   cmd_cmdline = grub_register_command ("miray_cmdline",
++                                       miray_cmd_cmdline,
++                                        0,N_("Open a commandline window"));
++
++   cmd_submenu = grub_register_command("miray_submenu",
++				       miray_cmd_submenu,
++				       0, N_("run submenu"));
++
++   cmd_fatal = grub_register_command ("miray_fatal",
++                                       miray_cmd_fatal,
++                                        0,N_("display message and stop"));
++
++   cmd_msg_box = grub_register_command("miray_msg_box",
++                                        miray_cmd_msg_box,
++                                        0, N_("display message box"));
++
++  preboot_handle = grub_loader_register_preboot_hook (miray_bootscreen_preboot, 0, GRUB_LOADER_PREBOOT_HOOK_PRIO_NORMAL);
++
++}
++
++GRUB_MOD_FINI(miray_bootscreen)
++{
++   if (custom_menu_handler == miray_bootscreen_execute)
++	custom_menu_handler = 0;
++
++   grub_unregister_command (cmd_bootscreen);
++   grub_unregister_command (cmd_center);
++   grub_unregister_command (cmd_cmdline);
++   grub_unregister_command (cmd_submenu);
++   grub_unregister_command (cmd_fatal);
++   grub_unregister_command (cmd_msg_box);
++
++   if (preboot_handle != 0)
++      grub_loader_unregister_preboot_hook(preboot_handle);
++
++   miray_segfile_fini();
++   miray_screen_fini();
++}
+diff --git a/grub-core/miray/bootscreen/miray_bootscreen.c b/grub-core/miray/bootscreen/miray_bootscreen.c
+new file mode 100755
+index 0000000..d9856fa
+--- /dev/null
++++ b/grub-core/miray/bootscreen/miray_bootscreen.c
+@@ -0,0 +1,299 @@
++/*
++ *  Extention for GRUB  --  GRand Unified Bootloader
++ *  Copyright (C) 2010-2014 Miray Software <oss@miray.de>
++ *
++ *  GRUB is free software: you can redistribute it and/or modify
++ *  it under the terms of the GNU General Public License as published by
++ *  the Free Software Foundation, either version 3 of the License, or
++ *  (at your option) any later version.
++ *
++ *  GRUB is distributed in the hope that it will be useful,
++ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ *  GNU General Public License for more details.
++ *
++ *  You should have received a copy of the GNU General Public License
++ *  along with GRUB.  If not, see <http://www.gnu.org/licenses/>.
++ */
++
++
++#include <grub/dl.h>
++#include <grub/menu_viewer.h>
++#include <grub/normal.h>
++#include <grub/term.h>
++#include <grub/time.h>
++#include <grub/i18n.h>
++#include <grub/loader.h>
++#include <grub/charset.h>
++#include <grub/mm.h>
++#include <grub/misc.h>
++#include <grub/menu.h>
++
++#include "miray_bootscreen.h"
++#include "miray_constants.h"
++#include "miray_screen.h"
++
++
++static const int boot_next_entry = 1;
++static const int boot_symobi_entry = 0;
++
++const char * boot_options;
++
++#ifndef GRUB_TERM_DISP_HLINE
++#define GRUB_TERM_DISP_HLINE GRUB_UNICODE_HLINE
++#endif
++
++static inline char _upcase_ascii(char c)
++{
++	return (c >= 'a' && c <= 'z') ? c + 'A' - 'a' : c;
++}
++
++
++grub_err_t miray_bootscreen_run_submenu(const char * menufile)
++{
++   int ret; // unused, needed by grub-code
++   grub_menu_t mainmenu;
++   grub_menu_t menu;
++   grub_menu_entry_t e;
++  
++   if (menufile == 0)
++      menufile = grub_env_get("ext_menu");
++
++   mainmenu = grub_env_get_menu();
++   grub_env_unset_menu();
++
++   miray_screen_cls();
++
++   while (1)
++   {
++      // reload menu every time to update menu entry descriptions
++      // This is necessary to enable toggled options
++      menu = read_config_file (menufile);
++      if (menu == 0)
++      {
++         grub_env_set_menu(mainmenu);
++         return grub_error (GRUB_ERR_FILE_NOT_FOUND, "Could not open menu file");
++      }
++      ret = miray_run_menu(menu);
++
++      if (ret < 0)
++      {
++         grub_normal_free_menu (menu);
++         grub_env_set_menu(mainmenu);
++         return grub_errno;
++      }
++
++      {
++         char val[10];
++         grub_snprintf(val, 9, "%d", ret);
++         grub_env_set("default", val);
++      }
++
++      e = grub_menu_get_entry (menu, ret);
++      if (e == 0) {
++         grub_normal_free_menu (menu);
++         continue;
++      }
++
++      grub_menu_execute_entry(e, 0);
++      miray_screen_reset();
++
++      grub_normal_free_menu(menu);
++   }
++
++   grub_env_set_menu(mainmenu);
++   miray_screen_redraw();
++
++   return GRUB_ERR_NONE;
++}
++
++static int run_screen (grub_menu_t menu, int default_entry)
++{
++   int timeout;
++   grub_uint64_t saved_time;
++
++   timeout = grub_menu_get_timeout();
++   saved_time = grub_get_time_ms();
++
++   while (1)
++   {
++      int c;
++      
++      if (timeout > 0)
++      {
++         grub_uint64_t current_time = grub_get_time_ms();
++         if (current_time - saved_time >= 1000)
++         {
++            timeout--;
++            saved_time = current_time;
++            grub_menu_set_timeout(timeout);
++            miray_screen_redraw_text(0);
++         }
++      }
++
++      c = grub_getkey_noblock();
++
++      if (c != GRUB_TERM_NO_KEY)
++      {
++         switch (c)
++         {
++         case '\e':
++            if (timeout < 0) break;
++            timeout=-1;
++            grub_env_unset("timeout");
++            miray_screen_redraw_text(1);
++            break;
++
++#if 0
++         case 'M':
++         case 'm':
++            timeout = -1;
++            grub_env_unset("timeout");
++            miray_bootscreen_run_submenu(0);
++            break;
++#endif
++
++#if 0
++         case 'c':
++            timeout = -1;
++            grub_env_unset("timeout");
++            miray_screen_cls();
++            grub_cmdline_run(1);
++            miray_screen_redraw();
++            break;
++#endif
++
++#if 0
++         // FIXME: Workaround for some grub menuentry class bug
++         case 's':
++         case 'S':
++            timeout = -1;
++            grub_env_unset("timeout");
++            {
++               grub_menu_entry_t entry;
++               int i;
++               for (i = 0, entry = menu->entry_list; i < menu->size;
++                  i++, entry = entry->next)
++               {
++                  if (_upcase_ascii(entry->hotkey) == _upcase_ascii(c))
++                  {
++                     return i;
++                  }
++               }
++            }
++#endif
++
++         default:
++            {
++               grub_menu_entry_t entry;
++               int i;
++               for (i = 0, entry = menu->entry_list; i < menu->size;
++               i++, entry = entry->next)
++               {
++                  if (_upcase_ascii(entry->hotkey) == _upcase_ascii(c))
++                  {
++                     timeout = -1;
++                     grub_env_unset("timeout");
++                     grub_dprintf("miray", "%s, %d", __func__, __LINE__);
++                     return i;
++                  }
++               }
++            }
++            break;
++         }
++      }
++
++      if (timeout == 0) {
++         grub_env_unset ("timeout");
++         // FIXME: At the moment, this assuems that symobi uses the first entry
++         return default_entry;
++      }
++   }
++}
++
++grub_err_t miray_bootscreen_execute (grub_menu_t menu, int nested, int auto_boot __attribute__((unused)))
++{
++   int entry;
++   grub_menu_entry_t e;
++   //struct grub_term_output *term;
++   const char * default_str;
++
++   if (nested)
++      return 0; // display normal menu
++
++   //term = grub_term_outputs; // FIXME: enable for all active outputs, handle serial better
++
++   //miray_screen_set_term(term);
++
++   entry = 0;
++
++   if ((default_str = grub_env_get("default")) != 0 )
++      entry = grub_strtol(default_str, 0, 10);
++
++   boot_options = grub_env_get(msg_options_env_key);
++   if (boot_options == 0)
++   {
++     if (grub_command_execute("has_native_os", 0, 0) == GRUB_ERR_NONE)
++     {
++       boot_options = msg_options_native_os;
++     }
++     else
++     {
++       while (grub_error_pop()) {}   
++       boot_options = msg_options_default;
++     }
++   } 
++
++   {
++      menu = grub_env_get_menu();
++      miray_screen_set_splash_menu(menu);
++   }
++
++   miray_screen_redraw();
++
++   while (1)
++   {
++      entry = run_screen (menu, entry);
++      if (entry < 0)
++         break;
++
++      grub_dprintf("miray", "%s, %d", __func__, __LINE__);
++
++      e = grub_menu_get_entry (menu, entry);
++      grub_dprintf("miray", "%s, %d", __func__, __LINE__);
++
++      if (e == 0)
++         continue;
++
++      grub_dprintf("miray", "%s, %d", __func__, __LINE__);
++
++      grub_menu_execute_entry(e, 0);
++ 
++      miray_screen_reset();
++      miray_screen_redraw();
++   }
++
++   grub_dprintf("miray", "%s, %d", __func__, __LINE__);
++
++   return -1;
++}
++
++
++grub_err_t
++miray_cmd_cmdline (struct grub_command *cmd __attribute__ ((unused)),
++   int argc __attribute__ ((unused)), char *argv[] __attribute__ ((unused)))
++{
++   miray_screen_cls();
++   grub_cmdline_run(1);
++   miray_screen_redraw();
++
++   return GRUB_ERR_NONE;
++}
++
++grub_err_t
++miray_bootscreen_preboot (int noreturn __attribute__ ((unused)))
++{
++   miray_screen_finish();
++
++   return 0;
++}
+diff --git a/grub-core/miray/bootscreen/miray_bootscreen.h b/grub-core/miray/bootscreen/miray_bootscreen.h
+new file mode 100755
+index 0000000..d1bcc79
+--- /dev/null
++++ b/grub-core/miray/bootscreen/miray_bootscreen.h
+@@ -0,0 +1,39 @@
++/*
++ *  Extention for GRUB  --  GRand Unified Bootloader
++ *  Copyright (C) 2010,2011 Miray Software <oss@miray.de>
++ *
++ *  GRUB is free software: you can redistribute it and/or modify
++ *  it under the terms of the GNU General Public License as published by
++ *  the Free Software Foundation, either version 3 of the License, or
++ *  (at your option) any later version.
++ *
++ *  GRUB is distributed in the hope that it will be useful,
++ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ *  GNU General Public License for more details.
++ *
++ *  You should have received a copy of the GNU General Public License
++ *  along with GRUB.  If not, see <http://www.gnu.org/licenses/>.
++ */
++
++
++#ifndef MIRAY_BOOTSCREEN
++#define MIRAY_BOOTSCREEN
++
++#include <grub/term.h>
++#include <grub/command.h>
++#include <grub/menu.h>
++
++/* Function Definitions */
++
++struct miray_text_screen_data;
++
++grub_err_t miray_cmd_cmdline(grub_command_t cmd, int argc, char *args[]);
++grub_err_t miray_bootscreen_preboot(int noreturn);
++grub_err_t miray_bootscreen_execute (grub_menu_t menu, int nested, int auto_boot);
++grub_err_t miray_bootscreen_run_submenu(const char *path);
++
++grub_err_t miray_segfile_init(void);
++grub_err_t miray_segfile_fini(void);
++
++#endif
+diff --git a/grub-core/miray/bootscreen/miray_constants.h b/grub-core/miray/bootscreen/miray_constants.h
+new file mode 100755
+index 0000000..283a2aa
+--- /dev/null
++++ b/grub-core/miray/bootscreen/miray_constants.h
+@@ -0,0 +1,39 @@
++/*
++ *  Extention for GRUB  --  GRand Unified Bootloader
++ *  Copyright (C) 2010,2011 Miray Software <oss@miray.de>
++ *
++ *  GRUB is free software: you can redistribute it and/or modify
++ *  it under the terms of the GNU General Public License as published by
++ *  the Free Software Foundation, either version 3 of the License, or
++ *  (at your option) any later version.
++ *
++ *  GRUB is distributed in the hope that it will be useful,
++ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ *  GNU General Public License for more details.
++ *
++ *  You should have received a copy of the GNU General Public License
++ *  along with GRUB.  If not, see <http://www.gnu.org/licenses/>.
++ */
++
++
++#ifndef MIRAY_CONSTANTS
++#define MIRAY_CONSTANTS
++
++/* Constants for bootscreen */
++static const unsigned int miray_pos_logo_top = 3;
++static const unsigned int miray_pos_msg_starting_top = 13;
++static const unsigned int miray_pos_activity_bar_top = 15;
++static const unsigned int miray_size_activity_bar = 12;
++
++// static const unsigned int miray_activity_bar_speed = 50;
++
++static char const* const msg_options_native_os = "<S> Start Symobi | <ESC> Boot Native OS | <M> More Boot Options";
++static char const* const msg_options_default = "<S> Start Symobi | <M> More Boot Options";
++static char const* const msg_starting_default = "Starting Miray Symobi";
++
++// Environment keys to overwrite the default values
++static char const* const msg_options_env_key = "miray_options_message";
++static char const* const msg_starting_env_key = "miray_starting_message";
++ 
++#endif
+diff --git a/grub-core/miray/bootscreen/miray_logo.c b/grub-core/miray/bootscreen/miray_logo.c
+new file mode 100755
+index 0000000..38fe7f8
+--- /dev/null
++++ b/grub-core/miray/bootscreen/miray_logo.c
+@@ -0,0 +1,112 @@
++/*
++ *  Extention for GRUB  --  GRand Unified Bootloader
++ *  Copyright (C) 2010,2011 Miray Software <oss@miray.de>
++ *
++ *  GRUB is free software: you can redistribute it and/or modify
++ *  it under the terms of the GNU General Public License as published by
++ *  the Free Software Foundation, either version 3 of the License, or
++ *  (at your option) any later version.
++ *
++ *  GRUB is distributed in the hope that it will be useful,
++ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ *  GNU General Public License for more details.
++ *
++ *  You should have received a copy of the GNU General Public License
++ *  along with GRUB.  If not, see <http://www.gnu.org/licenses/>.
++ */
++
++
++#include <grub/normal.h>
++#include "miray_bootscreen.h"
++
++#define LOGO_SOURCE
++#include "miray_logo.h"
++#undef LOGO_SOURCE
++
++#if 0
++static inline void logo_putline(int line, struct grub_term_output *term)
++{
++	int x;
++
++	for (x = 0; x < miray_logo_width; x++) {
++		grub_putcode (miray_logo_ucs4[line][x], term);
++	}
++
++}
++#endif
++
++static inline int can_display_logo(void)
++{
++// EFI cannot display half blocks, so the logo will look garbled
++#if defined(GRUB_MACHINE_PCBIOS)
++   return !0;
++#else
++   return 0;
++#endif
++   
++}
++
++
++void miray_draw_logo(const struct text_logo_data *logo, int offset_left, int offset_top, struct grub_term_output *term)
++{
++
++   if (!can_display_logo() || logo == 0)
++      return;
++
++   int i;
++   unsigned int x, y;   
++   struct grub_term_coordinate pos_save;
++   grub_uint8_t normal_color_save, highlight_color_save;
++   grub_uint8_t color_map[LOGO_MAX_COLORS];
++   grub_uint8_t last_color = 0xff; // initialize to invalid value
++   
++   
++   pos_save = grub_term_getxy(term);
++ 
++ 	/* see call in grub_term_restore_pos() */
++	grub_term_gotoxy (term, pos_save);
++   normal_color_save    = grub_term_normal_color;
++   highlight_color_save = grub_term_highlight_color;
++
++	/* Make sure that the logo isn't wrapped */
++	if (offset_left + (int)logo->width >= (int)grub_term_width (term))
++		offset_left = grub_term_width (term) - logo->width;
++	if (offset_left < 0) offset_left = 0;
++	if (offset_top + (int)logo->height >= (int)grub_term_height (term))
++		offset_top = grub_term_height (term) - logo->height;
++	if (offset_top < 0) offset_top = 0;
++
++   for (i = 0; i < LOGO_MAX_COLORS; i++)
++   {
++      if (logo->color[i] != 0 && logo->color[i][0] != '\0')
++      {
++         grub_parse_color_name_pair(&color_map[i], logo->color[i]); 
++      }
++   }
++
++   for (y = 0; y < logo->height; y++)
++   {
++      struct grub_term_coordinate pos = { .x = offset_left, .y = y + offset_top };
++      
++      grub_term_gotoxy (term, pos);
++      for (x = 0; x < logo->width; x++)
++      {
++         if (logo->data[y][x].color != last_color)
++         {
++            last_color = logo->data[y][x].color;
++            if (last_color > LOGO_MAX_COLORS) last_color = 0;
++
++            grub_term_normal_color    = color_map[last_color];
++            grub_term_highlight_color = highlight_color_save;
++            grub_term_setcolorstate (term, GRUB_TERM_COLOR_NORMAL);
++         }
++         grub_putcode (logo->data[y][x].ucs4, term);
++      }
++   } 
++
++   grub_term_normal_color    = normal_color_save;
++   grub_term_highlight_color = highlight_color_save;
++   grub_term_setcolorstate (term, GRUB_TERM_COLOR_NORMAL);
++
++}
+diff --git a/grub-core/miray/bootscreen/miray_logo.h b/grub-core/miray/bootscreen/miray_logo.h
+new file mode 100755
+index 0000000..9cd6053
+--- /dev/null
++++ b/grub-core/miray/bootscreen/miray_logo.h
+@@ -0,0 +1,52 @@
++/*
++ *  Extention for GRUB  --  GRand Unified Bootloader
++ *  Copyright (C) 2010,2011 Miray Software <oss@miray.de>
++ *
++ *  GRUB is free software: you can redistribute it and/or modify
++ *  it under the terms of the GNU General Public License as published by
++ *  the Free Software Foundation, either version 3 of the License, or
++ *  (at your option) any later version.
++ *
++ *  GRUB is distributed in the hope that it will be useful,
++ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ *  GNU General Public License for more details.
++ *
++ *  You should have received a copy of the GNU General Public License
++ *  along with GRUB.  If not, see <http://www.gnu.org/licenses/>.
++ */
++
++
++#ifndef miray_logo_h
++#define miray_logo_h
++
++
++#include <grub/types.h>
++#include <grub/term.h>
++
++#define UPPER_HALF_BLOCK  0x2580
++#define LOWER_HALF_BLOCK  0x2584
++#define FULL_BLOCK        0x2588
++
++#define LOGO_MAX_COLORS	       4
++#define LOGO_MAX_HEIGHT	       8
++#define LOGO_MAX_WIDTH	      16
++
++struct text_logo_element
++{
++  const grub_uint32_t ucs4;
++  const grub_uint8_t  color;
++};
++
++struct text_logo_data
++{ 
++  const char * name;
++  const char * color[LOGO_MAX_COLORS];
++  grub_uint32_t height;
++  grub_uint32_t width;
++  const struct text_logo_element data[LOGO_MAX_HEIGHT][LOGO_MAX_WIDTH];
++};
++
++void miray_draw_logo(const struct text_logo_data *logo, int offset_left, int offset_top, struct grub_term_output *term);
++
++#endif
+diff --git a/grub-core/miray/bootscreen/miray_screen.c b/grub-core/miray/bootscreen/miray_screen.c
+new file mode 100755
+index 0000000..8456745
+--- /dev/null
++++ b/grub-core/miray/bootscreen/miray_screen.c
+@@ -0,0 +1,472 @@
++/*
++ *  Extention for GRUB  --  GRand Unified Bootloader
++ *  Copyright (C) 2010-2014 Miray Software <oss@miray.de>
++ *
++ *  GRUB is free software: you can redistribute it and/or modify
++ *  it under the terms of the GNU General Public License as published by
++ *  the Free Software Foundation, either version 3 of the License, or
++ *  (at your option) any later version.
++ *
++ *  GRUB is distributed in the hope that it will be useful,
++ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ *  GNU General Public License for more details.
++ *
++ *  You should have received a copy of the GNU General Public License
++ *  along with GRUB.  If not, see <http://www.gnu.org/licenses/>.
++ */
++
++
++#include <grub/term.h>
++#include <grub/mm.h>
++#include <grub/dl.h>
++#include <grub/command.h>
++#include <grub/i18n.h>
++#include <grub/file.h>
++#include <grub/time.h>
++
++#include "miray_screen.h"
++
++struct miray_screen * _miray_screen = 0;
++
++extern struct miray_screen * miray_text_screen_new(struct grub_term_output *term);
++
++/*
++ * Common screen data handling
++ */ 
++
++struct miray_screen_common_data screen_data =
++{
++   .menu            = 0,
++   .menu_font       = 0,
++   .text_font       = 0,
++   
++   .default_message = 0,
++   .timeout_message = 0,
++   .timeout_format  = 0,
++   .timeout_stop    = 0,
++   .activity_descr  = 0,
++
++};
++
++
++void miray_screen_set_splash_menu (grub_menu_t menu)
++{
++   screen_data.menu = menu;
++
++   if (_miray_screen != 0 && _miray_screen->set_splash_menu != 0)
++      (_miray_screen->set_splash_menu) (_miray_screen, menu);
++}
++
++
++static void
++miray_screen_file_progress_hook (grub_disk_addr_t sector __attribute__ ((unused)),
++                                 unsigned offset __attribute__ ((unused)),
++                                 unsigned length __attribute__ ((unused)),
++                                 void *data)
++{
++   static unsigned int last_tick = 0;
++
++   if (_miray_screen == 0 || _miray_screen->set_progress == 0)
++      return;
++
++   grub_file_t file = data;
++   if (file->size < 100 * 1024) // Avoid some very smal (file system?) reads
++      return;
++
++   grub_uint32_t cur = grub_get_time_ms(); // Avoid flicker
++   if ((last_tick + 50) > cur) // update every 50 ms at max
++      return;
++
++   last_tick = cur;
++
++
++   //if (file->size == 0)
++   //   return
++
++   _miray_screen->set_progress(_miray_screen, file->offset + length, file->size);
++}
++
++
++grub_err_t miray_screen_property(const char * name, const char * data)
++{
++   if (data != 0 && data[0] == '\0')
++      data = 0;
++   
++   if (grub_strcmp(name, "default") == 0)
++   {
++      grub_free(screen_data.default_message);
++      screen_data.default_message = 0;
++
++      if (data != 0)
++         screen_data.default_message = grub_strdup(data);
++   }
++   else if (grub_strcmp(name, "activity") == 0)
++   {
++      grub_free(screen_data.activity_descr);
++      screen_data.activity_descr = 0;
++   
++      if (data != 0)
++      {
++         screen_data.activity_descr = grub_strdup(data);
++      }
++   }
++   else if (grub_strcmp(name, "timeout_format") == 0)
++   {
++      grub_free(screen_data.timeout_format);
++      screen_data.timeout_format = 0;
++   
++      if (data != 0)
++         screen_data.timeout_format = grub_strdup(data);
++   }
++   else if (grub_strcmp(name, "timeout_message") == 0)
++   {
++      grub_free(screen_data.timeout_message);
++      screen_data.timeout_message = 0;
++   
++      if (data != 0)
++         screen_data.timeout_message = grub_strdup(data);
++   }
++   else if (grub_strcmp(name, "timeout_stop") == 0)
++   {
++      grub_free(screen_data.timeout_stop);
++      screen_data.timeout_stop = 0;
++   
++      if (data != 0)
++         screen_data.timeout_stop = grub_strdup(data);
++   }
++   else if (grub_strcmp(name, "menu_font") == 0)
++   {
++      grub_free(screen_data.menu_font);
++      screen_data.menu_font = 0;
++
++      if (data != 0)
++         screen_data.menu_font = grub_strdup(data);
++   }
++   else if (grub_strcmp(name, "text_font") == 0)
++   {
++      grub_free(screen_data.text_font);
++      screen_data.text_font = 0;
++
++      if (data != 0)
++         screen_data.text_font = grub_strdup(data);
++   }
++   
++   if (_miray_screen != 0 && _miray_screen->property != 0)
++      return _miray_screen->property(_miray_screen, name, data);
++
++   return GRUB_ERR_NONE;
++}
++
++
++grub_err_t miray_screen_set_screen(struct miray_screen * screen)
++{
++   grub_err_t ret = GRUB_ERR_NONE;
++
++   if (screen != 0 && screen == _miray_screen) // Nothing to do in that case
++      return GRUB_ERR_NONE; 
++   
++   if (_miray_screen != 0) 
++   {
++      grub_file_progress_hook = 0;
++      miray_screen_destroy(_miray_screen);
++      _miray_screen = 0;
++   }   
++
++   if (screen != 0)
++   {
++      _miray_screen = screen;
++   }
++   else
++   {
++      _miray_screen = miray_text_screen_new(grub_term_outputs);
++   }
++
++   if (_miray_screen != 0)
++   {
++      if (_miray_screen->set_splash_menu != 0)
++      {
++         _miray_screen->set_splash_menu(_miray_screen, screen_data.menu);
++      }
++      
++      if (_miray_screen->property != 0)
++      {
++         _miray_screen->property(_miray_screen, "default", screen_data.default_message);
++         _miray_screen->property(_miray_screen, "activity", screen_data.activity_descr);
++         _miray_screen->property(_miray_screen, "timeout_format", screen_data.timeout_format);
++         _miray_screen->property(_miray_screen, "timeout_message", screen_data.timeout_message);
++         _miray_screen->property(_miray_screen, "timeout_stop", screen_data.timeout_stop);
++         
++         _miray_screen->property(_miray_screen, "menu_font", screen_data.menu_font);
++         _miray_screen->property(_miray_screen, "text_font", screen_data.text_font);
++      }
++
++      if (_miray_screen->set_progress != 0)
++      {
++         grub_file_progress_hook = miray_screen_file_progress_hook;         
++      }
++   }
++
++   miray_screen_redraw();
++
++   return ret;
++}
++
++char * miray_screen_entry_name(const grub_menu_entry_t entry)
++{
++   // Menu entries without a hotkey cannot be executed
++   if (entry->hotkey == 0)
++      return 0;
++   
++   // Hide menu entries without title. 
++   if (entry->title == 0 || entry->title[0] == '\0')
++      return 0;;
++
++   const char *key_string = 0;
++   char key_buf[4] = {'<', ' ', '>', 0};
++   switch (entry->hotkey)
++   {
++      case GRUB_TERM_KEY_F1: key_string = "<F1>"; break;
++      case GRUB_TERM_KEY_F2: key_string = "<F2>"; break;
++      case GRUB_TERM_KEY_F3: key_string = "<F3>"; break;
++      case GRUB_TERM_KEY_F4: key_string = "<F4>"; break;
++      case GRUB_TERM_KEY_F5: key_string = "<F5>"; break;
++      case GRUB_TERM_KEY_F6: key_string = "<F6>"; break;
++      case GRUB_TERM_KEY_F7: key_string = "<F7>"; break;
++      case GRUB_TERM_KEY_F8: key_string = "<F8>"; break;
++      case GRUB_TERM_KEY_F9: key_string = "<F9>"; break;
++      case GRUB_TERM_KEY_F10: key_string = "<F10>"; break;
++      case GRUB_TERM_KEY_F11: key_string = "<F11>"; break;
++      case GRUB_TERM_KEY_F12: key_string = "<F12>"; break;
++      //case GRUB_TERM_KEY_TAB: key_string = "<TAB>"; break;
++      default:
++         if ((entry->hotkey >= 'A' && entry->hotkey <= 'Z') ||
++            (entry->hotkey >= '0' && entry->hotkey <= '9'))
++            {
++               key_buf[1] = entry->hotkey;
++               key_string = key_buf;
++            }
++         else if (entry->hotkey >= 'a' && entry->hotkey <= 'z')
++            {
++               key_buf[1] = entry->hotkey + 'A' - 'a';
++               key_string = key_buf;
++            }
++      break;
++   }
++
++   // No valid shortcut
++   if (key_string == 0)
++      return 0;
++
++   return grub_xasprintf("%s %s", key_string, entry->title);
++}
++
++
++
++/*
++ * cmd line commands
++ */
++
++
++
++ 
++
++static grub_err_t
++miray_screen_cmd_redraw (struct grub_command *cmd __attribute__ ((unused)),
++   int argc __attribute__ ((unused)), char *argv[] __attribute__ ((unused)))
++{
++   miray_screen_redraw();
++   return GRUB_ERR_NONE;
++}
++
++static grub_err_t
++miray_screen_cmd_redraw_text (struct grub_command *cmd __attribute__ ((unused)),
++   int argc __attribute__ ((unused)), char *argv[] __attribute__ ((unused)))
++{
++   miray_screen_redraw_text(1);
++   return GRUB_ERR_NONE;
++}
++
++static grub_err_t
++miray_screen_cmd_reset (struct grub_command *cmd __attribute__ ((unused)),
++   int argc __attribute__ ((unused)), char *argv[] __attribute__ ((unused)))
++{
++   miray_screen_reset();
++   return GRUB_ERR_NONE;
++}
++
++static grub_err_t
++miray_screen_cmd_finish (struct grub_command *cmd __attribute__ ((unused)),
++   int argc __attribute__ ((unused)), char *argv[] __attribute__ ((unused)))
++{
++   miray_screen_finish();
++   return GRUB_ERR_NONE;
++}
++
++
++static grub_err_t
++miray_screen_cmd_property(struct grub_command * cmd __attribute__ ((unused)), int argc, char *argv[])
++{
++   if (argc < 1)
++   {
++      return grub_error(GRUB_ERR_BAD_ARGUMENT, "Missing name");
++   }
++   else if (argc < 2)
++   {
++      return miray_screen_property(argv[0], 0);
++   }
++   else
++   {
++      return miray_screen_property(argv[0], argv[1]);
++   }
++}
++
++static grub_err_t
++miray_screen_cmd_msg_default (struct grub_command *cmd __attribute__ ((unused)),
++   int argc, char *argv[])
++{
++   if (argc < 1)
++      // Unset message
++      miray_screen_property("default", 0);
++   else
++      miray_screen_property("default", argv[0]);
++
++   return GRUB_ERR_NONE;
++}
++
++static grub_err_t
++miray_screen_cmd_msg_activity (struct grub_command *cmd __attribute__ ((unused)),
++   int argc, char *argv[])
++{
++   if (argc < 1)
++      return grub_error (GRUB_ERR_BAD_ARGUMENT, "Missing argument");
++
++   miray_screen_property("activity", argv[0]);
++
++   return GRUB_ERR_NONE;
++}
++
++static grub_err_t
++miray_screen_cmd_msg_timeout (struct grub_command *cmd __attribute__ ((unused)),
++   int argc, char *argv[])
++{
++   char * message = 0;
++   char * format  = 0;
++   char * stop    = 0;
++   
++   if (argc < 1)
++   {
++      // Unset message
++   }
++   else if (argc < 2)
++   {
++      format = argv[0];
++   }
++   else if (argc < 3)
++   {
++      message = argv[0];
++      format = argv[1];
++   }
++   else 
++   {
++      message = argv[0];
++      format = argv[1];
++      stop = argv[2];
++   } 
++
++   miray_screen_property("timeout_format", format);
++   miray_screen_property("timeout_message", message);
++   miray_screen_property("timeout_stop", stop);
++
++   return GRUB_ERR_NONE;
++}
++
++static grub_err_t
++miray_screen_cmd_logo (struct grub_command *cmd __attribute__ ((unused)),
++   int argc, char *argv[])
++{
++   if (argc < 1)
++      return grub_error (GRUB_ERR_BAD_ARGUMENT, "Missing argument");
++
++   return miray_screen_property("logo", argv[0]);
++}
++
++
++/*
++ * Init code
++ */
++
++static grub_command_t _cmd_redraw, _cmd_redraw_text, _cmd_reset, _cmd_finish;
++static grub_command_t _cmd_property;
++static grub_command_t _cmd_msg_normal, _cmd_msg_activity, _cmd_msg_timeout;
++static grub_command_t _cmd_logo;
++
++
++
++grub_err_t miray_screen_init(void)
++{
++   grub_err_t ret = GRUB_ERR_NONE;
++
++   if ((ret = miray_screen_set_screen(0)) != GRUB_ERR_NONE)
++   {
++      return ret;
++   }
++   
++   _cmd_redraw = grub_register_command ("miray_screen_redraw",
++      miray_screen_cmd_redraw, 0, N_("redraw screen"));
++   _cmd_redraw_text = grub_register_command ("miray_screen_redraw_text",
++      miray_screen_cmd_redraw_text, 0, N_("redraw screen"));
++   _cmd_reset = grub_register_command ("miray_screen_reset", 
++      miray_screen_cmd_reset, 0, N_("reset screen"));
++   _cmd_finish = grub_register_command ("miray_screen_finish", 
++      miray_screen_cmd_finish, 0, N_("finish screen"));
++
++   _cmd_property = grub_register_command("miray_screen_property",
++      miray_screen_cmd_property, 0, N_("set message components"));
++
++   _cmd_msg_normal = grub_register_command ("miray_screen_msg_default",
++      miray_screen_cmd_msg_default, 0, N_("set default message"));
++   _cmd_msg_activity = grub_register_command ("miray_screen_msg_activity", 
++      miray_screen_cmd_msg_activity, 0, N_("set activity message"));
++   _cmd_msg_timeout = grub_register_command ("miray_screen_msg_timeout", 
++      miray_screen_cmd_msg_timeout, 0, N_("set timeout message"));
++
++   _cmd_logo = grub_register_command ("miray_screen_set_logo", 
++      miray_screen_cmd_logo, 0, N_("set bootscreen logo by name"));
++
++   return GRUB_ERR_NONE;
++}
++
++grub_err_t miray_screen_fini(void)
++{
++   grub_unregister_command(_cmd_redraw);
++   grub_unregister_command(_cmd_redraw_text);
++   grub_unregister_command(_cmd_reset);
++   grub_unregister_command(_cmd_finish);
++   grub_unregister_command(_cmd_property);
++   grub_unregister_command(_cmd_msg_normal);
++   grub_unregister_command(_cmd_msg_activity);
++   grub_unregister_command(_cmd_msg_timeout);
++   grub_unregister_command(_cmd_logo);
++
++   grub_file_progress_hook = 0;
++
++   if (_miray_screen != 0)
++   {
++      grub_err_t ret = miray_screen_destroy(_miray_screen);
++      if (ret != GRUB_ERR_NONE) return ret;
++
++      _miray_screen = 0;
++   }
++
++   grub_free(screen_data.default_message);
++   grub_free(screen_data.timeout_message);
++   grub_free(screen_data.timeout_format);
++   grub_free(screen_data.timeout_stop);
++   grub_free(screen_data.activity_descr);
++   
++   grub_free(screen_data.menu_font);
++   grub_free(screen_data.text_font);
++   
++   return GRUB_ERR_NONE;
++}
+diff --git a/grub-core/miray/bootscreen/miray_screen.h b/grub-core/miray/bootscreen/miray_screen.h
+new file mode 100755
+index 0000000..59d3f5e
+--- /dev/null
++++ b/grub-core/miray/bootscreen/miray_screen.h
+@@ -0,0 +1,165 @@
++/*
++ *  Extention for GRUB  --  GRand Unified Bootloader
++ *  Copyright (C) 2010-2014 Miray Software <oss@miray.de>
++ *
++ *  GRUB is free software: you can redistribute it and/or modify
++ *  it under the terms of the GNU General Public License as published by
++ *  the Free Software Foundation, either version 3 of the License, or
++ *  (at your option) any later version.
++ *
++ *  GRUB is distributed in the hope that it will be useful,
++ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ *  GNU General Public License for more details.
++ *
++ *  You should have received a copy of the GNU General Public License
++ *  along with GRUB.  If not, see <http://www.gnu.org/licenses/>.
++ */
++
++
++#ifndef MIRAY_SCREEN
++#define MIRAY_SCREEN
++
++#include <grub/err.h>
++#include <grub/menu.h>
++#include <grub/term.h>
++
++
++
++struct miray_screen
++{
++   grub_err_t (*destroy) (struct miray_screen *);
++  
++   void (*clear)  (struct miray_screen *);
++   void (*redraw) (struct miray_screen *);  
++   void (*redraw_text) (struct miray_screen *, int clear);
++   void (*reset) (struct miray_screen *);
++
++   void (*set_splash_menu) (struct miray_screen *, grub_menu_t menu);
++   int  (*run_submenu) (struct miray_screen *, grub_menu_t menu);
++
++   grub_err_t (*property) (struct miray_screen *, const char * name, const char * value);
++   void (*set_progress) (struct miray_screen *, grub_uint64_t current, grub_uint64_t max);
++   
++   void (*message_box) (struct miray_screen *, const char ** message,
++                        const char * color);
++
++   void (*finish) (struct miray_screen *);
++
++   grub_term_output_t term;
++   void *data;
++};
++
++
++
++
++grub_err_t miray_screen_init(void);
++grub_err_t miray_screen_fini(void);
++
++/* Set external screen handler. "screen == 0" resets to default */ 
++grub_err_t miray_screen_set_screen(struct miray_screen * screen);
++
++/* internal methods*/
++char * miray_screen_entry_name(const grub_menu_entry_t entry);
++
++struct miray_screen_common_data
++{
++   grub_menu_t menu;
++   
++   char * default_message;
++   char * timeout_message;
++   char * timeout_format;
++   char * timeout_stop;
++   char * activity_descr;
++
++   /* Needed by gfx menu */
++   char * menu_font;
++   char * text_font;
++};
++extern struct miray_screen_common_data screen_data;
++
++void miray_screen_set_splash_menu (grub_menu_t menu);
++grub_err_t miray_screen_property(const char * name, const char * value);
++
++
++extern struct miray_screen * _miray_screen;
++
++static inline grub_err_t miray_screen_destroy(struct miray_screen *scr)
++{
++   grub_err_t ret = GRUB_ERR_NONE;
++   if (scr != 0 && scr->destroy != 0)
++   {
++      ret = scr->destroy(scr);
++   }
++   else
++   {
++      grub_free(scr);
++   }
++
++   return ret;
++}
++
++static inline void miray_screen_set_term(grub_term_output_t term __attribute__((unused)))
++{
++  //if (_miray_screen != 0) _miray_screen->term = term;
++}
++
++static inline void miray_screen_redraw(void)
++{
++   if (_miray_screen != 0)
++   {
++      /* Update the terminal to the current output terminal */
++      //_miray_screen->term = grub_term_outputs; // Actually does not work correctly yet....
++   
++      if (_miray_screen->redraw != 0)
++         _miray_screen->redraw (_miray_screen);
++   }
++}
++
++static inline void miray_screen_redraw_text(int clear)
++{
++   if (_miray_screen != 0)
++   {
++      if (_miray_screen->redraw_text != 0 && _miray_screen->term == grub_term_outputs)
++         _miray_screen->redraw_text (_miray_screen, clear);
++      else
++         miray_screen_redraw();
++   }
++}
++
++static inline void miray_screen_reset(void)
++{
++   if (_miray_screen != 0 && _miray_screen->reset != 0)
++      (_miray_screen->reset) (_miray_screen);
++}
++
++
++
++static inline void miray_screen_run_submenu (grub_menu_t menu)
++{
++   if (_miray_screen != 0 && _miray_screen->run_submenu != 0)
++      (_miray_screen->run_submenu) (_miray_screen, menu);
++}
++
++
++static inline void miray_screen_message_box (const char ** message, const char *color)
++{
++   if (_miray_screen != 0 && _miray_screen->message_box != 0)
++      (_miray_screen->message_box) (_miray_screen, message, color);
++}
++
++
++static inline void miray_screen_cls (void)
++{
++   if (_miray_screen != 0 && _miray_screen->clear != 0)
++      _miray_screen->clear(_miray_screen);
++}
++
++static inline void miray_screen_finish (void)
++{
++   if (_miray_screen != 0 && _miray_screen->finish != 0)
++      (_miray_screen->finish) (_miray_screen);
++}
++
++
++#endif
+diff --git a/grub-core/miray/bootscreen/miray_segmented_file_helpers.c b/grub-core/miray/bootscreen/miray_segmented_file_helpers.c
+new file mode 100755
+index 0000000..67a2510
+--- /dev/null
++++ b/grub-core/miray/bootscreen/miray_segmented_file_helpers.c
+@@ -0,0 +1,240 @@
++/*
++ *  Extention for GRUB  --  GRand Unified Bootloader
++ *  Copyright (C) 2010,2011 Miray Software <oss@miray.de>
++ *
++ *  GRUB is free software: you can redistribute it and/or modify
++ *  it under the terms of the GNU General Public License as published by
++ *  the Free Software Foundation, either version 3 of the License, or
++ *  (at your option) any later version.
++ *
++ *  GRUB is distributed in the hope that it will be useful,
++ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ *  GNU General Public License for more details.
++ *
++ *  You should have received a copy of the GNU General Public License
++ *  along with GRUB.  If not, see <http://www.gnu.org/licenses/>.
++ */
++
++
++#include <grub/err.h>
++#include <grub/term.h>
++#include <grub/command.h>
++#include <grub/mm.h>
++#include <grub/i18n.h>
++#include "miray_bootscreen.h"
++#include "miray_screen.h"
++
++#include <grub/time.h>
++
++int miray_disk_nr_msg(int nr);
++int miray_disk_retry_msg(void);
++char ** miray_clone_stringlist(char ** list);
++void miray_free_stringlist(char ** list);
++
++static const char * _disk_next_msg_default[] =
++{
++  "Loading has to continue from the next disk.",
++  "",
++  ">>         PLEASE INSERT DISK #%d         <<",
++  "",
++  "Press <Enter> to continue or <ESC> to abort.",
++  NULL
++};
++
++static const char * _disk_error_msg_default[] = 
++{
++   "A disk read error has occured.",
++   "How do you want to proceed?",
++   "",
++   "Press <ESC> to abort or <Enter> to retry.",
++   NULL
++};
++
++static char ** _disk_next_msg = 0;
++static char ** _disk_error_msg = 0;
++
++int miray_disk_nr_msg(int nr)
++{
++  int i;
++  int count = 0; 
++  char ** msg;
++
++  const char ** msg_tpl = _disk_next_msg != 0 ? (const char **)_disk_next_msg
++                                              : _disk_next_msg_default;
++
++  while (msg_tpl[count] != 0) count++;
++  if (count == 0) return grub_error(GRUB_ERR_BAD_ARGUMENT, "Invalid message template");
++
++  msg = grub_malloc((count + 1) * sizeof(char *));
++  if(msg == 0) return grub_error(GRUB_ERR_OUT_OF_MEMORY, "Out of memory");
++
++  for (i = 0; i < count; ++i)
++  {
++    msg[i] = grub_xasprintf(msg_tpl[i], nr);
++  }
++  msg[count] = 0;
++
++  miray_screen_message_box((const char **)msg, 0);
++  miray_free_stringlist(msg);
++
++  int ret = 0;
++  while (1)
++  {
++    int c = grub_getkey_noblock();
++    if (c != GRUB_TERM_NO_KEY)
++    {
++       switch (c) {
++       case '\n':
++       case '\r':
++         ret = 1;
++         goto done; 
++       case '\e':
++         ret = 0;
++         goto done;
++       }; 
++    }
++  }
++
++done:
++  miray_screen_redraw_text(1);
++
++  return ret;
++
++} 
++
++int miray_disk_retry_msg(void)
++{
++   const char ** message = _disk_error_msg != 0 ? (const char **)_disk_error_msg : _disk_error_msg_default; 
++
++
++   while (grub_getkey_noblock() != GRUB_TERM_NO_KEY) {} // Clear keyboard buffer
++   miray_screen_message_box(message, 0);
++
++  int ret = 0;
++  while (1)
++  {
++    int c = grub_getkey_noblock();
++    if (c != GRUB_TERM_NO_KEY)
++    {
++       switch (c) {
++       case '\n':
++       case '\r':
++         ret = 1;
++         goto done; 
++       case '\e':
++         ret = 0;
++         goto done;
++       }; 
++    }
++  }
++
++done:
++   miray_screen_redraw_text(1);
++
++   return ret;
++}
++
++
++/* Creates a copy of list, list must be terminated with NULL */
++char ** miray_clone_stringlist(char **list)
++{
++  int i;
++  int count = 0;
++  char ** ret;
++
++  if (list == 0)
++  {
++    grub_error(GRUB_ERR_BAD_ARGUMENT, "NULL pointer");
++    return 0;
++  }
++
++  while(list[count] != 0) count++; /* count number of lines */
++
++  ret = grub_malloc((count + 1) * sizeof(char *));
++  if (ret == 0)
++  {
++    grub_error(GRUB_ERR_OUT_OF_MEMORY, "Out of memory");
++    return 0; 
++  } 
++
++  
++  for (i = 0; i < count; i++)
++  {
++    ret[i] = grub_strdup(list[i]);
++  }
++
++  ret[count] = 0;
++  return ret;
++}
++
++
++void miray_free_stringlist(char **list)
++{
++  int i = 0; 
++  if (list == 0)
++  {
++    grub_dprintf("miray", "freeing null pointer");
++    return;	
++  }
++
++  while (list[i] != 0)
++  {
++    grub_free(list[i]);
++    i++;
++  }
++  
++  grub_free(list);
++}
++
++static grub_err_t
++miray_segfile_msg_next(struct grub_command *cmd __attribute__ ((unused)), 
++   int argc , char *argv[])
++{
++  if (argc == 0) return grub_error(GRUB_ERR_BAD_ARGUMENT, "Missing argument");
++
++  if (_disk_next_msg != 0) miray_free_stringlist(_disk_next_msg);
++  _disk_next_msg = miray_clone_stringlist(argv);  
++
++  return GRUB_ERR_NONE;
++}
++
++static grub_err_t
++miray_segfile_msg_retry(struct grub_command *cmd __attribute__ ((unused)), 
++   int argc , char *argv[])
++{
++  if (argc == 0) return grub_error(GRUB_ERR_BAD_ARGUMENT, "Missing argument");
++
++  if (_disk_error_msg != 0) miray_free_stringlist(_disk_error_msg);
++  _disk_error_msg = miray_clone_stringlist(argv);  
++
++  return GRUB_ERR_NONE;
++}
++
++static grub_command_t _cmd_msg_next, _cmd_msg_retry;
++
++grub_err_t miray_segfile_init(void)
++{
++   _cmd_msg_next = grub_register_command ("miray_floppy_msg_next",
++      miray_segfile_msg_next, 0, N_("set next floppy message"));
++
++   _cmd_msg_retry = grub_register_command ("miray_floppy_msg_error",
++      miray_segfile_msg_retry, 0, N_("set floppy retry message"));
++
++  return GRUB_ERR_NONE;
++}
++
++grub_err_t miray_segfile_fini(void)
++{
++  grub_unregister_command(_cmd_msg_next);
++  grub_unregister_command(_cmd_msg_retry);
++
++  if (_disk_next_msg != 0) miray_free_stringlist(_disk_next_msg);
++  if (_disk_error_msg != 0) miray_free_stringlist(_disk_error_msg);
++
++  _disk_next_msg = 0;
++  _disk_error_msg = 0;
++
++  return GRUB_ERR_NONE;
++}
++
+diff --git a/grub-core/miray/bootscreen/miray_text_screen.c b/grub-core/miray/bootscreen/miray_text_screen.c
+new file mode 100755
+index 0000000..bca5a81
+--- /dev/null
++++ b/grub-core/miray/bootscreen/miray_text_screen.c
+@@ -0,0 +1,631 @@
++/*
++ *  Extention for GRUB  --  GRand Unified Bootloader
++ *  Copyright (C) 2010,2011 Miray Software <oss@miray.de>
++ *
++ *  GRUB is free software: you can redistribute it and/or modify
++ *  it under the terms of the GNU General Public License as published by
++ *  the Free Software Foundation, either version 3 of the License, or
++ *  (at your option) any later version.
++ *
++ *  GRUB is distributed in the hope that it will be useful,
++ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ *  GNU General Public License for more details.
++ *
++ *  You should have received a copy of the GNU General Public License
++ *  along with GRUB.  If not, see <http://www.gnu.org/licenses/>.
++ */
++
++
++
++#include <grub/mm.h>
++#include <grub/normal.h>
++#include <grub/menu.h>
++#include <grub/charset.h>
++#include <grub/time.h>
++
++#include "miray_bootscreen.h"
++#include "miray_constants.h"
++#include "miray_logo.h" /* needed for logo_size */
++#include "miray_screen.h"
++#include "text_progress_bar.h"
++
++
++static inline char *
++compat_strncat (char *dest, const char *src, int c)
++{
++  // copy of old grub method (removed in grub itself)
++  char *p = dest;
++
++  while (*p)
++    p++;
++
++  while (c-- && (*p = *src) != '\0')
++    {
++      p++;
++      src++;
++    }
++
++  *p = '\0';
++
++  return dest;
++}
++
++struct miray_text_screen_data {
++   struct text_bar *bar;
++   const struct text_logo_data * logo;
++   char * menutext;
++   int show_bar;
++   int show_activity;
++};
++typedef struct miray_text_screen_data mts_data_t;
++
++struct miray_screen * miray_text_screen_new(struct grub_term_output *);
++
++
++/*
++ * Supported Logos 
++ */
++
++#define X {UPPER_HALF_BLOCK, 1}
++#define Y {LOWER_HALF_BLOCK, 1}
++#define H {LOWER_HALF_BLOCK, 0}
++#define F {FULL_BLOCK, 0}
++#define B {' ', 0}
++static const struct text_logo_data miray_text_logo = 
++{
++  .name = "miray",
++  .color = {
++    "white/red",
++    "black/red",
++  },
++  .width = 16,
++  .height = 8,
++  .data = {
++    {X,B,B,B,B,B,B,B,B,B,B,B,B,B,B,X},
++    {B,B,B,B,B,B,B,B,B,B,B,B,B,B,B,B},
++    {B,B,B,B,B,B,B,B,B,B,B,B,B,B,B,B},
++    {B,B,B,B,B,B,B,B,B,B,B,F,F,B,B,B},
++    {B,B,H,H,H,H,H,H,H,B,B,B,B,B,B,B},
++    {B,B,B,F,B,B,F,B,B,F,B,B,B,B,B,B},
++    {B,B,H,F,H,B,F,H,B,F,H,B,B,B,B,B},
++    {Y,B,B,B,B,B,B,B,B,B,B,B,B,B,B,Y}
++  }
++};
++#undef H
++#undef X
++#undef Y
++#undef B
++#undef F
++
++#define U {UPPER_HALF_BLOCK, 0}
++#define L {LOWER_HALF_BLOCK, 0}
++#define F {FULL_BLOCK, 0}
++#define B {' ',0}
++static const struct text_logo_data apricorn_text_logo =
++{
++   .name = "apricorn",
++   .color = {
++     "light-gray/black",
++     NULL 
++   },
++   .width = 15,
++   .height = 8,
++   .data = {
++      {B,B,B,B,B,L,F,F,F,L,B,B,B,B,B},
++      {B,B,B,B,L,F,F,U,F,F,L,B,B,B,B},
++      {B,B,B,L,F,F,U,L,U,F,F,L,B,B,B},
++      {B,B,L,F,F,U,L,F,L,U,F,F,L,B,B},
++      {B,L,F,F,U,L,F,F,F,L,U,F,F,L,B},
++      {L,F,F,U,L,F,F,F,F,F,L,U,F,F,L},
++      {F,F,F,L,L,L,F,F,F,B,L,L,F,F,F},
++      {U,F,F,F,F,F,U,U,B,L,F,F,F,F,U}
++   }
++};
++#undef U
++#undef L
++#undef F
++#undef B
++
++static const struct text_logo_data * logos [] =
++{
++   &miray_text_logo,
++   &apricorn_text_logo,
++   NULL
++};
++
++/* Returns the offset necessary to center a element */
++static inline grub_uint32_t offset_center(grub_uint32_t size, struct grub_term_output *term)
++{
++	return ((grub_term_width(term) - size) / 2);
++}
++
++static inline grub_size_t grub_utf8len(const char *str)
++{
++#if 0
++   grub_size_t this_len = 0;
++   grub_uint32_t * tmp = 0;
++   grub_size_t ret = grub_utf8_to_ucs4_alloc(message[lines], &tmp, 0);
++   if (((int) ret) > 0 && tmp != 0) while (tmp[this_len] != 0) this_len++;
++   else this_len =  grub_strlen(message[lines]);
++   if (tmp != 0) grub_free(tmp);
++#endif
++
++   grub_uint32_t * tmp = 0;
++   grub_size_t ret = grub_utf8_to_ucs4_alloc(str, &tmp, 0);
++   if ((int) ret < 0) ret = grub_strlen(str);
++   if (tmp != 0) grub_free(tmp);
++
++   return ret;
++}
++
++
++static char * menu_line(int term_width, grub_menu_t menu )
++{
++   static const char * filler = "   "; 
++
++   int buf_len = term_width + 5; 
++   int buf_pos = 0;
++   char * ret = grub_zalloc(buf_len + 1); // need some space for 
++  
++   int i;
++   grub_menu_entry_t entry;
++   for (i = 0, entry = menu->entry_list;
++        i < menu->size && entry != 0; i++, entry = entry->next)
++   {
++      // Menu entries without a hotkey cannot be executed
++      if (entry->hotkey == 0) continue;
++
++      // Hide menu entries without title. 
++      if (entry->title == 0 || entry->title[0] == '\0') continue;
++
++      if (buf_pos > 0) 
++      {
++         compat_strncat(ret, filler, buf_len - buf_pos);
++         buf_pos += grub_strlen(filler);
++         if (buf_pos >= buf_len) break;
++      }
++
++      {
++         const char *key_string = 0;
++         char key_buf[5] = {'<', ' ', '>', ' ', 0};
++         switch (entry->hotkey)
++         {
++            case GRUB_TERM_KEY_F1: key_string = "<F1> "; break;
++            case GRUB_TERM_KEY_F2: key_string = "<F2> "; break;
++            case GRUB_TERM_KEY_F3: key_string = "<F3> "; break;
++            case GRUB_TERM_KEY_F4: key_string = "<F4> "; break;
++            case GRUB_TERM_KEY_F5: key_string = "<F5> "; break;
++            case GRUB_TERM_KEY_F6: key_string = "<F6> "; break;
++            case GRUB_TERM_KEY_F7: key_string = "<F7> "; break;
++            case GRUB_TERM_KEY_F8: key_string = "<F8> "; break;
++            case GRUB_TERM_KEY_F9: key_string = "<F9> "; break;
++            case GRUB_TERM_KEY_F10: key_string = "<F10> "; break;
++            case GRUB_TERM_KEY_F11: key_string = "<F11> "; break;
++            case GRUB_TERM_KEY_F12: key_string = "<F12> "; break;
++            //case GRUB_TERM_KEY_TAB: key_string = "<TAB>"; break;
++            default:
++               if ((entry->hotkey >= 'A' && entry->hotkey <= 'Z') ||
++                   (entry->hotkey >= '0' && entry->hotkey <= '9'))
++                  {
++                     key_buf[1] = entry->hotkey;
++                     key_string = key_buf;
++                  }
++               else if (entry->hotkey >= 'a' && entry->hotkey <= 'z')
++                  {
++                     key_buf[1] = entry->hotkey + 'A' - 'a';
++                     key_string = key_buf;
++                  }
++            break;
++         }
++
++         if (key_string != 0)
++         {
++            compat_strncat(ret, key_string, buf_len - buf_pos);
++            buf_pos += grub_strlen(key_string);
++            if (buf_pos >= buf_len) break;
++         }
++
++      }
++
++      compat_strncat(ret, entry->title, buf_len - buf_pos);  
++
++      buf_pos = grub_strlen(ret);
++
++   }
++
++   return ret;
++}
++
++static grub_err_t miray_text_screen_destroy(struct miray_screen *scr)
++{
++   mts_data_t * data = scr->data;
++   //if (scr->term != 0)
++   //   grub_term_setcursor (scr->term, 1);	
++
++   text_bar_destroy(data->bar);
++   grub_free(data->menutext);
++   grub_free (data);
++   grub_free (scr);
++
++   return GRUB_ERR_NONE;
++}
++
++static void miray_text_screen_reset (struct miray_screen *scr)
++{
++   mts_data_t * data = scr->data;
++
++   data->show_bar = -1;
++   data->show_activity = 0;
++}
++
++inline static void miray_text_screen_put_line(grub_term_output_t term, int y, const char *message)
++{
++   unsigned int offset = offset_center(grub_strlen(message), term);
++   unsigned int i;
++   struct grub_term_coordinate pos = { .x = 0, .y = y}; 
++
++   grub_term_gotoxy(term, pos);
++   for (i= 0; i < offset; i++)
++      grub_putcode(' ', term);
++
++   grub_puts_terminal(message, term);
++
++   for (i = offset + grub_strlen(message); i < grub_term_width(term) - 1; i++)
++      grub_putcode(' ', term);
++}
++
++static void miray_text_screen_put_text(struct miray_screen *scr)
++{
++   mts_data_t * data = scr->data;
++
++   int timeout = grub_menu_get_timeout();
++   if (data->show_activity && screen_data.activity_descr != 0 && screen_data.activity_descr[0] != '\0')
++   {
++      miray_text_screen_put_line (scr->term, miray_pos_msg_starting_top, screen_data.activity_descr);
++   }
++   else if (timeout >= 0 && screen_data.timeout_message != 0)
++   {
++      miray_text_screen_put_line (scr->term, miray_pos_msg_starting_top, screen_data.timeout_message);
++
++      grub_uint8_t normal_color_save    = grub_term_normal_color;
++      grub_uint8_t highlight_color_save = grub_term_highlight_color;
++      grub_uint8_t normal_color;
++      grub_parse_color_name_pair (&normal_color, "dark-gray/black");
++      grub_term_normal_color = normal_color;
++      grub_term_setcolorstate (scr->term, GRUB_TERM_COLOR_NORMAL);
++
++      if (screen_data.timeout_format != 0)
++      {
++         char *timeout_str = 0;
++         timeout_str = grub_xasprintf(screen_data.timeout_format, timeout);
++         miray_text_screen_put_line (scr->term, miray_pos_msg_starting_top + 2, timeout_str);
++         grub_free(timeout_str);
++      }
++
++      if (screen_data.timeout_stop != 0)
++         miray_text_screen_put_line (scr->term, miray_pos_msg_starting_top + 4, screen_data.timeout_stop);
++      grub_term_normal_color    = normal_color_save;
++      grub_term_highlight_color = highlight_color_save;
++      grub_term_setcolorstate (scr->term, GRUB_TERM_COLOR_NORMAL);
++   }
++   else if (screen_data.default_message != 0)
++   {
++      miray_text_screen_put_line (scr->term, miray_pos_msg_starting_top, screen_data.default_message);
++   }
++
++   if (data->show_bar > 0)
++      text_bar_draw(data->bar);
++
++   if (data->show_bar < 0 && data->menutext!= 0)
++   {
++      miray_text_screen_put_line (scr->term, grub_term_height(scr->term) - 1, data->menutext);
++   }
++   {
++      struct grub_term_coordinate pos = { .x = 0, .y = miray_pos_msg_starting_top + 2 };
++      grub_term_gotoxy(scr->term, pos);
++   }
++}
++
++static void miray_text_screen_clear(struct miray_screen *scr)
++{
++   if (scr->term == 0) return;
++
++   grub_term_cls(scr->term);
++}
++
++
++static void miray_text_screen_redraw (struct miray_screen *scr)
++{
++   if (scr->term == 0) return;
++
++   mts_data_t * data = scr->data;
++
++   grub_term_setcursor (scr->term, 0);
++   grub_term_cls (scr->term);
++   
++
++   if (data->logo != 0)
++      miray_draw_logo(data->logo, 
++                      offset_center(data->logo->width, scr->term),
++                      miray_pos_logo_top, scr->term);
++
++   miray_text_screen_put_text(scr);
++
++ 
++}
++
++static void miray_text_screen_redraw_text (struct miray_screen *scr, int clear)
++{
++  if (scr->term == 0) return;
++
++  if (clear)
++  {
++    // clear message region, 
++    unsigned int y;
++    for (y = miray_pos_msg_starting_top; y < grub_term_height(scr->term) -1; y++)
++    {
++      struct grub_term_coordinate pos = { .x = 0, .y = y };
++      grub_term_gotoxy(scr->term, pos);
++      unsigned int x;
++      for(x = grub_term_width(scr->term); x > 0; x--)
++      {
++        grub_putcode(' ', scr->term);
++      }
++    
++    }
++
++    // don't overwrite the caracter in the bottom right corner to 
++    // avoid accidential scrolling
++    struct grub_term_coordinate pos = { .x = 0, .y = grub_term_height(scr->term) - 1 };
++    grub_term_gotoxy(scr->term, pos);
++    int x;
++    for(x = grub_term_width(scr->term); x > 1; x--)
++    {
++      grub_putcode(' ', scr->term);
++    }
++  }
++    
++  miray_text_screen_put_text(scr);
++}
++
++static void miray_text_screen_set_splash_menu(struct miray_screen *scr, grub_menu_t menu)
++{
++   mts_data_t * data = scr->data;
++
++   if (data->menutext != 0)
++   {
++      grub_free(data->menutext);
++      data->menutext = 0;
++   }
++
++   if (menu == 0) return;
++
++   data->menutext = menu_line(grub_term_width(scr->term), menu);
++}
++
++static int miray_text_screen_run_submenu(struct miray_screen *scr __attribute__ ((unused)), grub_menu_t menu)
++{
++   return miray_run_menu(menu);
++}
++
++static grub_err_t miray_text_screen_property(struct miray_screen *scr, const char * name, const char * value)
++{
++   mts_data_t * data = scr->data;
++
++   if (grub_strcmp(name, "activity") == 0)
++   {
++      if (value != 0)
++      {
++         data->show_bar = 0;
++         data->show_activity = 1;
++      }
++      else
++      {
++         data->show_bar = -1;
++         data->show_activity = 0;
++      }
++   }
++   else if (grub_strcmp(name, "logo") == 0)
++   {
++      int i = 0;
++   
++      data->logo = 0; // Disable logo if name is not found
++   
++      if (grub_strcmp(value, "none") != 0 && grub_strcmp(value, "off") != 0)
++      {
++         while (logos[i] != 0)
++         {
++            if (grub_strcmp(value, logos[i]->name) == 0)
++            {
++               data->logo = logos[i];
++               break;;
++            }
++            i++;
++         }
++      }
++   }
++
++   return GRUB_ERR_NONE;
++}
++
++static void miray_text_screen_set_progress(struct miray_screen *scr, grub_uint64_t cur, grub_uint64_t max)
++{
++   struct miray_text_screen_data *data = scr->data;
++
++   if (data && data->show_bar >= 0)
++   {
++      data->show_bar = 1;
++      text_bar_set_progress(data->bar, cur, max);
++   }
++}
++
++
++static void miray_text_screen_finish(struct miray_screen *scr)
++{
++   if (scr->term == 0) return;
++   struct miray_text_screen_data * data = scr->data;
++
++   if (data->show_bar > 0)
++      text_bar_finish(data->bar);
++}
++
++
++static void miray_text_screen_message_box(struct miray_screen *scr, const char ** message, const char * color)
++{
++   if (scr->term == 0) return;
++
++   const grub_uint32_t c_ul = GRUB_UNICODE_CORNER_UL;
++   const grub_uint32_t c_ur = GRUB_UNICODE_CORNER_UR;
++   const grub_uint32_t c_bl = GRUB_UNICODE_CORNER_LL;
++   const grub_uint32_t c_br = GRUB_UNICODE_CORNER_LR;
++   const grub_uint32_t c_h  = GRUB_UNICODE_HLINE;
++   const grub_uint32_t c_v  = GRUB_UNICODE_VLINE;
++   const grub_uint32_t c_sp = ' ';
++ 
++   const char * box_default_color = "white/red";
++
++   if (color == 0) color = box_default_color;
++
++   const int v_spaces = 2;
++
++   int lines = 0;
++   grub_size_t max_len = 0;
++
++   grub_uint8_t old_normal_color    = grub_term_normal_color;
++   grub_uint8_t old_highlight_color = grub_term_highlight_color;
++   grub_uint8_t this_normal_color;
++
++   grub_parse_color_name_pair(&this_normal_color, color);
++   grub_term_normal_color = this_normal_color;
++   grub_term_setcolorstate(scr->term, GRUB_TERM_COLOR_NORMAL);
++
++
++   while (message[lines] != 0)
++   {
++      // grub_strlen does not count utf8 characters correctly
++      grub_size_t this_len = grub_utf8len(message[lines]);
++      max_len = grub_max(max_len, this_len);
++      lines++;
++   }
++
++   if ((max_len % 2) != 0) max_len++;
++
++   const int b_lines = lines + 4;
++   const int b_columns = max_len + 2 + 2 * v_spaces;
++
++
++   const grub_uint32_t y_offset = miray_pos_activity_bar_top;
++   const grub_uint32_t x_offset = offset_center(b_columns, scr->term);
++
++   {
++      int x;
++      struct grub_term_coordinate pos = { .x = x_offset, .y = y_offset };
++      grub_term_gotoxy(scr->term, pos);
++      grub_putcode(c_ul, scr->term);
++      for (x = 1; x < b_columns - 1; x++)
++         grub_putcode(c_h, scr->term);
++      grub_putcode(c_ur, scr->term);
++   }
++   
++   {
++      int x;
++      struct grub_term_coordinate pos = { .x = x_offset, .y = y_offset + 1 };
++      grub_term_gotoxy(scr->term, pos);
++      grub_putcode(c_v, scr->term);
++      for (x = 1; x < b_columns - 1; x++)
++         grub_putcode(c_sp, scr->term);
++      grub_putcode(c_v, scr->term);
++   }
++   const grub_uint32_t y_text_offset = y_offset + 2;
++
++   unsigned int y;
++   for (y = y_text_offset; y < y_text_offset + lines; y++)
++   {
++      struct grub_term_coordinate pos = { .x = x_offset, .y = y_text_offset };
++      const char * str = message[y - y_text_offset];
++      grub_term_gotoxy(scr->term, pos);
++      grub_putcode(c_v, scr->term);
++      int x;
++      for (x = 1; x < 1 + v_spaces; x++)
++         grub_putcode(c_sp, scr->term);
++      grub_puts_terminal(str, scr->term);
++
++      for (x = grub_utf8len(str) + 1 + v_spaces; x < b_columns - 1; x++)
++      {
++        grub_putcode(c_sp, scr->term);
++      }
++      grub_putcode(c_v, scr->term);
++   }
++
++   {
++      int x;
++      struct grub_term_coordinate pos = { .x = x_offset, .y = y_offset + b_lines - 2 }; 
++      grub_term_gotoxy(scr->term, pos);
++      grub_putcode(c_v, scr->term);
++      for (x = 1; x < b_columns - 1; x++)
++         grub_putcode(c_sp, scr->term);
++      grub_putcode(c_v, scr->term);
++   }
++   {
++      int x;
++      struct grub_term_coordinate pos = { .x = x_offset, .y = y_offset + b_lines - 1 };
++      grub_term_gotoxy(scr->term, pos);
++      grub_putcode(c_bl, scr->term);
++      for (x = 1; x < b_columns - 1; x++)
++         grub_putcode(c_h, scr->term);
++      grub_putcode(c_br, scr->term);
++   }
++
++   grub_term_normal_color    = old_normal_color;
++   grub_term_highlight_color = old_highlight_color;
++   grub_term_setcolorstate(scr->term, GRUB_TERM_COLOR_NORMAL);
++}
++
++
++struct miray_screen *
++miray_text_screen_new(struct grub_term_output *term)
++{
++   struct miray_screen *ret = grub_zalloc(sizeof(struct miray_screen));
++   if (ret == 0)
++   {
++      grub_error(GRUB_ERR_OUT_OF_MEMORY, "Out of Memory");
++      return 0;
++   }
++
++   ret->destroy = miray_text_screen_destroy;
++   ret->reset   = miray_text_screen_reset;
++   ret->clear   = miray_text_screen_clear;
++   ret->redraw  = miray_text_screen_redraw;
++   ret->redraw_text = miray_text_screen_redraw_text;
++
++   ret->set_splash_menu = miray_text_screen_set_splash_menu;
++   ret->run_submenu = miray_text_screen_run_submenu;
++
++   ret->property = miray_text_screen_property;
++   ret->set_progress = miray_text_screen_set_progress;
++
++   ret->message_box = miray_text_screen_message_box;
++
++   ret->finish = miray_text_screen_finish;
++
++   struct miray_text_screen_data * data = grub_zalloc(sizeof(struct miray_text_screen_data));
++   if (data == 0)
++   {
++      grub_free(ret);
++      return 0;
++   }  
++   ret->data = data;
++   ret->term = term;
++
++   data->bar = text_progress_bar_new(term, offset_center(miray_size_activity_bar, term), miray_pos_activity_bar_top, miray_size_activity_bar);
++
++   data->logo = logos[0];
++
++   /* Initialize Values */
++   miray_text_screen_reset(ret);
++
++   return ret;
++}
++
++
+diff --git a/grub-core/miray/bootscreen/text_progress_bar.c b/grub-core/miray/bootscreen/text_progress_bar.c
+new file mode 100755
+index 0000000..1e42e41
+--- /dev/null
++++ b/grub-core/miray/bootscreen/text_progress_bar.c
+@@ -0,0 +1,332 @@
++/*
++ *  Extention for GRUB  --  GRand Unified Bootloader
++ *  Copyright (C) 2010,2011 Miray Software <oss@miray.de>
++ *
++ *  GRUB is free software: you can redistribute it and/or modify
++ *  it under the terms of the GNU General Public License as published by
++ *  the Free Software Foundation, either version 3 of the License, or
++ *  (at your option) any later version.
++ *
++ *  GRUB is distributed in the hope that it will be useful,
++ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ *  GNU General Public License for more details.
++ *
++ *  You should have received a copy of the GNU General Public License
++ *  along with GRUB.  If not, see <http://www.gnu.org/licenses/>.
++ */
++
++
++#include <grub/normal.h>
++#include <grub/types.h>
++#include <grub/mm.h>
++#include <grub/time.h>
++#include <grub/miray_activity.h>
++
++#include "miray_bootscreen.h"
++#include "miray_constants.h"
++#include "text_progress_bar.h"
++
++#if 0
++#if defined(GRUB_MACHINE_PCBIOS)
++# define PBAR_CHAR 0x2592
++# define PBAR_CHAR_HIGHLIGHT 0x2592
++#else
++# define PBAR_CHAR 0x2591
++# define PBAR_CHAR_HIGHLIGHT 0x2591
++#endif
++#endif
++
++# define PBAR_CHAR 0x2591
++# define PBAR_CHAR_HIGHLIGHT 0x2588
++
++
++
++
++struct text_bar {
++   void (*set_progress) (struct text_bar * bar, grub_uint64_t cur, grub_uint64_t max);
++   void (*draw) (struct text_bar * bar);
++   void (*finish) (struct text_bar * bar);
++   
++	grub_uint8_t	color_normal;
++	grub_uint8_t	color_highlight;
++	grub_uint32_t 	char_normal;
++	grub_uint32_t	char_highlight;
++   grub_term_output_t term;
++   struct grub_term_coordinate pos;
++	int		bar_len;
++};
++
++typedef struct text_progress_bar {
++	struct text_bar bar;
++	int current_pos;
++} text_progress_bar_t;
++
++
++typedef struct text_activity_bar {
++	struct text_bar bar;
++	int current_pos;
++} text_activity_bar_t;
++
++// void draw_textbar(struct text_progress_bar *bar, grub_term_output_t term, int highlight_start, int highlight_end);
++
++/* highlight_start and highlight_end: start and end of highlighted bar, 
++ * relative to textbar */
++static void draw_textbar(struct text_bar *bar, int highlight_start, int highlight_end)
++{
++   if (bar->term == 0) return;
++ 
++	int x;
++	grub_uint32_t c;
++	struct grub_term_coordinate pos_save;
++	grub_uint8_t normal_color_save;
++   grub_uint8_t highlight_color_save;
++
++	pos_save = grub_term_getxy (bar->term);
++   normal_color_save    = grub_term_normal_color;
++   highlight_color_save = grub_term_highlight_color;
++
++	grub_term_gotoxy (bar->term, bar->pos);
++   grub_term_normal_color    = bar->color_normal;
++   grub_term_highlight_color = bar->color_highlight;
++   if (highlight_start > 0) {
++		grub_term_setcolorstate (bar->term, GRUB_TERM_COLOR_NORMAL);
++		c = bar->char_normal;
++	} else {
++		grub_term_setcolorstate (bar->term, GRUB_TERM_COLOR_HIGHLIGHT);
++		c = bar->char_highlight;
++
++	}
++
++	for (x = 0; x < bar->bar_len; x++)
++   {
++		if (x == highlight_start)
++      {
++			grub_term_setcolorstate (bar->term, GRUB_TERM_COLOR_HIGHLIGHT);
++			c = bar->char_highlight;
++		}
++		if (x == (highlight_end))
++      {
++			grub_term_setcolorstate (bar->term, GRUB_TERM_COLOR_NORMAL);
++			c = bar->char_normal;
++		}
++		grub_putcode (c, bar->term);
++	}
++
++   /* see call in grub_term_restore_pos() */
++   grub_term_gotoxy (bar->term, pos_save);
++
++   grub_term_normal_color    = normal_color_save;
++   grub_term_highlight_color = highlight_color_save;
++   grub_term_setcolorstate (bar->term, GRUB_TERM_COLOR_NORMAL);
++}
++
++
++void text_bar_destroy(struct text_bar * bar)
++{
++   grub_free(bar);
++}
++
++void text_bar_set_progress(struct text_bar * bar, grub_uint64_t cur, grub_uint64_t max)
++{
++   if (bar->set_progress != 0) bar->set_progress(bar, cur, max);
++}
++
++void text_bar_draw(struct text_bar * bar)
++{
++   if (bar->draw != 0) bar->draw(bar);
++}
++
++void text_bar_set_term(struct text_bar * bar, grub_term_output_t term)
++{
++   bar->term = term;
++   text_bar_draw(bar);
++}
++
++void text_bar_finish(struct text_bar * bar)
++{
++   if (bar->finish != 0) bar->finish(bar);
++}
++
++
++/*
++ * Progress bar
++ */
++
++
++static void text_progress_bar_draw(struct text_bar * tbar)
++{
++   text_progress_bar_t * bar = (text_progress_bar_t *)tbar;
++
++	draw_textbar (&bar->bar, 0, bar->current_pos);
++}
++
++static void text_progress_bar_set_progress(struct text_bar * tbar, grub_uint64_t cur, grub_uint64_t max)
++{
++   if (cur == activity_bar_advance_val) // Sort out activities 
++      return;
++
++   if (max == 0 || cur > max)
++      return;
++   
++   text_progress_bar_t * bar = (text_progress_bar_t *)tbar;
++
++   bar->current_pos = grub_divmod64(cur * tbar->bar_len, max, 0);
++
++	text_progress_bar_draw(tbar);
++}
++
++
++static void text_progress_bar_finish(struct text_bar * tbar)
++{
++   // This might not be necessary any more...
++   
++   text_progress_bar_t * bar = (text_progress_bar_t *)tbar;   
++
++	for (; bar->current_pos <= bar->bar.bar_len; bar->current_pos++)
++   {
++		grub_millisleep (miray_activity_tick_throttle_ms);
++		draw_textbar(&bar->bar, 0, bar->current_pos);
++	}
++}
++
++
++struct text_bar *
++text_progress_bar_new_verbose(grub_term_output_t term, int offset_left, int offset_top, int len, grub_uint32_t char_normal, grub_uint32_t char_highlight, const char * color_normal, const char * color_highlight)
++{
++	struct text_activity_bar *ret;
++
++	ret = grub_malloc(sizeof(struct text_progress_bar));
++
++   ret->bar.set_progress = text_progress_bar_set_progress;
++   ret->bar.draw = text_progress_bar_draw;
++   ret->bar.finish = text_progress_bar_finish;
++
++   ret->bar.term = term;
++	ret->bar.pos.x = offset_left;
++	ret->bar.pos.y = offset_top;
++	ret->bar.bar_len = len;
++	ret->bar.char_normal = char_normal;
++   ret->bar.char_highlight = char_highlight;
++	grub_parse_color_name_pair (&ret->bar.color_normal, color_normal);
++	grub_parse_color_name_pair (&ret->bar.color_highlight, color_highlight);
++
++	ret->current_pos = 0;
++
++	return &(ret->bar);
++
++}
++
++struct text_bar *
++text_progress_bar_new (grub_term_output_t term, int offset_left, int offset_top, int len)
++{
++   return text_progress_bar_new_verbose(term, offset_left, offset_top, len, PBAR_CHAR, PBAR_CHAR_HIGHLIGHT, "light-gray/black", "blue/black");
++}
++
++
++/*
++ * Activity bar
++ */
++
++static const int activity_bar_highlight_width = 3;
++
++
++static void text_activity_bar_draw(struct text_bar * tbar)
++{
++   text_activity_bar_t * bar = (text_activity_bar_t *)tbar;
++
++	draw_textbar (&bar->bar, bar->current_pos, bar->current_pos + activity_bar_highlight_width);
++}
++
++static void text_activity_bar_set_progress(struct text_bar * tbar, grub_uint64_t cur __attribute__((unused)), grub_uint64_t max __attribute__((unused)))
++{
++   text_activity_bar_t * bar = (text_activity_bar_t *)tbar;
++
++	bar->current_pos++;
++	if (bar->current_pos >= bar->bar.bar_len)
++		bar->current_pos = 1 - activity_bar_highlight_width;
++
++	text_activity_bar_draw(tbar);
++}
++
++
++//void text_activity_bar_destroy (struct text_activity_bar * bar)
++//{
++//	grub_free (bar);
++//}
++
++static void text_activity_bar_finish(struct text_bar * tbar)
++{
++   text_activity_bar_t * bar = (text_activity_bar_t *)tbar;   
++   
++	// Finish current run
++	while (bar->current_pos > 0)
++   {
++		grub_millisleep (miray_activity_tick_throttle_ms * 10);
++		text_activity_bar_set_progress(tbar, 0, 0);
++	}
++
++	if (bar->current_pos <= 0)
++		bar->current_pos = activity_bar_highlight_width;
++		//bar->current_pos = 1;
++
++	for (; bar->current_pos <= bar->bar.bar_len; bar->current_pos++)
++   {
++		grub_millisleep (miray_activity_tick_throttle_ms);
++		draw_textbar(&bar->bar, 0, bar->current_pos);
++	}
++}
++
++
++struct text_bar *
++text_activity_bar_new_verbose(grub_term_output_t term, int offset_left, int offset_top, int len, grub_uint32_t char_normal, grub_uint32_t char_highlight, const char * color_normal, const char * color_highlight)
++{
++	struct text_activity_bar *ret;
++
++	ret = grub_malloc(sizeof(struct text_activity_bar));
++
++   ret->bar.set_progress = text_activity_bar_set_progress;
++   ret->bar.draw = text_activity_bar_draw;
++   ret->bar.finish = text_activity_bar_finish;
++
++   ret->bar.term = term;
++	ret->bar.pos.x = offset_left;
++	ret->bar.pos.y = offset_top;
++	ret->bar.bar_len = len;
++	ret->bar.char_normal = char_normal;
++   ret->bar.char_highlight = char_highlight;
++	grub_parse_color_name_pair (&ret->bar.color_normal, color_normal);
++	grub_parse_color_name_pair (&ret->bar.color_highlight, color_highlight);
++
++	ret->current_pos = 1 - activity_bar_highlight_width;
++
++	return &(ret->bar);
++
++}
++
++struct text_bar *
++text_activity_bar_new (grub_term_output_t term, int offset_left, int offset_top, int len)
++{
++   return text_activity_bar_new_verbose(term, offset_left, offset_top, len, PBAR_CHAR, PBAR_CHAR_HIGHLIGHT, "light-gray/black", "blue/black");
++   
++#if 0
++	struct text_activity_bar *ret;
++
++	ret = grub_malloc(sizeof(struct text_activity_bar));
++
++	ret->bar.pos.x = offset_left;
++	ret->bar.pos.y = offset_top;
++	ret->bar.bar_len = len;
++   ret->bar.char_highlight = PBAR_CHAR_HIGHLIGHT;
++	ret->bar.char_normal = PBAR_CHAR;
++	//grub_parse_color_name_pair (&ret->bar.color_normal, "dark-gray/black");
++	grub_parse_color_name_pair (&ret->bar.color_normal, "light-gray/black");
++	grub_parse_color_name_pair (&ret->bar.color_highlight, "blue/black");
++
++
++	ret->current_pos = 1 - activity_bar_highlight_width;
++
++	return ret;
++#endif
++}
++
+diff --git a/grub-core/miray/bootscreen/text_progress_bar.h b/grub-core/miray/bootscreen/text_progress_bar.h
+new file mode 100755
+index 0000000..1a38da5
+--- /dev/null
++++ b/grub-core/miray/bootscreen/text_progress_bar.h
+@@ -0,0 +1,51 @@
++/*
++ *  Extention for GRUB  --  GRand Unified Bootloader
++ *  Copyright (C) 2010-2014 Miray Software <oss@miray.de>
++ *
++ *  GRUB is free software: you can redistribute it and/or modify
++ *  it under the terms of the GNU General Public License as published by
++ *  the Free Software Foundation, either version 3 of the License, or
++ *  (at your option) any later version.
++ *
++ *  GRUB is distributed in the hope that it will be useful,
++ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ *  GNU General Public License for more details.
++ *
++ *  You should have received a copy of the GNU General Public License
++ *  along with GRUB.  If not, see <http://www.gnu.org/licenses/>.
++ */
++
++#ifndef TEXT_PROGRESS_BAR
++#define TEXT_PROGRESS_BAR
++
++#include <grub/types.h>
++#include <grub/term.h>
++
++typedef struct text_bar text_bar_t;
++
++void text_bar_destroy(struct text_bar *);
++void text_bar_set_term(struct text_bar *, grub_term_output_t);
++void text_bar_set_progress(struct text_bar *, grub_uint64_t cur, grub_uint64_t max);
++void text_bar_draw(struct text_bar *);
++void text_bar_finish(struct text_bar * bar); // run highlighted region to end of bar (in activity_bar)
++
++struct text_bar * text_progress_bar_new (grub_term_output_t term, int offset_left, int offset_top, int len);
++struct text_bar * text_progress_bar_new_verbose(grub_term_output_t term, int offset_left, int offset_top, int len, grub_uint32_t char_normal, grub_uint32_t char_highlight, const char * color_normal, const char * color_highlight);
++
++
++struct text_bar * text_activity_bar_new (grub_term_output_t term, int offset_left, int offset_top, int len);
++struct text_bar * text_activity_bar_new_verbose(grub_term_output_t term, int offset_left, int offset_top, int len, grub_uint32_t char_normal, grub_uint32_t char_highlight, const char * color_normal, const char * color_highlight);
++
++static const grub_uint64_t activity_bar_advance_val = 0xffffffffffffffffULL;
++static inline void text_activity_bar_advance(struct text_bar * bar)
++{
++   text_bar_set_progress(bar, activity_bar_advance_val, 0);
++}
++//void text_activity_bar_destroy (struct text_activity_bar *);
++//void text_activity_bar_draw(struct text_activity_bar *, grub_term_output_t);
++//void text_activity_bar_advance(struct text_activity_bar *, grub_term_output_t);
++//void text_activity_bar_finish(struct text_activity_bar * bar, grub_term_output_t); // run highlighted region to end of bar
++
++
++#endif
+diff --git a/grub-core/miray/io/segmented_file.c b/grub-core/miray/io/segmented_file.c
+new file mode 100755
+index 0000000..d688352
+--- /dev/null
++++ b/grub-core/miray/io/segmented_file.c
+@@ -0,0 +1,425 @@
++/* segmented_file.c - provide access to a segmented file  */
++/*
++ *  Module for GRUB  --  GRand Unified Bootloader
++ *  Copyright (C) 2010 Miray Software <oss@miray.de>
++ *
++ *  This program is free software: you can redistribute it and/or modify
++ *  it under the terms of the GNU General Public License as published by
++ *  the Free Software Foundation, either version 3 of the License, or
++ *  (at your option) any later version.
++ *
++ *  This program is distributed in the hope that it will be useful,
++ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ *  GNU General Public License for more details.
++ *
++ *  You should have received a copy of the GNU General Public License
++ *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
++ */
++
++
++#include <grub/types.h>
++#include <grub/misc.h>
++#include <grub/mm.h>
++#include <grub/file.h>
++#include <grub/dl.h>
++#include <grub/test.h>
++#include <grub/disk.h>
++#include <grub/partition.h>
++
++GRUB_MOD_LICENSE ("GPLv3+");
++
++/* defined in miray bootscreen module */
++extern int miray_disk_nr_msg(int nr);
++extern int miray_disk_retry_msg(void);
++
++grub_file_t grub_segmented_file_open(grub_file_t in, const char *path);
++static char * device_path (grub_device_t device, const char *filepath);
++
++static struct grub_fs grub_segmented_file_fs;
++
++struct grub_sf {
++  grub_file_t cur_file;
++  char * device_path;
++  int pattern;
++  int cur_file_num;
++  int last_file;
++  grub_off_t cur_file_base_offset;
++};
++typedef struct grub_sf *grub_sf_p;
++
++static const struct {
++  const char * filename;
++  const char * pattern;
++  const char * endpattern;
++} filepatterns[] = {
++  { .filename = "kernel.m00", .pattern = "kernel.m%02d", .endpattern = "kernel.f%02d" },
++  { .filename = NULL, .pattern = NULL, .endpattern = NULL }
++};
++
++static void
++disable_all_file_filters(void)
++{
++  grub_file_filter_id_t id;
++
++  for (id = 0;
++       id < GRUB_FILE_FILTER_MAX; id++)
++    grub_file_filters_enabled[id] = 0;
++}
++
++static int
++is_last_file(grub_sf_p pdata)
++{
++  return pdata->last_file;
++}
++
++
++static grub_err_t 
++open_file_num(grub_sf_p pdata, int num)
++{
++   char * fmt;
++   char * name;
++
++   fmt = grub_xasprintf("%s%s", pdata->device_path, filepatterns[pdata->pattern].pattern);
++   if (fmt == 0) return grub_error (GRUB_ERR_OUT_OF_MEMORY, "Out of memory");
++  
++   name = grub_xasprintf(fmt, num);
++   grub_free(fmt);
++   fmt = 0;
++   if (name == 0) return grub_error (GRUB_ERR_OUT_OF_MEMORY, "Out of memory");
++
++   disable_all_file_filters();
++   grub_dprintf("sf", "opening %s\n", name);
++   pdata->cur_file = grub_file_open(name);
++   grub_free(name);
++  
++   if (pdata->cur_file != 0) return GRUB_ERR_NONE;
++   grub_dprintf("sf", "Not found\n");
++
++   while (grub_error_pop()) {} // Clear error number
++
++
++   fmt = grub_xasprintf("%s%s", pdata->device_path, filepatterns[pdata->pattern].endpattern);
++   if (fmt == 0) return grub_error (GRUB_ERR_OUT_OF_MEMORY, "Out of memory");
++  
++   name = grub_xasprintf(fmt, num);
++   grub_free(fmt);
++   fmt = 0;
++   if (name == 0) return grub_error (GRUB_ERR_OUT_OF_MEMORY, "Out of memory");
++
++   disable_all_file_filters();
++   grub_dprintf("sf", "opening %s\n", name);
++   pdata->cur_file = grub_file_open(name);
++   grub_free(name);
++  
++   if (pdata->cur_file != 0) 
++   {
++      pdata->last_file = 1;
++      return GRUB_ERR_NONE;
++   }
++
++   return grub_error(GRUB_ERR_FILE_NOT_FOUND, "File not found");
++}
++
++static grub_err_t
++open_next_file(grub_sf_p pdata)
++{
++  char * fmt;
++  char * name;
++
++  if (is_last_file(pdata))
++  {
++    return grub_error (GRUB_ERR_OUT_OF_RANGE, "No next part");
++  } 
++ 
++  pdata->cur_file_num++;
++  pdata->cur_file_base_offset += grub_file_size(pdata->cur_file);
++  grub_file_close(pdata->cur_file);
++  pdata->cur_file = 0;
++
++  while (1)
++  { 
++      fmt = grub_xasprintf("%s%s", pdata->device_path, filepatterns[pdata->pattern].pattern);
++      if (fmt == 0) return grub_error (GRUB_ERR_OUT_OF_MEMORY, "Out of memory");
++  
++      name = grub_xasprintf(fmt, pdata->cur_file_num);
++      grub_free(fmt);
++      fmt = 0;
++      if (name == 0) return grub_error (GRUB_ERR_OUT_OF_MEMORY, "Out of memory");
++
++      disable_all_file_filters();
++      grub_dprintf("sf", "opening %s\n", name);
++      pdata->cur_file = grub_file_open(name);
++      grub_free(name);
++  
++      if (pdata->cur_file != 0) return GRUB_ERR_NONE;
++      grub_dprintf("sf", "Not found\n");
++
++      while (grub_error_pop()) {} // Clear error number
++
++
++      fmt = grub_xasprintf("%s%s", pdata->device_path, filepatterns[pdata->pattern].endpattern);
++      if (fmt == 0) return grub_error (GRUB_ERR_OUT_OF_MEMORY, "Out of memory");
++  
++      name = grub_xasprintf(fmt, pdata->cur_file_num);
++      grub_free(fmt);
++      fmt = 0;
++      if (name == 0) return grub_error (GRUB_ERR_OUT_OF_MEMORY, "Out of memory");
++
++      disable_all_file_filters();
++      grub_dprintf("sf", "opening %s\n", name);
++      pdata->cur_file = grub_file_open(name);
++      grub_free(name);
++  
++      if (pdata->cur_file != 0) 
++      {
++	grub_dprintf("sf", "found\n");
++        pdata->last_file = 1;
++	return GRUB_ERR_NONE;
++      }
++
++      grub_dprintf("sf", "Not found\n");
++      while (grub_error_pop()) {}; // Clear Error number
++
++    int next_disk = miray_disk_nr_msg(pdata->cur_file_num + 1); 
++    if (!next_disk)
++    {
++      grub_dprintf("sf", "User Abort\n");
++      return grub_error(GRUB_ERR_READ_ERROR, "User abort");
++    }
++
++    grub_dprintf("sf", "retry with new disk\n");
++  }
++}
++
++grub_file_t
++grub_segmented_file_open(grub_file_t io, const char *path)
++{
++  grub_file_t file = 0;
++  grub_sf_p pdata = 0;
++  unsigned int pattern = 0;
++
++  if (path == 0 ||
++      io == 0 || 
++      io->device == 0 || 
++      io->device->disk == 0 ||
++      io->device->disk->partition != 0 )
++    return io;
++
++  const char * name = grub_strrchr (path, '/');
++  if (name == 0) name = path;
++  if (name[0] == '/') name++;
++
++  while (filepatterns[pattern].filename != 0)
++  {    
++    if (grub_strcmp (name, filepatterns[pattern].filename) == 0) 
++      break; /* found */
++ 
++    pattern ++;
++  }
++
++  if (filepatterns[pattern].filename == 0)
++    return io; /* Not found, no need to use this module */
++
++  file = grub_malloc (sizeof(*file));
++  if (! file)
++    {
++      grub_error (GRUB_ERR_OUT_OF_MEMORY, "Out of memory");
++      return 0;
++    }
++
++  pdata = grub_zalloc (sizeof(*pdata));
++  if (! pdata)
++    {
++      grub_error (GRUB_ERR_OUT_OF_MEMORY, "Out of memory");
++      grub_free (file);
++      return 0;
++    }
++
++  pdata->cur_file = io;
++  pdata->device_path = device_path(io->device, path);
++  if (! pdata->device_path)
++    {
++      grub_error (GRUB_ERR_OUT_OF_MEMORY, "Out of memory");
++      grub_free (pdata);
++      grub_free (file);
++      return 0;
++    } 
++  pdata->cur_file_num = 0;
++  pdata->cur_file_base_offset = 0;
++  pdata->last_file = 0;
++
++  file->device = io->device;
++  file->offset = 0;
++  file->data = pdata;
++  file->read_hook = 0;
++  file->fs = &grub_segmented_file_fs;
++  file->size = GRUB_FILE_SIZE_UNKNOWN;
++  file->not_easily_seekable = 1;
++
++  grub_dprintf("sf", "Using Segmented File filter\n");
++
++  return file;
++
++}
++
++static grub_err_t
++grub_segmented_file_close(struct grub_file *file)
++{
++  grub_dprintf("sf", "Closing Segmented File filter");
++  grub_sf_p pdata = file->data;
++  file->data = 0;
++
++  if (pdata->cur_file != 0)
++  {
++    grub_file_close (pdata->cur_file);
++  }
++  grub_free(pdata->device_path);
++
++  /* make sure we don't close the device twice */
++  file->device = 0;
++
++  return 0;
++}
++
++static grub_ssize_t
++grub_segmented_file_read(struct grub_file *file, char *buf, grub_size_t len)
++{
++  grub_off_t cur_file_offset;
++  grub_sf_p pdata = file->data;
++
++  if (pdata->cur_file == 0)
++  {
++    if (open_file_num(pdata, pdata->cur_file_num) != GRUB_ERR_NONE)
++    {
++       grub_error (GRUB_ERR_READ_ERROR, "Filter has no base file");
++       return -1;
++    }
++  }
++
++  if (file->offset < pdata->cur_file_base_offset)
++  {
++    // Seeking backwards over disk bondries is not supported
++    grub_error (GRUB_ERR_BAD_ARGUMENT, "Seek position not supported");
++    return -1;
++  }
++
++  // seek to the correct position
++  cur_file_offset = file->offset - pdata->cur_file_base_offset;
++  while (cur_file_offset >= grub_file_size(pdata->cur_file))
++  {
++    if (is_last_file(pdata) && cur_file_offset == grub_file_size(pdata->cur_file)) 
++    {
++      file->size = pdata->cur_file_base_offset + cur_file_offset;
++      return 0;
++    }
++
++    if (open_next_file(pdata) != GRUB_ERR_NONE)
++    {
++      // Set some end of file marker
++      file->size = pdata->cur_file_base_offset - 1; 
++      file->device = 0;
++      // No nect
++      return -1;
++    }
++    /* grub_test_assert(pdata->cur_file != 0); */
++    file->device = pdata->cur_file->device;
++
++    cur_file_offset = file->offset - pdata->cur_file_base_offset;
++  }
++  grub_file_seek(pdata->cur_file, cur_file_offset);
++
++
++  grub_ssize_t ret;
++#if 0
++  while ((ret = grub_file_read(pdata->cur_file, buf, len)) < 0)
++  {
++     if (grub_errno == GRUB_ERR_READ_ERROR)
++     {
++        // Ask for Retry
++        grub_file_close(pdata->cur_file);
++        pdata->cur_file = 0;
++        file->device = 0;
++
++        int retry = miray_disk_retry_msg();   
++ 
++        if (retry) 
++        {
++           while(grub_error_pop()) {}
++           if (open_file_num(pdata, pdata->cur_file_num) == GRUB_ERR_NONE)
++           {
++              file->device = pdata->cur_file->device;
++              continue;
++           }
++        }
++     }
++     break;
++  }
++#else
++  ret = grub_file_read(pdata->cur_file, buf, len);
++#endif
++
++  return ret;
++}
++
++static struct grub_fs grub_segmented_file_fs =
++  {
++    .name = "segmented_file",
++    .dir = 0,
++    .open = 0,
++    .read = grub_segmented_file_read,
++    .close = grub_segmented_file_close,
++    .label = 0,
++    .next = 0,
++  };
++
++static inline const char * devicename (grub_device_t device)
++{
++  if (device->disk != 0)
++  {
++    return device->disk->name;
++    // TODO: Accept Partitions
++  }
++  else return "";
++}
++
++static char *device_path (grub_device_t device, const char *filepath)
++{
++  int len = 0;
++  char * ret;
++  char * name; 
++
++  len += grub_strlen(devicename(device));
++  len += 2;
++  len += grub_strlen(filepath);
++  if (filepath[0] != '/') len++;
++
++  ret = grub_malloc(len + 1); // Trailing \0
++
++  ret[0] = '(';
++  grub_strcpy(&ret[1], devicename(device));
++  len = grub_strlen(ret);
++  ret[len++] = ')';
++  if (filepath[0] != '/')
++  {
++    ret[len++] = '/';
++  }
++  grub_strcpy(&(ret[len]), filepath);
++
++  // get rid of filename
++  name = grub_strrchr(ret, '/');
++  name++; 
++  *name = '\0';
++  
++  return ret;
++}
++
++GRUB_MOD_INIT (segmented_file)
++{
++  grub_file_filter_register (GRUB_FILE_FILTER_SEGMENTED_FILE, grub_segmented_file_open);
++}
++
++GRUB_MOD_FINI (segmented_file)
++{
++  grub_file_filter_unregister (GRUB_FILE_FILTER_SEGMENTED_FILE);
++}
+diff --git a/grub-core/normal/main.c b/grub-core/normal/main.c
+old mode 100644
+new mode 100755
+index 3a926fc..f31c60d
+--- a/grub-core/normal/main.c
++++ b/grub-core/normal/main.c
+@@ -33,6 +33,7 @@
+ #include <grub/charset.h>
+ #include <grub/script_sh.h>
+ #include <grub/bufio.h>
++#include <grub/miray_debug.h>
+ 
+ GRUB_MOD_LICENSE ("GPLv3+");
+ 
+@@ -41,6 +42,9 @@ GRUB_MOD_LICENSE ("GPLv3+");
+ static int nested_level = 0;
+ int grub_normal_exit_level = 0;
+ 
++grub_err_t (*custom_menu_handler) (grub_menu_t menu, int nested, int auto_boot) = NULL;
++
++
+ void
+ grub_normal_free_menu (grub_menu_t menu)
+ {
+@@ -102,7 +106,7 @@ read_config_file_getline (char **line, int cont __attribute__ ((unused)),
+   return GRUB_ERR_NONE;
+ }
+ 
+-static grub_menu_t
++grub_menu_t
+ read_config_file (const char *config)
+ {
+   grub_file_t rawfile, file;
+@@ -202,19 +206,23 @@ grub_normal_init_page (struct grub_term_output *term,
+ {
+   grub_ssize_t msg_len;
+   int posx;
+-  char *msg_formatted;
++  //char *msg_formatted;
++  const char *msg_formatted;
+   grub_uint32_t *unicode_msg;
+   grub_uint32_t *last_position;
+  
+-  grub_term_cls (term);
+-
+-  msg_formatted = grub_xasprintf (_("GNU GRUB  version %s"), PACKAGE_VERSION);
+-  if (!msg_formatted)
+-    return;
++  //grub_term_cls (term);
++
++  //msg_formatted = grub_xasprintf (_("GNU GRUB  version %s"), PACKAGE_VERSION);
++  //if (!msg_formatted)
++  //  return;
++  msg_formatted = grub_env_get("menu_title");
++  if (msg_formatted == 0)
++    msg_formatted = "Symobi - Extended Boot Options";
+  
+   msg_len = grub_utf8_to_ucs4_alloc (msg_formatted,
+   				     &unicode_msg, &last_position);
+-  grub_free (msg_formatted);
++  //grub_free (msg_formatted);
+  
+   if (msg_len < 0)
+     {
+@@ -287,7 +295,8 @@ grub_normal_execute (const char *config, int nested, int batch)
+ 	{
+ 
+ 	  grub_boot_time ("Entering menu");
+-	  grub_show_menu (menu, nested, 0);
++	  if (!custom_menu_handler || (custom_menu_handler(menu, nested, 0) == 0))
++	    grub_show_menu (menu, nested, 0);
+ 	  if (nested)
+ 	    grub_normal_free_menu (menu);
+ 	}
+@@ -369,6 +378,8 @@ grub_normal_reader_init (int nested)
+ 
+   FOR_ACTIVE_TERM_OUTPUTS(term)
+   {
++    grub_term_cls(term);
++     
+     grub_normal_init_page (term, 1);
+     grub_term_setcursor (term, 1);
+ 
+@@ -432,7 +443,8 @@ grub_cmdline_run (int nested)
+ 
+   if (err)
+     {
+-      grub_print_error ();
++      if (miray_debugmode())
++        grub_print_error ();
+       grub_errno = GRUB_ERR_NONE;
+       return;
+     }
+diff --git a/grub-core/normal/menu.c b/grub-core/normal/menu.c
+old mode 100644
+new mode 100755
+index b47991a..f32991f
+--- a/grub-core/normal/menu.c
++++ b/grub-core/normal/menu.c
+@@ -32,6 +32,7 @@
+ #include <grub/script_sh.h>
+ #include <grub/gfxterm.h>
+ #include <grub/dl.h>
++#include <grub/miray_debug.h>
+ 
+ /* Time to delay after displaying an error message about a default/fallback
+    entry failing to boot.  */
+@@ -202,7 +203,7 @@ get_and_remove_first_entry_number (const char *name)
+ }
+ 
+ /* Run a menu entry.  */
+-static void
++void
+ grub_menu_execute_entry(grub_menu_entry_t entry, int auto_boot)
+ {
+   grub_err_t err = GRUB_ERR_NONE;
+@@ -297,7 +298,7 @@ grub_menu_execute_entry(grub_menu_entry_t entry, int auto_boot)
+ 
+   grub_script_execute_new_scope (entry->sourcecode, entry->argc, entry->args);
+ 
+-  if (errs_before != grub_err_printed_errors)
++  if (miray_debugmode() && errs_before != grub_err_printed_errors)
+     grub_wait_after_message ();
+ 
+   errs_before = grub_err_printed_errors;
+@@ -306,7 +307,7 @@ grub_menu_execute_entry(grub_menu_entry_t entry, int auto_boot)
+     /* Implicit execution of boot, only if something is loaded.  */
+     grub_command_execute ("boot", 0, 0);
+ 
+-  if (errs_before != grub_err_printed_errors)
++  if (miray_debugmode() && errs_before != grub_err_printed_errors)
+     grub_wait_after_message ();
+ 
+   if (entry->submenu)
+@@ -581,6 +582,9 @@ run_menu (grub_menu_t menu, int nested, int *auto_boot)
+   int timeout;
+   enum timeout_style timeout_style;
+ 
++  if (nested == 0)
++    grub_cls();
++
+   default_entry = get_entry_number (menu, "default");
+ 
+   /* If DEFAULT_ENTRY is not within the menu entries, fall back to
+@@ -757,7 +761,7 @@ run_menu (grub_menu_t menu, int nested, int *auto_boot)
+ 
+ 	    case '\n':
+ 	    case '\r':
+-	    case GRUB_TERM_KEY_RIGHT:
++	    //case GRUB_TERM_KEY_RIGHT:
+ 	    case GRUB_TERM_CTRL | 'f':
+ 	      menu_fini ();
+               *auto_boot = 0;
+@@ -772,17 +776,21 @@ run_menu (grub_menu_t menu, int nested, int *auto_boot)
+ 	      break;
+ 
+ 	    case 'c':
++	      if (!miray_debugmode()) break;
+ 	      menu_fini ();
+ 	      grub_cmdline_run (1);
++         grub_cls();
+ 	      goto refresh;
+ 
+ 	    case 'e':
++	      if (!miray_debugmode()) break;
+ 	      menu_fini ();
+ 		{
+ 		  grub_menu_entry_t e = grub_menu_get_entry (menu, current_entry);
+ 		  if (e)
+ 		    grub_menu_entry_run (e);
+ 		}
++	      grub_cls();
+ 	      goto refresh;
+ 
+ 	    default:
+@@ -840,7 +848,8 @@ notify_execution_failure (void *userdata __attribute__((unused)))
+     }
+   grub_printf ("\n  ");
+   grub_printf_ (N_("Failed to boot both default and fallback entries.\n"));
+-  grub_wait_after_message ();
++  if (miray_debugmode())
++    grub_wait_after_message ();
+ }
+ 
+ /* Callbacks used by the text menu to provide user feedback when menu entries
+@@ -869,7 +878,7 @@ show_menu (grub_menu_t menu, int nested, int autobooted)
+       if (! e)
+ 	continue; /* Menu is empty.  */
+ 
+-      grub_cls ();
++      //grub_cls ();
+ 
+       if (auto_boot)
+ 	grub_menu_execute_with_fallback (menu, e, autobooted,
+@@ -900,7 +909,8 @@ grub_show_menu (grub_menu_t menu, int nested, int autoboot)
+       err2 = grub_auth_check_authentication (NULL);
+       if (err2)
+ 	{
+-	  grub_print_error ();
++     if (miray_debugmode())
++	    grub_print_error ();
+ 	  grub_errno = GRUB_ERR_NONE;
+ 	  continue;
+ 	}
+@@ -910,3 +920,12 @@ grub_show_menu (grub_menu_t menu, int nested, int autoboot)
+ 
+   return err1;
+ }
++
++
++// Forwarded change for miray-bootscreen
++int
++miray_run_menu (grub_menu_t menu)
++{
++  int auto_boot;
++  return run_menu(menu, 1, &auto_boot);
++}
+diff --git a/grub-core/normal/menu_entry.c b/grub-core/normal/menu_entry.c
+old mode 100644
+new mode 100755
+index b485df8..b49589d
+--- a/grub-core/normal/menu_entry.c
++++ b/grub-core/normal/menu_entry.c
+@@ -27,6 +27,7 @@
+ #include <grub/auth.h>
+ #include <grub/i18n.h>
+ #include <grub/charset.h>
++#include <grub/miray_debug.h>
+ 
+ enum update_mode
+   {
+@@ -1196,7 +1197,7 @@ run (struct screen *screen)
+   grub_script_execute_new_scope (script, 0, dummy);
+   grub_free (script);
+ 
+-  if (errs_before != grub_err_printed_errors)
++  if (miray_debugmode() && errs_before != grub_err_printed_errors)
+     grub_wait_after_message ();
+ 
+   if (grub_errno == GRUB_ERR_NONE && grub_loader_is_loaded ())
+@@ -1215,9 +1216,9 @@ run (struct screen *screen)
+ 
+   if (grub_errno != GRUB_ERR_NONE)
+     {
+-      grub_print_error ();
++      if (miray_debugmode()) grub_print_error ();
+       grub_errno = GRUB_ERR_NONE;
+-      grub_wait_after_message ();
++      if (miray_debugmode()) grub_wait_after_message ();
+     }
+ 
+   return 1;
+@@ -1237,11 +1238,12 @@ grub_menu_entry_run (grub_menu_entry_t entry)
+ 
+   if (err)
+     {
+-      grub_print_error ();
++      if (miray_debugmode()) grub_print_error ();
+       grub_errno = GRUB_ERR_NONE;
+       return;
+     }
+ 
++  grub_cls();
+   screen = make_screen (entry);
+   if (! screen)
+     return;
+diff --git a/grub-core/normal/menu_text.c b/grub-core/normal/menu_text.c
+old mode 100644
+new mode 100755
+index 2ff2941..77d3f67
+--- a/grub-core/normal/menu_text.c
++++ b/grub-core/normal/menu_text.c
+@@ -115,31 +115,43 @@ draw_border (struct grub_term_output *term, const struct grub_term_screen_geomet
+ 
+   grub_term_setcolorstate (term, GRUB_TERM_COLOR_NORMAL);
+ 
+-  grub_term_gotoxy (term, (struct grub_term_coordinate) { geo->first_entry_x - 1,
+-	geo->first_entry_y - 1 });
++  grub_term_gotoxy (term, (struct grub_term_coordinate) { 0, geo->first_entry_y - 1 });
++  for (i = 0; i < geo->first_entry_x - 1; i++)
++    grub_putcode(' ', term);
+   grub_putcode (GRUB_UNICODE_CORNER_UL, term);
+   for (i = 0; i < geo->entry_width + 1; i++)
+     grub_putcode (GRUB_UNICODE_HLINE, term);
+   grub_putcode (GRUB_UNICODE_CORNER_UR, term);
++  for (i = geo->entry_width + 2; i < (int)grub_term_width(term); i++)
++    grub_putcode (' ', term);
+ 
+   for (i = 0; i < geo->num_entries; i++)
+     {
+-      grub_term_gotoxy (term, (struct grub_term_coordinate) { geo->first_entry_x - 1,
++      int k;
++      grub_term_gotoxy (term, (struct grub_term_coordinate) { 0,
+ 	    geo->first_entry_y + i });
++      for (k = 0; k < geo->first_entry_x - 1; k++)
++        grub_putcode(' ', term);
+       grub_putcode (GRUB_UNICODE_VLINE, term);
+       grub_term_gotoxy (term,
+ 			(struct grub_term_coordinate) { geo->first_entry_x + geo->entry_width + 1,
+ 			    geo->first_entry_y + i });
+       grub_putcode (GRUB_UNICODE_VLINE, term);
++      for (k = geo->first_entry_x + geo->entry_width + 1; k < (int)grub_term_width(term); k++)
++        grub_putcode(' ', term);
+     }
+ 
+   grub_term_gotoxy (term,
+-		    (struct grub_term_coordinate) { geo->first_entry_x - 1,
++		    (struct grub_term_coordinate) { 0,
+ 			geo->first_entry_y - 1 + geo->num_entries + 1 });
++  for (i = 0; i <  geo->first_entry_x - 1; i++)
++    grub_putcode(' ', term);
+   grub_putcode (GRUB_UNICODE_CORNER_LL, term);
+   for (i = 0; i < geo->entry_width + 1; i++)
+     grub_putcode (GRUB_UNICODE_HLINE, term);
+   grub_putcode (GRUB_UNICODE_CORNER_LR, term);
++  for (i = geo->entry_width + 2; i < (int)grub_term_width(term); i++)
++    grub_putcode (' ', term);
+ 
+   grub_term_setcolorstate (term, GRUB_TERM_COLOR_NORMAL);
+ 
+@@ -165,9 +177,16 @@ command-line or ESC to discard edits and return to the GRUB menu."),
+     }
+   else
+     {
+-      char *msg_translated;
+-
+-      msg_translated = grub_xasprintf (_("Use the %C and %C keys to select which "
++      char *msg_translated = 0;
++      
++      {
++         const char * msg = grub_env_get("menu_footer1");
++         if (msg != 0)
++           msg_translated = grub_xasprintf(msg, GRUB_UNICODE_UPARROW, GRUB_UNICODE_DOWNARROW);
++      }
++      
++      if (msg_translated == 0)
++        msg_translated = grub_xasprintf (_("Use the %C and %C keys to select which "
+ 					 "entry is highlighted."),
+ 				       GRUB_UNICODE_UPARROW,
+ 				       GRUB_UNICODE_DOWNARROW);
+@@ -180,10 +199,13 @@ command-line or ESC to discard edits and return to the GRUB menu."),
+ 
+       if (nested)
+ 	{
+-	  ret += grub_print_message_indented_real
+-	    (_("Press enter to boot the selected OS, "
++      const char * footer_msg = grub_env_get ("menu_footer2");
++      if (footer_msg == 0)
++         footer_msg = _("Press enter to boot the selected OS, "
+ 	       "`e' to edit the commands before booting "
+-	       "or `c' for a command-line. ESC to return previous menu."),
++	       "or `c' for a command-line. ESC to return previous menu.");
++	  ret += grub_print_message_indented_real
++	    (footer_msg,
+ 	     STANDARD_MARGIN, STANDARD_MARGIN, term, dry_run);
+ 	}
+       else
+@@ -515,7 +537,7 @@ menu_text_fini (void *dataptr)
+   struct menu_viewer_data *data = dataptr;
+ 
+   grub_term_setcursor (data->term, 1);
+-  grub_term_cls (data->term);
++  //grub_term_cls (data->term);
+   grub_free (data);
+ }
+ 
+diff --git a/include/grub/file.h b/include/grub/file.h
+index 7911e88..c86f24d 100755
+--- a/include/grub/file.h
++++ b/include/grub/file.h
+@@ -69,6 +69,7 @@ extern grub_disk_read_hook_t EXPORT_VAR(grub_file_progress_hook);
+ typedef enum grub_file_filter_id
+   {
+     GRUB_FILE_FILTER_PUBKEY,
++    GRUB_FILE_FILTER_SEGMENTED_FILE,
+     GRUB_FILE_FILTER_GZIO,
+     GRUB_FILE_FILTER_LZMAIO,
+     GRUB_FILE_FILTER_XZIO,
+diff --git a/include/grub/menu.h b/include/grub/menu.h
+old mode 100644
+new mode 100755
+index ee2b5e9..1b9bae1
+--- a/include/grub/menu.h
++++ b/include/grub/menu.h
+@@ -103,4 +103,10 @@ int grub_menu_get_default_entry_index (grub_menu_t menu);
+ void grub_menu_init (void);
+ void grub_menu_fini (void);
+ 
++// Additions for Symobi bootscreen
++int miray_run_menu (grub_menu_t menu);
++void grub_menu_execute_entry(grub_menu_entry_t entry, int auto_boot);
++
++grub_menu_t read_config_file (const char *config);
++
+ #endif /* GRUB_MENU_HEADER */
+diff --git a/include/grub/menu_viewer.h b/include/grub/menu_viewer.h
+old mode 100644
+new mode 100755
+index c6513c4..0037cd4
+--- a/include/grub/menu_viewer.h
++++ b/include/grub/menu_viewer.h
+@@ -45,4 +45,9 @@ grub_menu_try_text (struct grub_term_output *term,
+ extern grub_err_t (*grub_gfxmenu_try_hook) (int entry, grub_menu_t menu,
+ 					    int nested);
+ 
++
++/* Miray addition */
++extern grub_err_t (*custom_menu_handler) (grub_menu_t menu, int nested, int auto_boot);
++
++
+ #endif /* GRUB_MENU_VIEWER_HEADER */
+-- 
+1.9.2.msysgit.0
+

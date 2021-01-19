@@ -1,0 +1,109 @@
+From fdaf19c3f9b769bd913453e87acf0c952adacac4 Mon Sep 17 00:00:00 2001
+From: Thomas Frauendorfer <tf@miray.de>
+Date: Tue, 21 Oct 2014 09:51:55 +0200
+Subject: [PATCH 34/41] fix compile error when disabling boot log
+
+---
+ grub-core/miray/bootlog/bootlog.c | 65 ++++++++++++++++++++++++++++++---------
+ 1 file changed, 50 insertions(+), 15 deletions(-)
+
+diff --git a/grub-core/miray/bootlog/bootlog.c b/grub-core/miray/bootlog/bootlog.c
+index aacaf2c..3abba62 100755
+--- a/grub-core/miray/bootlog/bootlog.c
++++ b/grub-core/miray/bootlog/bootlog.c
+@@ -34,6 +34,25 @@
+ 
+ GRUB_MOD_LICENSE ("GPLv3+");
+ 
++
++static const struct grub_arg_option options_bootlog_activate[] =
++{
++   {"set",             's', 0,
++      ("Set a variable to return value."), "VAR", ARG_TYPE_STRING},
++   {"file", 'f', 0,
++      ("Filename to limit max size"), "VAR", ARG_TYPE_STRING},
++   {0, 0, 0, 0, 0, 0}
++};
++
++static const struct grub_arg_option options_bootlog_write[] =
++{
++   {"file",             'f', 0,
++      ("destination file"), "VAR", ARG_TYPE_STRING},
++   {0, 0, 0, 0, 0, 0}
++};
++
++#ifdef USE_MIRAY_BOOTLOG
++
+ static const grub_uint64_t bootlog_min_size = sizeof(struct mirayBootlogHeader);
+ 
+ 
+@@ -186,15 +205,6 @@ miray_cmd_bootlog_test(struct grub_command *cmd __attribute__ ((unused)),
+ }
+ #endif
+ 
+-static const struct grub_arg_option options_bootlog_activate[] =
+-{
+-   {"set",             's', 0,
+-      ("Set a variable to return value."), "VAR", ARG_TYPE_STRING},
+-   {"file", 'f', 0,
+-      ("Filename to limit max size"), "VAR", ARG_TYPE_STRING},
+-   {0, 0, 0, 0, 0, 0}
+-};
+-
+ static grub_err_t
+ miray_cmd_bootlog_activate(grub_extcmd_context_t ctxt,
+       int argc __attribute__((unused)), char * argv[] __attribute__((unused)))
+@@ -297,12 +307,6 @@ miray_cmd_bootlog_has_log(struct grub_command *cmd __attribute__ ((unused)),
+    return GRUB_ERR_NONE;
+ }
+       
+-static const struct grub_arg_option options_bootlog_write[] =
+-{
+-   {"file",             'f', 0,
+-      ("destination file"), "VAR", ARG_TYPE_STRING},
+-   {0, 0, 0, 0, 0, 0}
+-};
+ 
+ static grub_err_t
+ miray_cmd_bootlog_write(grub_extcmd_context_t ctxt,
+@@ -457,6 +461,37 @@ miray_cmd_bootlog_write(grub_extcmd_context_t ctxt,
+    return GRUB_ERR_NONE;
+ }
+ 
++
++#else
++
++// Dummy methods
++
++
++static grub_err_t
++miray_cmd_bootlog_activate(grub_extcmd_context_t ctxt __attribute__((unused)),
++      int argc __attribute__((unused)), char * argv[] __attribute__((unused)))
++{
++   return GRUB_ERR_NONE;
++
++}
++
++static grub_err_t
++miray_cmd_bootlog_has_log(struct grub_command *cmd __attribute__ ((unused)),
++      int argc __attribute__((unused)), char * argv[] __attribute__((unused)))
++{
++   return grub_error(GRUB_ERR_BUG, "bootload not available");
++}
++
++
++static grub_err_t
++miray_cmd_bootlog_write(grub_extcmd_context_t ctxt __attribute__((unused)),
++      int argc __attribute__((unused)), char * argv[] __attribute__((unused)))
++{
++   return grub_error(GRUB_ERR_BUG, "bootlog not available");
++}
++
++#endif
++
+ static grub_extcmd_t cmd_activate;
+ static grub_extcmd_t cmd_write;
+ static grub_command_t cmd_has_log;
+-- 
+1.9.2.msysgit.0
+

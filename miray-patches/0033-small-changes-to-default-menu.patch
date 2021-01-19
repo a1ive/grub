@@ -1,0 +1,39 @@
+From fc351ed32e8a6cd0cecd5852355b58947ecd37d4 Mon Sep 17 00:00:00 2001
+From: Thomas Frauendorfer <tf@miray.de>
+Date: Tue, 21 Oct 2014 09:51:11 +0200
+Subject: [PATCH 33/41] small changes to default menu
+
+---
+ grub-core/normal/main.c | 2 +-
+ grub-core/normal/term.c | 2 ++
+ 2 files changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/grub-core/normal/main.c b/grub-core/normal/main.c
+index f31c60d..31385fc 100755
+--- a/grub-core/normal/main.c
++++ b/grub-core/normal/main.c
+@@ -545,7 +545,7 @@ GRUB_MOD_INIT(normal)
+   grub_env_export ("color_highlight");
+ 
+   /* Set default color names.  */
+-  grub_env_set ("color_normal", "light-gray/black");
++  grub_env_set ("color_normal", "white/black");
+   grub_env_set ("color_highlight", "black/light-gray");
+ 
+   for (i = 0; i < ARRAY_SIZE (features); i++)
+diff --git a/grub-core/normal/term.c b/grub-core/normal/term.c
+index deaac29..e6d6d9f 100755
+--- a/grub-core/normal/term.c
++++ b/grub-core/normal/term.c
+@@ -188,6 +188,8 @@ map_code (grub_uint32_t in, struct grub_term_output *term)
+ 	  return 0x94;
+ 	case 0xfc: // ü
+ 	  return 0x81;
++   case GRUB_UNICODE_LIGHT_HLINE:
++      return GRUB_CP437_HLINE;
+ 	case 0x2580:    /* half upper block */
+ 	  return 0xdf;
+ 	case 0x2584:    /* half lower block */
+-- 
+1.9.2.msysgit.0
+

@@ -1,0 +1,64 @@
+From 6b3a93158496b34f65c2f8157f02e3d53cbf12a9 Mon Sep 17 00:00:00 2001
+From: Thomas Frauendorfer <tf@miray.de>
+Date: Fri, 9 May 2014 11:55:04 +0200
+Subject: [PATCH 08/41] during secure boot allow loading modules from memdisk
+ the memdisk has been checked on load so all modules in it are verified
+
+---
+ grub-core/kern/dl.c | 30 ++++++++++++++++++++++--------
+ 1 file changed, 22 insertions(+), 8 deletions(-)
+ mode change 100644 => 100755 grub-core/kern/dl.c
+
+diff --git a/grub-core/kern/dl.c b/grub-core/kern/dl.c
+old mode 100644
+new mode 100755
+index 587a316..dbbb8eb
+--- a/grub-core/kern/dl.c
++++ b/grub-core/kern/dl.c
+@@ -684,14 +684,6 @@ grub_dl_load_file (const char *filename)
+   void *core = 0;
+   grub_dl_t mod = 0;
+ 
+-#ifdef GRUB_MACHINE_EFI
+-  if (grub_efi_secure_boot ())
+-    {
+-      grub_error (GRUB_ERR_ACCESS_DENIED,
+-		  "Secure Boot forbids loading module from %s", filename);
+-      return 0;
+-    }
+-#endif
+ 
+   grub_boot_time ("Loading module %s", filename);
+ 
+@@ -699,6 +691,28 @@ grub_dl_load_file (const char *filename)
+   if (! file)
+     return 0;
+ 
++#ifdef GRUB_MACHINE_EFI
++  if (grub_efi_secure_boot ())
++    {
++      /* Loading from Memdisk is ok, because the memdisk is either
++       * embedded into grub and was thus signed together with it or
++       * it was checked when it was loaded
++       */
++      if (file->device == 0 ||
++          file->device->disk == 0 ||
++          file->device->disk->dev == 0 ||
++          file->device->disk->dev->id != GRUB_DISK_DEVICE_MEMDISK_ID)
++         {
++
++            grub_err_printf("Cannot load modules in secure boot mode\n");
++            grub_error (GRUB_ERR_ACCESS_DENIED,
++            "Secure Boot forbids loading module from %s", filename);
++            grub_file_close(file);
++            return 0;
++         }
++    }
++#endif
++
+   size = grub_file_size (file);
+   core = grub_malloc (size);
+   if (! core)
+-- 
+1.9.2.msysgit.0
+

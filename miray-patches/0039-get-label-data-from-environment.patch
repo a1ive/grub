@@ -1,0 +1,194 @@
+From cbf1fbf0931abd4a3b627e4b2876583ae56c81c1 Mon Sep 17 00:00:00 2001
+From: Thomas Frauendorfer <tf@miray.de>
+Date: Tue, 28 Jul 2015 16:38:44 +0200
+Subject: [PATCH 39/41] get label data from environment
+
+---
+ grub-core/gfxmenu/gui_label.c                 |  5 ++++-
+ grub-core/miray/bootscreen/miray_gfx_main.c   | 18 +++++++++++++++++-
+ grub-core/miray/bootscreen/miray_gfx_screen.c | 24 ++++++++++++------------
+ 3 files changed, 33 insertions(+), 14 deletions(-)
+ mode change 100644 => 100755 grub-core/gfxmenu/gui_label.c
+
+diff --git a/grub-core/gfxmenu/gui_label.c b/grub-core/gfxmenu/gui_label.c
+old mode 100644
+new mode 100755
+index a4c8178..4443a81
+--- a/grub-core/gfxmenu/gui_label.c
++++ b/grub-core/gfxmenu/gui_label.c
+@@ -24,6 +24,7 @@
+ #include <grub/gui_string_util.h>
+ #include <grub/i18n.h>
+ #include <grub/color.h>
++#include <grub/env.h>
+ 
+ static const char *align_options[] =
+ {
+@@ -192,7 +193,9 @@ label_set_property (void *vself, const char *name, const char *value)
+ 	       "or `c' for a command-line.");
+ 	   else if (grub_strcmp (value, "@KEYMAP_SHORT@") == 0)
+ 	    value = _("enter: boot, `e': options, `c': cmd-line");
+-	   /* FIXME: Add more templates here if needed.  */
++	   else if (value[0] == '$')
++	    value = grub_env_get(&value[1]);
++      /* FIXME: Add more templates here if needed.  */
+ 	  self->template = grub_strdup (value);
+ 	  self->text = grub_xasprintf (value, self->value);
+ 	}
+diff --git a/grub-core/miray/bootscreen/miray_gfx_main.c b/grub-core/miray/bootscreen/miray_gfx_main.c
+index 707bfbe..4ab1555 100755
+--- a/grub-core/miray/bootscreen/miray_gfx_main.c
++++ b/grub-core/miray/bootscreen/miray_gfx_main.c
+@@ -19,8 +19,10 @@
+ #include <grub/dl.h>
+ #include <grub/err.h>
+ #include <grub/command.h>
++#include <grub/normal.h>
+ 
+ #include "miray_screen.h"
++#include <grub/miray_debug.h>
+ 
+ 
+ GRUB_MOD_LICENSE ("GPLv3+");
+@@ -123,11 +125,25 @@ GRUB_MOD_INIT(miray_gfx_bootscreen)
+       }
+       else
+       {
++         if (miray_debugmode())
++         {
++            grub_error(GRUB_ERR_MENU, "Could not set gfx menu");
++            grub_wait_after_message();
++         }
+          miray_screen_destroy(scr);
+       }
+    }
++   else
++   {
++      if (miray_debugmode())
++      {
++         grub_error(GRUB_ERR_MENU, "Could not create gfx screen");
++         grub_wait_after_message();
++      }
++   }
+ 
+-
++   while (grub_error_pop()) {};
++      
+ }
+ 
+ GRUB_MOD_FINI(miray_gfX_bootscreen)
+diff --git a/grub-core/miray/bootscreen/miray_gfx_screen.c b/grub-core/miray/bootscreen/miray_gfx_screen.c
+index 31b81e5..ebf9624 100755
+--- a/grub-core/miray/bootscreen/miray_gfx_screen.c
++++ b/grub-core/miray/bootscreen/miray_gfx_screen.c
+@@ -775,7 +775,7 @@ miray_gfx_screen_new(struct grub_term_output *term)
+    ret = grub_zalloc(sizeof(struct miray_screen));
+    if (ret == 0)
+    {
+-      grub_error(GRUB_ERR_OUT_OF_MEMORY, "Out of Memory");
++      grub_error(GRUB_ERR_OUT_OF_MEMORY, "Out of Memory (gfx screen)");
+       return 0;
+    }
+ 
+@@ -804,7 +804,7 @@ miray_gfx_screen_new(struct grub_term_output *term)
+    if (data == 0)
+    {
+       grub_free(ret);
+-      grub_error(GRUB_ERR_OUT_OF_MEMORY, "Out of Memory");
++      grub_error(GRUB_ERR_OUT_OF_MEMORY, "Out of Memory (gfx screen data)");
+       return 0;
+    }
+ 
+@@ -855,7 +855,7 @@ miray_gfx_screen_new(struct grub_term_output *term)
+       data->bg_canvas = grub_gui_canvas_new();
+       if (data->bg_canvas == 0)
+       {
+-         grub_error(GRUB_ERR_OUT_OF_MEMORY, "Out of Memory");
++         grub_error(GRUB_ERR_OUT_OF_MEMORY, "Out of Memory (background canvas)");
+          goto ret_error;
+       }
+       data->bg_canvas->component.ops->set_bounds(data->bg_canvas, &data->screen_rect);
+@@ -869,7 +869,7 @@ miray_gfx_screen_new(struct grub_term_output *term)
+          data->bg_center_image = grub_gui_image_new();
+          if (data->bg_center_image == 0)
+          {
+-            grub_error(GRUB_ERR_OUT_OF_MEMORY, "Out of Memory");
++            grub_error(GRUB_ERR_OUT_OF_MEMORY, "Out of Memory (center image)");
+             goto ret_error;
+          }
+          
+@@ -909,7 +909,7 @@ miray_gfx_screen_new(struct grub_term_output *term)
+       data->bg_label = grub_gui_canvas_new();
+       if (data->bg_label == 0)
+       {
+-         grub_error(GRUB_ERR_OUT_OF_MEMORY, "Out of Memory");
++         grub_error(GRUB_ERR_OUT_OF_MEMORY, "Out of Memory (gui canvas)");
+          goto ret_error;
+       }
+       data->bg_label->component.ops->set_bounds(data->bg_label, &data->screen_rect);
+@@ -922,7 +922,7 @@ miray_gfx_screen_new(struct grub_term_output *term)
+          data->bg_label_image = grub_gui_image_new();
+          if (data->bg_label_image == 0)
+          {
+-            grub_error(GRUB_ERR_OUT_OF_MEMORY, "Out of Memory");
++            grub_error(GRUB_ERR_OUT_OF_MEMORY, "Out of Memory (gui image)");
+             goto ret_error;
+          }
+ 
+@@ -961,7 +961,7 @@ miray_gfx_screen_new(struct grub_term_output *term)
+       data->fg_default = grub_gui_canvas_new();
+       if (data->fg_default == 0)
+       {
+-         grub_error(GRUB_ERR_OUT_OF_MEMORY, "Out of Memory");
++         grub_error(GRUB_ERR_OUT_OF_MEMORY, "Out of Memory (gui text)");
+          goto ret_error;
+       }
+ 
+@@ -973,7 +973,7 @@ miray_gfx_screen_new(struct grub_term_output *term)
+          data->label_default = grub_gui_label_new();
+          if (data->label_default == 0)
+          {
+-            grub_error(GRUB_ERR_OUT_OF_MEMORY, "Out of Memory");
++            grub_error(GRUB_ERR_OUT_OF_MEMORY, "Out of Memory (gui label)");
+             goto ret_error;
+          }
+ 
+@@ -995,7 +995,7 @@ miray_gfx_screen_new(struct grub_term_output *term)
+       data->fg_timeout = grub_gui_canvas_new();
+       if (data->fg_timeout == 0)
+       {
+-         grub_error(GRUB_ERR_OUT_OF_MEMORY, "Out of Memory");
++         grub_error(GRUB_ERR_OUT_OF_MEMORY, "Out of Memory (timeout canvas)");
+          goto ret_error;
+       }
+       data->fg_timeout->component.ops->set_bounds(data->fg_timeout, &data->screen_rect);
+@@ -1006,7 +1006,7 @@ miray_gfx_screen_new(struct grub_term_output *term)
+          data->label_timeout1 = grub_gui_label_new();
+          if (data->label_timeout1 == 0)
+          {
+-            grub_error(GRUB_ERR_OUT_OF_MEMORY, "Out of Memory");
++            grub_error(GRUB_ERR_OUT_OF_MEMORY, "Out of Memory (timeout label 1)");
+             goto ret_error;
+          }
+          data->label_timeout1->x = 0;
+@@ -1023,7 +1023,7 @@ miray_gfx_screen_new(struct grub_term_output *term)
+          data->label_timeout2 = grub_gui_label_new();
+          if (data->label_timeout2 == 0)
+          {
+-            grub_error(GRUB_ERR_OUT_OF_MEMORY, "Out of Memory");
++            grub_error(GRUB_ERR_OUT_OF_MEMORY, "Out of Memory (timeout label 2)");
+             goto ret_error;
+          }
+          data->label_timeout2->x = 0;
+@@ -1129,7 +1129,7 @@ miray_gfx_screen_new(struct grub_term_output *term)
+ 
+ ret_error:
+ 
+-   grub_dprintf("miray", "error creating gfx screen\n");
++   grub_error(GRUB_ERR_MENU, "error creating gfx screen\n");
+ 
+    if (ret != 0)
+    {
+-- 
+1.9.2.msysgit.0
+

@@ -1,0 +1,35 @@
+From 89e0a77ed5fb34d05dd2769235bd726b09f42c57 Mon Sep 17 00:00:00 2001
+From: Thomas Frauendorfer <tf@miray.de>
+Date: Tue, 6 May 2014 11:13:34 +0200
+Subject: [PATCH 17/41] Lock down grub if not in debug mode
+
+---
+ grub-core/normal/auth.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+ mode change 100644 => 100755 grub-core/normal/auth.c
+
+diff --git a/grub-core/normal/auth.c b/grub-core/normal/auth.c
+old mode 100644
+new mode 100755
+index c6bd96e..a86ccd0
+--- a/grub-core/normal/auth.c
++++ b/grub-core/normal/auth.c
+@@ -205,9 +205,15 @@ grub_auth_check_authentication (const char *userlist)
+   static unsigned long punishment_delay = 1;
+   char entered[GRUB_AUTH_MAX_PASSLEN];
+   struct grub_auth_user *user;
++  const char *debugmode;
+ 
+   grub_memset (login, 0, sizeof (login));
+ 
++  /* Completely lock down all restricted targets */
++  debugmode = grub_env_get("debugmode");
++  if (debugmode == 0)
++    return GRUB_ACCESS_DENIED;
++
+   if (is_authenticated (userlist))
+     {
+       punishment_delay = 1;
+-- 
+1.9.2.msysgit.0
+

@@ -1,0 +1,582 @@
+From 4b64b7ad7a6d0c222c809dfa864c8d12f61d4fc4 Mon Sep 17 00:00:00 2001
+From: Thomas Frauendorfer <tf@miray.de>
+Date: Tue, 21 Oct 2014 09:53:18 +0200
+Subject: [PATCH 36/41] update to gfx screen
+
+---
+ grub-core/miray/bootscreen/miray_gfx_screen.c | 299 ++++++++++++++++++++++----
+ 1 file changed, 263 insertions(+), 36 deletions(-)
+
+diff --git a/grub-core/miray/bootscreen/miray_gfx_screen.c b/grub-core/miray/bootscreen/miray_gfx_screen.c
+index 943a658..31b81e5 100755
+--- a/grub-core/miray/bootscreen/miray_gfx_screen.c
++++ b/grub-core/miray/bootscreen/miray_gfx_screen.c
+@@ -83,7 +83,8 @@ struct miray_gfx_screen_data
+ 
+    grub_gui_container_t fg_activity;
+    grub_gui_component_t label_activity;
+-   grub_gui_component_t progress_activity;
++   grub_gui_component_t progress1_activity;
++   grub_gui_component_t progress2_activity;
+    unsigned int activity_cur;
+    void * activity_hook;
+ 
+@@ -149,7 +150,7 @@ static inline grub_err_t _gui_set_property(grub_gui_component_t comp, const char
+    if (comp != 0 && comp->ops != 0 && comp->ops->set_property != 0)
+       return comp->ops->set_property(comp, name, value);
+ 
+-   return GRUB_ERR_NONE;
++   return grub_error(GRUB_ERR_BUG, "Invalid comp");
+ }
+ 
+ static inline void _gui_set_bounds (grub_gui_component_t comp, const grub_video_rect_t *bounds)
+@@ -202,9 +203,12 @@ static inline void _screen_paint_menu(mgs_data_t * data, const grub_video_rect_t
+       menu_bounds.y = 0;
+       _gui_paint(&data->menu->component, &menu_bounds);
+    }
+-
+ }
+ 
++static inline void _set_single_progress_bar(mgs_data_t * data);
++static inline void _set_dual_progress_bar(mgs_data_t * data);
++
++
+ inline static void _set_label_positions(mgs_data_t * data)
+ {
+    static const unsigned int label_border = 0;
+@@ -264,12 +268,14 @@ static void miray_gfx_screen_reset (struct miray_screen * scr)
+ 
+    data->fg_mode = FG_DEFAULT;
+ 
+-   struct grub_gui_progress * progress = (struct grub_gui_progress *)data->progress_activity;
+-   if (progress != 0)
++   struct grub_gui_progress * progress1 = (struct grub_gui_progress *)data->progress1_activity;
++   struct grub_gui_progress * progress2 = (struct grub_gui_progress *)data->progress2_activity;
++   if (progress1 != 0 || progress2 != 0)
+    {
+       data->activity_cur = 0;
+       
+-      progress->ops->set_state(progress, 0, 0, 0, 0);
++      if (progress1 != 0) progress1->ops->set_state(progress1, 0, 0, 0, 0);
++      if (progress2 != 0) progress2->ops->set_state(progress2, 0, 0, 0, 0);
+    }
+ 
+ }
+@@ -362,7 +368,15 @@ static void miray_gfx_screen_draw_rect_single (struct miray_screen * scr, const
+          break;
+ 
+       case FG_HIDDEN:
+-         _gui_paint(&data->bg_label->component, &rel_bounds);
++         if (data->bg_label_image != 0)
++         {
++            _gui_paint(&data->bg_label->component, &rel_bounds);
++         }
++         else
++         {
++            // Low memory fallback
++            _gui_paint(&data->fg_activity->component, &rel_bounds);
++         }
+    }
+ }
+ 
+@@ -560,6 +574,25 @@ static grub_err_t miray_gfx_screen_property (struct miray_screen * scr, const ch
+       // rebuild menu, currently needed to get the spacing right
+       miray_gfx_screen_set_splash_menu(scr, screen_data.menu);
+    }
++   else if (grub_strcmp(name, "max_stage") == 0)
++   {
++      if (screen_data.stage_max <= 1)
++      {
++         _set_single_progress_bar(data);
++      }
++      else
++      {
++         _set_dual_progress_bar(data);
++      }
++   }
++   else if (grub_strcmp(name, "stage") == 0)
++   {
++      if (screen_data.stage > 1 && data->fg_mode == FG_ACTIVITY)
++      {
++         struct grub_gui_progress * activity1 = (struct grub_gui_progress *)data->progress1_activity;
++         if (activity1 != 0) activity1->ops->set_state(data->progress1_activity, 1, 0, 1, 1);
++      }
++   }
+ 
+    return GRUB_ERR_NONE;
+ }
+@@ -603,25 +636,21 @@ static void miray_gfx_screen_message_box(struct miray_screen *scr, const char **
+    unsigned offs_y = data->screen_rect.y + (data->screen_rect.height - height) / 2;
+ 
+    grub_video_fill_rect (grub_video_map_rgba_color (bg_color),
+-                         offs_x, offs_y, width, height);
++                        offs_x, offs_y, width, height);
+    unsigned i;
+    for (i = 0; i < count; i++)
+    {
+       unsigned y = offs_y + border_y + grub_font_get_ascent (data->text_font) + i * (grub_font_get_ascent (data->text_font) + grub_font_get_descent (data->text_font) + spacing);
+       unsigned x = offs_x + border_x + (text_width - grub_font_get_string_width(data->text_font, message[i])) / 2;
+-
++   
+       grub_font_draw_string (message[i],
+-                             data->text_font,
+-                             grub_video_map_rgba_color (fg_color),
+-                             x,
+-                             y);
++                           data->text_font,
++                           grub_video_map_rgba_color (fg_color),
++                           x,
++                           y);
+    }
+-
+-
+-   //if (data->screen_double_repaint)
+-   //{
+-      grub_video_swap_buffers ();
+-   //}   
++   
++   grub_video_swap_buffers ();
+ 
+ }
+ 
+@@ -660,12 +689,41 @@ static void miray_gfx_screen_set_progress(struct miray_screen *scr, grub_uint64_
+    if (max == 0)
+       return;
+ 
+-   struct grub_gui_progress * activity = (struct grub_gui_progress *)data->progress_activity;
+-   if (activity != 0)
+-   {      
+-      activity->ops->set_state(data->progress_activity, 1, 0, (int)cur, (int)max);
++   struct grub_gui_progress * activity1 = (struct grub_gui_progress *)data->progress1_activity;
++   struct grub_gui_progress * activity2 = (struct grub_gui_progress *)data->progress2_activity;
++   if (activity1 != 0)
++   {
++      if (screen_data.stage <=1)
++      {
++         activity1->ops->set_state(data->progress1_activity, 1, 0, (int)cur, (int)max);
++      }
++      else
++      {
++         activity1->ops->set_state(data->progress1_activity, 1, 0, 1, 1);
++      }
++      
++   }
++
++   if (activity2 != 0)
++   {
++      if (screen_data.stage <= 1)
++      {
++         activity2->ops->set_state(data->progress2_activity, 1, 0, 0, 1);
++      }
++      else
++      {
++         activity2->ops->set_state(data->progress2_activity, 1, 0, (int)cur, (int)max);
++      }
++   }
++   
++
++
++
++   if (activity1 != 0 || activity2 != 0)
++   {
+       miray_screen_draw_activity();
+    }
++
+ }
+ 
+ 
+@@ -675,7 +733,8 @@ static void miray_gfx_screen_finish (struct miray_screen * scr)
+ {
+    mgs_data_t * data = scr->data;
+ 
+-   if (data->progress_activity != 0) data->progress_activity->ops->set_property(data->progress_activity, "activity_finish", "true"); 
++   if (data->progress1_activity != 0) data->progress1_activity->ops->set_property(data->progress1_activity, "activity_finish", "true"); 
++   if (screen_data.stage_max > 1 && data->progress2_activity != 0) data->progress2_activity->ops->set_property(data->progress2_activity, "activity_finish", "true"); 
+ 
+    data->fg_mode = FG_HIDDEN;
+    miray_gfx_screen_redraw(scr);
+@@ -690,22 +749,28 @@ struct miray_screen *
+ miray_gfx_screen_new(struct grub_term_output *term)
+ {
+    struct grub_video_mode_info mode_info;
+-   grub_err_t err;
++   grub_err_t err = GRUB_ERR_NONE;
+    struct miray_screen *ret = 0;
+ 
+    const char * core_dir  = "/boot/grub/core_data";
+ 
++   grub_dprintf("miray", "%s\n", __FUNCTION__);
++
+    err = grub_video_get_info (&mode_info);
+    if (err != GRUB_ERR_NONE)
+    {
+       return 0;
+    }
+ 
++   grub_dprintf("miray", "%d\n", __LINE__);
++
++
+    if (mode_info.width < 640 || mode_info.height < 480)
+    {
+       return 0;
+    }
+ 
++   grub_dprintf("miray", "%d\n", __LINE__);
+ 
+    ret = grub_zalloc(sizeof(struct miray_screen));
+    if (ret == 0)
+@@ -733,6 +798,8 @@ miray_gfx_screen_new(struct grub_term_output *term)
+ 
+    ret->finish = miray_gfx_screen_finish;
+ 
++   grub_dprintf("miray", "%d\n", __LINE__);
++
+    struct miray_gfx_screen_data * data = grub_zalloc(sizeof(struct miray_gfx_screen_data));
+    if (data == 0)
+    {
+@@ -741,6 +808,8 @@ miray_gfx_screen_new(struct grub_term_output *term)
+       return 0;
+    }
+ 
++   grub_dprintf("miray", "%d\n", __LINE__);
++
+    // Center the boot screen if the screen is bigger than 1024x768
+    data->v_width = mode_info.width;
+    data->v_height = mode_info.height;
+@@ -748,7 +817,8 @@ miray_gfx_screen_new(struct grub_term_output *term)
+    data->screen_rect.height = 480;
+    data->screen_rect.x = (mode_info.width - data->screen_rect.width) / 2;
+    data->screen_rect.y = (mode_info.height - data->screen_rect.height) / 2;
+-   data->screen_offs_y_text = 300;
++   //data->screen_offs_y_text = 300;
++   data->screen_offs_y_text = 338;
+    data->screen_double_repaint =
+       (mode_info.mode_type & GRUB_VIDEO_MODE_TYPE_DOUBLE_BUFFERED)
+        && !(mode_info.mode_type & GRUB_VIDEO_MODE_TYPE_UPDATING_SWAP);
+@@ -778,42 +848,70 @@ miray_gfx_screen_new(struct grub_term_output *term)
+ 
+    data->activity_hook = 0;
+ 
++   grub_dprintf("miray", "%d\n", __LINE__);
++
++
+    {
+       data->bg_canvas = grub_gui_canvas_new();
++      if (data->bg_canvas == 0)
++      {
++         grub_error(GRUB_ERR_OUT_OF_MEMORY, "Out of Memory");
++         goto ret_error;
++      }
+       data->bg_canvas->component.ops->set_bounds(data->bg_canvas, &data->screen_rect);
+       data->bg_canvas->component.x = data->screen_rect.x;
+       data->bg_canvas->component.y = data->screen_rect.y;
+       data->bg_canvas->component.w = data->screen_rect.width;
+       data->bg_canvas->component.h = data->screen_rect.height;
+ 
++      grub_dprintf("miray", "%d\n", __LINE__);
+       {
+          data->bg_center_image = grub_gui_image_new();
++         if (data->bg_center_image == 0)
++         {
++            grub_error(GRUB_ERR_OUT_OF_MEMORY, "Out of Memory");
++            goto ret_error;
++         }
++         
+          _gui_set_property(data->bg_center_image, "theme_dir", core_dir);
+          if (_gui_set_property(data->bg_center_image, "file", "center_image.png") == GRUB_ERR_NONE)
+          {
+             unsigned width = 0;
+             unsigned height = 0;
+ 
++            grub_dprintf("miray", "%d\n", __LINE__);
++
+             data->bg_center_image->ops->get_minimal_size(data->bg_center_image, &width, &height);
+             data->bg_center_image->w = min(width, data->screen_rect.width);
+             data->bg_center_image->h = min(height,data->screen_rect.height);
+             data->bg_center_image->x = (data->screen_rect.width - data->bg_center_image->w) / 2;
+             data->bg_center_image->y = 109;
++
++            _gui_container_add(data->bg_canvas, data->bg_center_image);
+          }
+          else
+          {
++            grub_dprintf("miray", "Could not load image center_image.png\n");
++
+             data->bg_center_image->ops->destroy(data->bg_center_image);
+             data->bg_center_image = 0;
++
++            while (grub_error_pop()) {}
+          }
+ 
+-         _gui_container_add(data->bg_canvas, data->bg_center_image);
+       }
+ 
+    }
+ 
++   grub_dprintf("miray", "%d\n", __LINE__);
+ 
+    {
+       data->bg_label = grub_gui_canvas_new();
++      if (data->bg_label == 0)
++      {
++         grub_error(GRUB_ERR_OUT_OF_MEMORY, "Out of Memory");
++         goto ret_error;
++      }
+       data->bg_label->component.ops->set_bounds(data->bg_label, &data->screen_rect);
+       data->bg_label->component.x = data->screen_rect.x;
+       data->bg_label->component.y = data->screen_rect.y;
+@@ -822,6 +920,12 @@ miray_gfx_screen_new(struct grub_term_output *term)
+ 
+       {
+          data->bg_label_image = grub_gui_image_new();
++         if (data->bg_label_image == 0)
++         {
++            grub_error(GRUB_ERR_OUT_OF_MEMORY, "Out of Memory");
++            goto ret_error;
++         }
++
+          _gui_set_property(data->bg_label_image, "theme_dir", core_dir);
+          if (_gui_set_property(data->bg_label_image, "file", "center_text.png") == GRUB_ERR_NONE)
+          {
+@@ -833,29 +937,49 @@ miray_gfx_screen_new(struct grub_term_output *term)
+             data->bg_label_image->h = min(height,data->screen_rect.height);
+             data->bg_label_image->x = (data->screen_rect.width - data->bg_label_image->w) / 2;
+             data->bg_label_image->y = 339;
++
++            _gui_container_add(data->bg_label, data->bg_label_image);
+          }
+          else
+          {
++            grub_dprintf("miray", "Could not load image center_text.png\n");         
++            
+             data->bg_label_image->ops->destroy(data->bg_label_image);
+             data->bg_label_image = 0;
++
++            while (grub_error_pop()) {}
+          }
+ 
+-         _gui_container_add(data->bg_label, data->bg_label_image);
+       }
+ 
+    }
+ 
++   grub_dprintf("miray", "%d\n", __LINE__);
++
+    {
+ 
+       data->fg_default = grub_gui_canvas_new();
++      if (data->fg_default == 0)
++      {
++         grub_error(GRUB_ERR_OUT_OF_MEMORY, "Out of Memory");
++         goto ret_error;
++      }
++
+       data->fg_default->component.ops->set_bounds(data->fg_default, &data->screen_rect);
+       data->fg_default->component.w = data->screen_rect.width;
+       data->fg_default->component.h = data->screen_rect.height;
+ 
+       {
+          data->label_default = grub_gui_label_new();
++         if (data->label_default == 0)
++         {
++            grub_error(GRUB_ERR_OUT_OF_MEMORY, "Out of Memory");
++            goto ret_error;
++         }
++
+          data->label_default->x = 0;
+          data->label_default->w = data->screen_rect.width;
++         data->label_default->y = data->screen_offs_y_text + 10;
+          data->label_default->h = label_height;
+          _gui_set_property(data->label_default, "color", message_text_color);
+          _gui_set_property(data->label_default, "align", "center");
+@@ -865,16 +989,29 @@ miray_gfx_screen_new(struct grub_term_output *term)
+ 
+    }
+ 
++   grub_dprintf("miray", "%d\n", __LINE__);
++
+    {
+       data->fg_timeout = grub_gui_canvas_new();
++      if (data->fg_timeout == 0)
++      {
++         grub_error(GRUB_ERR_OUT_OF_MEMORY, "Out of Memory");
++         goto ret_error;
++      }
+       data->fg_timeout->component.ops->set_bounds(data->fg_timeout, &data->screen_rect);
+       data->fg_timeout->component.w = data->screen_rect.width;
+       data->fg_timeout->component.h = data->screen_rect.height;
+ 
+       {
+          data->label_timeout1 = grub_gui_label_new();
++         if (data->label_timeout1 == 0)
++         {
++            grub_error(GRUB_ERR_OUT_OF_MEMORY, "Out of Memory");
++            goto ret_error;
++         }
+          data->label_timeout1->x = 0;
+          data->label_timeout1->w = data->screen_rect.width;
++         data->label_timeout1->y = data->screen_offs_y_text + 10;
+          data->label_timeout1->h = label_height;
+          _gui_set_property(data->label_timeout1, "color", message_text_color);
+          _gui_set_property(data->label_timeout1, "align", "center");
+@@ -884,8 +1021,14 @@ miray_gfx_screen_new(struct grub_term_output *term)
+ 
+       {
+          data->label_timeout2 = grub_gui_label_new();
++         if (data->label_timeout2 == 0)
++         {
++            grub_error(GRUB_ERR_OUT_OF_MEMORY, "Out of Memory");
++            goto ret_error;
++         }
+          data->label_timeout2->x = 0;
+          data->label_timeout2->w = data->screen_rect.width;
++         data->label_timeout2->y = data->screen_offs_y_text + 10 + label_height + 7;
+          data->label_timeout2->h = label_height;
+          _gui_set_property(data->label_timeout2, "color", lightgray_c);
+          _gui_set_property(data->label_timeout2, "align", "center");
+@@ -894,16 +1037,29 @@ miray_gfx_screen_new(struct grub_term_output *term)
+       }
+    }
+ 
++   grub_dprintf("miray", "%d\n", __LINE__);
++
+    {
+       data->fg_activity = grub_gui_canvas_new();
++      if (data->fg_activity == 0)
++      {
++         grub_error(GRUB_ERR_OUT_OF_MEMORY, "Out of Memory");
++         goto ret_error;
++      }
+       data->fg_activity->component.ops->set_bounds(data->fg_activity, &data->screen_rect);
+       data->fg_activity->component.w = data->screen_rect.width;
+       data->fg_activity->component.h = data->screen_rect.height;
+       
+       {
+          data->label_activity = grub_gui_label_new();
++         if (data->label_activity == 0)
++         {
++            grub_error(GRUB_ERR_OUT_OF_MEMORY, "Out of Memory");
++            goto ret_error;
++         }
+          data->label_activity->x = 0;
+          data->label_activity->w = data->screen_rect.width;
++         data->label_activity->y = data->screen_offs_y_text + 10;
+          data->label_activity->h = label_height;
+          _gui_set_property(data->label_activity, "color", message_text_color);
+          _gui_set_property(data->label_activity, "align", "center");
+@@ -912,17 +1068,41 @@ miray_gfx_screen_new(struct grub_term_output *term)
+       }
+ 
+       {
+-         data->progress_activity = grub_miray_gui_progress_bar_new();
+-         data->progress_activity->x = 160;
+-         data->progress_activity->w = 320;
+-         data->progress_activity->y = 380;
+-         data->progress_activity->h = 2;
+-         _gui_set_property(data->progress_activity, "bg_color", darkgray_c);
+-         _gui_set_property(data->progress_activity, "fg_color", "white");
+-         _gui_container_add(data->fg_activity, data->progress_activity);
++         // This will be moved up if we need 2 progress bars
++         data->progress1_activity = grub_miray_gui_progress_bar_new();
++         if (data->progress1_activity == 0)
++         {
++            grub_error(GRUB_ERR_OUT_OF_MEMORY, "Out of Memory");
++            goto ret_error;
++         }
++         data->progress1_activity->x = 160;
++         data->progress1_activity->w = 320;
++         data->progress1_activity->y = 380;
++         data->progress1_activity->h = 2;
++         _gui_set_property(data->progress1_activity, "bg_color", darkgray_c);
++         _gui_set_property(data->progress1_activity, "fg_color", "white");
++         _gui_container_add(data->fg_activity, data->progress1_activity);
++      }
++
++      {
++         data->progress2_activity = grub_miray_gui_progress_bar_new();
++         if (data->progress2_activity == 0)
++         {
++            grub_error(GRUB_ERR_OUT_OF_MEMORY, "Out of Memory");
++            goto ret_error;
++         }
++         data->progress2_activity->x = 160;
++         data->progress2_activity->w = 320;
++         data->progress2_activity->y = 380;
++         data->progress2_activity->h = 2;
++         _gui_set_property(data->progress2_activity, "bg_color", darkgray_c);
++         _gui_set_property(data->progress2_activity, "fg_color", "white");
++         _gui_container_add(data->fg_activity, data->progress2_activity);
+       }
+    }
+    
++   grub_dprintf("miray", "%d\n", __LINE__);
++
+    {
+       const grub_video_rect_t bounds = { .x = 0,
+                                          .y = data->v_height - menu_height,
+@@ -930,6 +1110,11 @@ miray_gfx_screen_new(struct grub_term_output *term)
+                                          .height = menu_height };
+       
+       data->menu = grub_gui_hbox_new();
++      if (data->menu == 0)
++      {
++         grub_error(GRUB_ERR_OUT_OF_MEMORY, "Out of Memory");
++         goto ret_error;
++      }
+       data->menu->component.ops->set_bounds(data->menu, &bounds);
+       data->menu->component.x = bounds.x;
+       data->menu->component.y = bounds.y;
+@@ -937,8 +1122,50 @@ miray_gfx_screen_new(struct grub_term_output *term)
+       data->menu->component.h = bounds.height;
+    }
+ 
++   grub_dprintf("miray", "%d\n", __LINE__);
+ 
+    return ret;
++
++
++ret_error:
++
++   grub_dprintf("miray", "error creating gfx screen\n");
++
++   if (ret != 0)
++   {
++      miray_gfx_screen_destroy(ret);
++   }
++
++   grub_dprintf("miray", "%d\n", __LINE__);
++   
++   return 0;
++   
++}
++
++static inline void _set_single_progress_bar(mgs_data_t * data)
++{
++   data->progress1_activity->y = 380;
++
++   data->label_default->y = data->screen_offs_y_text + 10;
++   data->label_timeout1->y = data->screen_offs_y_text + 10;
++   data->label_timeout2->y = data->screen_offs_y_text + 10 + label_height + 7;
++   data->label_activity->y = data->screen_offs_y_text + 10;
++
++   struct grub_gui_progress * activity2 = (struct grub_gui_progress *)data->progress2_activity;
++   activity2->ops->set_state(data->progress2_activity, 0, 0, 0, 0); 
++}
++
++static inline void _set_dual_progress_bar(mgs_data_t * data)
++{
++   data->progress1_activity->y = 370;
++
++   data->label_default->y = data->screen_offs_y_text;
++   data->label_timeout1->y = data->screen_offs_y_text;
++   data->label_timeout2->y = data->screen_offs_y_text + label_height + 7;
++   data->label_activity->y = data->screen_offs_y_text;
++
++   struct grub_gui_progress * activity2 = (struct grub_gui_progress *)data->progress2_activity;
++   activity2->ops->set_state(data->progress2_activity, 1, 0, 0, 1);    
+ }
+ 
+ 
+-- 
+1.9.2.msysgit.0
+

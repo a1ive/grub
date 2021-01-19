@@ -1,0 +1,214 @@
+From bf18f352131a25410d29dc33ada73c75b416ddbd Mon Sep 17 00:00:00 2001
+From: Thomas Frauendorfer <tf@miray.de>
+Date: Thu, 7 Aug 2014 16:16:34 +0200
+Subject: [PATCH 28/41] Multiboot secure boot handling
+
+---
+ grub-core/loader/i386/multiboot_mbi.c | 49 ++++++++++++++++++++++++--
+ grub-core/loader/multiboot_elfxx.c    | 13 +++++++
+ grub-core/loader/multiboot_mbi2.c     | 65 ++++++++++++++++++++++++++++++-----
+ 3 files changed, 116 insertions(+), 11 deletions(-)
+ mode change 100644 => 100755 grub-core/loader/i386/multiboot_mbi.c
+ mode change 100644 => 100755 grub-core/loader/multiboot_elfxx.c
+ mode change 100644 => 100755 grub-core/loader/multiboot_mbi2.c
+
+diff --git a/grub-core/loader/i386/multiboot_mbi.c b/grub-core/loader/i386/multiboot_mbi.c
+old mode 100644
+new mode 100755
+index f10c087..155ef7f
+--- a/grub-core/loader/i386/multiboot_mbi.c
++++ b/grub-core/loader/i386/multiboot_mbi.c
+@@ -101,7 +101,41 @@ load_kernel (grub_file_t file, const char *filename,
+ 	}
+       source = get_virtual_current_address (ch);
+ 
+-      if ((grub_file_seek (file, offset)) == (grub_off_t) -1)
++ #if defined(GRUB_MACHINE_EFI)
++   if (grub_efi_has_secure_validate())
++   {
++      void * secureBuffer;
++      if (grub_file_seek (file, 0) == (grub_off_t) -1)
++      {
++         return grub_errno;
++      }
++
++      secureBuffer = grub_malloc(file->size);
++      if (secureBuffer == 0)
++      {
++         return grub_error(GRUB_ERR_OUT_OF_MEMORY, "Could not allocate memory for check buffer");
++      }
++
++      grub_file_read (file, secureBuffer, file->size);
++      if (grub_errno)
++      {
++         grub_free(secureBuffer);
++         return grub_errno;
++      }
++
++      if (!grub_efi_secure_validate(secureBuffer, file->size))
++      {
++         grub_free(secureBuffer);
++         return grub_error(GRUB_ERR_BAD_SIGNATURE, "Could not verify boot image");
++      }
++
++      grub_memcpy(source, &(((grub_uint8_t *)secureBuffer)[offset]), code_size);
++      grub_free(secureBuffer);
++   }
++   else
++#endif
++   {
++     if ((grub_file_seek (file, offset)) == (grub_off_t) -1)
+ 	{
+ 	  return grub_errno;
+ 	}
+@@ -109,14 +143,23 @@ load_kernel (grub_file_t file, const char *filename,
+       grub_file_read (file, source, load_size);
+       if (grub_errno)
+ 	return grub_errno;
+-
++    }
++    
+       if (header->bss_end_addr)
+ 	grub_memset ((grub_uint8_t *) source + load_size, 0,
+ 		     header->bss_end_addr - header->load_addr - load_size);
+ 
+       grub_multiboot_payload_eip = header->entry_addr;
+       return GRUB_ERR_NONE;
+-    }
++
++   }
++
++#if defined(GRUB_MACHINE_EFI)
++      if (grub_efi_has_secure_validate())
++      {
++         return grub_error(GRUB_ERR_BAD_SIGNATURE, "Cannot verify elf file");
++      }
++#endif
+ 
+   return grub_multiboot_load_elf (file, filename, buffer);
+ }
+diff --git a/grub-core/loader/multiboot_elfxx.c b/grub-core/loader/multiboot_elfxx.c
+old mode 100644
+new mode 100755
+index 9dc21a1..0664c0b
+--- a/grub-core/loader/multiboot_elfxx.c
++++ b/grub-core/loader/multiboot_elfxx.c
+@@ -34,6 +34,10 @@
+ #error "I'm confused"
+ #endif
+ 
++#ifdef GRUB_MACHINE_EFI
++#include <grub/efi/efi.h>
++#endif
++
+ #include <grub/i386/relocator.h>
+ 
+ #define CONCAT(a,b)	CONCAT_(a, b)
+@@ -57,6 +61,15 @@ CONCAT(grub_multiboot_load_elf, XX) (grub_file_t file, const char *filename, voi
+   char *phdr_base;
+   int i;
+ 
++#if defined(GRUB_MACHINE_EFI)
++      if (grub_efi_has_secure_validate())
++      {
++         grub_err_t err = grub_error(GRUB_ERR_BAD_SIGNATURE, "Cannot verify elf file");
++         grub_free(buffer);
++         return err;
++      }
++#endif
++
+   if (ehdr->e_ident[EI_MAG0] != ELFMAG0
+       || ehdr->e_ident[EI_MAG1] != ELFMAG1
+       || ehdr->e_ident[EI_MAG2] != ELFMAG2
+diff --git a/grub-core/loader/multiboot_mbi2.c b/grub-core/loader/multiboot_mbi2.c
+old mode 100644
+new mode 100755
+index 83e8919..232856a
+--- a/grub-core/loader/multiboot_mbi2.c
++++ b/grub-core/loader/multiboot_mbi2.c
+@@ -252,18 +252,58 @@ grub_multiboot_load (grub_file_t file, const char *filename)
+ 	}
+       source = get_virtual_current_address (ch);
+ 
++
++#if defined(GRUB_MACHINE_EFI)
++   if (grub_efi_has_secure_validate())
++   {
++      void * secureBuffer;
++      if (grub_file_seek (file, 0) == (grub_off_t) -1)
++      {
++         grub_free (buffer);
++         return grub_errno;
++      }
++
++      secureBuffer = grub_malloc(file->size);
++      if (secureBuffer == 0)
++      {
++         grub_free (buffer);
++         return grub_error(GRUB_ERR_OUT_OF_MEMORY, "Could not allocate memory for check buffer");
++      }
++
++      grub_file_read (file, secureBuffer, file->size);
++      if (grub_errno)
++      {
++         grub_free(secureBuffer);
++         grub_free(buffer);
++         return grub_errno;
++      }
++
++      if (!grub_efi_secure_validate(secureBuffer, file->size))
++      {
++         grub_free(secureBuffer);
++         grub_free(buffer);
++         return grub_error(GRUB_ERR_BAD_SIGNATURE, "Could not verify boot image");
++      }
++
++      grub_memcpy(source, &(((grub_uint8_t *)secureBuffer)[offset]), code_size);
++      grub_free(secureBuffer);
++   }
++   else
++#endif
++   {
+       if ((grub_file_seek (file, offset)) == (grub_off_t) -1)
+-	{
+-	  grub_free (buffer);
+-	  return grub_errno;
+-	}
++      {
++         grub_free (buffer);
++         return grub_errno;
++      }
+ 
+       grub_file_read (file, source, load_size);
+       if (grub_errno)
+-	{
+-	  grub_free (buffer);
+-	  return grub_errno;
+-	}
++      {
++         grub_free (buffer);
++         return grub_errno;
++      }
++   }
+ 
+       if (addr_tag->bss_end_addr)
+ 	grub_memset ((grub_uint8_t *) source + load_size, 0,
+@@ -271,6 +311,15 @@ grub_multiboot_load (grub_file_t file, const char *filename)
+     }
+   else
+     {
++#if defined(GRUB_MACHINE_EFI)
++      if (grub_efi_has_secure_validate())
++      {
++         err = grub_error(GRUB_ERR_BAD_SIGNATURE, "Cannot verify elf file");
++         grub_free(buffer);
++         return err;
++      }
++#endif
++       
+       err = grub_multiboot_load_elf (file, filename, buffer);
+       if (err)
+ 	{
+-- 
+1.9.2.msysgit.0
+

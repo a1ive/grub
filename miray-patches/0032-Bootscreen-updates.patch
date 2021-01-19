@@ -1,0 +1,148 @@
+From 5cedda2599734d8d1b3400fad5136fcc38388c5a Mon Sep 17 00:00:00 2001
+From: Thomas Frauendorfer <tf@miray.de>
+Date: Wed, 1 Oct 2014 12:23:43 +0200
+Subject: [PATCH 32/41] Bootscreen updates
+
+---
+ grub-core/miray/bootscreen/main.c              |  4 ++++
+ grub-core/miray/bootscreen/miray_bootscreen.c  |  3 ++-
+ grub-core/miray/bootscreen/miray_screen.h      | 23 +++++++++++++++++++++++
+ grub-core/miray/bootscreen/miray_text_screen.c | 17 +++++++++++++++++
+ 4 files changed, 46 insertions(+), 1 deletion(-)
+
+diff --git a/grub-core/miray/bootscreen/main.c b/grub-core/miray/bootscreen/main.c
+index 4a18638..449f051 100755
+--- a/grub-core/miray/bootscreen/main.c
++++ b/grub-core/miray/bootscreen/main.c
+@@ -87,6 +87,7 @@ miray_cmd_center_env (struct grub_command *cmd __attribute__ ((unused)),
+    char * string = argv[0];
+    char * key = argv[1];
+ 
++#if 0
+    int len = grub_strlen(string);
+    int pad = (grub_term_width(grub_term_outputs) - len -5) /2;
+ 
+@@ -95,6 +96,9 @@ miray_cmd_center_env (struct grub_command *cmd __attribute__ ((unused)),
+    new_string[len + pad] = '\0';
+ 
+    grub_memcpy(&new_string[pad], string, len);
++#endif
++
++   char * new_string = miray_screen_submenu_center_entry(string); 
+ 
+    grub_env_set(key, new_string);
+    grub_free(new_string);
+diff --git a/grub-core/miray/bootscreen/miray_bootscreen.c b/grub-core/miray/bootscreen/miray_bootscreen.c
+index d9856fa..e62f7f1 100755
+--- a/grub-core/miray/bootscreen/miray_bootscreen.c
++++ b/grub-core/miray/bootscreen/miray_bootscreen.c
+@@ -127,7 +127,8 @@ static int run_screen (grub_menu_t menu, int default_entry)
+             timeout--;
+             saved_time = current_time;
+             grub_menu_set_timeout(timeout);
+-            miray_screen_redraw_text(0);
++            //miray_screen_redraw_text(0);
++            miray_screen_redraw_timeout(0);
+          }
+       }
+ 
+diff --git a/grub-core/miray/bootscreen/miray_screen.h b/grub-core/miray/bootscreen/miray_screen.h
+index 59d3f5e..35ec2d1 100755
+--- a/grub-core/miray/bootscreen/miray_screen.h
++++ b/grub-core/miray/bootscreen/miray_screen.h
+@@ -23,6 +23,7 @@
+ #include <grub/err.h>
+ #include <grub/menu.h>
+ #include <grub/term.h>
++#include <grub/misc.h>
+ 
+ 
+ 
+@@ -33,6 +34,7 @@ struct miray_screen
+    void (*clear)  (struct miray_screen *);
+    void (*redraw) (struct miray_screen *);  
+    void (*redraw_text) (struct miray_screen *, int clear);
++   void (*redraw_timeout) (struct miray_screen *, int clear); 
+    void (*reset) (struct miray_screen *);
+ 
+    void (*set_splash_menu) (struct miray_screen *, grub_menu_t menu);
+@@ -43,6 +45,7 @@ struct miray_screen
+    
+    void (*message_box) (struct miray_screen *, const char ** message,
+                         const char * color);
++   char* (*submenu_center_entry) (struct miray_screen *, const char *string);
+ 
+    void (*finish) (struct miray_screen *);
+ 
+@@ -127,6 +130,18 @@ static inline void miray_screen_redraw_text(int clear)
+    }
+ }
+ 
++static inline void miray_screen_redraw_timeout(int clear)
++{
++   if (_miray_screen != 0 && _miray_screen->redraw_timeout != 0)
++   {
++      _miray_screen->redraw_timeout(_miray_screen, clear);
++   }
++   else
++   {
++      miray_screen_redraw_text(clear);
++   }
++}
++
+ static inline void miray_screen_reset(void)
+ {
+    if (_miray_screen != 0 && _miray_screen->reset != 0)
+@@ -148,6 +163,14 @@ static inline void miray_screen_message_box (const char ** message, const char *
+       (_miray_screen->message_box) (_miray_screen, message, color);
+ }
+ 
++static inline char * miray_screen_submenu_center_entry(const char * string)
++{
++   if (_miray_screen != 0 && _miray_screen->submenu_center_entry != 0)
++      return _miray_screen->submenu_center_entry(_miray_screen, string);
++
++   return grub_strdup(string);
++}
++
+ 
+ static inline void miray_screen_cls (void)
+ {
+diff --git a/grub-core/miray/bootscreen/miray_text_screen.c b/grub-core/miray/bootscreen/miray_text_screen.c
+index bca5a81..d3f6fc2 100755
+--- a/grub-core/miray/bootscreen/miray_text_screen.c
++++ b/grub-core/miray/bootscreen/miray_text_screen.c
+@@ -583,6 +583,22 @@ static void miray_text_screen_message_box(struct miray_screen *scr, const char *
+ }
+ 
+ 
++static char *
++miray_text_screen_submenu_center_string(struct miray_screen *scr __attribute__ ((unused)), const char * string)
++{
++   int len = grub_strlen(string);
++   int pad = (grub_term_width(grub_term_outputs) - len -5) /2;
++
++   char * new_string = grub_malloc(sizeof(char) * (len + pad + 1));
++   grub_memset(new_string, ' ', len + pad);
++   new_string[len + pad] = '\0';
++
++   grub_memcpy(&new_string[pad], string, len);
++
++   return new_string;
++}
++
++
+ struct miray_screen *
+ miray_text_screen_new(struct grub_term_output *term)
+ {
+@@ -606,6 +622,7 @@ miray_text_screen_new(struct grub_term_output *term)
+    ret->set_progress = miray_text_screen_set_progress;
+ 
+    ret->message_box = miray_text_screen_message_box;
++   ret->submenu_center_entry = miray_text_screen_submenu_center_string;
+ 
+    ret->finish = miray_text_screen_finish;
+ 
+-- 
+1.9.2.msysgit.0
+
