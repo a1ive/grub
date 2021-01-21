@@ -196,11 +196,9 @@ static struct keysym keysym_table[] =
   {"Adoublequote",  GRUB_TERM_ALT | 0x22},
 };
 
-int
-grub_keymap_getkey (void)
+static int grub_keymap_getkey (int key)
 {
-  int i, key;
-  key = grub_getkey_noblock_orig ();
+  int i;
   if (key == GRUB_TERM_NO_KEY)
     return key;
   if (setkey_keymap.cnt > MAX_KEYMAP)
@@ -239,13 +237,13 @@ grub_keymap_add (int in, int out)
 static void
 grub_keymap_enable (void)
 {
-  grub_getkey_noblock = grub_keymap_getkey;
+  grub_key_remap = grub_keymap_getkey;
 }
 
 static void
 grub_keymap_disable (void)
 {
-  grub_getkey_noblock = grub_getkey_noblock_orig;
+  grub_key_remap = NULL;
 }
 
 static void

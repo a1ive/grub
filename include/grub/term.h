@@ -328,9 +328,8 @@ grub_term_unregister_output (grub_term_output_t term)
 
 void grub_putcode (grub_uint32_t code, struct grub_term_output *term);
 int EXPORT_FUNC(grub_getkey) (void);
-int EXPORT_FUNC(grub_getkey_noblock_orig) (void);
-int grub_keymap_getkey (void);
-extern int (*EXPORT_VAR(grub_getkey_noblock)) (void);
+int EXPORT_FUNC(grub_getkey_noblock) (void);
+extern int (*EXPORT_VAR (grub_key_remap))(int key);
 int EXPORT_FUNC(grub_getkeystatus) (void);
 int EXPORT_FUNC(grub_key_is_interrupt) (int key);
 void grub_cls (void);
