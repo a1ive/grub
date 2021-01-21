@@ -64,6 +64,34 @@ typedef enum
 
 #pragma pack(1)
 
+typedef struct ventoy_image_disk_region
+{
+  /* image sectors contained in this region (in 2048) */
+  grub_uint32_t image_sector_count;
+  /* image sector start (in 2048) */
+  grub_uint32_t image_start_sector;
+  /* disk sector start (in 512) */
+  grub_uint64_t disk_start_sector;
+} ventoy_image_disk_region;
+
+typedef struct ventoy_image_location
+{
+  grub_packed_guid_t guid;
+  /* image sector size, 2048/512 */
+  grub_uint32_t image_sector_size;
+  /* disk sector size, normally the value is 512 */
+  grub_uint32_t disk_sector_size;
+
+  grub_uint32_t region_count;
+  /*
+   * disk region data (region_count)
+   * If the image file has more than one fragments in disk,
+   * there will be more than one region data here.
+   */
+  ventoy_image_disk_region regions[1];
+  /* ventoy_image_disk_region regions[2~region_count-1] */
+} ventoy_image_location;
+
 typedef struct
 {
   /* Signature for the information
@@ -73,7 +101,7 @@ typedef struct
   /* This value, when added to all other 511 bytes,
    * results in the value 00h (using 8-bit addition calculations).
    */
-  grub_uint8_t chksum;                // checksum
+  grub_uint8_t chksum;
   /* GUID to uniquely identify the USB drive */
   grub_uint8_t vtoy_disk_guid[16];
   /* The USB drive size in bytes */
@@ -129,10 +157,7 @@ ventoy_os_param *grub_ventoy_get_osparam (void);
 void
 grub_ventoy_fill_osparam (grub_file_t file, ventoy_os_param *param);
 void grub_ventoy_set_osparam (const char *filename);
-
-int
-grub_ventoy_get_chunklist (grub_uint64_t part_start, grub_file_t file,
-                           ventoy_img_chunk_list *chunk_list);
+void grub_ventoy_set_acpi_osparam (const char *filename);
 
 #endif
 

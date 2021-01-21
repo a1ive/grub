@@ -257,6 +257,7 @@ static const struct grub_arg_option options_map[] =
 
   {"no_g4d", 'g', 0, N_("Don't write GRUB4DOS drive map info."), 0, 0},
   {"no_vt", 'v', 0, N_("Don't write Ventoy compatible info."), 0, 0},
+  {"vtoy", 0, 0, N_("Set vtoy ACPI param."), 0, 0},
 #if 0
   {"alt", 'a', 0, N_("Install blockio using alternative methods."), 0, 0},
 #endif
@@ -325,6 +326,9 @@ grub_cmd_map (grub_extcmd_context_t ctxt, int argc, char **args)
 
   if (state[MAP_FIRST].set)
     grub_efi_set_first_disk (disk->vdisk.handle);
+
+  if (state[MAP_VTOY].set && disk->type != CD)
+    grub_ventoy_set_acpi_osparam (args[0]);
 
   if (state[MAP_NB].set)
     return grub_errno;

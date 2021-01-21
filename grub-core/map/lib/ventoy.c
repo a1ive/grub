@@ -28,50 +28,14 @@
 #include <grub/file.h>
 #include <grub/misc.h>
 #include <grub/ventoy.h>
+#include <grub/acpi.h>
+#include <grub/script_sh.h>
 #ifdef GRUB_MACHINE_EFI
 #include <grub/efi/api.h>
 #include <grub/efi/efi.h>
 #else
 #include <grub/relocator.h>
 #endif
-
-int
-grub_ventoy_get_chunklist (grub_uint64_t part_start, grub_file_t file,
-                           ventoy_img_chunk_list *chunk_list)
-{
-  grub_uint32_t max_chunk, i, m = DEFAULT_CHUNK_NUM;
-  struct grub_fs_block *p;
-  if (!file)
-    return -1;
-  if (!file->device->disk)
-    return -1;
-  max_chunk = grub_blocklist_convert (file);
-  if (!max_chunk)
-    return -1;
-  if (max_chunk > m)
-  {
-    while (max_chunk > m)
-      m = m << 1;
-    chunk_list->max_chunk = m;
-    chunk_list->chunk = grub_realloc (chunk_list->chunk,
-                                      m * sizeof (ventoy_img_chunk));
-  }
-  p = file->data;
-  for (i = 0; i < max_chunk; i++)
-  {
-    chunk_list->chunk[i].disk_start_sector
-            = (p->offset >> GRUB_DISK_SECTOR_BITS) + part_start;
-    chunk_list->chunk[i].disk_end_sector
-            = chunk_list->chunk[i].disk_start_sector
-              + (p->length >> GRUB_DISK_SECTOR_BITS) - 1;
-    chunk_list->chunk[i].img_start_sector =
-            i ? (chunk_list->chunk[i-1].img_end_sector + 1) : 0;
-    chunk_list->chunk[i].img_end_sector =
-            chunk_list->chunk[i].img_start_sector + (p->length >> 11) - 1;
-  }
-  chunk_list->cur_chunk = max_chunk;
-  return 0;
-}
 
 ventoy_os_param *
 grub_ventoy_get_osparam (void)
@@ -201,6 +165,89 @@ grub_ventoy_fill_osparam (grub_file_t file, ventoy_os_param *param)
   param->chksum = (grub_uint8_t)(0x100 - chksum);
 
   return;
+}
+
+void
+grub_ventoy_set_acpi_osparam (const char *filename)
+{
+  ventoy_os_param param, *osparam;
+  grub_uint32_t max_chunk, i;
+  struct grub_fs_block *p;
+  grub_uint64_t part_start, offset = 0;
+  grub_file_t file = 0;
+  ventoy_image_location *location;
+  ventoy_image_disk_region *region;
+  struct grub_acpi_table_header *acpi = 0;
+  grub_uint64_t buflen, loclen;
+  char cmd[64];
+
+  file = grub_file_open (filename, GRUB_FILE_TYPE_GET_SIZE);
+  if (!file || !file->device || !file->device->disk)
+    return;
+  grub_ventoy_fill_osparam (file, &param);
+  part_start = grub_partition_get_start (file->device->disk->partition);
+  max_chunk = grub_blocklist_convert (file);
+  if (!max_chunk)
+    return;
+  /* calculate acpi table length */
+  loclen = sizeof (ventoy_image_location) +
+           max_chunk * sizeof(ventoy_image_disk_region);
+  buflen = sizeof (struct grub_acpi_table_header) +
+           sizeof (ventoy_os_param) + loclen;
+  acpi = grub_zalloc(buflen);
+  if (!acpi)
+    return;
+  /* Step1: Fill acpi table header */
+  grub_memcpy (acpi->signature, "VTOY", 4);
+  acpi->length = buflen;
+  acpi->revision = 1;
+  grub_memcpy (acpi->oemid, "VENTOY", 6);
+  grub_memcpy (acpi->oemtable, "OSPARAMS", 8);
+  acpi->oemrev = 1;
+  acpi->creator_id[0] = 1;
+  acpi->creator_rev = 1;
+  /* Step2: Fill data */
+  osparam = (ventoy_os_param *)(acpi + 1);
+  grub_memcpy (osparam, &param, sizeof(ventoy_os_param));
+  osparam->vtoy_img_location_addr = 0;
+  osparam->vtoy_img_location_len  = loclen;
+  osparam->chksum = 0;
+  osparam->chksum = 0x100 - grub_byte_checksum (osparam, sizeof (ventoy_os_param));
+
+  location = (ventoy_image_location *)(osparam + 1);
+  grub_memcpy (&location->guid, &osparam->guid, sizeof (grub_packed_guid_t));
+  location->image_sector_size = 512;
+  location->disk_sector_size  = 512;
+  location->region_count = max_chunk;
+  p = file->data;
+  region = location->regions;
+  for (i = 0; i < max_chunk; i++, region++, p++)
+  {
+    region->image_sector_count = p->length >> GRUB_DISK_SECTOR_BITS;
+    region->image_start_sector = offset;
+    region->disk_start_sector = (p->offset >> GRUB_DISK_SECTOR_BITS) + part_start;
+    offset += region->image_sector_count;
+    grub_printf ("add region: LBA=%llu IMG %llu+%llu\n",
+                 (unsigned long long) region->disk_start_sector,
+                 (unsigned long long) region->image_start_sector,
+                 (unsigned long long) region->image_sector_count);
+  }
+  /* Step3: Fill acpi checksum */
+  acpi->checksum = 0;
+  acpi->checksum = 0x100 - grub_byte_checksum (acpi, acpi->length);
+
+  /* load acpi table */
+  grub_snprintf (cmd, sizeof(cmd), "acpi mem:%p:size:%u", acpi, acpi->length);
+  grub_printf ("%s\n", cmd);
+  grub_script_execute_sourcecode (cmd);
+  grub_free(acpi);
+  grub_file_close (file);
+#ifdef GRUB_MACHINE_EFI
+  /* unset uefi var VentoyOsParam */
+  grub_efi_guid_t vtguid = VENTOY_GUID;
+  grub_efi_set_var_attr ("VentoyOsParam", &vtguid, NULL, 0,
+        GRUB_EFI_VARIABLE_BOOTSERVICE_ACCESS | GRUB_EFI_VARIABLE_RUNTIME_ACCESS);
+#endif
 }
 
 void
