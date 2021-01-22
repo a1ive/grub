@@ -29,6 +29,7 @@
 #include <grub/memory.h>
 #include <grub/machine/memory.h>
 #include <grub/machine/kernel.h>
+#include <grub/ventoy.h>
 
 GRUB_MOD_LICENSE ("GPLv3+");
 
@@ -403,7 +404,17 @@ grub_get_root_biosnumber_drivemap (void)
   return ret;
 }
 
-static grub_extcmd_t cmd, cmd1;
+static grub_err_t
+grub_cmd_vt_acpi (struct grub_extcmd_context *ctxt __attribute__ ((unused)),
+                  int argc, char **args)
+{
+  if (argc != 1)
+    return GRUB_ERR_NONE;
+  grub_ventoy_set_acpi_osparam (args[0]);
+  return GRUB_ERR_NONE;
+}
+
+static grub_extcmd_t cmd, cmd1, cmd_vtacpi;
 static int (*grub_get_root_biosnumber_saved) (void);
 
 GRUB_MOD_INIT (map)
@@ -415,13 +426,15 @@ GRUB_MOD_INIT (map)
   grub_get_root_biosnumber_saved = grub_get_root_biosnumber;
   grub_get_root_biosnumber = grub_get_root_biosnumber_drivemap;
   cmd = grub_register_extcmd ("map", grub_cmd_drivemap, 0,
-			      N_("-l | -r | [-s] grubdev osdisk."),
-			      N_("Manage the BIOS drive mappings."),
-			      options);
+                    N_("-l | -r | [-s] grubdev osdisk."),
+                    N_("Manage the BIOS drive mappings."),
+                    options);
   cmd1 = grub_register_extcmd ("drivemap", grub_cmd_drivemap, 0,
-			      N_("-l | -r | [-s] grubdev osdisk."),
-			      N_("Manage the BIOS drive mappings."),
-			      options);
+                    N_("-l | -r | [-s] grubdev osdisk."),
+                    N_("Manage the BIOS drive mappings."),
+                    options);
+  cmd_vtacpi = grub_register_extcmd ("vt_acpi", grub_cmd_vt_acpi, 0,
+                    N_("FILE"), N_("Do not use this command."), 0);
   drivemap_hook =
     grub_loader_register_preboot_hook (&install_int13_handler,
 				       &uninstall_int13_handler,
@@ -439,4 +452,5 @@ GRUB_MOD_FINI (map)
   drivemap_hook = 0;
   grub_unregister_extcmd (cmd);
   grub_unregister_extcmd (cmd1);
+  grub_unregister_extcmd (cmd_vtacpi);
 }

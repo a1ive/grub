@@ -247,6 +247,18 @@ grub_ventoy_set_acpi_osparam (const char *filename)
   grub_efi_guid_t vtguid = VENTOY_GUID;
   grub_efi_set_var_attr ("VentoyOsParam", &vtguid, NULL, 0,
         GRUB_EFI_VARIABLE_BOOTSERVICE_ACCESS | GRUB_EFI_VARIABLE_RUNTIME_ACCESS);
+#else
+  grub_addr_t addr = 0x80000;
+  grub_packed_guid_t vtguid = VENTOY_GUID;
+  while (addr < 0xA0000)
+  {
+    if (grub_memcmp (&vtguid, (void *)addr, sizeof (vtguid)) == 0)
+    {
+      grub_memset((void *)addr, 0, sizeof (vtguid));
+      break;
+    }
+    addr++;
+  }
 #endif
 }
 
