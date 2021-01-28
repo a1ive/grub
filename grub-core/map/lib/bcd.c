@@ -158,7 +158,7 @@ bcd_patch_path (const char *path)
     p++;
   }
   /* UTF-8 to UTF-16le */
-  grub_memset (&path16, 0, 256);
+  grub_memset (path16, 0, sizeof (path16));
   grub_utf8_to_utf16 (path16, len, (grub_uint8_t *)path8, -1, NULL);
 
   bcd_replace_hex (search, strlen (search), path16, len, 2);
