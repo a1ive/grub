@@ -240,7 +240,7 @@ grub_cmd_linux (grub_command_t cmd __attribute__ ((unused)),
   len = grub_file_size(file) - start;
 
   kernel_size = lh.init_size;
-  kernel_mem = grub_efi_allocate_fixed(lh.pref_address,
+  kernel_mem = grub_efi_allocate_fixed (lh.pref_address,
 				       BYTES_TO_PAGES(kernel_size));
 
   if (!kernel_mem)
@@ -261,6 +261,9 @@ grub_cmd_linux (grub_command_t cmd __attribute__ ((unused)),
   grub_memcpy (params, &lh, 2 * 512);
 
   params->type_of_loader = 0x21;
+
+  grub_dprintf ("linux", "kernel_mem = %p, kernel_params = %p, cmdline = 0x%x\n",
+                kernel_mem, params, params->cmd_line_ptr);
 
  fail:
 
