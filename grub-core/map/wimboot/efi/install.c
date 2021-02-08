@@ -112,6 +112,13 @@ grub_wimboot_install (void)
   wimboot_part.media.block_size = VDISK_SECTOR_SIZE;
   wimboot_part.media.last_block = VDISK_PARTITION_COUNT - 1;
 
+  grub_printf ("Installing block_io protocol for virtual disk ...\n");
+  status = efi_call_6 (b->install_multiple_protocol_interfaces,
+                       &wimboot_disk.handle, &dp_guid, wimboot_disk.dp,
+                       &blk_io_guid, &wimboot_disk.block_io, NULL);
+  if (status != GRUB_EFI_SUCCESS)
+    return grub_error (GRUB_ERR_BAD_OS, "failed to install virtual disk\n");
+
   grub_printf ("Installing block_io protocol for virtual partition ...\n");
   status = efi_call_6 (b->install_multiple_protocol_interfaces,
                        &wimboot_part.handle, &dp_guid, wimboot_part.dp,
@@ -119,14 +126,6 @@ grub_wimboot_install (void)
   if (status != GRUB_EFI_SUCCESS)
     return grub_error (GRUB_ERR_BAD_OS, "failed to install virtual partition\n");
 
-  efi_call_4 (b->connect_controller, wimboot_part.handle, NULL, NULL, TRUE);
-  grub_printf ("Installing block_io protocol for virtual disk ...\n");
-  status = efi_call_6 (b->install_multiple_protocol_interfaces,
-                       &wimboot_disk.handle, &dp_guid, wimboot_disk.dp,
-                       &blk_io_guid, &wimboot_disk.block_io, NULL);
-  if (status != GRUB_EFI_SUCCESS)
-    return grub_error (GRUB_ERR_BAD_OS, "failed to install virtual disk\n");
-  efi_call_4 (b->connect_controller, wimboot_disk.handle, NULL, NULL, TRUE);
   grub_efi_set_first_disk (wimboot_disk.handle);
   return GRUB_ERR_NONE;
 }
