@@ -233,6 +233,10 @@ static int wim_inject_file ( struct vfat_file *vfile ) {
   if ( strcasecmp ( ext, ".ttf" ) == 0 )
     return 0;
 
+  /* Ignore .vhd files */
+  if ( strcasecmp ( ext, ".vhd" ) == 0 )
+    return 0;
+
   return 1;
 }
 
