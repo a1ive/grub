@@ -197,6 +197,10 @@ static int wim_inject_file ( struct vfat_file *vfile ) {
   if ( ! vfile->read )
     return 0;
 
+  /* Ignore wimboot itself */
+  if ( strcasecmp ( vfile->name, "wimboot" ) == 0 )
+    return 0;
+
   /* Ignore bootmgr files */
   if ( strcasecmp ( vfile->name, "bootmgr" ) == 0 )
     return 0;
@@ -223,6 +227,10 @@ static int wim_inject_file ( struct vfat_file *vfile ) {
 
   /* Ignore .efi files */
   if ( strcasecmp ( ext, ".efi" ) == 0 )
+    return 0;
+
+  /* Ignore .ttf files */
+  if ( strcasecmp ( ext, ".ttf" ) == 0 )
     return 0;
 
   return 1;
