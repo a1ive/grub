@@ -1838,6 +1838,8 @@ main (int argc, char *argv[])
 	  fill_core_services (core_services);
 
 	  ins_dev = grub_device_open (install_drive);
+	  if (ins_dev == NULL)
+	    grub_util_error ("%s", grub_errmsg);
 
 	  bless (ins_dev, core_services, 0);
 
@@ -1938,6 +1940,8 @@ main (int argc, char *argv[])
 	  fill_core_services(core_services);
 
 	  ins_dev = grub_device_open (install_drive);
+	  if (ins_dev == NULL)
+	    grub_util_error ("%s", grub_errmsg);
 
 	  bless (ins_dev, boot_efi, 1);
 	  if (!removable && update_nvram)
