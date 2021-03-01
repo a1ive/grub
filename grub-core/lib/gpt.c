@@ -710,7 +710,7 @@ grub_gpt_write_table (grub_disk_t disk, grub_gpt_t gpt,
 
   if (grub_le_to_cpu32 (header->headersize) != sizeof (*header))
     return grub_error (GRUB_ERR_NOT_IMPLEMENTED_YET,
-		       "Header size is %u, must be %u",
+		       "Header size is %u, must be %" PRIuGRUB_SIZE,
 		       grub_le_to_cpu32 (header->headersize),
 		       sizeof (*header));
 

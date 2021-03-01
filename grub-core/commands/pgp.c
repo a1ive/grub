@@ -633,7 +633,7 @@ grub_verify_signature_real (struct grub_pubkey_context *ctxt,
   if (!sk)
     {
       /* TRANSLATORS: %08x is 32-bit key id.  */
-      grub_error (GRUB_ERR_BAD_SIGNATURE, N_("public key %08x not found"),
+      grub_error (GRUB_ERR_BAD_SIGNATURE, N_("public key %08" PRIxGRUB_UINT64_T " not found"),
 		  keyid);
       goto fail;
     }

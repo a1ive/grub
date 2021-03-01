@@ -723,14 +723,14 @@ grub_cmd_linux (grub_command_t cmd __attribute__ ((unused)),
       for (align = 0; align < 32; align++)
 	if (grub_le_to_cpu32 (lh.kernel_alignment) & (1 << align))
 	  break;
-      relocatable = grub_le_to_cpu32 (lh.relocatable);
+      relocatable = lh.relocatable;
     }
   else
     {
       align = 0;
       relocatable = 0;
     }
-    
+
   if (grub_le_to_cpu16 (lh.version) >= 0x020a)
     {
       min_align = lh.min_alignment;
@@ -738,14 +738,11 @@ grub_cmd_linux (grub_command_t cmd __attribute__ ((unused)),
       prot_init_space = page_align (prot_size);
       if (relocatable)
 	preferred_address = grub_le_to_cpu64 (lh.pref_address);
-      else
-	preferred_address = GRUB_LINUX_BZIMAGE_ADDR;
     }
   else
     {
       min_align = align;
       prot_size = prot_file_size;
-      preferred_address = GRUB_LINUX_BZIMAGE_ADDR;
       /* Usually, the compression ratio is about 50%.  */
       prot_init_space = page_align (prot_size) * 3;
     }

@@ -212,7 +212,7 @@ find_card (grub_pci_device_t dev, grub_pci_id_t pciid, void *data)
 
   if (((class >> 16) & 0xffff) != 0x0300 || pciid != 0x11111234)
     return 0;
-  
+
   addr = grub_pci_make_address (dev, GRUB_PCI_REG_ADDRESS_REG0);
   framebuffer.base = grub_pci_read (addr) & GRUB_PCI_ADDR_MEM_MASK;
   if (!framebuffer.base)
@@ -249,11 +249,11 @@ grub_video_bochs_setup (unsigned int width, unsigned int height,
     }
 
   if (width > BOCHS_MAX_WIDTH)
-    return grub_error (GRUB_ERR_IO, "width must be at most",
+    return grub_error (GRUB_ERR_IO, "width must be at most %d",
 		       BOCHS_MAX_WIDTH);
 
   if (height > BOCHS_MAX_HEIGHT)
-    return grub_error (GRUB_ERR_IO, "height must be at most",
+    return grub_error (GRUB_ERR_IO, "height must be at most %d",
 		       BOCHS_MAX_HEIGHT);
 
   if (width & (BOCHS_WIDTH_ALIGN - 1))

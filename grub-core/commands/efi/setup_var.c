@@ -186,7 +186,7 @@ grub_cmd_setup_var (grub_command_t cmd,
 		}
 		if(status)
 		{
-			return grub_error(GRUB_ERR_INVALID_COMMAND, "can't get variable using efi (error: 0x%016x)", status);
+			return grub_error(GRUB_ERR_INVALID_COMMAND, "can't get variable");
 		}
 		grub_printf("successfully obtained \"Setup\" variable from VSS (got %d (0x%x) bytes).\n", (int)setup_var_size, (int)setup_var_size);
 		if(offset > setup_var_size)
@@ -219,7 +219,7 @@ grub_cmd_setup_var (grub_command_t cmd,
 			tmp_data);
 		if(status)
 		{
-			return grub_error(GRUB_ERR_INVALID_COMMAND, "can't set variable using efi (error: 0x%016x)", status);
+			return grub_error(GRUB_ERR_INVALID_COMMAND, "can't set variable");
 		}
 	}
 
