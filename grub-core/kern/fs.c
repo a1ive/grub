@@ -206,7 +206,11 @@ grub_fs_blocklist_open (grub_file_t file, const char *name)
     }
 
     p++;
-    blocks[i].length = strtosector (p, &p);
+    if (*p == '\0' || *p == ',')
+      blocks[i].length = (max_sectors << GRUB_DISK_SECTOR_BITS)
+                         - blocks[i].offset;
+    else
+      blocks[i].length = strtosector (p, &p);
     if (grub_errno != GRUB_ERR_NONE
         || blocks[i].length == 0
         || (*p && *p != ',' && ! grub_isspace (*p)))
