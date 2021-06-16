@@ -869,7 +869,7 @@ grub_efi_net_config_real (grub_efi_handle_t hnd, char **device,
                  * sending forward as they are the deatils we need.
                  */
                 grub_memcpy (dhcp_ack->server_name, proxy_offer->server_name, 64);
-                grub_memcpy (dhcp_ack->boot_file, proxy_offer->boot_file, 64);
+                grub_memcpy (dhcp_ack->boot_file, proxy_offer->boot_file, 128);
                 dhcp_ack->server_ip = proxy_offer->server_ip;
               }
           }
