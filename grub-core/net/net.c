@@ -976,7 +976,7 @@ grub_net_network_level_interface_register (struct grub_net_network_level_interfa
 }
 
 int
-grub_ipv6_get_masksize (grub_uint16_t be_mask[8])
+grub_ipv6_get_masksize (grub_uint16_t *be_mask)
 {
   grub_uint8_t *mask;
   grub_uint16_t mask16[8];
