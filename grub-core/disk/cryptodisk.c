@@ -41,6 +41,7 @@ static const struct grub_arg_option options[] =
     /* TRANSLATORS: It's still restricted to cryptodisks only.  */
     {"all", 'a', 0, N_("Mount all."), 0, 0},
     {"boot", 'b', 0, N_("Mount all volumes with `boot' flag set."), 0, 0},
+    {"password", 'p', 0, N_("Password to open volumes."), 0, ARG_TYPE_STRING},
     {0, 0, 0, 0, 0, 0}
   };
 
@@ -992,7 +993,9 @@ cryptodisk_close (grub_cryptodisk_t dev)
 }
 
 static grub_cryptodisk_t
-grub_cryptodisk_scan_device_real (const char *name, grub_disk_t source)
+grub_cryptodisk_scan_device_real (const char *name,
+				  grub_disk_t source,
+				  grub_cryptomount_args_t cargs)
 {
   grub_err_t err;
   grub_cryptodisk_t dev;
@@ -1011,7 +1014,7 @@ grub_cryptodisk_scan_device_real (const char *name, grub_disk_t source)
     if (!dev)
       continue;
     
-    err = cr->recover_key (source, dev);
+    err = cr->recover_key (source, dev, cargs);
     if (err)
     {
       cryptodisk_close (dev);
@@ -1076,11 +1079,12 @@ grub_cryptodisk_cheat_mount (const char *sourcedev, const char *cheat)
 
 static int
 grub_cryptodisk_scan_device (const char *name,
-			     void *data __attribute__ ((unused)))
+			     void *data)
 {
   int ret = 0;
   grub_disk_t source;
   grub_cryptodisk_t dev;
+  grub_cryptomount_args_t cargs = data;
   grub_errno = GRUB_ERR_NONE;
 
   /* Try to open disk.  */
@@ -1091,7 +1095,7 @@ grub_cryptodisk_scan_device (const char *name,
       return 0;
     }
 
-  dev = grub_cryptodisk_scan_device_real (name, source);
+  dev = grub_cryptodisk_scan_device_real (name, source, cargs);
   if (dev)
     {
       ret = (search_uuid != NULL && grub_strcasecmp (search_uuid, dev->uuid) == 0);
@@ -1120,6 +1124,7 @@ static grub_err_t
 grub_cmd_cryptomount (grub_extcmd_context_t ctxt, int argc, char **args)
 {
   struct grub_arg_list *state = ctxt->state;
+  struct grub_cryptomount_args cargs = {0};
 
   if (argc < 1 && !state[1].set && !state[2].set)
     return grub_error (GRUB_ERR_BAD_ARGUMENT, "device name required");
@@ -1127,7 +1132,13 @@ grub_cmd_cryptomount (grub_extcmd_context_t ctxt, int argc, char **args)
   if (grub_cryptodisk_list == NULL)
     return grub_error (GRUB_ERR_BAD_MODULE, "no cryptodisk modules loaded");
 
-  if (state[0].set)
+  if (state[3].set) /* password */
+    {
+      cargs.key_data = (grub_uint8_t *) state[3].arg;
+      cargs.key_len = grub_strlen (state[3].arg);
+    }
+
+  if (state[0].set) /* uuid */
     {
       int found_uuid;
       grub_cryptodisk_t dev;
@@ -1142,7 +1153,7 @@ grub_cmd_cryptomount (grub_extcmd_context_t ctxt, int argc, char **args)
 
       check_boot = state[2].set;
       search_uuid = args[0];
-      found_uuid = grub_device_iterate (&grub_cryptodisk_scan_device, NULL);
+      found_uuid = grub_device_iterate (&grub_cryptodisk_scan_device, &cargs);
       search_uuid = NULL;
 
       if (found_uuid)
@@ -1159,11 +1170,11 @@ grub_cmd_cryptomount (grub_extcmd_context_t ctxt, int argc, char **args)
 	}
       return grub_errno;
     }
-  else if (state[1].set || (argc == 0 && state[2].set))
+  else if (state[1].set || (argc == 0 && state[2].set)) /* -a|-b */
     {
       search_uuid = NULL;
       check_boot = state[2].set;
-      grub_device_iterate (&grub_cryptodisk_scan_device, NULL);
+      grub_device_iterate (&grub_cryptodisk_scan_device, &cargs);
       search_uuid = NULL;
       return GRUB_ERR_NONE;
     }
@@ -1204,7 +1215,7 @@ grub_cmd_cryptomount (grub_extcmd_context_t ctxt, int argc, char **args)
 	  return GRUB_ERR_NONE;
 	}
 
-      dev = grub_cryptodisk_scan_device_real (diskname, disk);
+      dev = grub_cryptodisk_scan_device_real (diskname, disk, &cargs);
 
       grub_disk_close (disk);
       if (disklast)
@@ -1343,7 +1354,7 @@ GRUB_MOD_INIT (cryptodisk)
 {
   grub_disk_dev_register (&grub_cryptodisk_dev);
   cmd = grub_register_extcmd ("cryptomount", grub_cmd_cryptomount, 0,
-			      N_("SOURCE|-u UUID|-a|-b"),
+			      N_("[-p password] <SOURCE|-u UUID|-a|-b>"),
 			      N_("Mount a crypto device."), options);
   grub_procfs_register ("luks_script", &luks_script);
 }
