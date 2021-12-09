@@ -63,8 +63,7 @@ gcry_err_code_t AF_merge (const gcry_md_spec_t * hash, grub_uint8_t * src,
 			  grub_size_t blocknumbers);
 
 static grub_cryptodisk_t
-configure_ciphers (grub_disk_t disk, const char *check_uuid,
-		   int check_boot)
+configure_ciphers (grub_disk_t disk, grub_cryptomount_args_t cargs)
 {
   grub_cryptodisk_t newdev;
   const char *iptr;
@@ -76,7 +75,7 @@ configure_ciphers (grub_disk_t disk, const char *check_uuid,
   char hashspec[sizeof (header.hashSpec) + 1];
   grub_err_t err;
 
-  if (check_boot)
+  if (cargs->check_boot)
     return NULL;
 
   /* Read the LUKS header.  */
@@ -103,9 +102,9 @@ configure_ciphers (grub_disk_t disk, const char *check_uuid,
     }
   *optr = 0;
 
-  if (check_uuid && grub_strcasecmp (check_uuid, uuid) != 0)
+  if (cargs->search_uuid != NULL && grub_strcasecmp (cargs->search_uuid, uuid) != 0)
     {
-      grub_dprintf ("luks", "%s != %s\n", uuid, check_uuid);
+      grub_dprintf ("luks", "%s != %s\n", uuid, cargs->search_uuid);
       return NULL;
     }
 
@@ -148,14 +147,6 @@ configure_ciphers (grub_disk_t disk, const char *check_uuid,
   return newdev;
 }
 
-// Leave this definition below to minimize diff
-static grub_err_t
-luks_try_recover_key (grub_disk_t source,
-		  grub_cryptodisk_t dev,
-          struct grub_luks_phdr header,
-          grub_size_t keysize,
-          grub_uint8_t *split_key);
-
 static grub_err_t
 luks_recover_key (grub_disk_t source,
 		  grub_cryptodisk_t dev,
@@ -164,7 +155,9 @@ luks_recover_key (grub_disk_t source,
   struct grub_luks_phdr header;
   grub_size_t keysize;
   grub_uint8_t *split_key = NULL;
+  grub_uint8_t candidate_digest[sizeof (header.mkDigest)];
   unsigned i;
+  grub_size_t length;
   grub_err_t err;
   grub_size_t max_stripes = 1;
 
@@ -188,32 +181,6 @@ luks_recover_key (grub_disk_t source,
   split_key = grub_calloc (keysize, max_stripes);
   if (!split_key)
     return grub_errno;
-
-  // Try get unlock disk
-  err = luks_try_recover_key(source, dev, header, keysize, split_key);
-  while (err != GRUB_ERR_NONE) {
-      grub_puts_ (N_("Incorrect password. Please try again..."));
-      grub_errno = GRUB_ERR_NONE;
-      err = luks_try_recover_key(source, dev, header, keysize, split_key);
-  }
-
-  grub_free(split_key);
-  return err;
-}
-
-static grub_err_t
-luks_try_recover_key (grub_disk_t source,
-		  grub_cryptodisk_t dev,
-          struct grub_luks_phdr header,
-          grub_size_t keysize,
-          grub_uint8_t *split_key)
-{
-  char passphrase[MAX_PASSPHRASE] = "";
-  grub_uint8_t candidate_digest[sizeof (header.mkDigest)];
-  unsigned i;
-  grub_size_t length;
-  grub_err_t err;
-  char *tmp;
 
   /* Try to recover master key from each active keyslot.  */
   for (i = 0; i < ARRAY_SIZE (header.keyblock); i++)
@@ -239,6 +206,7 @@ luks_try_recover_key (grub_disk_t source,
 
       if (gcry_err)
 	{
+	  grub_free (split_key);
 	  return grub_crypto_gcry_error (gcry_err);
 	}
 
@@ -247,6 +215,7 @@ luks_try_recover_key (grub_disk_t source,
       gcry_err = grub_cryptodisk_setkey (dev, digest, keysize); 
       if (gcry_err)
 	{
+	  grub_free (split_key);
 	  return grub_crypto_gcry_error (gcry_err);
 	}
 
@@ -259,6 +228,7 @@ luks_try_recover_key (grub_disk_t source,
 			    length, split_key);
       if (err)
 	{
+	  grub_free (split_key);
 	  return err;
 	}
 
@@ -266,6 +236,7 @@ luks_try_recover_key (grub_disk_t source,
 					  GRUB_LUKS1_LOG_SECTOR_SIZE);
       if (gcry_err)
 	{
+	  grub_free (split_key);
 	  return grub_crypto_gcry_error (gcry_err);
 	}
 
@@ -274,6 +245,7 @@ luks_try_recover_key (grub_disk_t source,
 			   grub_be_to_cpu32 (header.keyblock[i].stripes));
       if (gcry_err)
 	{
+	  grub_free (split_key);
 	  return grub_crypto_gcry_error (gcry_err);
 	}
 
@@ -290,6 +262,7 @@ luks_try_recover_key (grub_disk_t source,
 				     sizeof (candidate_digest));
       if (gcry_err)
 	{
+	  grub_free (split_key);
 	  return grub_crypto_gcry_error (gcry_err);
 	}
 
@@ -310,12 +283,16 @@ luks_try_recover_key (grub_disk_t source,
       gcry_err = grub_cryptodisk_setkey (dev, candidate_key, keysize); 
       if (gcry_err)
 	{
+	  grub_free (split_key);
 	  return grub_crypto_gcry_error (gcry_err);
 	}
+
+      grub_free (split_key);
 
       return GRUB_ERR_NONE;
     }
 
+  grub_free (split_key);
   return GRUB_ACCESS_DENIED;
 }
 
