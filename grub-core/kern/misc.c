@@ -162,28 +162,49 @@ __attribute__ ((alias("grub_printf")));
 int
 grub_debug_enabled (const char * condition)
 {
-  const char *debug;
-  char *negcond;
-  int negated = 0;
+  const char *debug, *found;
+  grub_size_t clen;
+  int ret = 0;
 
   debug = grub_env_get ("debug");
   if (!debug)
     return 0;
 
-  negcond = grub_zalloc (grub_strlen (condition) + 2);
-  if (negcond)
+  if (grub_strword (debug, "all"))
     {
-      grub_strcpy (negcond, "-");
-      grub_strcpy (negcond+1, condition);
-      negated = grub_strword (debug, negcond);
-      grub_free (negcond);
+      if (debug[3] == '\0')
+	return 1;
+      ret = 1;
     }
 
-  if (!negated &&
-      (grub_strword (debug, "all") || grub_strword (debug, condition)))
-    return 1;
+  clen = grub_strlen (condition);
+  found = debug-1;
+  while(1)
+    {
+      found = grub_strstr (found+1, condition);
 
-  return 0;
+      if (found == NULL)
+	break;
+
+      /* Found condition is not a whole word, so ignore it. */
+      if (*(found + clen) != '\0' && *(found + clen) != ','
+	 && !grub_isspace (*(found + clen)))
+	continue;
+
+      /*
+       * If found condition is at the start of debug or the start is on a word
+       * boundary, then enable debug. Else if found condition is prefixed with
+       * '-' and the start is on a word boundary, then disable debug. If none
+       * of these cases, ignore.
+       */
+      if (found == debug || *(found - 1) == ',' || grub_isspace (*(found - 1)))
+	ret = 1;
+      else if (*(found - 1) == '-' && ((found == debug + 1) || (*(found - 2) == ','
+			       || grub_isspace (*(found - 2)))))
+	ret = 0;
+    }
+
+  return ret;
 }
 
 void
@@ -195,24 +216,6 @@ grub_real_dprintf (const char *file, const int line, const char *condition,
   if (grub_debug_enabled (condition))
     {
       grub_printf ("%s:%d:%s: ", file, line, condition);
-      va_start (args, fmt);
-      grub_vprintf (fmt, args);
-      va_end (args);
-      grub_refresh ();
-    }
-}
-
-void
-grub_qdprintf (const char *condition, const char *fmt, ...)
-{
-  va_list args;
-  const char *debug = grub_env_get ("debug");
-
-  if (! debug)
-    return;
-
-  if (grub_strword (debug, "all") || grub_strword (debug, condition))
-    {
       va_start (args, fmt);
       grub_vprintf (fmt, args);
       va_end (args);
