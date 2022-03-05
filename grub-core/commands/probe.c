@@ -118,7 +118,10 @@ grub_cmd_probe (grub_extcmd_context_t ctxt, int argc, char **args)
     }
   fs = grub_fs_probe (dev);
   if (! fs)
+  {
+    grub_device_close (dev);
     return grub_errno;
+  }
   if (state[PROBE_FS].set)
     {
       if (state[PROBE_SET].set)
@@ -141,20 +144,24 @@ grub_cmd_probe (grub_extcmd_context_t ctxt, int argc, char **args)
         }
       err = fs->fs_uuid (dev, &uuid);
       if (err)
-	return err;
+      {
+        grub_device_close (dev);
+        return err;
+      }
       if (! uuid)
-        {
-          if (state[PROBE_QUIET].set)
-	        return GRUB_ERR_NONE;
-	      else
-            return grub_error (GRUB_ERR_NOT_IMPLEMENTED_YET,
-			               N_("%s does not support UUIDs"), fs->name);
-        }
+      {
+        grub_device_close (dev);
+        if (state[PROBE_QUIET].set)
+          return GRUB_ERR_NONE;
+        else
+          return grub_error (GRUB_ERR_NOT_IMPLEMENTED_YET,
+                             N_("%s does not support UUIDs"), fs->name);
+      }
 
       if (state[PROBE_SET].set)
-	grub_env_set (state[PROBE_SET].arg, uuid);
+        grub_env_set (state[PROBE_SET].arg, uuid);
       else
-	grub_printf ("%s", uuid);
+        grub_printf ("%s", uuid);
       grub_free (uuid);
       grub_device_close (dev);
       return GRUB_ERR_NONE;
@@ -163,24 +170,31 @@ grub_cmd_probe (grub_extcmd_context_t ctxt, int argc, char **args)
     {
       char *label;
       if (! fs->fs_label)
-        {
-          if (state[PROBE_QUIET].set)
-	        return GRUB_ERR_NONE;
-	      else
-            return grub_error (GRUB_ERR_NOT_IMPLEMENTED_YET,
-			               N_("filesystem `%s' does not support labels"), fs->name);
-        }
+      {
+        grub_device_close (dev);
+        if (state[PROBE_QUIET].set)
+          return GRUB_ERR_NONE;
+        else
+          return grub_error (GRUB_ERR_NOT_IMPLEMENTED_YET,
+                             N_("filesystem `%s' does not support labels"),
+                             fs->name);
+      }
       err = fs->fs_label (dev, &label);
       if (err)
-	return err;
+      {
+        grub_device_close (dev);
+        return err;
+      }
       if (! label)
-        {
-          if (state[PROBE_QUIET].set)
-	        return GRUB_ERR_NONE;
-	      else
-            return grub_error (GRUB_ERR_NOT_IMPLEMENTED_YET,
-			               N_("filesystem `%s' does not support labels"), fs->name);
-        }
+      {
+        grub_device_close (dev);
+        if (state[PROBE_QUIET].set)
+          return GRUB_ERR_NONE;
+        else
+          return grub_error (GRUB_ERR_NOT_IMPLEMENTED_YET,
+                             N_("filesystem `%s' does not support labels"),
+                             fs->name);
+      }
 
       if (state[PROBE_SET].set)
 	grub_env_set (state[PROBE_SET].arg, label);
@@ -205,7 +219,10 @@ grub_cmd_probe (grub_extcmd_context_t ctxt, int argc, char **args)
              err = grub_disk_read (dev->disk, 0, diskid_offset, 4, diskbuf);
              dev->disk->partition = p;
              if (err)
+             {
+               grub_device_close (dev);
                return grub_errno;
+             }
              partuuid = grub_xasprintf ("%02x%02x%02x%02x-%02x",
                                         diskbuf[3], diskbuf[2], diskbuf[1], diskbuf[0],
                                         p->number + 1); /* one based partition number */
@@ -218,7 +235,10 @@ grub_cmd_probe (grub_extcmd_context_t ctxt, int argc, char **args)
              err = grub_disk_read (dev->disk, p->offset, p->index + guid_offset, 16, diskbuf);
              dev->disk->partition = p;
              if (err)
+             {
+               grub_device_close (dev);
                return grub_errno;
+             }
              partuuid = grub_xasprintf ("%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x",
                                         diskbuf[3], diskbuf[2], diskbuf[1], diskbuf[0],
                                         diskbuf[5], diskbuf[4],
@@ -227,9 +247,12 @@ grub_cmd_probe (grub_extcmd_context_t ctxt, int argc, char **args)
                                         diskbuf[10], diskbuf[11], diskbuf[12], diskbuf[13], diskbuf[14], diskbuf[15]);
            }
          else
-           return grub_error (GRUB_ERR_NOT_IMPLEMENTED_YET,
-                              N_("partition map %s does not support partition UUIDs"),
-                              dev->disk->partition->partmap->name);
+           {
+             grub_device_close (dev);
+             return grub_error (GRUB_ERR_NOT_IMPLEMENTED_YET,
+                        N_("partition map %s does not support partition UUIDs"),
+                        dev->disk->partition->partmap->name);
+           }
        }
       else
        partuuid = grub_strdup (""); /* a freeable empty string */
