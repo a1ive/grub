@@ -49,7 +49,6 @@ static const struct grub_arg_option options_ntboot[] =
   {"vhd", 'v', 0, N_("Boot NT6+ VHD/VHDX."), 0, 0},
   {"wim", 'w', 0, N_("Boot NT6+ WIM."), 0, 0},
   {"win", 'n', 0, N_("Boot NT6+ Windows."), 0, 0},
-  {"ramvhd", 'r', 0, N_("Boot NT6+ RAM VHD/VHDX."), 0, 0},
   {"efi", 'e', 0, N_("Specify the bootmgfw.efi file."), N_("FILE"), ARG_TYPE_FILE},
   {"sdi", 's', 0, N_("Specify the boot.sdi file."), N_("FILE"), ARG_TYPE_FILE},
   {"dll", 'd', 0, N_("Specify the bootvhd.dll file."), N_("FILE"), ARG_TYPE_FILE},
@@ -61,9 +60,7 @@ static const struct grub_arg_option options_ntboot[] =
   {"pae", 0, 0, N_("PAE Policy."), N_("Default|Enable|Disable"), ARG_TYPE_STRING},
   {"detecthal", 0, 0, N_("Detect HAL and kernel."), N_("yes|no"), ARG_TYPE_STRING},
   {"winpe", 0, 0, N_("Boot into WinPE."), N_("yes|no"), ARG_TYPE_STRING},
-  {"imgoffset", 0, 0, N_("Set Ramdisk Image Offset."), N_("n"), ARG_TYPE_INT},
   {"timeout", 0, 0, N_("Set Timeout."), N_("n"), ARG_TYPE_INT},
-  {"sos", 0, 0, N_("Display driver names."), N_("yes|no"), ARG_TYPE_STRING},
   {"novesa", 0, 0, N_("Avoid VESA BIOS calls."), N_("yes|no"), ARG_TYPE_STRING},
   {"novga", 0, 0, N_("Disable VGA modes."), N_("yes|no"), ARG_TYPE_STRING},
   {"loadoptions", 0, 0, N_("Set LoadOptionsString."), N_("STRING"), ARG_TYPE_STRING},
@@ -79,7 +76,6 @@ enum options_ntboot
   NTBOOT_VHD,
   NTBOOT_WIM,
   NTBOOT_WIN,
-  NTBOOT_RAMVHD,
   NTBOOT_EFI,
   NTBOOT_SDI,
   NTBOOT_DLL,
@@ -90,9 +86,7 @@ enum options_ntboot
   NTBOOT_PAE,      // uint64
   NTBOOT_DETHAL,   // bool
   NTBOOT_PE,       // bool
-  NTBOOT_IMGOFS,   // uint64
   NTBOOT_TIMEOUT,  // uint64
-  NTBOOT_SOS,      // bool
   NTBOOT_NOVESA,   // bool
   NTBOOT_NOVGA,    // bool
   NTBOOT_CMDLINE,  // string
@@ -166,8 +160,6 @@ grub_cmd_ntboot (grub_extcmd_context_t ctxt,
     type = BOOT_WIM;
   if (state[NTBOOT_VHD].set)
     type = BOOT_VHD;
-  if (state[NTBOOT_RAMVHD].set)
-    type = BOOT_RAMVHD;
   if (state[NTBOOT_WIN].set)
     type = BOOT_WIN;
 
@@ -187,12 +179,8 @@ grub_cmd_ntboot (grub_extcmd_context_t ctxt,
     ntcmd.detecthal = state[NTBOOT_DETHAL].arg;
   if (state[NTBOOT_PE].set)
     ntcmd.winpe = state[NTBOOT_PE].arg;
-  if (state[NTBOOT_IMGOFS].set)
-    ntcmd.imgoffset = state[NTBOOT_IMGOFS].arg;
   if (state[NTBOOT_TIMEOUT].set)
     ntcmd.timeout = state[NTBOOT_TIMEOUT].arg;
-  if (state[NTBOOT_SOS].set)
-    ntcmd.sos = state[NTBOOT_SOS].arg;
   if (state[NTBOOT_NOVESA].set)
     ntcmd.novesa = state[NTBOOT_NOVESA].arg;
   if (state[NTBOOT_NOVGA].set)

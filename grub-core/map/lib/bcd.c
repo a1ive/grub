@@ -41,7 +41,6 @@
 #include "raw/bcdwim.c"
 #include "raw/bcdvhd.c"
 #include "raw/bcdwin.c"
-#include "raw/bcdram.c"
 
 #pragma GCC diagnostic ignored "-Wcast-align"
 
@@ -87,10 +86,6 @@ load_bcd (enum bcd_type type)
     case BOOT_WIN:
       bcd = bcd_win;
       bcd_len = bcd_win_len;
-      break;
-    case BOOT_RAMVHD:
-      bcd = bcd_ram;
-      bcd_len = bcd_ram_len;
       break;
     default:
       bcd = bcd_wim;
@@ -167,19 +162,8 @@ bcd_patch_path (const char *path)
 static grub_err_t
 bcd_patch_dp (struct bcd_patch_data *cmd)
 {
-  grub_disk_t disk = 0;
-  /* mbr*/
   grub_uint64_t part_start;
-  struct grub_msdos_partition_mbr mbr;
   grub_disk_addr_t lba;
-  /* gpt */
-  struct grub_gpt_header gpt;
-  struct grub_gpt_partentry *gpt_entry = NULL;
-  grub_uint32_t gpt_entry_size;
-  grub_uint64_t gpt_entry_pos;
-  grub_uint8_t diskguid[16];
-  grub_uint8_t partguid[16];
-  int partnum;
 
   if (cmd->type == BOOT_RAW)
   {
@@ -194,44 +178,21 @@ bcd_patch_dp (struct bcd_patch_data *cmd)
                    &cmd->dp, sizeof (struct bcd_dp), 2);
     return GRUB_ERR_NONE;
   }
-  disk = grub_disk_open (cmd->file->device->disk->name);
-  if (!disk)
-    return grub_error (GRUB_ERR_BAD_OS, "failed to open parent disk");
-  if (cmd->file->device->disk->partition->partmap->name[0] == 'g')
+  memset (&cmd->dp, 0, sizeof (struct bcd_dp));
+  if (strcmp (cmd->file->device->disk->partition->partmap->name, "gpt") == 0)
   {
-    partnum = cmd->file->device->disk->partition->number;
-    grub_disk_read (disk, 1, 0, GRUB_DISK_SECTOR_SIZE, &gpt);
-    grub_guidcpy ((grub_packed_guid_t *)&diskguid, &gpt.guid);
-    gpt_entry_pos = gpt.partitions << GRUB_DISK_SECTOR_BITS;
-    gpt_entry_size = gpt.partentry_size;
-    gpt_entry = grub_zalloc (gpt_entry_size);
-    if (!gpt_entry)
-    {
-      grub_disk_close (disk);
-      return grub_error (GRUB_ERR_BAD_OS, "out of memory");
-    }
-    grub_disk_read (disk, 0, gpt_entry_pos + partnum * gpt_entry_size,
-                    gpt_entry_size, gpt_entry);
-    grub_guidcpy ((grub_packed_guid_t *)&partguid, &gpt_entry->guid);
-    /* fill dp */
-    memset (&cmd->dp, 0, sizeof (struct bcd_dp));
-    memcpy (cmd->dp.partid, partguid, 16);
     cmd->dp.partmap = 0x00;
-    memcpy (cmd->dp.diskid, diskguid, 16);
-    free (gpt_entry);
+    memcpy (cmd->dp.diskid, &cmd->file->device->disk->partition->gptguid, 16);
+    memcpy (cmd->dp.partid, &cmd->file->device->disk->partition->partguid, 16);
   }
   else
   {
     lba = grub_partition_get_start (cmd->file->device->disk->partition);
     part_start = lba << GRUB_DISK_SECTOR_BITS;
-    grub_disk_read (disk, 0, 0, GRUB_DISK_SECTOR_SIZE, &mbr);
-    /* fill dp */
-    memset (&cmd->dp, 0, sizeof (struct bcd_dp));
-    memcpy (cmd->dp.partid, &part_start, 8);
     cmd->dp.partmap = 0x01;
-    memcpy (cmd->dp.diskid, mbr.unique_signature, 4);
+    memcpy (cmd->dp.partid, &part_start, 8);
+    memcpy (cmd->dp.diskid, cmd->file->device->disk->partition->msdossign, 4);
   }
-  grub_disk_close (disk);
   bcd_replace_hex (BCD_DP_MAGIC, strlen (BCD_DP_MAGIC),
                    &cmd->dp, sizeof (struct bcd_dp), 2);
   return GRUB_ERR_NONE;
@@ -277,14 +238,19 @@ bcd_parse_u64 (grub_reg_hive_t *hive, const wchar_t *keyname, const char *s)
 }
 
 static void
-bcd_parse_str (grub_reg_hive_t *hive, const wchar_t *keyname, const char *s)
+bcd_parse_str (grub_reg_hive_t *hive, const wchar_t *keyname,
+               grub_uint8_t resume,
+               const char *s)
 {
   HKEY root, objects, osloader, elements, key;
   grub_uint16_t *data = NULL;
   grub_uint32_t data_len = 0, type;
   hive->find_root (hive, &root);
   hive->find_key (hive, root, BCD_REG_ROOT, &objects);
-  hive->find_key (hive, objects, GUID_OSENTRY, &osloader);
+  if (resume)
+    hive->find_key (hive, objects, GUID_REENTRY, &osloader);
+  else
+    hive->find_key (hive, objects, GUID_OSENTRY, &osloader);
   hive->find_key (hive, osloader, BCD_REG_HKEY, &elements);
   hive->find_key (hive, elements, keyname, &key);
   hive->query_value_no_copy (hive, key, BCD_REG_HVAL,
@@ -303,7 +269,6 @@ grub_patch_bcd (struct bcd_patch_data *cmd)
   grub_uint32_t bcd_len = BCD_DECOMPRESS_LEN;
 
   load_bcd (cmd->type);
-  bcd_replace_hex (BCD_SEARCH_EXT, 8, BCD_REPLACE_EXT, 8, 0);
 
   if (cmd->type != BOOT_WIN)
     bcd_patch_path (cmd->path);
@@ -316,15 +281,71 @@ grub_patch_bcd (struct bcd_patch_data *cmd)
   grub_open_hive (bcd_file, &hive);
   if (!hive)
     return grub_error (GRUB_ERR_BAD_OS, "bcd hive load error.");
+
+  /* display menu
+   * default:   yes */
+  bcd_parse_bool (hive, BCDOPT_DISPLAY, "yes");
+  /* timeout
+   * default:   0 */
+  if (cmd->timeout)
+    bcd_parse_u64 (hive, BCDOPT_TIMEOUT, cmd->timeout);
+  else
+    bcd_parse_u64 (hive, BCDOPT_TIMEOUT, "0");
+  /* testsigning
+   * default:   no */
   if (cmd->testmode)
     bcd_parse_bool (hive, BCDOPT_TESTMODE, cmd->testmode);
   else
     bcd_parse_bool (hive, BCDOPT_TESTMODE, "no");
+  /* force highest resolution
+   * default:   no */
   if (cmd->highest)
     bcd_parse_bool (hive, BCDOPT_HIGHEST, cmd->highest);
+  else
+    bcd_parse_bool (hive, BCDOPT_HIGHEST, "no");
+  /* detect hal and kernel
+   * default:   yes */
+  if (cmd->detecthal)
+    bcd_parse_bool (hive, BCDOPT_DETHAL, cmd->detecthal);
+  else
+    bcd_parse_bool (hive, BCDOPT_DETHAL, "yes");
+  /* winpe mode
+   * default:
+   *      OS  - no
+   *      VHD - no
+   *      WIM - yes */
+  if (cmd->winpe)
+    bcd_parse_bool (hive, BCDOPT_WINPE, cmd->winpe);
+  else
+  {
+    switch (cmd->type)
+    {
+      case BOOT_RAW:
+      case BOOT_WIM:
+        bcd_parse_bool (hive, BCDOPT_WINPE, "yes");
+        break;
+      default:
+        bcd_parse_bool (hive, BCDOPT_WINPE, "no");
+        break;
+    }
+  }
+  /* disable vesa
+   * default:   no */
+  if (cmd->novesa)
+    bcd_parse_bool (hive, BCDOPT_NOVESA, cmd->novesa);
+  else
+    bcd_parse_bool (hive, BCDOPT_NOVESA, "no");
+  /* disable vga
+   * default:   no */
+  if (cmd->novga)
+    bcd_parse_bool (hive, BCDOPT_NOVGA, cmd->novga);
+  else
+    bcd_parse_bool (hive, BCDOPT_NOVGA, "no");
+  /* nx policy
+   * default:   OptIn */
   if (cmd->nx)
   {
-    uint64_t nx = 0;
+    grub_uint64_t nx = 0;
     if (grub_strcasecmp (cmd->nx, "OptIn") == 0)
       nx = NX_OPTIN;
     else if (grub_strcasecmp (cmd->nx, "OptOut") == 0)
@@ -335,9 +356,11 @@ grub_patch_bcd (struct bcd_patch_data *cmd)
       nx = NX_ALWAYSON;
     bcd_patch_hive (hive, BCDOPT_NX, &nx);
   }
+  /* pae
+   * default:   Default */
   if (cmd->pae)
   {
-    uint64_t pae = 0;
+    grub_uint64_t pae = 0;
     if (grub_strcasecmp (cmd->pae, "Default") == 0)
       pae = PAE_DEFAULT;
     else if (grub_strcasecmp (cmd->pae, "Enable") == 0)
@@ -346,38 +369,52 @@ grub_patch_bcd (struct bcd_patch_data *cmd)
       pae = PAE_DISABLE;
     bcd_patch_hive (hive, BCDOPT_PAE, &pae);
   }
-  if (cmd->detecthal)
-    bcd_parse_bool (hive, BCDOPT_DETHAL, cmd->detecthal);
-  if (cmd->winpe)
-    bcd_parse_bool (hive, BCDOPT_WINPE, cmd->winpe);
-  if (cmd->imgoffset && cmd->type == BOOT_RAMVHD)
-    bcd_parse_u64 (hive, BCDOPT_IMGOFS, cmd->imgoffset);
-  if (cmd->timeout)
-    bcd_parse_u64 (hive, BCDOPT_TIMEOUT, cmd->timeout);
-  if (cmd->sos)
-    bcd_parse_bool (hive, BCDOPT_SOS, cmd->sos);
-  if (cmd->novesa)
-    bcd_parse_bool (hive, BCDOPT_NOVESA, cmd->novesa);
-  if (cmd->novga)
-    bcd_parse_bool (hive, BCDOPT_NOVGA, cmd->novga);
+  /* load options
+   * default:   DDISABLE_INTEGRITY_CHECKS */
   if (cmd->cmdline)
-    bcd_parse_str (hive, BCDOPT_CMDLINE, cmd->cmdline);
+    bcd_parse_str (hive, BCDOPT_CMDLINE, 0, cmd->cmdline);
   else
-    bcd_parse_str (hive, BCDOPT_CMDLINE, BCD_DEFAULT_CMDLINE);
+    bcd_parse_str (hive, BCDOPT_CMDLINE, 0, BCD_DEFAULT_CMDLINE);
+  /* winload.efi
+   * default:
+   *      OS  - \\Windows\\System32\\winload.efi
+   *      VHD - \\Windows\\System32\\winload.efi
+   *      WIM - \\Windows\\System32\\boot\\winload.efi */
   if (cmd->winload)
-    bcd_parse_str (hive, BCDOPT_WINLOAD, cmd->winload);
+    bcd_parse_str (hive, BCDOPT_WINLOAD, 0, cmd->winload);
   else
-    bcd_parse_str (hive, BCDOPT_WINLOAD, BCD_DEFAULT_WINLOAD);
+  {
+    switch (cmd->type)
+    {
+      case BOOT_RAW:
+      case BOOT_WIM:
+        bcd_parse_str (hive, BCDOPT_WINLOAD, 0, BCD_DEFAULT_WINLOAD);
+        break;
+      default:
+        bcd_parse_str (hive, BCDOPT_WINLOAD, 0, BCD_SHORT_WINLOAD);
+        break;
+    }
+  }
+  /* windows system root
+   * default:   \\Windows */
   if (cmd->sysroot)
-    bcd_parse_str (hive, BCDOPT_SYSROOT, cmd->sysroot);
+    bcd_parse_str (hive, BCDOPT_SYSROOT, 0, cmd->sysroot);
   else
-    bcd_parse_str (hive, BCDOPT_SYSROOT, BCD_DEFAULT_SYSROOT);
+    bcd_parse_str (hive, BCDOPT_SYSROOT, 0, BCD_DEFAULT_SYSROOT);
+  /* windows resume */
+  if (cmd->type == BOOT_WIN)
+  {
+    bcd_parse_str (hive, BCDOPT_REPATH, 1, BCD_DEFAULT_WINRESUME);
+    bcd_parse_str (hive, BCDOPT_REHIBR, 1, BCD_DEFAULT_HIBERFIL);
+  }
 
   /* write to bcd */
   hive->steal_data (hive, &data, &bcd_len);
   memcpy (grub_bcd_data, data, BCD_DECOMPRESS_LEN);
   free (data);
   hive->close (hive);
+
+  bcd_replace_hex (BCD_SEARCH_EXT, 8, BCD_REPLACE_EXT, 8, 0);
 
   return GRUB_ERR_NONE;
 }

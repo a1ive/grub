@@ -92,6 +92,8 @@ grub_gpt_partition_map_iterate (grub_disk_t disk,
 
   grub_dprintf ("gpt", "Read a valid GPT header\n");
 
+  grub_memcpy (&part.gptguid, &gpt.guid, sizeof(grub_packed_guid_t));
+
   entries = grub_le_to_cpu64 (gpt.partitions) << sector_log;
   for (i = 0; i < grub_le_to_cpu32 (gpt.maxpart); i++)
     {
@@ -113,6 +115,7 @@ grub_gpt_partition_map_iterate (grub_disk_t disk,
 	  part.parent = disk->partition;
       part.flag = entry.attrib;
       grub_memcpy (&part.gpttype, &entry.type, sizeof (grub_packed_guid_t));
+      grub_memcpy (&part.partguid, &entry.guid, sizeof (grub_packed_guid_t));
 
 	  grub_dprintf ("gpt", "GPT entry %d: start=%lld, length=%lld\n", i,
 			(unsigned long long) part.start,

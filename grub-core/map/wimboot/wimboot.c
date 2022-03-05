@@ -67,7 +67,6 @@ static const struct grub_arg_option options_wimboot[] =
   {"detecthal", 0, 0, N_("Detect HAL and kernel."), N_("yes|no"), ARG_TYPE_STRING},
   {"winpe", 0, 0, N_("Boot into WinPE."), N_("yes|no"), ARG_TYPE_STRING},
   {"timeout", 0, 0, N_("Set Timeout."), N_("n"), ARG_TYPE_INT},
-  {"sos", 0, 0, N_("Display driver names."), N_("yes|no"), ARG_TYPE_STRING},
   {"novesa", 0, 0, N_("Avoid VESA BIOS calls."), N_("yes|no"), ARG_TYPE_STRING},
   {"novga", 0, 0, N_("Disable VGA modes."), N_("yes|no"), ARG_TYPE_STRING},
   {"loadoptions", 0, 0, N_("Set LoadOptionsString."), N_("STRING"), ARG_TYPE_STRING},
@@ -92,7 +91,6 @@ enum options_wimboot
   WIMBOOT_DETHAL,   // bool
   WIMBOOT_PE,       // bool
   WIMBOOT_TIMEOUT,  // uint64
-  WIMBOOT_SOS,      // bool
   WIMBOOT_NOVESA,   // bool
   WIMBOOT_NOVGA,    // bool
   WIMBOOT_CMDLINE,  // string
@@ -148,8 +146,6 @@ grub_cmd_wimboot (grub_extcmd_context_t ctxt, int argc, char *argv[])
       data.winpe = state[WIMBOOT_PE].arg;
     if (state[WIMBOOT_TIMEOUT].set)
       data.timeout = state[WIMBOOT_TIMEOUT].arg;
-    if (state[WIMBOOT_SOS].set)
-      data.sos = state[WIMBOOT_SOS].arg;
     if (state[WIMBOOT_NOVESA].set)
       data.novesa = state[WIMBOOT_NOVESA].arg;
     if (state[WIMBOOT_NOVGA].set)

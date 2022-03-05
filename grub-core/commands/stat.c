@@ -183,7 +183,8 @@ grub_cmd_stat (grub_extcmd_context_t ctxt, int argc, char **args)
     if (file->device->disk->partition)
     {
       grub_snprintf (partinfo, 64,
-                     "%s %d %" PRIuGRUB_UINT64_T " %" PRIuGRUB_UINT64_T " %d %u",
+                     "%s %d %" PRIuGRUB_UINT64_T
+                     " %" PRIuGRUB_UINT64_T " %d %" PRIuGRUB_UINT64_T,
                      file->device->disk->partition->partmap->name,
                      file->device->disk->partition->number,
                      file->device->disk->partition->start,

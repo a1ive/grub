@@ -71,6 +71,7 @@ static enum reg_bool check_header(grub_hive_t *h)
 {
   HBASE_BLOCK* base_block = (HBASE_BLOCK*)h->data;
   uint32_t csum;
+  enum reg_bool dirty = false;
 
   if (base_block->Signature != HV_HBLOCK_SIGNATURE)
   {
@@ -111,8 +112,9 @@ static enum reg_bool check_header(grub_hive_t *h)
   // FIXME - should apply LOG file if sequences don't match
   if (base_block->Sequence1 != base_block->Sequence2)
   {
-    printf ("Sequence1 did not match Sequence2.\n");
-    return false;
+    printf ("Sequence1 != Sequence2.\n");
+    base_block->Sequence2 = base_block->Sequence1;
+    dirty = true;
   }
 
   // check checksum
@@ -129,8 +131,18 @@ static enum reg_bool check_header(grub_hive_t *h)
   if (csum != base_block->CheckSum)
   {
     printf ("Invalid checksum.\n");
-    return false;
+    base_block->CheckSum = csum;
+    dirty = true;
   }
+
+  if (dirty)
+  {
+    printf ("Hive is dirty.\n");
+
+    // FIXME - recover by processing LOG files (old style, < Windows 8.1)
+    // FIXME - recover by processing LOG files (new style, >= Windows 8.1)
+  }
+
   return true;
 }
 
@@ -201,7 +213,7 @@ enum_keys (grub_reg_hive_t *this, HKEY key, uint32_t index,
   lh = (CM_KEY_FAST_INDEX*)((uint8_t*)h->data + 0x1000
                             + nk->SubKeyList + sizeof(int32_t));
 
-  if (lh->Signature != CM_KEY_HASH_LEAF && lh->Signature != CM_KEY_LEAF)
+  if (lh->Signature != CM_KEY_HASH_LEAF && lh->Signature != CM_KEY_FAST_LEAF)
     return GRUB_ERR_BAD_ARGUMENT;
 
   if ((uint32_t)size < sizeof(int32_t) + _offsetof(CM_KEY_FAST_INDEX, List[0])
@@ -306,14 +318,14 @@ find_child_key (grub_hive_t* h, HKEY parent,
   lh = (CM_KEY_FAST_INDEX*)((uint8_t*)h->data + 0x1000
                             + nk->SubKeyList + sizeof(int32_t));
 
-  if (lh->Signature != CM_KEY_HASH_LEAF && lh->Signature != CM_KEY_LEAF)
+  if (lh->Signature != CM_KEY_HASH_LEAF && lh->Signature != CM_KEY_FAST_LEAF)
     return GRUB_ERR_BAD_ARGUMENT;
 
   if ((uint32_t)size < sizeof(int32_t)
       + _offsetof(CM_KEY_FAST_INDEX, List[0]) + (lh->Count * sizeof(CM_INDEX)))
     return GRUB_ERR_BAD_ARGUMENT;
 
-  // FIXME - check against hashes
+  // FIXME - check against hashes if CM_KEY_HASH_LEAF
 
   for (unsigned int i = 0; i < lh->Count; i++)
   {
@@ -714,7 +726,7 @@ static void clear_volatile (grub_hive_t* h, HKEY key)
 
   sig = *(uint16_t*)((uint8_t*)h->data + 0x1000 + nk->SubKeyList + sizeof(int32_t));
 
-  if (sig == CM_KEY_HASH_LEAF)
+  if (sig == CM_KEY_HASH_LEAF || sig == CM_KEY_FAST_LEAF)
   {
     CM_KEY_FAST_INDEX* lh =
         (CM_KEY_FAST_INDEX*)((uint8_t*)h->data + 0x1000
@@ -723,17 +735,6 @@ static void clear_volatile (grub_hive_t* h, HKEY key)
     for (unsigned int i = 0; i < lh->Count; i++)
     {
       clear_volatile(h, 0x1000 + lh->List[i].Cell);
-    }
-  }
-  else if (sig == CM_KEY_LEAF)
-  {
-    CM_KEY_FAST_INDEX* lf =
-        (CM_KEY_FAST_INDEX*)((uint8_t*)h->data + 0x1000
-                             + nk->SubKeyList + sizeof(int32_t));
-
-    for (unsigned int i = 0; i < lf->Count; i++)
-    {
-      clear_volatile(h, 0x1000 + lf->List[i].Cell);
     }
   }
   else if (sig == CM_KEY_INDEX_ROOT)

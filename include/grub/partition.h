@@ -90,11 +90,14 @@ struct grub_partition
   /* The type of partition whne it's on MSDOS.
      Used for embedding detection.  */
   grub_uint8_t msdostype;
+  grub_uint8_t msdossign[4];
 
   grub_packed_guid_t gpttype;
+  grub_packed_guid_t gptguid;
+  grub_packed_guid_t partguid;
 
   /* Partition flag */
-  grub_uint8_t flag;
+  grub_uint64_t flag;
 
 };
 
