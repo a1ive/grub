@@ -115,10 +115,7 @@ grub_normal_print_device_info (const char *name)
 
       if (fs)
 	{
-	  const char *fsname = fs->name;
-	  if (grub_strcmp (fsname, "ext2") == 0)
-	    fsname = "ext*";
-	  grub_printf_ (N_("Filesystem type %s"), fsname);
+	  grub_printf_ (N_("Filesystem type %s"), fs->name);
 	  if (fs->fs_label)
 	    {
 	      char *label;
