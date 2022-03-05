@@ -167,7 +167,7 @@ static int os_time (lua_State *L) {
     t.year = getfield(L, "year", -1);
   }
   int r;
-  grub_int32_t nix;
+  grub_int64_t nix;
   r = grub_datetime2unixtime (&t, &nix);
   if (r == 0)
     lua_pushnil(L);
