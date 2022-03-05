@@ -2529,12 +2529,6 @@ module = {
 };
 
 module = {
-  name = lzmaio;
-  common = io/lzmaio.c;
-  common = lib/LzmaDec.c;
-};
-
-module = {
   name = testload;
   common = commands/testload.c;
 };
