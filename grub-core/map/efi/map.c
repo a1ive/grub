@@ -345,7 +345,8 @@ grub_cmd_map (grub_extcmd_context_t ctxt, int argc, char **args)
                                            EFI_REMOVABLE_MEDIA_FILE_NAME);
   if (boot_image_handle)
   {
-    grub_loader_set (grub_efiloader_boot, grub_efiloader_unload, 0);
+    grub_loader_set (grub_efiloader_boot, grub_efiloader_unload,
+                     GRUB_LOADER_FLAG_EFI_KEEP_ALLOCATED_MEMORY);
     return GRUB_ERR_NONE;
   }
   return GRUB_ERR_FILE_NOT_FOUND;

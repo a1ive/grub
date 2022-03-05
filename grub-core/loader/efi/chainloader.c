@@ -1035,7 +1035,8 @@ grub_cmd_chainloader (grub_extcmd_context_t ctxt,
 
   grub_file_close (file);
 
-  grub_loader_set (grub_chainloader_boot, grub_chainloader_unload, 0);
+  grub_loader_set (grub_chainloader_boot, grub_chainloader_unload,
+                   GRUB_LOADER_FLAG_EFI_KEEP_ALLOCATED_MEMORY);
 
   if (state[CHAIN_BOOT].set)
     {
