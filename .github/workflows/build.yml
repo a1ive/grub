@@ -3,7 +3,7 @@ name: release
 on:
   push:
     branches:
-      - a1ive-grub
+      - master
 
 jobs:
   build:
