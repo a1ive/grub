@@ -49,9 +49,9 @@ GRUB_MOD_LICENSE ("GPLv3+");
 #endif
 #ifdef GRUB_MACHINE_EFI
 #include <grub/efi/efi.h>
-#define NETBSD_DEFAULT_VIDEO_MODE "800x600"
+#define BSD_DEFAULT_VIDEO_MODE "800x600"
 #else
-#define NETBSD_DEFAULT_VIDEO_MODE "text"
+#define BSD_DEFAULT_VIDEO_MODE "text"
 #include <grub/i386/pc/vbe.h>
 #endif
 #include <grub/video.h>
@@ -61,6 +61,10 @@ GRUB_MOD_LICENSE ("GPLv3+");
 #include <grub/partition.h>
 #include <grub/relocator.h>
 #include <grub/i386/relocator.h>
+
+#ifdef GRUB_MACHINE_EFI
+#include <grub/acpi.h>
+#endif
 
 #define ALIGN_DWORD(a)	ALIGN_UP (a, 4)
 #define ALIGN_QWORD(a)	ALIGN_UP (a, 8)
@@ -231,8 +235,10 @@ grub_bsd_add_meta_ptr (grub_uint32_t type, void **ptr, grub_uint32_t len)
   newtag->next = NULL;
   *ptr = newtag->data;
 
-  if (kernel_type == KERNEL_TYPE_FREEBSD 
-      && type == (FREEBSD_MODINFO_METADATA | FREEBSD_MODINFOMD_SMAP))
+  if (kernel_type == KERNEL_TYPE_FREEBSD
+      && (type == (FREEBSD_MODINFO_METADATA | FREEBSD_MODINFOMD_SMAP)
+          || type == (FREEBSD_MODINFO_METADATA | FREEBSD_MODINFOMD_VBE_FB)
+          || type == (FREEBSD_MODINFO_METADATA | FREEBSD_MODINFOMD_EFI_FB)))
     {
       struct bsd_tag *p;
       for (p = tags;
@@ -593,6 +599,89 @@ freebsd_get_zfs (void)
 }
 
 static grub_err_t
+grub_bsd_setup_video_common (struct grub_video_mode_info *mode_info,
+                             void **framebuffer,
+                             grub_video_driver_id_t* driv_id)
+{
+  const char *modevar;
+  grub_err_t err;
+
+  *driv_id = GRUB_VIDEO_DRIVER_NONE;
+
+  modevar = grub_env_get ("gfxpayload");
+
+  /* Now all graphical modes are acceptable.
+     May change in future if we have modes without framebuffer.  */
+  if (modevar && *modevar != 0)
+  {
+    char *tmp;
+    tmp = grub_xasprintf ("%s;" BSD_DEFAULT_VIDEO_MODE, modevar);
+    if (! tmp)
+      return grub_errno;
+    err = grub_video_set_mode (tmp, 0, 0);
+    grub_free (tmp);
+  }
+  else
+    err = grub_video_set_mode (BSD_DEFAULT_VIDEO_MODE, 0, 0);
+
+  if (err)
+    return err;
+
+  *driv_id = grub_video_get_driver_id ();
+  if (*driv_id == GRUB_VIDEO_DRIVER_NONE)
+    return GRUB_ERR_NONE;
+
+  err = grub_video_get_info_and_fini (mode_info, framebuffer);
+
+  if (err)
+    return err;
+
+  return GRUB_ERR_NONE;
+}
+
+static grub_err_t
+grub_freebsd_setup_video (void)
+{
+  struct grub_video_mode_info mode_info;
+  void *framebuffer;
+  union grub_freebsd_fb params;
+  grub_err_t err;
+  grub_video_driver_id_t driv_id;
+
+  err = grub_bsd_setup_video_common (&mode_info, &framebuffer, &driv_id);
+
+  if (err || driv_id == GRUB_VIDEO_DRIVER_NONE)
+    return err;
+
+  params.vbe.fb_width = mode_info.width;
+  params.vbe.fb_height = mode_info.height;
+  params.vbe.fb_bpp = mode_info.bpp;
+  params.vbe.fb_stride = mode_info.pitch / ((params.vbe.fb_bpp + 7) / 8);
+
+  params.vbe.fb_addr = (grub_addr_t) framebuffer;
+
+  params.vbe.fb_mask_red =
+      ((1ULL << mode_info.red_mask_size) - 1) << mode_info.red_field_pos;
+  params.vbe.fb_mask_green =
+      ((1ULL << mode_info.green_mask_size) - 1) << mode_info.green_field_pos;
+  params.vbe.fb_mask_blue =
+      ((1ULL << mode_info.blue_mask_size) - 1) << mode_info.blue_field_pos;
+  params.vbe.fb_mask_reserved =
+      ~(params.vbe.fb_mask_red | params.vbe.fb_mask_green|params.vbe.fb_mask_blue);
+  params.vbe.fb_size =
+      params.vbe.fb_height * params.vbe.fb_stride * ((params.vbe.fb_bpp + 7) / 8);
+
+#ifdef GRUB_MACHINE_PCBIOS
+  err = grub_bsd_add_meta (FREEBSD_MODINFO_METADATA | FREEBSD_MODINFOMD_VBE_FB,
+                           &params.vbe, sizeof (params.vbe));
+#else
+  err = grub_bsd_add_meta (FREEBSD_MODINFO_METADATA | FREEBSD_MODINFOMD_EFI_FB,
+                           &params.efi, sizeof (params.efi));
+#endif
+  return err;
+}
+
+static grub_err_t
 grub_freebsd_boot (void)
 {
   struct grub_freebsd_bootinfo bi;
@@ -603,6 +692,16 @@ grub_freebsd_boot (void)
   grub_size_t tag_buf_len = 0;
 
   struct grub_env_var *var;
+
+#ifdef GRUB_MACHINE_EFI
+  /* Pass RSDP to FreeBSD. It cannot find it in EFI mode. */
+  if (!(grub_env_get ("kFreeBSD.hint.acpi.0.rsdp")))
+  {
+    char rsdp[20];
+    grub_snprintf (rsdp, sizeof(rsdp), "%p", grub_acpi_get_rsdpv2 ());
+    grub_env_set ("kFreeBSD.hint.acpi.0.rsdp", rsdp);
+  }
+#endif
 
   grub_memset (&bi, 0, sizeof (bi));
   bi.version = FREEBSD_BOOTINFO_VERSION;
@@ -630,10 +729,18 @@ grub_freebsd_boot (void)
       if (err)
 	return err;
 
+      err = grub_freebsd_setup_video ();
+      if (err)
+	{
+	  grub_print_error ();
+	  grub_puts_ (N_("Booting in blind mode"));
+	  grub_errno = GRUB_ERR_NONE;
+	}
+
       err = grub_bsd_add_meta (FREEBSD_MODINFO_END, 0, 0);
       if (err)
 	return err;
-      
+
       tag_buf_len = 0;
       for (tag = tags; tag; tag = tag->next)
 	tag_buf_len = ALIGN_VAR (tag_buf_len
@@ -928,37 +1035,13 @@ grub_netbsd_setup_video (void)
 {
   struct grub_video_mode_info mode_info;
   void *framebuffer;
-  const char *modevar;
   struct grub_netbsd_btinfo_framebuf params;
   grub_err_t err;
   grub_video_driver_id_t driv_id;
 
-  modevar = grub_env_get ("gfxpayload");
+  err = grub_bsd_setup_video_common (&mode_info, &framebuffer, &driv_id);
 
-  /* Now all graphical modes are acceptable.
-     May change in future if we have modes without framebuffer.  */
-  if (modevar && *modevar != 0)
-    {
-      char *tmp;
-      tmp = grub_xasprintf ("%s;" NETBSD_DEFAULT_VIDEO_MODE, modevar);
-      if (! tmp)
-	return grub_errno;
-      err = grub_video_set_mode (tmp, 0, 0);
-      grub_free (tmp);
-    }
-  else
-    err = grub_video_set_mode (NETBSD_DEFAULT_VIDEO_MODE, 0, 0);
-
-  if (err)
-    return err;
-
-  driv_id = grub_video_get_driver_id ();
-  if (driv_id == GRUB_VIDEO_DRIVER_NONE)
-    return GRUB_ERR_NONE;
-
-  err = grub_video_get_info_and_fini (&mode_info, &framebuffer);
-
-  if (err)
+  if (err || driv_id == GRUB_VIDEO_DRIVER_NONE)
     return err;
 
   params.width = mode_info.width;

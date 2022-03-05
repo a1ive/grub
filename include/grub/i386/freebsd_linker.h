@@ -68,7 +68,42 @@
 #define FREEBSD_MODINFOMD_NOCOPY	0x8000	/* don't copy this metadata to the kernel */
 
 #define FREEBSD_MODINFOMD_SMAP		0x1001
+#define FREEBSD_MODINFOMD_EFI_FB	0x1005
+#define FREEBSD_MODINFOMD_VBE_FB	0x1007
 
 #define FREEBSD_MODINFOMD_DEPLIST	(0x4001 | FREEBSD_MODINFOMD_NOCOPY)  /* depends on */
+
+struct grub_freebsd_efi_fb
+{
+  grub_uint64_t fb_addr;
+  grub_uint64_t fb_size;
+  grub_uint32_t fb_height;
+  grub_uint32_t fb_width;
+  grub_uint32_t fb_stride;
+  grub_uint32_t fb_mask_red;
+  grub_uint32_t fb_mask_green;
+  grub_uint32_t fb_mask_blue;
+  grub_uint32_t fb_mask_reserved;
+};
+
+struct grub_freebsd_vbe_fb
+{
+  grub_uint64_t fb_addr;
+  grub_uint64_t fb_size;
+  grub_uint32_t fb_height;
+  grub_uint32_t fb_width;
+  grub_uint32_t fb_stride;
+  grub_uint32_t fb_mask_red;
+  grub_uint32_t fb_mask_green;
+  grub_uint32_t fb_mask_blue;
+  grub_uint32_t fb_mask_reserved;
+  grub_uint32_t fb_bpp;
+};
+
+union grub_freebsd_fb
+{
+  struct grub_freebsd_efi_fb efi;
+  struct grub_freebsd_vbe_fb vbe;
+};
 
 #endif
