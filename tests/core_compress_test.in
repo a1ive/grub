@@ -22,15 +22,17 @@ grubshell=@builddir@/grub-shell
 case "${grub_modinfo_target_cpu}-${grub_modinfo_platform}" in
     # FIXME: Only mips currently supports configurable core compression
     *-emu | i386-* | x86_64-* | sparc64-* | ia64-*)
-	exit 0
+	exit 77
 	;;
 esac
 
 
-if [ "$(echo hello | "${grubshell}" --grub-mkimage-extra=--compress=xz)" != "Hello World" ]; then
+v=$(echo hello | "${grubshell}" --grub-mkimage-extra=--compress=xz)
+if [ "$v" != "Hello World" ]; then
    exit 1
 fi
 
-if [ "$(echo hello | "${grubshell}" --grub-mkimage-extra=--compress=none)" != "Hello World" ]; then
+v=$(echo hello | "${grubshell}" --grub-mkimage-extra=--compress=none)
+if [ "$v" != "Hello World" ]; then
    exit 1
 fi

@@ -43,7 +43,7 @@ check_output () {
     for dsk in $@; do
 	if ! grep "($dsk)" "${outfile}" >/dev/null
 	then
-	    echo "($dsk): disk/partiton not found"
+	    echo "($dsk): disk/partiton not found in: $(cat "${outfile}")"
 	    exit 1
 	fi
     done
@@ -58,8 +58,8 @@ list_parts () {
     shift
 
     echo ls | "${grubshell}" --disk="${imgfile}" \
-	--modules=$mod | tr -d "\n\r" > "${outfile}"
-    cat "${outfile}"
+	--modules=$mod > "${outfile}"
+    cat "${outfile}" | tr -d "\n\r"
     echo
 }
 
@@ -70,39 +70,39 @@ case "${grub_modinfo_target_cpu}-${grub_modinfo_platform}" in
     powerpc-ieee1275)
 	disk=ieee1275//pci@80000000/mac-io@4/ata-3@20000/disk@0
 	# FIXME: QEMU firmware has bugs which prevent it from accessing hard disk w/o recognised label.
-	exit 0
+	exit 77
 	;;
     sparc64-ieee1275)
 	disk=ieee1275//pci@1fe\,0/pci-ata@5/ide0@500/disk@0
 	# FIXME: QEMU firmware has bugs which prevent it from accessing hard disk w/o recognised label.
-	exit 0
+	exit 77
 	;;
     i386-ieee1275)
 	disk=ieee1275/d
 	# FIXME: QEMU firmware has bugs which prevent it from accessing hard disk w/o recognised label.
-	exit 0
+	exit 77
 	;;
     mips-arc)
 	# FIXME: ARC firmware has bugs which prevent it from accessing hard disk w/o dvh disklabel.
-	exit 0 ;;
+	exit 77 ;;
     mipsel-arc)
 	disk=arc/scsi0/disk0/rdisk0
 	;;
     arm*-efi)
-	disk=hd3
+	disk=hd2
 	;;
     *)
 	disk=hd0
 	;;
 esac
 
-if ! which parted >/dev/null 2>&1; then
-   echo "parted not installed; cannot test partmap"
-   exit 77
+if ! which ${parted} >/dev/null 2>&1; then
+   echo "${parted} not installed; cannot test partmap"
+   exit 99
 fi
 
-imgfile="`mktemp "${TMPDIR:-/tmp}/tmp.XXXXXXXXXX"`" || exit 1
-outfile="`mktemp "${TMPDIR:-/tmp}/tmp.XXXXXXXXXX"`" || exit 1
+imgfile="`mktemp "${TMPDIR:-/tmp}/tmp.XXXXXXXXXX"`" || exit 99
+outfile="`mktemp "${TMPDIR:-/tmp}/tmp.XXXXXXXXXX"`" || exit 99
 
 #
 # MSDOS partition types

@@ -25,27 +25,28 @@ indisk=ata0
 case "${grub_modinfo_target_cpu}-${grub_modinfo_platform}" in
     # PLATFORM: Don't mess with real devices when OS is active
     *-emu)
-	exit 0;;
+	exit 77;;
     # PLATFORM: no ATA on ARC platforms (they use SCSI)
     *-arc)
-	exit 0;;
+	exit 77;;
     # FIXME: No native drivers are available for those
     powerpc-ieee1275 | sparc64-ieee1275 | arm*-efi)
-	exit 0;;
+	exit 77;;
     i386-ieee1275)
 	disk=hdb
 	indisk=ata1
 	;;
 esac
 
-imgfile="`mktemp "${TMPDIR:-/tmp}/tmp.XXXXXXXXXX"`" || exit 1
-outfile="`mktemp "${TMPDIR:-/tmp}/tmp.XXXXXXXXXX"`" || exit 1
+imgfile="`mktemp "${TMPDIR:-/tmp}/tmp.XXXXXXXXXX"`" || exit 99
+outfile="`mktemp "${TMPDIR:-/tmp}/tmp.XXXXXXXXXX"`" || exit 99
 
 echo "hello" > "$outfile"
 
 tar cf "$imgfile" "$outfile"
 
-if [ "$(echo "nativedisk; source '($indisk)/$outfile';" | "${grubshell}" --qemu-opts="-$disk $imgfile")" != "Hello World" ]; then
+v=$(echo "nativedisk; source '($indisk)/$outfile';" | "${grubshell}" --qemu-opts="-$disk $imgfile")
+if [ "$v" != "Hello World" ]; then
    rm "$imgfile"
    rm "$outfile"
    exit 1

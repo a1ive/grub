@@ -22,26 +22,31 @@ grubshell=@builddir@/grub-shell
 case "${grub_modinfo_target_cpu}-${grub_modinfo_platform}" in
     # PLATFORM: Don't mess with real devices when OS is active
     *-emu)
-	exit 0;;
+	exit 77;;
     # FIXME: qemu gets bonito DMA wrong
     mipsel-loongson)
-	exit 0;;
+	exit 77;;
     # PLATFORM: no USB on ARC and qemu-mips platforms
     mips*-arc | mips*-qemu_mips)
-	exit 0;;
+	exit 77;;
     # FIXME: No native drivers are available for those
     powerpc-ieee1275 | sparc64-ieee1275 | arm*-efi)
-	exit 0;;
+	exit 77;;
 esac
 
-imgfile="`mktemp "${TMPDIR:-/tmp}/tmp.XXXXXXXXXX"`" || exit 1
-outfile="`mktemp "${TMPDIR:-/tmp}/tmp.XXXXXXXXXX"`" || exit 1
+imgfile="`mktemp "${TMPDIR:-/tmp}/tmp.XXXXXXXXXX"`" || exit 99
+outfile="`mktemp "${TMPDIR:-/tmp}/tmp.XXXXXXXXXX"`" || exit 99
 
 echo "hello" > "$outfile"
 
 tar cf "$imgfile" "$outfile"
 
-if [ "$(echo "nativedisk; source '(usb0)/$outfile';" | "${grubshell}" --qemu-opts="-device ich9-usb-ehci1 -drive id=my_usb_disk,file=$imgfile,if=none -device usb-storage,drive=my_usb_disk" | tail -n 1)" != "Hello World" ]; then
+v=$(echo "nativedisk; source '(usb0)/$outfile';" |
+    "${grubshell}" --qemu-opts="-device ich9-usb-ehci1
+				-drive id=my_usb_disk,file=$imgfile,if=none
+				-device usb-storage,drive=my_usb_disk")
+v=$(echo "$v" | tail -n 1)
+if [ "$v" != "Hello World" ]; then
    rm "$imgfile"
    rm "$outfile"
    exit 1
