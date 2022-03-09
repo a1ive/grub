@@ -65,7 +65,7 @@
 #define PAE_ENABLE   0x01
 #define PAE_DISABLE  0x02
 
-#define BCD_DECOMPRESS_LEN 12288
+#define BCD_DECOMPRESS_LEN 16384
 
 #ifdef GRUB_MACHINE_EFI
 #define BCD_SEARCH_EXT  L".exe"
