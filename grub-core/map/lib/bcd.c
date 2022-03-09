@@ -156,7 +156,7 @@ bcd_patch_path (const char *path)
   grub_memset (path16, 0, sizeof (path16));
   grub_utf8_to_utf16 (path16, len, (grub_uint8_t *)path8, -1, NULL);
 
-  bcd_replace_hex (search, strlen (search), path16, len, 2);
+  bcd_replace_hex (search, strlen (search), path16, len, 0);
 }
 
 static grub_err_t
@@ -175,7 +175,7 @@ bcd_patch_dp (struct bcd_patch_data *cmd)
     cmd->dp.partmap = 0x01;
     memcpy (cmd->dp.diskid, &signature, 4);
     bcd_replace_hex (BCD_DP_MAGIC, strlen (BCD_DP_MAGIC),
-                   &cmd->dp, sizeof (struct bcd_dp), 2);
+                   &cmd->dp, sizeof (struct bcd_dp), 0);
     return GRUB_ERR_NONE;
   }
   memset (&cmd->dp, 0, sizeof (struct bcd_dp));
@@ -194,7 +194,7 @@ bcd_patch_dp (struct bcd_patch_data *cmd)
     memcpy (cmd->dp.diskid, cmd->file->device->disk->partition->msdossign, 4);
   }
   bcd_replace_hex (BCD_DP_MAGIC, strlen (BCD_DP_MAGIC),
-                   &cmd->dp, sizeof (struct bcd_dp), 2);
+                   &cmd->dp, sizeof (struct bcd_dp), 0);
   return GRUB_ERR_NONE;
 }
 
