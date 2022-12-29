@@ -174,7 +174,7 @@ grubfm_enum_device_iter (const char *name, void *data)
           grub_strcmp (fs->name, "udf") == 0)
         grubfm_add_menu (title, "iso", NULL, src, 0);
       else
-        grubfm_add_menu (title, "hdd", NULL, src, 0);
+        grubfm_add_menu (title, "${thu}", NULL, src, 0);
       *found = 1;
       grub_free (title);
       grub_free (src);
